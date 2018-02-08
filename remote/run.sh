@@ -8,5 +8,6 @@ while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symli
 done
 DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
+export FLASK_DEBUG=1
 export FLASK_APP=$DIR/api.py
 python3 -m flask run

@@ -1,6 +1,17 @@
 import argparse
 from typing import List
 
+from .database import Database
+from .remote_api import RemoteAPI
+from .manifest import Manifest
+from .file_system import FileSystem
+
+
+# Database - for accessing sqlite3 database
+# RemoteAPI - for interacting with the remote API
+# Manifest - for manipulating the manifest file
+# FileSystem - for interacting with the file system
+
 
 class Command:
     _help = NotImplemented
