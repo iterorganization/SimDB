@@ -1,0 +1,75 @@
+# Simple repeats of DC Metadata tags with simple string values
+
+---
+title: 
+   - 'MAST Equilibrium reconstruction'
+   - 'EFIT++ Equilibrium reconstruction of MAST shot 12345' 
+
+subject: 
+   - 'EFIT++' 
+   - 'Equilibrium reconstruction'
+   - MAST
+   - 12345
+   
+device: 'MAST'
+shot: 12345
+run: 2
+epoch: 
+    - '2018-02-07T13:00:00Z'
+    - '2018-02-07T15:30:00Z'
+
+description: >
+    'EFIT++ Equilibrium reconstruction of MAST shot 12345'
+
+# type: ?
+
+# source: ?
+
+# relation: ?
+
+coverage: 
+    - 'CORE'
+    - 'CURRENT RAMP UP'
+
+creator: 
+    - 'scheduler'
+    - 'John Doe'
+    - 'userid'
+
+publisher: 
+    - 'UKAEA'
+    - 'CCFE'
+
+# contributer: ?
+
+# rights: ?
+
+date: '2018-02-06'
+
+format: 
+    - 'netCDF4'
+    - 'HDF5'
+
+#identifier: '123e4567-e89b-12d3-a456-426655440000'
+
+identifier:    
+    - '123e4567-e89b-12d3-a456-426655440000'
+    - 'TEST 12345' 
+
+language: 'en-GB'
+
+audience: 
+    - 'MAST'
+    - 'CCFE'
+    - 'YORK'
+
+# provenance: ? 
+
+rightsholder: 'UKAEA'
+
+# instructionalmethod: ?
+ 
+accrualmethod: 'NONE'
+accrualPeriodicity: 'NONE'
+accrualPolicy: 'NONE'
+...
