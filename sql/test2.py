@@ -12,11 +12,11 @@ import sqlite3
 conn = sqlite3.connect('imas.db')
 #con = sqlite3.connect(":memory:")
 #con.isolation_level = None
-c = conn.cursor();
+c = conn.cursor()
 
 def sqlQuery(sql):
    print(sql)
-   return 0;
+   return 0
 
 def sqlDrop():
    c.execute("DROP TABLE main.simulations;")
@@ -85,7 +85,7 @@ def validateUUID(uuid):
    
 def ingestFile(fileClass, fileName):
 
-   fd = open(fileName,"r")
+   fd = open(fileName, "r")
    x = yaml.load(fd)           # x is a dictionary
 
    print(yaml.dump(x))
@@ -140,13 +140,13 @@ def ingestFile(fileClass, fileName):
          print('ERROR ... The simulation uuid has not been specified in your simulation file manifest. Please use the UUID key for this identifier.')
       else:
          print('ERROR ... The simulation uuid has not been specified in your simulation metadata file. Please use the IDENTIFIER key for this parameter.') 
-      return 1;
+      return 1
       
 # Validate the uuid
 
    if sqlQuery("select * from main.simulations where simulation_uuid = '"+uuid+"';'"):
       print('ERROR ... The simulation uuid provided is not registered in your IMAS database!')
-      return 1;
+      return 1
     
    
    #print(isValidUUID)

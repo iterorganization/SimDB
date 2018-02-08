@@ -1,0 +1,6 @@
+DROP TABLE IF EXISTS simulations;
+DROP TABLE IF EXISTS metadata;
+DROP TABLE IF EXISTS simulations;
+DROP TABLE IF EXISTS metadata;
+DROP TABLE IF EXISTS simulation_files;
+DROP TABLE IF EXISTS files;

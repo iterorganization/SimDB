@@ -27,7 +27,7 @@ class SimCLI:
     }
 
     def run(self, args: List[str]):
-        parser = argparse.ArgumentParser()
+        parser = argparse.ArgumentParser(prog="simdb")
 
         command_parsers = parser.add_subparsers(title="commands", dest="command")
 

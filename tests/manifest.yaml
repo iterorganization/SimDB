@@ -4,41 +4,41 @@
  
 # Simulation UUID
 
-uuid: 123e4567-e89b-12d3-a456-426655440000              # Registered simulation identifier in known
-alias: 'TEST 12345'                                     # If the uuid is not known, it may be registered using an alias for the simulation
+uuid: 123e4567-e89b-12d3-a456-426655440000            # Registered simulation identifier in known
+alias: TEST 12345                                     # If the uuid is not known, it may be registered using an alias for the simulation
 
-inputs:                                                 # Data and configuration files
-    - uuid: '123e4567-e89b-12d3-a456-426655440000'      # Known to the user's local IMAS DB
-    - path: '/home/user/path/to/a/file-1'               # Not in the simulation root directory - local to the simulation environment
-    - path: '/home/user/path/to/a/file-2'                  
-    - path: '/home/user/path/to/a/file-3'                  
-    - name: 'input-1'                                   # Located in the simulation root directory known to the user's local IMAS DB
-    - name: 'input-2'
+inputs:                                               # Data and configuration files
+  - uuid: 123e4567-e89b-12d3-a456-426655440000        # Known to the user's local IMAS DB
+  - path: /home/user/path/to/a/file-1                 # Not in the simulation root directory - local to the simulation environment
+  - path: /home/user/path/to/a/file-2
+  - path: /home/user/path/to/a/file-3
+  - name: input-1'                                    # Located in the simulation root directory known to the user's local IMAS DB
+  - name: input-2
 
 scripts:
-    - name: 'runme'
+  - name: runme
 
-outputs:                                                # Data and log files. Only located in the simulation root directory known to the user's local IMAS DB (must be registerd before ingest)
-    - name: 'output-1'  
-    - name: 'output-2'
-    - name: 'output-3'
+outputs:                                              # Data and log files. Only located in the simulation root directory known to the user's local IMAS DB (must be registerd before ingest)
+  - name: output-1
+  - name: output-2
+  - name: output-3
 
 workflow:
-    - name: 'LOCUST Poincare WF'
-    - git: 'ssh://git@git.iter.org/wf/locust-poincare-wf.git'
-    - branch: master
-    - commit: '079e84d5ae8a0eec6dcf3819c98f3c05f48e952f'
-    - diff: '/home/user/path/to/a/file'                 # Document all differences with the remote source
+  LOCUST Poincare WF:
+  - git: ssh://git@git.iter.org/wf/locust-poincare-wf.git
+  - branch: master
+  - commit: 079e84d5ae8a0eec6dcf3819c98f3c05f48e952f
+  - diff: /home/user/path/to/a/file                   # Document all differences with the remote source
     
 sources:
-    - name: 'Chease'
-    - git: 'ssh://git@git.iter.org/eq/chease.git'
+  chease:
+    - git: ssh://git@git.iter.org/eq/chease.git
     - branch: master
-    - commit: '079e84d5ae8a0eec6dcf3819c98f3c05f48e952f'
-    - diff: '/home/user/path/to/a/file'                  
+    - commit: 079e84d5ae8a0eec6dcf3819c98f3c05f48e952f
+    - diff: /home/user/path/to/a/file
 
-    - name: 'IMAS UAL'
-    - git: 'ssh://git@git.iter.org/imas/access-layer.git'
+  IMAS UAL:
+    - git: ssh://git@git.iter.org/imas/access-layer.git
     - branch: master
-    - commit: '079e84d5ae8a0eec6dcf3819c98f3c05f48e952f'
-    - diff: '/home/user/path/to/a/file'                  
+    - commit: 079e84d5ae8a0eec6dcf3819c98f3c05f48e952f
+    - diff: /home/user/path/to/a/file

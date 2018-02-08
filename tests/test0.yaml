@@ -2,8 +2,8 @@
 
 ---
 title: 
-   - 'MAST Equilibrium reconstruction'
-   - 'EFIT++ Equilibrium reconstruction of MAST shot 12345' 
+   - MAST Equilibrium reconstruction
+   - EFIT++ Equilibrium reconstruction of MAST shot 12345
 
 subject: 
    - 'EFIT++' 
@@ -19,7 +19,7 @@ epoch:
     - '2018-02-07T15:30:00Z'
 
 description: >
-    'EFIT++ Equilibrium reconstruction of MAST shot 12345'
+    EFIT++ Equilibrium reconstruction of MAST shot 12345
 
 # type: ?
 
