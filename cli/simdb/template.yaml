@@ -1,0 +1,44 @@
+uuid:
+alias:
+
+inputs:                                               # Data and configuration files
+  - uuid: 123e4567-e89b-12d3-a456-426655440000        # Known to the user's local IMAS DB
+  - path: /home/user/path/to/a/file-1                 # Not in the simulation root directory - local to the simulation environment
+  - path: /home/user/path/to/a/file-2
+  - path: /home/user/path/to/a/file-3
+  - name: input-1'                                    # Located in the simulation root directory known to the user's local IMAS DB
+  - name: input-2
+
+scripts:
+  - name: runme
+
+outputs:                                              # Data and log files. Only located in the simulation root directory known to the user's local IMAS DB (must be registerd before ingest)
+  - name: output-1
+  - name: output-2
+  - name: output-3
+
+workflow:
+  Code 1:
+  - git: ssh://git@git.iter.org/wf/code-1.git
+  - branch: master
+  - commit: 079e84d5ae8a0eec6dcf3819c98f3c05f48e952f
+  - diff: /home/user/path/to/a/file                   # Document all differences with the remote source
+
+  Code 2:
+  - git: ssh://git@git.iter.org/wf/code-2.git
+  - branch: master
+  - commit: 079e84d5ae8a0eec6dcf3819c98f3c05f48e952f
+  - diff: /home/user/path/to/a/file                   # Document all differences with the remote source
+    
+sources:
+  chease:
+    - git: ssh://git@git.iter.org/eq/chease.git
+    - branch: master
+    - commit: 079e84d5ae8a0eec6dcf3819c98f3c05f48e952f
+    - diff: /home/user/path/to/a/file
+
+  IMAS UAL:
+    - git: ssh://git@git.iter.org/imas/access-layer.git
+    - branch: master
+    - commit: 079e84d5ae8a0eec6dcf3819c98f3c05f48e952f
+    - diff: /home/user/path/to/a/file

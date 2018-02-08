@@ -1,17 +1,19 @@
 import argparse
 from typing import List
 
-#from .database import Database
-#from .remote_api import RemoteAPI
-#from .manifest import Manifest
-#from .file_system import FileSystem
-from commands import IngestCommand, ListCommand, DeleteCommand, PushCommand, ManifestCommand
+from .database import Database
+from .remote_api import RemoteAPI
+from .manifest import Manifest
+from .file_system import FileSystem
+from .config import Configuration
+from .commands import IngestCommand, ListCommand, DeleteCommand, PushCommand, ManifestCommand
 
 
 # Database - for accessing sqlite3 database
 # RemoteAPI - for interacting with the remote API
 # Manifest - for manipulating the manifest file
 # FileSystem - for interacting with the file system
+# Configuration - user configuration, i.e. ~/.simdb/config
 
 
 class SimCLI:
@@ -51,8 +53,3 @@ def main(args: List[str]):
     """
     cli = SimCLI()
     cli.run(args)
-
-
-if __name__ == "__main__":
-    import sys
-    main(sys.argv[1:])

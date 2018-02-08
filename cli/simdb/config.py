@@ -1,5 +1,5 @@
 import yaml
 
 
-class Manifest:
+class Configuration:
     pass

@@ -1,5 +1,7 @@
 import argparse
 
+from .manifest import Manifest, ValidationError
+
 
 class Command:
     _help = NotImplemented
@@ -68,10 +70,19 @@ class PushCommand(Command):
 class ManifestCommand(Command):
     _help = "create/check manifest file"
 
-    def add_arguments(self, parser):
-        parser.add_argument("--create", action="store_true", help="create a template manifest file")
-        parser.add_argument("--check", action="store_true", help="validate a manifest file")
+    def add_arguments(self, parser: argparse.ArgumentParser):
+        parser.add_argument("action", choices=["check", "create"])
         parser.add_argument("manifest_file", help="manifest file location")
 
     def run(self, args: argparse.Namespace):
-        raise NotImplementedError
+        manifest = Manifest()
+
+        if args.action == "check":
+            manifest.load(args.manifest_file)
+            try:
+                manifest.validate()
+            except ValidationError as err:
+                print(err)
+                return
+        elif args.action == "create":
+            Manifest.create(args.manifest_file)
