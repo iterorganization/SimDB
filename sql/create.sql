@@ -1,22 +1,21 @@
 CREATE TABLE simulations
-    (simulation_id INTEGER UNIQUE NOT NULL PRIMARY KEY ASC AUTOINCREMENT,
+    (simulation_id INTEGER PRIMARY KEY ASC AUTOINCREMENT,
     simulation_uuid TEXT NOT NULL,
     status TEXT NOT NULL,
-    current_date TEXT NOT NULL,
-    current_time TEXT NOT NULL);
+    current_datetime TEXT NOT NULL);
 
 CREATE TABLE metadata
-    (metadata_id INTEGER UNIQUE NOT NULL PRIMARY KEY ASC AUTOINCREMENT,
+    (metadata_id INTEGER PRIMARY KEY ASC AUTOINCREMENT,
     metadata_set_uuid TEXT NOT NULL,
     element TEXT NOT NULL,
     value TEXT);
 
 CREATE TABLE files
-    (file_id INTEGER UNIQUE NOT NULL PRIMARY KEY ASC AUTOINCREMENT,
+    (file_id INTEGER PRIMARY KEY ASC AUTOINCREMENT,
     file_uuid TEXT NOT NULL,
-    metadata_set_uuid TEXT,
+    metadata_set TEXT,
     useage TEXT,
-    filename TEXT NOT NULL,
+    file_name TEXT NOT NULL,
     directory TEXT,
     checksum TEXT,
     type TEXT,
@@ -24,13 +23,12 @@ CREATE TABLE files
     sensitivity TEXT,
     access TEXT,
     embargo TEXT,
-    current_date TEXT NOT NULL,
-    current_time TEXT NOT NULL,
-    FOREIGN KEY(metadata_set_uuid) REFERENCES metadata(metadata_set_uuid));
+    current_datetime TEXT NOT NULL,
+    FOREIGN KEY(metadata_set) REFERENCES metadata(metadata_id));
 
 CREATE TABLE simulation_files
-    (simulation_files_id INTEGER UNIQUE NOT NULL PRIMARY KEY ASC AUTOINCREMENT,
-    simulation_uuid TEXT NOT NULL,
-    file_uuid TEXT NOT NULL,
-    FOREIGN KEY(simulation_uuid) REFERENCES simulations(simulation_uuid),
-    FOREIGN KEY(file_uuid) REFERENCES files(file_uuid));
+    (simulation_files_id INTEGER PRIMARY KEY ASC AUTOINCREMENT,
+    simulation TEXT NOT NULL,
+    file TEXT NOT NULL,
+    FOREIGN KEY(simulation) REFERENCES simulations(simulation_id),
+    FOREIGN KEY(file) REFERENCES files(file_id));

@@ -4,7 +4,7 @@ from typing import List
 import sqlite3
 
 
-conn = sqlite3.connect("imas.db")
+conn = sqlite3.connect("sim.db")
 
 
 def create_db():

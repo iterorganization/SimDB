@@ -1,44 +1,48 @@
-uuid:
-alias:
-
-inputs:                                               # Data and configuration files
-  - uuid: 123e4567-e89b-12d3-a456-426655440000        # Known to the user's local IMAS DB
-  - path: /home/user/path/to/a/file-1                 # Not in the simulation root directory - local to the simulation environment
-  - path: /home/user/path/to/a/file-2
-  - path: /home/user/path/to/a/file-3
-  - name: input-1'                                    # Located in the simulation root directory known to the user's local IMAS DB
-  - name: input-2
+# Data and configuration files
+inputs:
+  - uuid: 123e4567-e89b-12d3-a456-426655440000
+  - path: /home/user/path/to/a/file
+  - imas:
+      tree_name: local
+      shot: 10000
+      pass: 0
+  - imas:
+      tree_name: /home/user/full/path
+      shot: 10000
+      pass: 0
+  - imas:
+      machine: TOKAMAK
+      server: uda.server:56565
+      shot: 10000
+      pass: 0
 
 scripts:
   - name: runme
 
-outputs:                                              # Data and log files. Only located in the simulation root directory known to the user's local IMAS DB (must be registerd before ingest)
-  - name: output-1
-  - name: output-2
-  - name: output-3
+# Data and log files.
+outputs:
+  - path: /home/user/path/to/a/file
+  - imas:
+      tree_name: local
+      shot: 10000
+      pass: 0
+  - imas:
+      tree_name: /home/user/full/path
+      shot: 10000
+      pass: 0
 
 workflow:
-  Code 1:
-  - git: ssh://git@git.iter.org/wf/code-1.git
-  - branch: master
-  - commit: 079e84d5ae8a0eec6dcf3819c98f3c05f48e952f
-  - diff: /home/user/path/to/a/file                   # Document all differences with the remote source
-
-  Code 2:
-  - git: ssh://git@git.iter.org/wf/code-2.git
-  - branch: master
-  - commit: 079e84d5ae8a0eec6dcf3819c98f3c05f48e952f
-  - diff: /home/user/path/to/a/file                   # Document all differences with the remote source
-    
-sources:
-  chease:
-    - git: ssh://git@git.iter.org/eq/chease.git
-    - branch: master
-    - commit: 079e84d5ae8a0eec6dcf3819c98f3c05f48e952f
-    - diff: /home/user/path/to/a/file
-
-  IMAS UAL:
-    - git: ssh://git@git.iter.org/imas/access-layer.git
-    - branch: master
-    - commit: 079e84d5ae8a0eec6dcf3819c98f3c05f48e952f
-    - diff: /home/user/path/to/a/file
+  name: Workflow Name
+  git: ssh://git@git.iter.org/wf/workflow.git
+  branch: master
+  commit: 079e84d5ae8a0eec6dcf3819c98f3c05f48e952f
+  codes:
+    - Code 1:
+        git: ssh://git@git.iter.org/eq/code.git
+        commit: 079e84d5ae8a0eec6dcf3819c98f3c05f48e952f
+    - IMAS UAL:
+        git: ssh://git@git.iter.org/imas/access-layer.git
+        tag: 3.7.0
+    - IMAS DD:
+        git: ssh://git@git.iter.org/imas/data-dictionary.git
+        tag: 3.15.1

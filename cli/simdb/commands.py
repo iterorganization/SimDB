@@ -1,14 +1,15 @@
 import argparse
 
-from .manifest import Manifest, ValidationError
+from .manifest import Manifest, InvalidManifest
+from .database import Database
 
 
 class Command:
-    _help = NotImplemented
+    _help: str = NotImplemented
 
     @property
     def help(self):
-        return self._help
+        return type(self)._help
 
     def add_arguments(self, parser: argparse.ArgumentParser):
         raise NotImplementedError
@@ -23,7 +24,12 @@ class IngestCommand(Command):
     def add_arguments(self, parser: argparse.ArgumentParser):
         parser.add_argument("manifest_file", help="manifest file location")
 
-    def run(self, args: argparse.Namespace):
+    class IngestArgs(argparse.Namespace):
+        manifest_file: str
+
+    def run(self, args: IngestArgs):
+        manifest = Manifest()
+        manifest.load(args.manifest_file)
         raise NotImplementedError
 
 
@@ -74,15 +80,19 @@ class ManifestCommand(Command):
         parser.add_argument("action", choices=["check", "create"])
         parser.add_argument("manifest_file", help="manifest file location")
 
-    def run(self, args: argparse.Namespace):
+    class ManifestArgs(argparse.Namespace):
+        action: str
+        manifest_file: str
+
+    def run(self, args: ManifestArgs):
         manifest = Manifest()
 
         if args.action == "check":
             manifest.load(args.manifest_file)
             try:
                 manifest.validate()
-            except ValidationError as err:
+            except InvalidManifest as err:
                 print(err)
                 return
         elif args.action == "create":
-            Manifest.create(args.manifest_file)
+            Manifest.from_template().save(args.manifest_file)
