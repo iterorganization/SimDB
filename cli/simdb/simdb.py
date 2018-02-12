@@ -6,7 +6,7 @@ from .remote_api import RemoteAPI
 from .manifest import Manifest
 from .file_system import FileSystem
 from .config import Configuration
-from .commands import IngestCommand, ListCommand, DeleteCommand, PushCommand, ManifestCommand
+from .commands import IngestCommand, ListCommand, DeleteCommand, PushCommand, ManifestCommand, DatabaseCommand
 
 
 # Database - for accessing sqlite3 database
@@ -24,10 +24,12 @@ class SimCLI:
         "delete": DeleteCommand(),
         "push": PushCommand(),
         "manifest": ManifestCommand(),
+        "database": DatabaseCommand(),
     }
 
-    def run(self, args: List[str]):
+    def run(self, args: List[str]) -> None:
         parser = argparse.ArgumentParser(prog="simdb")
+        parser.add_argument("--debug", "-d", action="store_true", help="run in debug mode")
 
         command_parsers = parser.add_subparsers(title="commands", dest="command")
 
@@ -41,7 +43,13 @@ class SimCLI:
             parser.print_usage()
             raise SystemExit()
 
-        self.commands[parsed_args.command].run(parsed_args)
+        try:
+            self.commands[parsed_args.command].run(parsed_args)
+        except Exception as ex:
+            if parsed_args.debug:
+                raise ex
+            else:
+                print("error: " + (str(ex) if str(ex) else type(ex).__name__))
 
 
 def main(args: List[str]):
