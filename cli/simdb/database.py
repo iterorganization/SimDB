@@ -68,13 +68,40 @@ def list_simulations(connection: sqlite3.Connection) -> sqlite3.Cursor:
     return connection.execute(list_sql)
 
 
-def delete_simulation(transaction: Transaction, sim_id: uuid.UUID) -> None:
-    delete_sql = """
-    DELETE FROM simulations WHERE simulation_uuid = ?
-    """
-    params = (sim_id.hex,)
+def delete_simulation(transaction: Transaction, sim_uuid: uuid.UUID, sim_alias: str) -> None:
+    if sim_uuid is not None:
+        delete_sql = """
+        DELETE FROM simulations WHERE simulation_uuid = ?
+        """
+        params = (sim_uuid.hex,)
+    else:
+        delete_sql = """
+        DELETE FROM simulations WHERE alias = ?
+        """
+        params = (sim_alias,)
     if transaction.delete(delete_sql, params) == 0:
-        raise DatabaseError("Failed to find simulation: " + sim_id.hex)
+        raise DatabaseError("Failed to find simulation: " + (sim_uuid.hex if sim_uuid is not None else sim_alias))
+
+
+def get_simulation(connection: sqlite3.Connection, sim_uuid: uuid.UUID, sim_alias: str) -> sqlite3.Cursor:
+    get_sql = """
+    SELECT * FROM simulations AS s
+    """
+    if sim_uuid is not None:
+        get_sql += " WHERE simulation_uuid = ?"
+        params = (sim_uuid.hex,)
+    else:
+        get_sql += " WHERE alias = ?"
+        params = (sim_alias,)
+    return connection.execute(get_sql, params)
+
+
+def get_files(connection: sqlite3.Connection, sim_id: int) -> sqlite3.Cursor:
+    get_sql = """
+    SELECT f.* FROM files AS f, simulation_files sf WHERE sf.file = f.file_id AND sf.simulation = ?
+    """
+    params = (sim_id,)
+    return connection.execute(get_sql, params)
 
 
 def drop_db(connection: sqlite3.Connection) -> None:
@@ -123,7 +150,27 @@ class Database:
     def list(self) -> List[Dict]:
         return [dict(i) for i in list_simulations(self.connection)]
 
-    def delete(self, sim_uuid: str) -> None:
-        _uuid = uuid.UUID(sim_uuid)
+    def delete(self, sim_ref: str) -> None:
+        sim_uuid = None
+        sim_alias = None
+        try:
+            sim_uuid = uuid.UUID(sim_ref)
+        except ValueError:
+            sim_alias = sim_ref
         with Transaction(self.connection) as transaction:
-            delete_simulation(transaction, _uuid)
+            delete_simulation(transaction, sim_uuid, sim_alias)
+
+    def get(self, sim_ref: str) -> dict:
+        sim_uuid = None
+        sim_alias = None
+        try:
+            sim_uuid = uuid.UUID(sim_ref)
+        except ValueError:
+            sim_alias = sim_ref
+        row = get_simulation(self.connection, sim_uuid, sim_alias).fetchone()
+        if row is None:
+            raise DatabaseError("Failed to find simulation: " + (sim_uuid.hex if sim_uuid is not None else sim_alias))
+        sim = dict(row)
+        files = get_files(self.connection, int(sim["simulation_id"]))
+        sim["files"] = [dict(i) for i in files]
+        return sim

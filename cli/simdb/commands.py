@@ -1,5 +1,5 @@
 import argparse
-from typing import Any, Optional
+from typing import Any, Optional, List, Dict
 
 
 from .manifest import Manifest, InvalidManifest
@@ -89,14 +89,37 @@ class DeleteCommand(Command):
         database.delete(args.id)
 
 
+def print_files(files: List[Dict]):
+    for file in files:
+        for key, value in file.items():
+            key = key.replace("file_", "")
+            if key == "id":
+                continue
+            print("    %s: %s" % (key, value))
+
+
 class InfoCommand(Command):
     _help = "print information on ingested manifest"
 
     def add_arguments(self, parser: argparse.ArgumentParser):
-        parser.add_argument("id", help="simulation UUID or alias")
+        parser.add_argument("id", metavar="id|alias", help="simulation UUID or alias")
 
-    def run(self, args: argparse.Namespace):
-        raise NotImplementedError
+    class InfoArgs(argparse.Namespace):
+        id: str
+
+    def run(self, args: InfoArgs):
+        database = Database()
+        simulation = database.get(args.id)
+
+        for key, value in simulation.items():
+            key = key.replace("simulation_", "")
+            if key == "id":
+                continue
+            if key == "files":
+                print(key + ":")
+                print_files(value)
+            else:
+                print("%s: %s" % (key, value))
 
 
 class PushCommand(Command):

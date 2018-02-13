@@ -31,7 +31,7 @@
   </component>
   <component name="DBNavigator.Project.DatabaseConsoleManager">
     <connection id="844bb45c-8922-461c-a326-d75107f1b119">
-      <console name="Connection" type="STANDARD"><![CDATA[select * from files;]]></console>
+      <console name="Connection" type="STANDARD"><![CDATA[SELECT f.* FROM files AS f, simulation_files sf WHERE sf.file = f.file_id AND sf.simulation = 1]]></console>
     </connection>
   </component>
   <component name="DBNavigator.Project.DatabaseSessionManager">
@@ -41,8 +41,8 @@
     <last-used-providers />
   </component>
   <component name="DBNavigator.Project.FileConnectionMappingManager">
-    <mapping file-url="file://$PROJECT_DIR$/sql/drop.sql" connection-id="844bb45c-8922-461c-a326-d75107f1b119" session-id="MAIN" current-schema="main" />
     <mapping file-url="file://$PROJECT_DIR$/sql/create.sql" connection-id="844bb45c-8922-461c-a326-d75107f1b119" session-id="MAIN" current-schema="main" />
+    <mapping file-url="file://$PROJECT_DIR$/sql/drop.sql" connection-id="844bb45c-8922-461c-a326-d75107f1b119" session-id="MAIN" current-schema="main" />
   </component>
   <component name="DBNavigator.Project.MethodExecutionManager">
     <method-browser />

@@ -6,7 +6,8 @@ from .remote_api import RemoteAPI
 from .manifest import Manifest
 from .file_system import FileSystem
 from .config import Configuration
-from .commands import IngestCommand, ListCommand, DeleteCommand, PushCommand, ManifestCommand, DatabaseCommand
+from .commands import IngestCommand, ListCommand, DeleteCommand, PushCommand, ManifestCommand, DatabaseCommand,\
+    InfoCommand
 
 
 # Database - for accessing sqlite3 database
@@ -25,6 +26,7 @@ class SimCLI:
         "push": PushCommand(),
         "manifest": ManifestCommand(),
         "database": DatabaseCommand(),
+        "info": InfoCommand(),
     }
 
     def run(self, args: List[str]) -> None:
