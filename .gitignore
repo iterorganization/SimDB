@@ -2,3 +2,5 @@ __pycache__
 sql/sim.db
 .idea/.DS_Store
 .mypy_cache
+.idea/workspace.xml
+.idea/dbnavigator.xml
