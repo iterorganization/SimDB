@@ -1,9 +1,8 @@
 import argparse
 from typing import Any, Optional, List, Dict
 
-
+from ..database.database import Database
 from .manifest import Manifest, InvalidManifest
-from .database import Database
 
 
 class Command:
