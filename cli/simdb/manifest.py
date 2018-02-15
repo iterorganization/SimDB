@@ -48,7 +48,8 @@ class Source:
         if self.type == Source.Type.UUID:
             return self.uuid
         elif self.type == Source.Type.PATH:
-            return os.path.basename(self.path)
+            return self.path
+            return self.path
         elif self.type == Source.Type.IMAS:
             return self.imas["tree_name"]
         return Source.Type.UUID.name

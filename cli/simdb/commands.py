@@ -53,25 +53,25 @@ class ListCommand(Command):
 
     def run(self, args: ListArgs) -> None:
         database = Database()
-        values = database.list()
+        simulations = database.list()
 
-        if len(values) == 0:
+        if len(simulations) == 0:
             print("No simulations found")
             return
 
-        print("UUID%s alias" % (" " * 28), end="")
-        max_alias = max(len(str(value["alias"])) for value in values)
+        print("UUID%s alias" % (" " * 32), end="")
+        max_alias = max(len(str(sim.alias)) for sim in simulations)
         max_alias = max(max_alias, 5)
         if args.verbose:
             print("%s datetime%s status" % (" " * (max_alias - 5), " " * 18), end="")
         print()
-        print("-" * (33 + max_alias + (35 if args.verbose else 0)))
+        print("-" * (37 + max_alias + (35 if args.verbose else 0)))
 
-        for value in values:
-            print("%s %s" % (value["simulation_uuid"], value["alias"]), end="")
+        for sim in simulations:
+            print("%s %s" % (sim.uuid, sim.alias), end="")
             if args.verbose:
-                alias_len = len(str(value["alias"]))
-                print("%s %s %s" % (" " * (max_alias - alias_len), value["current_datetime"], value["status"]), end="")
+                alias_len = len(str(sim.alias))
+                print("%s %s %s" % (" " * (max_alias - alias_len), sim.datetime, sim.status), end="")
             print()
 
 
@@ -110,16 +110,9 @@ class InfoCommand(Command):
     def run(self, args: InfoArgs):
         database = Database()
         simulation = database.get(args.id)
-
-        for key, value in simulation.items():
-            key = key.replace("simulation_", "")
-            if key == "id":
-                continue
-            if key == "files":
-                print(key + ":")
-                print_files(value)
-            else:
-                print("%s: %s" % (key, value))
+        if simulation is None:
+            raise Exception("Failed to find simulation: " + args.id)
+        print(str(simulation))
 
 
 class PushCommand(Command):

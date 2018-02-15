@@ -4,9 +4,12 @@
 
 ### Dependencies
 
-* Python >3.5
-* PyYAML >3.12
+* Python >= 3.6
+* PyYAML >= 3.12
+* SqlAlchemy >= 1.2.2
 
 ## Remote API
 
-* Flask
+* Python >= 3.6
+* SqlAlchemy >= 1.2.2
+* Flask >= 0.12.2
