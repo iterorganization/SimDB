@@ -5,7 +5,9 @@ from sqlalchemy.types import TypeDecorator, CHAR, String, Integer, DateTime
 from sqlalchemy.dialects import postgresql
 import uuid
 import os
+from typing import Union
 from datetime import datetime
+from dateutil import parser as date_parser
 
 from ..cli.manifest import Manifest, Source
 
@@ -15,9 +17,7 @@ Base = declarative_base()
 class UUID(TypeDecorator):
     """Platform-independent GUID type.
 
-    Uses PostgreSQL's UUID type, otherwise uses
-    CHAR(32), storing as stringified hex values.
-
+    Uses PostgreSQL's UUID type, otherwise uses CHAR(32), storing as stringified hex values.
     """
     impl = CHAR
 
@@ -61,7 +61,9 @@ class Simulation(Base):
     status = Column(String(20), nullable=False)
     files = relationship("File", secondary=simulation_files, backref="simulations")
 
-    def __init__(self, manifest: Manifest):
+    def __init__(self, manifest: Union[Manifest, None]):
+        if manifest is None:
+            return
         self.uuid = uuid.uuid1()
         self.datetime = datetime.now()
         self.status = "UNKNOWN"
@@ -77,6 +79,24 @@ class Simulation(Base):
         for file in self.files:
             result += "%s\n" % file
         return result
+
+    @classmethod
+    def from_data(cls, data: dict) -> "Simulation":
+        simulation = Simulation(None)
+        simulation.uuid = uuid.UUID(data["uuid"])
+        simulation.datetime = date_parser.parse(data["datetime"])
+        simulation.status = data["status"]
+        simulation.files = [File.from_data(d) for d in data["files"]]
+        return simulation
+
+    def data(self) -> dict:
+        data = dict(
+            uuid=self.uuid.hex,
+            datetime=self.datetime.isoformat(),
+            status=self.status,
+            files=[f.data() for f in self.files],
+        )
+        return data
 
 
 class MetaData(Base):
@@ -95,7 +115,7 @@ class File(Base):
     usage = Column(String(250), nullable=True)
     file_name = Column(String(250), nullable=False)
     directory = Column(String(250), nullable=True)
-    checksum = Column(String(32), nullable=True)
+    checksum = Column(String(40), nullable=True)
     type = Column(String(20), nullable=True)
     purpose = Column(String(250), nullable=True)
     sensitivity = Column(String(20), nullable=True)
@@ -103,7 +123,9 @@ class File(Base):
     embargo = Column(String(20), nullable=True)
     datetime = Column(DateTime, nullable=False)
 
-    def __init__(self, source: Source):
+    def __init__(self, source: Union[Source, None]):
+        if source is None:
+            return
         self.uuid = uuid.uuid1()
         self.file_name = os.path.basename(source.name)
         self.directory = os.path.dirname(source.name)
@@ -117,3 +139,35 @@ class File(Base):
                      "embargo", "datetime"):
             result += "  %s:%s%s\n" % (name, ((14 - len(name)) * " "), getattr(self, name))
         return result
+
+    @classmethod
+    def from_data(cls, data: dict):
+        file = File(None)
+        file.uuid = uuid.UUID(data["uuid"])
+        file.usage = data["usage"]
+        file.file_name = data["file_name"]
+        file.directory = data["directory"]
+        file.checksum = data["checksum"]
+        file.type = data["type"]
+        file.purpose = data["purpose"]
+        file.sensitivity = data["sensitivity"]
+        file.access = data["access"]
+        file.embargo = data["embargo"]
+        file.datetime = date_parser.parse(data["datetime"])
+        return file
+
+    def data(self) -> dict:
+        data = dict(
+            uuid=self.uuid.hex,
+            usage=self.usage,
+            file_name=self.file_name,
+            directory=self.directory,
+            checksum=self.checksum,
+            type=self.type,
+            purpose=self.purpose,
+            sensitivity=self.sensitivity,
+            access=self.access,
+            embargo=self.embargo,
+            datetime=self.datetime.isoformat(),
+        )
+        return data

@@ -2,7 +2,7 @@ import argparse
 from typing import List
 
 from .commands import IngestCommand, ListCommand, DeleteCommand, PushCommand, ManifestCommand, DatabaseCommand,\
-    InfoCommand
+    InfoCommand, RemoteCommand
 
 
 class SimCLI:
@@ -15,6 +15,7 @@ class SimCLI:
         "manifest": ManifestCommand(),
         "database": DatabaseCommand(),
         "info": InfoCommand(),
+        "remote": RemoteCommand(),
     }
 
     def run(self, args: List[str]) -> None:
@@ -22,16 +23,13 @@ class SimCLI:
         parser.add_argument("--debug", "-d", action="store_true", help="run in debug mode")
 
         command_parsers = parser.add_subparsers(title="commands", dest="command")
+        command_parsers.required = True
 
         for name, command in self.commands.items():
             sub_parser = command_parsers.add_parser(name, help=command.help)
             command.add_arguments(sub_parser)
 
         parsed_args = parser.parse_args(args)
-
-        if parsed_args.command is None:
-            parser.print_usage()
-            raise SystemExit()
 
         try:
             self.commands[parsed_args.command].run(parsed_args)
