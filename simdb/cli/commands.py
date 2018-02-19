@@ -84,7 +84,7 @@ class ListCommand(Command):
 
     def run(self, args: ListArgs) -> None:
         database = get_db()
-        simulations = database.list()
+        simulations = database.list_simulations()
         list_simulations(simulations, verbose=args.verbose)
 
 
@@ -99,7 +99,7 @@ class DeleteCommand(Command):
 
     def run(self, args: DeleteArgs):
         database = get_db()
-        database.delete(args.sim_id)
+        database.delete_simulation(args.sim_id)
 
 
 def print_files(files: List[Dict]):
@@ -122,7 +122,7 @@ class InfoCommand(Command):
 
     def run(self, args: InfoArgs):
         database = get_db()
-        simulation = database.get(args.sim_id)
+        simulation = database.get_simulation(args.sim_id)
         if simulation is None:
             raise Exception("Failed to find simulation: " + args.sim_id)
         print(str(simulation))
@@ -140,7 +140,7 @@ class PushCommand(Command):
     def run(self, args: PushArgs):
         api = RemoteAPI()
         database = get_db()
-        simulation = database.get(args.sim_id)
+        simulation = database.get_simulation(args.sim_id)
         if simulation is None:
             raise Exception("Failed to find simulation: " + args.sim_id)
         print(api.push(simulation))

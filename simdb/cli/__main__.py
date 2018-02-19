@@ -1,5 +1,5 @@
 import sys
 
-from . simdb import main
+from .simdb import main
 
 main(sys.argv[1:])

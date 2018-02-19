@@ -1,4 +1,5 @@
 import argparse
+import argcomplete
 from typing import List
 
 from .commands import IngestCommand, ListCommand, DeleteCommand, PushCommand, ManifestCommand, DatabaseCommand,\
@@ -6,6 +7,9 @@ from .commands import IngestCommand, ListCommand, DeleteCommand, PushCommand, Ma
 
 
 class SimCLI:
+    """
+    Class to provide the simulation management tool command line interface.
+    """
 
     commands = {
         "ingest": IngestCommand(),
@@ -19,6 +23,12 @@ class SimCLI:
     }
 
     def run(self, args: List[str]) -> None:
+        """
+        Parse the command line arguments and run the command specified.
+
+        :param args: The command line arguments
+        :return: None
+        """
         parser = argparse.ArgumentParser(prog="simdb")
         parser.add_argument("--debug", "-d", action="store_true", help="run in debug mode")
 
@@ -29,6 +39,7 @@ class SimCLI:
             sub_parser = command_parsers.add_parser(name, help=command.help)
             command.add_arguments(sub_parser)
 
+        argcomplete.autocomplete(parser)
         parsed_args = parser.parse_args(args)
 
         try:
@@ -40,12 +51,12 @@ class SimCLI:
                 print("error: " + (str(ex) if str(ex) else type(ex).__name__))
 
 
-def main(args: List[str]):
+def main(args: List[str]) -> None:
     """
     Main CLI entry function
 
     :param args: command line arguments
-    :return:
+    :return: None
     """
     cli = SimCLI()
     cli.run(args)

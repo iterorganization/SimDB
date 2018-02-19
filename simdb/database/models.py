@@ -9,13 +9,13 @@ from typing import Union
 from datetime import datetime
 from dateutil import parser as date_parser
 
-from ..cli.manifest import Manifest, Source
-
-Base = declarative_base()
+from ..cli.manifest import Manifest, DataObject
+from ..utils import inherit_docstrings, format_docstring
 
 
 class UUID(TypeDecorator):
-    """Platform-independent GUID type.
+    """
+    Platform-independent GUID type.
 
     Uses PostgreSQL's UUID type, otherwise uses CHAR(32), storing as stringified hex values.
     """
@@ -47,12 +47,51 @@ class UUID(TypeDecorator):
             return value
 
 
+class BaseModel:
+    """
+    Base model for ORM classes.
+    """
+    def __str__(self):
+        """
+        Return a string representation of the {cls.__name__} formatted to print.
+
+        :return: The {cls.__name__} as a string for printing.
+        """
+        raise NotImplementedError
+
+    @classmethod
+    def from_data(cls, data: dict) -> "BaseModel":
+        """
+        Create a Model from serialised data.
+
+        :param data: Serialised model data.
+        :return: The created model.
+        """
+        raise NotImplementedError
+
+    def data(self, recurse: bool=False) -> dict:
+        """
+        Serialise the {cls.__name__}.
+
+        :param recurse: If True also serialise any contained models, otherwise only serialise simple fields.
+        :return: The serialised data.
+        """
+        raise NotImplementedError
+
+
+Base = declarative_base(cls=BaseModel)
+
+
 simulation_files = Table("simulation_files", Base.metadata,
                          Column("simulation_id", Integer, ForeignKey("simulations.id")),
                          Column("file_id", Integer, ForeignKey("files.id")))
 
 
+@inherit_docstrings
 class Simulation(Base):
+    """
+    Class to represent simulations in the database ORM.
+    """
     __tablename__ = "simulations"
     id = Column(Integer, primary_key=True)
     uuid = Column(UUID, nullable=False)
@@ -62,13 +101,18 @@ class Simulation(Base):
     files = relationship("File", secondary=simulation_files, backref="simulations")
 
     def __init__(self, manifest: Union[Manifest, None]):
+        """
+        Initialise a new Simulation object using the provided Manifest.
+
+        :param manifest: The Manifest to load the data from, or None to create an empty Simulation.
+        """
         if manifest is None:
             return
         self.uuid = uuid.uuid1()
         self.datetime = datetime.now()
         self.status = "UNKNOWN"
         for source in manifest.inputs:
-            if source.type == Source.Type.PATH:
+            if source.type == DataObject.Type.PATH:
                 self.files.append(File(source))
 
     def __str__(self):
@@ -86,20 +130,26 @@ class Simulation(Base):
         simulation.uuid = uuid.UUID(data["uuid"])
         simulation.datetime = date_parser.parse(data["datetime"])
         simulation.status = data["status"]
-        simulation.files = [File.from_data(d) for d in data["files"]]
+        if "files" in data:
+            simulation.files = [File.from_data(d) for d in data["files"]]
         return simulation
 
-    def data(self) -> dict:
+    def data(self, recurse: bool=False) -> dict:
         data = dict(
             uuid=self.uuid.hex,
             datetime=self.datetime.isoformat(),
             status=self.status,
-            files=[f.data() for f in self.files],
         )
+        if recurse:
+            data["files"] = [f.data() for f in self.files]
         return data
 
 
+@inherit_docstrings
 class MetaData(Base):
+    """
+    Class to represent metadata in the database ORM.
+    """
     __tablename__ = "metadata"
     id = Column(Integer, primary_key=True)
     uuid = Column(UUID, nullable=False)
@@ -107,7 +157,11 @@ class MetaData(Base):
     value = Column(String(250), nullable=True)
 
 
+@inherit_docstrings
 class File(Base):
+    """
+    Class to represent files in the database ORM.
+    """
     __tablename__ = "files"
     id = Column(Integer, primary_key=True)
     uuid = Column(UUID, nullable=False)
@@ -123,14 +177,19 @@ class File(Base):
     embargo = Column(String(20), nullable=True)
     datetime = Column(DateTime, nullable=False)
 
-    def __init__(self, source: Union[Source, None]):
-        if source is None:
+    def __init__(self, data_object: Union[DataObject, None]):
+        """
+        Initialise the File object using the provided DataObject.
+
+        :param data_object: The DataObject to load the data from, or None to create an empty File.
+        """
+        if data_object is None:
             return
         self.uuid = uuid.uuid1()
-        self.file_name = os.path.basename(source.name)
-        self.directory = os.path.dirname(source.name)
-        self.checksum = source.checksum
-        self.type = source.type.name
+        self.file_name = os.path.basename(data_object.name)
+        self.directory = os.path.dirname(data_object.name)
+        self.checksum = data_object.checksum
+        self.type = data_object.type.name
         self.datetime = datetime.now()
 
     def __str__(self):
@@ -156,7 +215,7 @@ class File(Base):
         file.datetime = date_parser.parse(data["datetime"])
         return file
 
-    def data(self) -> dict:
+    def data(self, recurse: bool=False) -> dict:
         data = dict(
             uuid=self.uuid.hex,
             usage=self.usage,

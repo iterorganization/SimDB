@@ -7,10 +7,16 @@ import hashlib
 
 
 class InvalidManifest(Exception):
+    """
+    Exception to throw when a manifest fails to validate.
+    """
     pass
 
 
-class Source:
+class DataObject:
+    """
+    Simulation data object, either a file, an IDS or an already registered object identifiable by the UUID.
+    """
     class Type(Enum):
         UNKNOWN = auto()
         UUID = auto()
@@ -25,13 +31,13 @@ class Source:
     def __init__(self, values):
         if "uuid" in values:
             self.uuid = values["uuid"]
-            self.type = Source.Type.UUID
+            self.type = DataObject.Type.UUID
         elif "path" in values:
             self.path = values["path"]
-            self.type = Source.Type.PATH
+            self.type = DataObject.Type.PATH
         elif "imas" in values:
             self.imas = values["imas"]
-            self.type = Source.Type.IMAS
+            self.type = DataObject.Type.IMAS
         else:
             raise InvalidManifest("invalid input")
 
@@ -45,22 +51,41 @@ class Source:
 
     @property
     def name(self) -> str:
-        if self.type == Source.Type.UUID:
+        if self.type == DataObject.Type.UUID:
             return self.uuid
-        elif self.type == Source.Type.PATH:
+        elif self.type == DataObject.Type.PATH:
             return self.path
-            return self.path
-        elif self.type == Source.Type.IMAS:
+        elif self.type == DataObject.Type.IMAS:
             return self.imas["tree_name"]
-        return Source.Type.UUID.name
+        return DataObject.Type.UUID.name
 
 
-class Validator:
+class Source(DataObject):
+    """
+    Simulation data inputs.
+    """
+    pass
+
+
+class Sink(DataObject):
+    """
+    Simulation data outputs.
+    """
+    pass
+
+
+class ManifestValidator:
+    """
+    Base class for validation of manifests.
+    """
     def validate(self, values: Union[list, dict]) -> None:
         pass
 
 
-class ListValuesValidator(Validator):
+class ListValuesValidator(ManifestValidator):
+    """
+    Class for the validation of list items in the manifest.
+    """
     section_name: str = NotImplemented
     expected_keys: Iterable = NotImplemented
 
@@ -76,21 +101,33 @@ class ListValuesValidator(Validator):
 
 
 class InputsValidator(ListValuesValidator):
+    """
+    Validator for the manifest inputs list.
+    """
     section_name: str = "input"
     expected_keys: Iterable = ("uuid", "path", "imas")
 
 
 class ScriptsValidator(ListValuesValidator):
+    """
+    Validator for the manifest scripts list.
+    """
     section_name: str = "script"
     expected_keys: Iterable = ("name",)
 
 
 class OutputsValidator(ListValuesValidator):
+    """
+    Validator for the manifest outputs list.
+    """
     section_name: str = "output"
     expected_keys: Iterable = ("path", "imas")
 
 
-class DictValuesValidator(Validator):
+class DictValuesValidator(ManifestValidator):
+    """
+    Class for the validation of dictionary items in the manifest.
+    """
     section_name: str = NotImplemented
     expected_keys: Iterable = NotImplemented
     required_keys: Iterable = NotImplemented
@@ -109,6 +146,9 @@ class DictValuesValidator(Validator):
 
 
 class WorkflowValidator(DictValuesValidator):
+    """
+    Validator for the manifest workflow dictionary.
+    """
     section_name: str = "workflow"
     expected_keys: Iterable = ("name", "git", "branch", "commit", "codes")
     required_keys: Iterable = ("name", "git", "branch", "commit", "codes")
@@ -139,9 +179,9 @@ class Manifest:
         return []
 
     @property
-    def outputs(self) -> Iterable[Source]:
+    def outputs(self) -> Iterable[Sink]:
         if isinstance(self.data, dict):
-            return [Source(i) for i in self.data["outputs"]]
+            return [Sink(i) for i in self.data["outputs"]]
         return []
 
     def load(self, file_path) -> None:
