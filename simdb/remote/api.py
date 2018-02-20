@@ -24,7 +24,7 @@ def index():
     return jsonify({"api": "simdb", "version": __version__})
 
 
-@api.route("/reset")
+@api.route("/reset", methods=["POST"])
 def reset_db():
     get_db().reset()
     return jsonify({})

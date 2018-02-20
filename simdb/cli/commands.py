@@ -156,9 +156,19 @@ class RemoteCommand(Command):
 
         parser.add_argument("--verbose", "-v", action="store_true", help="print more verbose output")
 
+        class RemoteDatabaseCommand(Command):
+            _help = "manage remote simulation database file"
+
+            def add_arguments(self, parser: argparse.ArgumentParser):
+                parser.add_argument("clear", help="clear all ingested simulations from the database")
+
+            def run(self, args: argparse.Namespace):
+                pass
+
         commands = {
             "list": ListCommand(),
             "info": InfoCommand(),
+            "database": RemoteDatabaseCommand(),
         }
 
         for name, command in commands.items():
@@ -171,14 +181,15 @@ class RemoteCommand(Command):
         sim_id: str
 
     def run(self, args: RemoteArgs):
+        api = RemoteAPI()
         if args.action == "list":
-            api = RemoteAPI()
             simulations = api.list()
             list_simulations(simulations, verbose=args.verbose)
         elif args.action == "info":
-            api = RemoteAPI()
             simulation = api.get(args.sim_id)
             print(str(simulation))
+        elif args.action == "database":
+            print(api.reset())
 
 
 class ManifestCommand(Command):

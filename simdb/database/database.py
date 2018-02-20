@@ -96,7 +96,7 @@ class Database:
         with contextlib.closing(self.engine.connect()) as con:
             trans = con.begin()
             for table in reversed(Base.metadata.sorted_tables):
-                con.execute(table.delete_simulation())
+                con.execute(table.delete())
             trans.commit()
 
     @classmethod

@@ -35,3 +35,8 @@ class RemoteAPI:
     def push(self, simulation: Simulation):
         res = requests.put(self.url + "simulations", json={"simulation": simulation.data()})
         return res
+
+    @try_request
+    def reset(self):
+        res = requests.post(self.url + "reset")
+        return res
