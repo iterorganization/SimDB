@@ -1,4 +1,4 @@
-from flask import Flask, g, Blueprint, request, jsonify, Response
+from flask import g, Blueprint, request, jsonify, Response, current_app
 
 from .. import __version__
 from ..database.database import Database, DatabaseError
@@ -15,7 +15,8 @@ def error(message: str) -> Response:
 
 def get_db() -> Database:
     if not hasattr(g, 'db'):
-        g.db = Database(Database.Type.POSTGRESQL, host="localhost", port=5432)
+        g.db = Database(Database.DBMS.POSTGRESQL,
+                        host=current_app.config["DB_HOST"], port=current_app.config["DB_PORT"])
     return g.db
 
 
@@ -76,7 +77,3 @@ def delete_simulation(sim_id):
         get_db().delete_simulation(sim_id)
     except DatabaseError as err:
         return jsonify({"error": str(err)})
-
-
-app = Flask(__name__)
-app.register_blueprint(api, url_prefix="/api/v" + __version__)

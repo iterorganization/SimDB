@@ -12,7 +12,7 @@ def get_db() -> Database:
     db_dir = os.path.join(os.environ["HOME"], ".simdb")
     os.makedirs(db_dir, exist_ok=True)
     db_file = os.path.join(db_dir, "sim.db")
-    database = Database(Database.Type.SQLITE, file=db_file)
+    database = Database(Database.DBMS.SQLITE, file=db_file)
     return database
 
 
@@ -128,22 +128,62 @@ class InfoCommand(Command):
         print(str(simulation))
 
 
-class PushCommand(Command):
-    _help = "push local manifest to remote system"
+class SimulationCommand(Command):
+    _help = "manage ingested simulations"
 
     def add_arguments(self, parser: argparse.ArgumentParser):
-        parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
+        command_parsers = parser.add_subparsers(title="action", dest="action")
+        command_parsers.required = True
 
-    class PushArgs(argparse.Namespace):
+        class PushCommand(Command):
+            _help = "push the simulation to the remote management system"
+
+            def add_arguments(self, parser: argparse.ArgumentParser):
+                parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
+
+            def run(self, args: Any):
+                pass
+
+        class ModifyCommand(Command):
+            _help = "modify the ingested simulation"
+
+            def add_arguments(self, parser: argparse.ArgumentParser):
+                parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
+                parser.add_argument("--alias", help="new alias")
+
+            def run(self, args: Any):
+                pass
+
+        commands = {
+            "push": PushCommand(),
+            "modify": ModifyCommand(),
+        }
+
+        for name, command in commands.items():
+            sub_parser = command_parsers.add_parser(name, help=command.help)
+            command.add_arguments(sub_parser)
+
+    class SimulationArgs(argparse.Namespace):
+        action: str
         sim_id: str
+        alias: str
 
-    def run(self, args: PushArgs):
-        api = RemoteAPI()
-        database = get_db()
-        simulation = database.get_simulation(args.sim_id)
-        if simulation is None:
-            raise Exception("Failed to find simulation: " + args.sim_id)
-        print(api.push(simulation))
+    def run(self, args: SimulationArgs):
+        if args.action == "push":
+            api = RemoteAPI()
+            database = get_db()
+            simulation = database.get_simulation(args.sim_id)
+            if simulation is None:
+                raise Exception("Failed to find simulation: " + args.sim_id)
+            print(api.push(simulation))
+        elif args.action == "modify":
+            if args.alias is not None:
+                database = get_db()
+                simulation = database.get_simulation(args.sim_id)
+                simulation.alias = args.alias
+                database.session.commit()
+            else:
+                print("nothing to do")
 
 
 class RemoteCommand(Command):

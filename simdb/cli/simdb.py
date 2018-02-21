@@ -2,7 +2,7 @@ import argparse
 import argcomplete
 from typing import List
 
-from .commands import IngestCommand, ListCommand, DeleteCommand, PushCommand, ManifestCommand, DatabaseCommand,\
+from .commands import IngestCommand, ListCommand, DeleteCommand, SimulationCommand, ManifestCommand, DatabaseCommand,\
     InfoCommand, RemoteCommand
 
 
@@ -15,7 +15,7 @@ class SimCLI:
         "ingest": IngestCommand(),
         "list": ListCommand(),
         "delete": DeleteCommand(),
-        "push": PushCommand(),
+        "simulation": SimulationCommand(),
         "manifest": ManifestCommand(),
         "database": DatabaseCommand(),
         "info": InfoCommand(),

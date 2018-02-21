@@ -4,7 +4,7 @@ import sqlalchemy
 import uuid
 import os
 import contextlib
-from typing import Optional, List, Type
+from typing import Optional, List
 from enum import Enum, auto
 
 from simdb.cli.manifest import Manifest
@@ -19,24 +19,21 @@ class DatabaseError(RuntimeError):
 SessionMaker = sessionmaker()
 
 
-def new_session() -> sqlalchemy.orm.Session:
-    return SessionMaker()
-
-
 class Database:
     """
     Class to wrap the database access.
     """
     engine: sqlalchemy.engine.Engine
+    _session: sqlalchemy.orm.SessionExtension = None
 
-    class Type(Enum):
+    class DBMS(Enum):
         """
         DBMSs supported.
         """
         SQLITE = auto()
         POSTGRESQL = auto()
 
-    def __init__(self, db_type: Type, **kwargs):
+    def __init__(self, db_type: DBMS, **kwargs):
         """
         Create a new Database object.
 
@@ -49,13 +46,13 @@ class Database:
                 port: the port to connect to
         """
         new_db = False
-        if db_type == Database.Type.SQLITE:
+        if db_type == Database.DBMS.SQLITE:
             if "file" not in kwargs:
                 raise DatabaseError("Missing file parameter for SQLITE database")
             new_db = (not os.path.exists(kwargs["file"]))
             self.engine: sqlalchemy.engine.Engine = create_engine("sqlite:///%(file)s" % kwargs)
 
-        elif db_type == Database.Type.POSTGRESQL:
+        elif db_type == Database.DBMS.POSTGRESQL:
             if "host" not in kwargs:
                 raise DatabaseError("Missing file host for POSTGRESQL database")
             if "port" not in kwargs:
@@ -72,8 +69,13 @@ class Database:
         Base.metadata.bind = self.engine
         SessionMaker.configure(bind=self.engine)
 
-    @classmethod
-    def ingest(cls, manifest: Manifest, alias: Optional[str]) -> None:
+    @property
+    def session(self) -> sqlalchemy.orm.Session:
+        if self._session is None:
+            self._session: sqlalchemy.orm.Session = SessionMaker()
+        return self._session
+
+    def ingest(self, manifest: Manifest, alias: Optional[str]) -> None:
         """
         Ingest the given manifest into the database.
 
@@ -83,9 +85,8 @@ class Database:
         """
         simulation = Simulation(manifest)
         simulation.alias = alias
-        session = new_session()
-        session.add(simulation)
-        session.commit()
+        self.session.add(simulation)
+        self.session.commit()
 
     def reset(self) -> None:
         """
@@ -99,91 +100,81 @@ class Database:
                 con.execute(table.delete())
             trans.commit()
 
-    @classmethod
-    def list_simulations(cls) -> List[Simulation]:
+    def list_simulations(self) -> List[Simulation]:
         """
         Return a list of all the simulations stored in the database.
 
         :return: A list of Simulations.
         """
-        session = new_session()
-        return list(session.query(Simulation))
+        return list(self.session.query(Simulation))
 
-    @classmethod
-    def list_files(cls) -> List[File]:
+    def list_files(self) -> List[File]:
         """
         Return a list of all the files stored in the database.
 
         :return:  A list of Files.
         """
-        session = new_session()
-        return list(session.query(File))
+        return list(self.session.query(File))
 
-    @classmethod
-    def delete_simulation(cls, sim_ref: str) -> None:
+    def delete_simulation(self, sim_ref: str) -> None:
         """
         Delete the specified simulation from the database.
 
         :param sim_ref: The simulation UUID or alias.
         :return: None
         """
-        session = new_session()
         try:
             sim_uuid = uuid.UUID(sim_ref)
-            simulation = session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
+            simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
         except ValueError:
             sim_alias = sim_ref
-            simulation = session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
+            simulation = self.session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
         if simulation is None:
             raise DatabaseError("Failed to find simulation: " + sim_ref)
-        session.delete(simulation)
-        session.commit()
+        self.session.delete(simulation)
+        self.session.commit()
 
-    @classmethod
-    def get_simulation(cls, sim_ref: str) -> Simulation:
+    def get_simulation(self, sim_ref: str) -> Simulation:
         """
         Get the specified simulation from the database.
 
         :param sim_ref: The simulation UUID or alias.
         :return: The Simulation.
         """
-        session = new_session()
         try:
             sim_uuid = uuid.UUID(sim_ref)
-            simulation = session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
+            simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
         except ValueError:
             sim_alias = sim_ref
-            simulation = session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
+            simulation = self.session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
         if simulation is None:
             raise DatabaseError("Failed to find simulation: " + sim_ref)
+        self.session.commit()
         return simulation
 
-    @classmethod
-    def get_file(cls, file_uuid: str) -> File:
+    def get_file(self, file_uuid: str) -> File:
         """
         Get the specified file from the database.
 
         :param file_uuid: The file UUID.
         :return: The File.
         """
-        session = new_session()
         try:
             file_uuid = uuid.UUID(file_uuid)
-            file = session.query(File).filter_by(uuid=file_uuid).one_or_none()
+            file = self.session.query(File).filter_by(uuid=file_uuid).one_or_none()
         except ValueError:
             raise DatabaseError("Invalid UUID: " + file_uuid)
         if file is None:
             raise DatabaseError("Failed to find file: " + file_uuid.hex)
+        self.session.commit()
         return file
 
-    @classmethod
-    def insert_simulation(cls, simulation: Simulation) -> None:
+    def insert_simulation(self, simulation: Simulation) -> None:
         """
         Insert the given simulation into the database.
 
         :param simulation: The Simulation to insert.
         :return: None
         """
-        session = new_session()
-        session.add(simulation)
-        session.commit()
+        self.session.add(simulation)
+        self.session.commit()

@@ -33,7 +33,7 @@ class RemoteAPI:
 
     @try_request
     def push(self, simulation: Simulation):
-        res = requests.put(self.url + "simulations", json={"simulation": simulation.data()})
+        res = requests.put(self.url + "simulations", json={"simulation": simulation.data(recurse=True)})
         return res
 
     @try_request
