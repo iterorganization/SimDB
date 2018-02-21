@@ -2,14 +2,28 @@
 
 Managing PostgreSQL
 
+Creating the server:
+
 ```bash
 pg_ctl init -D data/
+sed -i.bak 's/#port = 5432/port = 7000/' data/postgresql.conf
+mkdir logs
+```
+
+Starting the server:
+
+```bash
 pg_ctl start -D data/ -l logs/pgsql.log
+```
+
+Stopping the server:
+
+```bash
 pg_ctl stop -D data/
 ```
 
 Creating the database
 
 ```bash
-createdb simdb
+createdb -p 7000 simdb
 ```

@@ -8,6 +8,8 @@
 * PyYAML >= 3.12
 * SqlAlchemy >= 1.2.2
 
+pip install argcomplete sqlalchemy PyYAML python-dateutil requests
+
 ## Remote API
 
 * Python >= 3.6

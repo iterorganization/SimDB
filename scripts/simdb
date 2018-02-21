@@ -1,0 +1,8 @@
+#!python
+# PYTHON_ARGCOMPLETE_OK
+
+import sys
+
+from simdb.cli import simdb
+
+simdb.main(sys.argv[1:])
