@@ -1,4 +1,5 @@
 from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy import create_engine
 import sqlalchemy
 import uuid
@@ -75,19 +76,6 @@ class Database:
             self._session: sqlalchemy.orm.Session = SessionMaker()
         return self._session
 
-    def ingest(self, manifest: Manifest, alias: Optional[str]) -> None:
-        """
-        Ingest the given manifest into the database.
-
-        :param manifest: The manifest to ingest.
-        :param alias: An optional alias to given to the manifest.
-        :return: None
-        """
-        simulation = Simulation(manifest)
-        simulation.alias = alias
-        self.session.add(simulation)
-        self.session.commit()
-
     def reset(self) -> None:
         """
         Clear all the data out of the database.
@@ -97,7 +85,8 @@ class Database:
         with contextlib.closing(self.engine.connect()) as con:
             trans = con.begin()
             for table in reversed(Base.metadata.sorted_tables):
-                con.execute(table.delete())
+                # con.execute(table.delete())
+                con.execute(table.drop())
             trans.commit()
 
     def list_simulations(self) -> List[Simulation]:
@@ -176,5 +165,9 @@ class Database:
         :param simulation: The Simulation to insert.
         :return: None
         """
-        self.session.add(simulation)
-        self.session.commit()
+        try:
+            self.session.add(simulation)
+            self.session.commit()
+        except DBAPIError as err:
+            self.session.rollback()
+            raise DatabaseError(str(err.orig))

@@ -8,5 +8,5 @@ while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symli
 done
 DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
-export PYTHONPATH=$DIR:$PYTHONPATH
-python3 -c "from simdb.remote.app import app; import sys; app.run()"
+export PYTHONPATH=$DIR/../../:$PYTHONPATH
+python3 -c "from simdb.remote.app import run; run()"

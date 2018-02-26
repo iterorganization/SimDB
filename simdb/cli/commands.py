@@ -48,8 +48,11 @@ class IngestCommand(Command):
     def run(self, args: IngestArgs):
         manifest = Manifest()
         manifest.load(args.manifest_file)
+        simulation = Simulation(manifest)
+        simulation.alias = args.alias
+
         database = get_db()
-        database.ingest(manifest, args.alias)
+        database.insert_simulation(simulation)
 
 
 def list_simulations(simulations: List[Simulation], verbose: bool=False) -> None:
@@ -175,7 +178,8 @@ class SimulationCommand(Command):
             simulation = database.get_simulation(args.sim_id)
             if simulation is None:
                 raise Exception("Failed to find simulation: " + args.sim_id)
-            print(api.push(simulation))
+            api.push_simulation(simulation)
+            print("success")
         elif args.action == "modify":
             if args.alias is not None:
                 database = get_db()
@@ -200,7 +204,7 @@ class RemoteCommand(Command):
             _help = "manage remote simulation database file"
 
             def add_arguments(self, parser: argparse.ArgumentParser):
-                parser.add_argument("clear", help="clear all ingested simulations from the database")
+                parser.add_argument("remote_command", choices=["clear"], help="clear all ingested simulations from the database")
 
             def run(self, args: argparse.Namespace):
                 pass
@@ -223,13 +227,14 @@ class RemoteCommand(Command):
     def run(self, args: RemoteArgs):
         api = RemoteAPI()
         if args.action == "list":
-            simulations = api.list()
+            simulations = api.list_simulations()
             list_simulations(simulations, verbose=args.verbose)
         elif args.action == "info":
-            simulation = api.get(args.sim_id)
+            simulation = api.get_simulation(args.sim_id)
             print(str(simulation))
         elif args.action == "database":
-            print(api.reset())
+            api.reset_database()
+            print("success")
 
 
 class ManifestCommand(Command):

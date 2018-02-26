@@ -1,4 +1,5 @@
 from inspect import getmembers, isfunction
+import hashlib
 
 
 def inherit_docstrings(cls):
@@ -16,3 +17,11 @@ def format_docstring(cls):
         func.__doc__ = func.__doc__.format(cls=cls)
         return func
     return decorator
+
+
+def sha1_checksum(path: str) -> str:
+    sha1 = hashlib.sha1()
+    with open(path, "rb") as file:
+        for chunk in iter(lambda: file.read(4096), b""):
+            sha1.update(chunk)
+    return sha1.hexdigest()

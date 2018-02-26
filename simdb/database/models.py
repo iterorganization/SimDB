@@ -1,11 +1,11 @@
 from sqlalchemy import Column, ForeignKey, Table
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from sqlalchemy.types import TypeDecorator, CHAR, String, Integer, DateTime
+from sqlalchemy.types import TypeDecorator, CHAR, String, Integer, DateTime, Enum
 from sqlalchemy.dialects import postgresql
 import uuid
 import os
-from typing import Union
+from typing import Union, List
 from datetime import datetime
 from dateutil import parser as date_parser
 
@@ -94,11 +94,11 @@ class Simulation(Base):
     """
     __tablename__ = "simulations"
     id = Column(Integer, primary_key=True)
-    uuid = Column(UUID, nullable=False)
-    alias = Column(String(250), nullable=True)
+    uuid = Column(UUID, nullable=False, unique=True)
+    alias = Column(String(250), nullable=True, unique=True)
     datetime = Column(DateTime, nullable=False)
     status = Column(String(20), nullable=False)
-    files = relationship("File", secondary=simulation_files, backref="simulations")
+    files: List["File"] = relationship("File", secondary=simulation_files, backref="simulations")
 
     def __init__(self, manifest: Union[Manifest, None]):
         """
@@ -164,13 +164,13 @@ class File(Base):
     """
     __tablename__ = "files"
     id = Column(Integer, primary_key=True)
-    uuid = Column(UUID, nullable=False)
+    uuid = Column(UUID, nullable=False, unique=True)
     metadata_id = Column(Integer, ForeignKey(MetaData.id))
     usage = Column(String(250), nullable=True)
     file_name = Column(String(250), nullable=False)
     directory = Column(String(250), nullable=True)
     checksum = Column(String(40), nullable=True)
-    type = Column(String(20), nullable=True)
+    type: DataObject.Type = Column(Enum(DataObject.Type), nullable=True)
     purpose = Column(String(250), nullable=True)
     sensitivity = Column(String(20), nullable=True)
     access = Column(String(20), nullable=True)
@@ -199,6 +199,10 @@ class File(Base):
             result += "  %s:%s%s\n" % (name, ((14 - len(name)) * " "), getattr(self, name))
         return result
 
+    def __repr__(self):
+        result = "%s (%s)" % (self.uuid, self.file_name)
+        return result
+
     @classmethod
     def from_data(cls, data: dict):
         file = File(None)
@@ -207,7 +211,7 @@ class File(Base):
         file.file_name = data["file_name"]
         file.directory = data["directory"]
         file.checksum = data["checksum"]
-        file.type = data["type"]
+        file.type = DataObject.Type[data["type"]]
         file.purpose = data["purpose"]
         file.sensitivity = data["sensitivity"]
         file.access = data["access"]
@@ -222,7 +226,7 @@ class File(Base):
             file_name=self.file_name,
             directory=self.directory,
             checksum=self.checksum,
-            type=self.type,
+            type=self.type.name,
             purpose=self.purpose,
             sensitivity=self.sensitivity,
             access=self.access,

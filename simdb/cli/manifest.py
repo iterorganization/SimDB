@@ -3,7 +3,8 @@ import sys
 import os
 from enum import Enum, auto
 from typing import Iterable, Union
-import hashlib
+
+from ..utils import sha1_checksum
 
 
 class InvalidManifest(Exception):
@@ -43,11 +44,7 @@ class DataObject:
 
     @property
     def checksum(self) -> str:
-        sha1 = hashlib.sha1()
-        with open(self.path, "rb") as file:
-            for chunk in iter(lambda: file.read(4096), b""):
-                sha1.update(chunk)
-        return sha1.hexdigest()
+        return sha1_checksum(self.path)
 
     @property
     def name(self) -> str:

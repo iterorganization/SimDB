@@ -8,7 +8,11 @@
 * PyYAML >= 3.12
 * SqlAlchemy >= 1.2.2
 
-pip install argcomplete sqlalchemy PyYAML python-dateutil requests
+### Installing the CLI
+
+```bash
+pip install --user git+ssh://git@git.iter.org/imex/simulation-management.git
+```
 
 ## Remote API
 

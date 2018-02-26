@@ -1,18 +1,21 @@
 from flask import Flask
+import ssl
+import os
 
 from .api import api
 from .. import __version__
 
 
-app = Flask(__name__)
-app.config.from_pyfile("/Users/jhollocombe/Projects/simdb/simdb/remote/app.cfg")
+def run():
+    dir_path = os.path.dirname(os.path.realpath(__file__))
 
+    context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+    context.load_cert_chain(os.path.join(dir_path, "server.crt"), keyfile=os.path.join(dir_path, "server.key"))
 
-# @api.record
-# def record_params(setup_state):
-#     print(setup_state.app.config)
-#     api.db_host = setup_state.app.config["DB_HOST"]
-#     api.db_port = setup_state.app.config["DB_PORT"]
+    app = Flask(__name__)
+    app.config.from_pyfile(os.path.join(dir_path, "app.cfg"))
 
+    app.register_blueprint(api, url_prefix="/api/v" + __version__)
 
-app.register_blueprint(api, url_prefix="/api/v" + __version__)
+    app.run(host='127.0.0.1', port='5000', debug=False, ssl_context=context)
+    # app.run(host='127.0.0.1', port='5000', debug=False)
