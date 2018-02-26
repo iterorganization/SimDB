@@ -144,6 +144,23 @@ def get_simulation(sim_id):
 @requires_auth
 def delete_simulation(sim_id):
     try:
-        get_db().delete_simulation(sim_id)
+        simulation = get_db().delete_simulation(sim_id)
+        files = []
+        for file in simulation.files:
+            files.append("%s (%s)" % (file.uuid, file.file_name))
+            os.remove(os.path.join(file.directory, file.file_name))
+        if simulation.files:
+            os.rmdir(simulation.files[0].directory)
+        return jsonify({"deleted": {"simulation": simulation.uuid, "files": files}})
+    except DatabaseError as err:
+        return error(str(err))
+
+
+@api.route("/publish/<string:sim_id>", methods=["POST"])
+@requires_auth
+def publish_simulation(sim_id):
+    try:
+        simulation = get_db().get_simulation(sim_id)
+        return error("not yet implemented")
     except DatabaseError as err:
         return error(str(err))

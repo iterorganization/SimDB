@@ -204,14 +204,26 @@ class RemoteCommand(Command):
             _help = "manage remote simulation database file"
 
             def add_arguments(self, parser: argparse.ArgumentParser):
-                parser.add_argument("remote_command", choices=["clear"], help="clear all ingested simulations from the database")
+                parser.add_argument("remote_command", choices=["clear"],
+                                    help="clear all ingested simulations from the database")
 
             def run(self, args: argparse.Namespace):
+                pass
+
+        class RemoteSimulationCommand(Command):
+            _help = "publish staged simulation"
+
+            def add_arguments(self, parser: argparse.ArgumentParser):
+                parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
+
+            def run(self, args: Any):
                 pass
 
         commands = {
             "list": ListCommand(),
             "info": InfoCommand(),
+            "publish": RemoteSimulationCommand(),
+            "delete": RemoteSimulationCommand(),
             "database": RemoteDatabaseCommand(),
         }
 
@@ -235,6 +247,15 @@ class RemoteCommand(Command):
         elif args.action == "database":
             api.reset_database()
             print("success")
+        elif args.action == "publish":
+            api.publish_simulation(args.sim_id)
+            print("success")
+        elif args.action == "delete":
+            result = api.delete_simulation(args.sim_id)
+            print("deleted simulation: " + result["deleted"]["simulation"])
+            if result["deleted"]["files"]:
+                for file in result["deleted"]["files"]:
+                    print("              file: " + file)
 
 
 class ManifestCommand(Command):

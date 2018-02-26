@@ -104,7 +104,7 @@ class Database:
         """
         return list(self.session.query(File))
 
-    def delete_simulation(self, sim_ref: str) -> None:
+    def delete_simulation(self, sim_ref: str) -> Simulation:
         """
         Delete the specified simulation from the database.
 
@@ -119,8 +119,11 @@ class Database:
             simulation = self.session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
         if simulation is None:
             raise DatabaseError("Failed to find simulation: " + sim_ref)
+        for file in simulation.files:
+            self.session.delete(file)
         self.session.delete(simulation)
         self.session.commit()
+        return simulation
 
     def get_simulation(self, sim_ref: str) -> Simulation:
         """

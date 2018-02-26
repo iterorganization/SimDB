@@ -36,6 +36,15 @@ def read_bytes(path: str, compressed: bool=True) -> bytes:
             return file.read()
 
 
+def check_return(res: requests.Response):
+    if res.status_code != 200:
+        data = res.json()
+        if "error" in data:
+            raise RuntimeError(data["error"])
+        else:
+            res.raise_for_status()
+
+
 class RemoteAPI:
     url = "https://localhost:5000/api/v%s/" % __version__
     user_name = "test"
@@ -44,27 +53,22 @@ class RemoteAPI:
 
     def get(self, url: str) -> requests.Response:
         res = requests.get(self.url + url, auth=(self.user_name, self.pass_word), verify=self.cert_path)
-        if res.status_code != 200:
-            data = res.json()
-            if "error" in data:
-                raise RuntimeError(data["error"])
-            else:
-                res.raise_for_status()
+        check_return(res)
         return res
 
     def put(self, url: str, data: Dict, **kwargs) -> requests.Response:
         res = requests.put(self.url + url, json=data, auth=(self.user_name, self.pass_word), verify=self.cert_path, **kwargs)
-        if res.status_code != 200:
-            data = res.json()
-            if "error" in data:
-                raise RuntimeError(data["error"])
-            else:
-                res.raise_for_status()
+        check_return(res)
         return res
 
     def post(self, url: str, data: Dict) -> requests.Response:
         res = requests.post(self.url + url, json=data, auth=(self.user_name, self.pass_word), verify=self.cert_path)
-        res.raise_for_status()
+        check_return(res)
+        return res
+
+    def delete(self, url: str) -> requests.Response:
+        res = requests.delete(self.url + url, auth=(self.user_name, self.pass_word), verify=self.cert_path)
+        check_return(res)
         return res
 
     @try_request
@@ -73,9 +77,18 @@ class RemoteAPI:
         return [Simulation.from_data(sim) for sim in res.json()]
 
     @try_request
-    def get_simulation(self, sim_id) -> Simulation:
+    def get_simulation(self, sim_id: str) -> Simulation:
         res = self.get("simulation/" + sim_id)
         return Simulation.from_data(res.json())
+
+    @try_request
+    def delete_simulation(self, sim_id: str) -> dict:
+        res = self.delete("simulation/" + sim_id)
+        return res.json()
+
+    @try_request
+    def publish_simulation(self, sim_id: str) -> None:
+        self.post("publish/" + sim_id, {})
 
     @try_request
     def push_simulation(self, simulation: Simulation) -> None:
