@@ -85,8 +85,7 @@ class Database:
         with contextlib.closing(self.engine.connect()) as con:
             trans = con.begin()
             for table in reversed(Base.metadata.sorted_tables):
-                # con.execute(table.delete())
-                con.execute(table.drop())
+                con.execute(table.delete())
             trans.commit()
 
     def list_simulations(self) -> List[Simulation]:

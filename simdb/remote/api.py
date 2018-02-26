@@ -4,6 +4,7 @@ from flask import g, Blueprint, request, jsonify, Response, current_app
 from werkzeug.utils import secure_filename
 from functools import wraps
 import uuid
+import gzip
 
 from .. import __version__
 from ..database.database import Database, DatabaseError
@@ -85,6 +86,15 @@ def get_file(file_uuid):
         return error(str(err))
 
 
+def save_file(file, path: str, compressed: bool=True):
+    if compressed:
+        with gzip.GzipFile(fileobj=file, mode="rb") as gzfile:
+            with open(path, "wb") as file:
+                file.write(gzfile.read())
+    else:
+        file.save(path)
+
+
 @api.route("/simulations", methods=["PUT"])
 @requires_auth
 def ingest_simulation():
@@ -98,19 +108,20 @@ def ingest_simulation():
     if "files" in request.files:
         files = request.files.getlist("files")
 
-        sim_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], simulation.uuid.hex)
-        os.makedirs(sim_dir, exist_ok=True)
+        staging_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], simulation.uuid.hex)
+        os.makedirs(staging_dir, exist_ok=True)
 
         for file in files:
             if file.filename:
                 file_uuid = uuid.UUID(file.filename)
                 sim_file = next(filter(lambda x: x.uuid == file_uuid, simulation.files))
                 file_name = secure_filename(sim_file.file_name)
-                path = os.path.join(sim_dir, file_name)
-                file.save(path)
+                path = os.path.join(staging_dir, file_name)
+                save_file(file, path)
                 checksum = sha1_checksum(path)
                 if sim_file.checksum != checksum:
                     return error("checksum failed for file %s" % repr(sim_file))
+                sim_file.directory = staging_dir
 
     try:
         get_db().insert_simulation(simulation)

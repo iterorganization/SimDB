@@ -1,9 +1,12 @@
 import os
 import requests
 import json
-from typing import List, Dict
+from typing import List, Dict, Callable
+import gzip
+import io
 
 from ..database.models import Simulation
+from .manifest import DataObject
 from .. import __version__
 
 
@@ -11,13 +14,26 @@ class FailedConnection(RuntimeError):
     pass
 
 
-def try_request(func):
+def try_request(func: Callable):
     def wrapped_func(*args, **kwargs):
         try:
             return func(*args, **kwargs)
         except requests.ConnectionError:
             raise FailedConnection("Failed to connect to remote API")
     return wrapped_func
+
+
+def read_bytes(path: str, compressed: bool=True) -> bytes:
+    if compressed:
+        with io.BytesIO() as buffer:
+            with gzip.GzipFile(fileobj=buffer, mode="wb") as gzfile:
+                with open(path, "rb") as file_in:
+                    gzfile.write(file_in.read())
+            buffer.seek(0)
+            return buffer.read()
+    else:
+        with open(path, "rb") as file:
+            return file.read()
 
 
 class RemoteAPI:
@@ -67,12 +83,11 @@ class RemoteAPI:
             ("data", ("data", json.dumps({"simulation": simulation.data(recurse=True)}), "text/json"))
         ]
         for file in simulation.files:
-            if file.type == "PATH":
+            if file.type == DataObject.Type.PATH:
                 path = os.path.join(file.directory, file.file_name)
-                files.append(("files", (file.uuid.hex, open(path, "rb"), "application/octet-stream")))
+                files.append(("files", (file.uuid.hex, read_bytes(path), "application/octet-stream")))
 
-        # self.put("simulations", {"simulation": simulation.data(recurse=True)}, files=files)
-        self.put("simulations", data={"simulation": simulation.data(recurse=True)}, files=files)
+        self.put("simulations", data={}, files=files)
 
     @try_request
     def reset_database(self) -> None:

@@ -189,7 +189,7 @@ class File(Base):
         self.file_name = os.path.basename(data_object.name)
         self.directory = os.path.dirname(data_object.name)
         self.checksum = data_object.checksum
-        self.type = data_object.type.name
+        self.type = data_object.type
         self.datetime = datetime.now()
 
     def __str__(self):
