@@ -48,6 +48,7 @@ class IngestCommand(Command):
     def run(self, args: IngestArgs):
         manifest = Manifest()
         manifest.load(args.manifest_file)
+        manifest.validate()
         simulation = Simulation(manifest)
         simulation.alias = args.alias
 

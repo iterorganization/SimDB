@@ -110,7 +110,7 @@ class ScriptsValidator(ListValuesValidator):
     Validator for the manifest scripts list.
     """
     section_name: str = "script"
-    expected_keys: Iterable = ("name",)
+    expected_keys: Iterable = ("path",)
 
 
 class OutputsValidator(ListValuesValidator):
@@ -119,6 +119,14 @@ class OutputsValidator(ListValuesValidator):
     """
     section_name: str = "output"
     expected_keys: Iterable = ("path", "imas")
+
+
+class MetaDataValidator(ListValuesValidator):
+    """
+    Validator for the manifest outputs list.
+    """
+    section_name: str = "metadata"
+    expected_keys: Iterable = ("path", "values")
 
 
 class DictValuesValidator(ManifestValidator):
@@ -156,6 +164,7 @@ class Manifest:
     Class to handle reading, writing & validation of simulation manifest files.
     """
     data: Union[dict, list, None] = None
+    metadata: dict = {}
 
     @classmethod
     def from_template(cls) -> "Manifest":
@@ -181,6 +190,13 @@ class Manifest:
             return [Sink(i) for i in self.data["outputs"]]
         return []
 
+    def _load_metadata(self, path):
+        try:
+            with open(path) as metadata_file:
+                self.metadata.update(yaml.load(metadata_file))
+        except yaml.YAMLError as err:
+            raise InvalidManifest("failed to read metadata file %s - %s" % (path, err))
+
     def load(self, file_path) -> None:
         """
         Load a manifest from the given file.
@@ -191,8 +207,15 @@ class Manifest:
         with open(file_path) as file:
             try:
                 self.data = yaml.load(file)
-            except yaml.YAMLError as error:
-                raise InvalidManifest("badly formatted manifest - " + str(error))
+            except yaml.YAMLError as err:
+                raise InvalidManifest("badly formatted manifest - " + str(err))
+
+        if "metadata" in self.data:
+            for item in self.data["metadata"]:
+                if "path" in item:
+                    self._load_metadata(item["path"])
+                elif "values" in item:
+                    self.metadata.update(item["values"])
 
     def save(self, file_path: str) -> None:
         """
@@ -225,6 +248,7 @@ class Manifest:
             "scripts": ScriptsValidator(),
             "outputs": OutputsValidator(),
             "workflow": WorkflowValidator(),
+            "metadata": MetaDataValidator(),
         }
 
         for section in self.data.keys():

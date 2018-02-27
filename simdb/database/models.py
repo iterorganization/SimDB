@@ -1,7 +1,7 @@
 from sqlalchemy import Column, ForeignKey, Table
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from sqlalchemy.types import TypeDecorator, CHAR, String, Integer, DateTime, Enum
+from sqlalchemy.types import TypeDecorator, CHAR, String, Integer, DateTime, Enum, Text
 from sqlalchemy.dialects import postgresql
 import uuid
 import os
@@ -95,10 +95,12 @@ class Simulation(Base):
     __tablename__ = "simulations"
     id = Column(Integer, primary_key=True)
     uuid = Column(UUID, nullable=False, unique=True)
+    # metadata_id = Column(Integer, ForeignKey(MetaData.id))
     alias = Column(String(250), nullable=True, unique=True)
     datetime = Column(DateTime, nullable=False)
     status = Column(String(20), nullable=False)
     files: List["File"] = relationship("File", secondary=simulation_files, backref="simulations")
+    meta = relationship("MetaData")
 
     def __init__(self, manifest: Union[Manifest, None]):
         """
@@ -111,14 +113,21 @@ class Simulation(Base):
         self.uuid = uuid.uuid1()
         self.datetime = datetime.now()
         self.status = "UNKNOWN"
+
         for source in manifest.inputs:
             if source.type == DataObject.Type.PATH:
                 self.files.append(File(source))
 
+        for key, value in manifest.metadata.items():
+            self.meta.append(MetaData(key, str(value)))
+
     def __str__(self):
         result = ""
         for name in ("uuid", "alias", "datetime", "status"):
-            result += "  %s:%s%s\n" % (name, ((10 - len(name)) * " "), getattr(self, name))
+            result += "%s:%s%s\n" % (name, ((10 - len(name)) * " "), getattr(self, name))
+        result += "metdata:\n"
+        for meta in self.meta:
+            result += "  %s: %s\n" % (meta.element, meta.value)
         result += "files:\n"
         for file in self.files:
             result += "%s\n" % file
@@ -132,6 +141,9 @@ class Simulation(Base):
         simulation.status = data["status"]
         if "files" in data:
             simulation.files = [File.from_data(d) for d in data["files"]]
+        if "metadata" in data:
+            for d in data["metadata"]:
+                simulation.meta.append(MetaData.from_data(d))
         return simulation
 
     def data(self, recurse: bool=False) -> dict:
@@ -141,20 +153,9 @@ class Simulation(Base):
             status=self.status,
         )
         if recurse:
-            data["files"] = [f.data() for f in self.files]
+            data["files"] = [f.data(recurse=True) for f in self.files]
+            data["metadata"] = [m.data(recurse=True) for m in self.meta]
         return data
-
-
-@inherit_docstrings
-class MetaData(Base):
-    """
-    Class to represent metadata in the database ORM.
-    """
-    __tablename__ = "metadata"
-    id = Column(Integer, primary_key=True)
-    uuid = Column(UUID, nullable=False)
-    element = Column(String(250), nullable=False)
-    value = Column(String(250), nullable=True)
 
 
 @inherit_docstrings
@@ -165,7 +166,6 @@ class File(Base):
     __tablename__ = "files"
     id = Column(Integer, primary_key=True)
     uuid = Column(UUID, nullable=False, unique=True)
-    metadata_id = Column(Integer, ForeignKey(MetaData.id))
     usage = Column(String(250), nullable=True)
     file_name = Column(String(250), nullable=False)
     directory = Column(String(250), nullable=True)
@@ -204,7 +204,7 @@ class File(Base):
         return result
 
     @classmethod
-    def from_data(cls, data: dict):
+    def from_data(cls, data: dict) -> "File":
         file = File(None)
         file.uuid = uuid.UUID(data["uuid"])
         file.usage = data["usage"]
@@ -232,5 +232,37 @@ class File(Base):
             access=self.access,
             embargo=self.embargo,
             datetime=self.datetime.isoformat(),
+        )
+        return data
+
+
+@inherit_docstrings
+class MetaData(Base):
+    """
+    Class to represent metadata in the database ORM.
+    """
+    __tablename__ = "metadata"
+    id = Column(Integer, primary_key=True)
+    sim_id = Column(Integer, ForeignKey(Simulation.id))
+    uuid = Column(UUID, nullable=False)
+    element = Column(String(250), nullable=False)
+    value = Column(Text, nullable=True)
+
+    def __init__(self, key: str, value: str):
+        self.uuid = uuid.uuid1()
+        self.element = key
+        self.value = value
+
+    @classmethod
+    def from_data(cls, data: dict) -> "MetaData":
+        meta = MetaData(data["element"], data["value"])
+        meta.uuid = data["uuid"]
+        return meta
+
+    def data(self, recurse: bool=False) -> dict:
+        data = dict(
+            uuid=self.uuid.hex,
+            element=self.element,
+            value=self.value,
         )
         return data
