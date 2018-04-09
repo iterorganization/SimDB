@@ -2,18 +2,10 @@ import os
 import argparse
 from typing import Any, Optional, List, Dict
 
-from ..database.database import Database
 from ..database.models import Simulation
 from .manifest import Manifest, InvalidManifest
 from .remote_api import RemoteAPI
-
-
-def get_db() -> Database:
-    db_dir = os.path.join(os.environ["HOME"], ".simdb")
-    os.makedirs(db_dir, exist_ok=True)
-    db_file = os.path.join(db_dir, "sim.db")
-    database = Database(Database.DBMS.SQLITE, file=db_file)
-    return database
+from ..utils import get_local_db
 
 
 class Command:
@@ -52,7 +44,7 @@ class IngestCommand(Command):
         simulation = Simulation(manifest)
         simulation.alias = args.alias
 
-        database = get_db()
+        database = get_local_db()
         database.insert_simulation(simulation)
 
 
@@ -87,7 +79,7 @@ class ListCommand(Command):
         verbose: bool
 
     def run(self, args: ListArgs) -> None:
-        database = get_db()
+        database = get_local_db()
         simulations = database.list_simulations()
         list_simulations(simulations, verbose=args.verbose)
 
@@ -102,7 +94,7 @@ class DeleteCommand(Command):
         sim_id: str
 
     def run(self, args: DeleteArgs):
-        database = get_db()
+        database = get_local_db()
         database.delete_simulation(args.sim_id)
 
 
@@ -118,18 +110,88 @@ def print_files(files: List[Dict]):
 class InfoCommand(Command):
     _help = "print information on ingested manifest"
 
-    def add_arguments(self, parser: argparse.ArgumentParser):
-        parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
-
     class InfoArgs(argparse.Namespace):
         sim_id: str
 
+    def add_arguments(self, parser: argparse.ArgumentParser):
+        parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
+
     def run(self, args: InfoArgs):
-        database = get_db()
+        database = get_local_db()
         simulation = database.get_simulation(args.sim_id)
         if simulation is None:
             raise Exception("Failed to find simulation: " + args.sim_id)
         print(str(simulation))
+
+
+class QueryCommand(Command):
+    _help = "query the simulations"
+
+    class QueryArgs(argparse.Namespace):
+        name: str
+        equals: Optional[str]
+        contains: Optional[str]
+        greater: Optional[int]
+        greater_equals: Optional[int]
+        less: Optional[int]
+        less_equals: Optional[int]
+
+    def add_arguments(self, parser: argparse.ArgumentParser):
+        parser.add_argument("--name", "-n", help="search name", required=True)
+        parser.add_argument("--equals", "-e", help="test equality")
+        parser.add_argument("--contains", "-c", help="test string contains")
+        parser.add_argument("--greater", "-gt", help="test greater than", type=int)
+        parser.add_argument("--greater-equals", "-ge", help="test greater than or equals", type=int)
+        parser.add_argument("--less", "-lt", help="test less than", type=int)
+        parser.add_argument("--less-equals", "-le", help="test less than or equals", type=int)
+
+    def run(self, args: QueryArgs):
+        if not any([args.equals, args.contains, args.greater, args.greater_equals, args.less, args.less_equals]):
+            raise argparse.ArgumentTypeError("At least one test must be provided")
+        db = get_local_db()
+        simulations = db.query_meta(args.name, equals=args.equals, contains=args.contains)
+        for simulation in simulations:
+            print(str(simulation))
+
+
+class PushCommand(Command):
+    _help = "push the simulation to the remote management system"
+
+    class PushArgs(argparse.Namespace):
+        sim_id: str
+
+    def add_arguments(self, parser: argparse.ArgumentParser):
+        parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
+
+    def run(self, args: PushArgs):
+        api = RemoteAPI()
+        database = get_local_db()
+        simulation = database.get_simulation(args.sim_id)
+        if simulation is None:
+            raise Exception("Failed to find simulation: " + args.sim_id)
+        api.push_simulation(simulation)
+        print("success")
+
+
+class ModifyCommand(Command):
+    _help = "modify the ingested simulation"
+
+    class ModifyArgs(argparse.Namespace):
+        sim_id: str
+        alias: str
+
+    def add_arguments(self, parser: argparse.ArgumentParser):
+        parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
+        parser.add_argument("--alias", help="new alias")
+
+    def run(self, args: ModifyArgs):
+        if args.alias is not None:
+            database = get_local_db()
+            simulation = database.get_simulation(args.sim_id)
+            simulation.alias = args.alias
+            database.session.commit()
+        else:
+            print("nothing to do")
 
 
 class SimulationCommand(Command):
@@ -139,56 +201,57 @@ class SimulationCommand(Command):
         command_parsers = parser.add_subparsers(title="action", dest="action")
         command_parsers.required = True
 
-        class PushCommand(Command):
-            _help = "push the simulation to the remote management system"
-
-            def add_arguments(self, parser: argparse.ArgumentParser):
-                parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
-
-            def run(self, args: Any):
-                pass
-
-        class ModifyCommand(Command):
-            _help = "modify the ingested simulation"
-
-            def add_arguments(self, parser: argparse.ArgumentParser):
-                parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
-                parser.add_argument("--alias", help="new alias")
-
-            def run(self, args: Any):
-                pass
-
         commands = {
             "push": PushCommand(),
             "modify": ModifyCommand(),
+            "list": ListCommand(),
+            "info": InfoCommand(),
+            "delete": DeleteCommand(),
+            "query": QueryCommand(),
         }
 
         for name, command in commands.items():
             sub_parser = command_parsers.add_parser(name, help=command.help)
             command.add_arguments(sub_parser)
 
-    class SimulationArgs(argparse.Namespace):
+    class SimulationArgs(PushCommand.PushArgs, ModifyCommand.ModifyArgs, ListCommand.ListArgs, DeleteCommand.DeleteArgs,
+                         InfoCommand.InfoArgs, QueryCommand.QueryArgs):
         action: str
-        sim_id: str
-        alias: str
 
     def run(self, args: SimulationArgs):
         if args.action == "push":
-            api = RemoteAPI()
-            database = get_db()
-            simulation = database.get_simulation(args.sim_id)
-            if simulation is None:
-                raise Exception("Failed to find simulation: " + args.sim_id)
-            api.push_simulation(simulation)
-            print("success")
+            PushCommand().run(args)
         elif args.action == "modify":
-            if args.alias is not None:
-                database = get_db()
-                simulation = database.get_simulation(args.sim_id)
-                simulation.alias = args.alias
-                database.session.commit()
-            else:
-                print("nothing to do")
+            ModifyCommand().run(args)
+        elif args.action == "list":
+            ListCommand().run(args)
+        elif args.action == "info":
+            InfoCommand().run(args)
+        elif args.action == "delete":
+            DeleteCommand().run(args)
+        elif args.action == "query":
+            QueryCommand().run(args)
+
+
+class RemoteDatabaseCommand(Command):
+    _help = "manage remote simulation database file"
+
+    def add_arguments(self, parser: argparse.ArgumentParser):
+        parser.add_argument("remote_command", choices=["clear"],
+                            help="clear all ingested simulations from the database")
+
+    def run(self, args: argparse.Namespace):
+        pass
+
+
+class RemoteSimulationCommand(Command):
+    _help = "publish staged simulation"
+
+    def add_arguments(self, parser: argparse.ArgumentParser):
+        parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
+
+    def run(self, args: Any):
+        pass
 
 
 class RemoteCommand(Command):
@@ -200,25 +263,6 @@ class RemoteCommand(Command):
         command_parsers.required = True
 
         parser.add_argument("--verbose", "-v", action="store_true", help="print more verbose output")
-
-        class RemoteDatabaseCommand(Command):
-            _help = "manage remote simulation database file"
-
-            def add_arguments(self, parser: argparse.ArgumentParser):
-                parser.add_argument("remote_command", choices=["clear"],
-                                    help="clear all ingested simulations from the database")
-
-            def run(self, args: argparse.Namespace):
-                pass
-
-        class RemoteSimulationCommand(Command):
-            _help = "publish staged simulation"
-
-            def add_arguments(self, parser: argparse.ArgumentParser):
-                parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
-
-            def run(self, args: Any):
-                pass
 
         commands = {
             "list": ListCommand(),
@@ -292,5 +336,5 @@ class DatabaseCommand(Command):
         parser.add_argument("clear", help="clear all ingested simulations from the database")
 
     def run(self, args: argparse.Namespace):
-        database = get_db()
+        database = get_local_db()
         database.reset()

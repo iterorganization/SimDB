@@ -1,7 +1,7 @@
 from sqlalchemy import Column, ForeignKey, Table
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from sqlalchemy.types import TypeDecorator, CHAR, String, Integer, DateTime, Enum, Text
+from sqlalchemy.types import TypeDecorator, CHAR, String, Integer, DateTime, Enum, Text, Float
 from sqlalchemy.dialects import postgresql
 import uuid
 import os
@@ -264,5 +264,35 @@ class MetaData(Base):
             uuid=self.uuid.hex,
             element=self.element,
             value=self.value,
+        )
+        return data
+
+
+@inherit_docstrings
+class ValidationParameter(Base):
+    """
+    Class to represent validation parameters in the database ORM.
+    """
+    __tablename__ = "validation_parameters"
+    id = Column(Integer, primary_key=True)
+    element = Column(Text, nullable=False)
+    name = Column(String(50), nullable=False)
+    value = Column(Float, nullable=False)
+
+    def __init__(self, element: str, name: str, value: float):
+        self.element = element
+        self.name = name
+        self.value = value
+
+    @classmethod
+    def from_data(cls, data: dict) -> "ValidationParameter":
+        param = ValidationParameter(data["element"], data["name"], data["value"])
+        return param
+
+    def data(self, recurse: bool=False) -> dict:
+        data = dict(
+            element=self.element,
+            name=self.name,
+            value=self.value
         )
         return data

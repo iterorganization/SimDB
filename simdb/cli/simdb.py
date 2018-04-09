@@ -13,12 +13,9 @@ class SimCLI:
 
     commands = {
         "ingest": IngestCommand(),
-        "list": ListCommand(),
-        "delete": DeleteCommand(),
         "simulation": SimulationCommand(),
         "manifest": ManifestCommand(),
         "database": DatabaseCommand(),
-        "info": InfoCommand(),
         "remote": RemoteCommand(),
     }
 

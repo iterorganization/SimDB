@@ -10,7 +10,7 @@ from enum import Enum, auto
 
 from simdb.cli.manifest import Manifest
 
-from .models import Base, Simulation, File
+from .models import Base, Simulation, File, MetaData, ValidationParameter
 
 
 class DatabaseError(RuntimeError):
@@ -125,6 +125,22 @@ class Database:
         self.session.commit()
         return simulation
 
+    def query_meta(self, name, equals=None, contains=None) -> List[Simulation]:
+        """
+        Query the metadata and return matching simulations.
+
+        :return:
+        """
+        query = self.session.query(Simulation).join(MetaData, Simulation.meta)
+        if equals:
+            query = query.filter(MetaData.element == name, MetaData.value == equals)
+            print(query.all())
+            raise SystemExit()
+        if contains:
+            query = query.filter(MetaData.element == name, MetaData.value.like("%{}%".format(contains)))
+
+        return query.all()
+
     def get_simulation(self, sim_ref: str) -> Simulation:
         """
         Get the specified simulation from the database.
@@ -160,6 +176,28 @@ class Database:
         self.session.commit()
         return file
 
+    def get_metadata(self, sim_ref: str, name: str) -> List[str]:
+        """
+        Get all the metadata for the given simulation with the given key.
+
+        :param sim_ref: the simulation identifier
+        :param name: the metadata key
+        :return: The  matching MetaData.
+        """
+        try:
+            sim_uuid = uuid.UUID(sim_ref)
+            simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
+        except ValueError:
+            sim_alias = sim_ref
+            simulation = self.session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
+        if simulation is None:
+            raise DatabaseError("Failed to find simulation: " + sim_ref)
+        self.session.commit()
+        return [m.value for m in simulation.meta.filter_by(element=name).all()]
+
+    def get_controlled_vocab(self, element):
+        return []
+
     def insert_simulation(self, simulation: Simulation) -> None:
         """
         Insert the given simulation into the database.
@@ -173,3 +211,23 @@ class Database:
         except DBAPIError as err:
             self.session.rollback()
             raise DatabaseError(str(err.orig))
+
+    def get_validation_parameters(self, path: str) -> dict:
+        params = self.session.query(ValidationParameter).filter_by(element=path).all()
+        data = {}
+        for param in params:
+            data[param.name] = param.value
+        return data
+
+    def insert_validation_parameters(self, path: str, params: dict) -> None:
+        try:
+            for k, v in params.items():
+                param = ValidationParameter(path, k, v)
+                self.session.add(param)
+            self.session.commit()
+        except DBAPIError as err:
+            self.session.rollback()
+            raise DatabaseError(str(err.orig))
+
+    def put_validation_result(self, uuid, path, test_pass, tests, results, stats):
+        pass
