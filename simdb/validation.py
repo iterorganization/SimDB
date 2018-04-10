@@ -1,3 +1,5 @@
+from typing import Dict, List, AnyStr
+
 from .database.database import get_local_db
 from .imas.utils import is_missing
 
@@ -6,7 +8,15 @@ class ValidationError(Exception):
     pass
 
 
-def verify_metadata(imas_meta: dict, uuid: str) -> None:
+def get_metadata(meta: Dict, name: AnyStr) -> List[str]:
+    val = meta[name]
+    if type(val) == list:
+        return val
+    else:
+        return [val]
+
+
+def verify_metadata(summary_ids: dict, meta: dict) -> None:
     # Match DC element with an IDS entity
     #
     # title
@@ -46,19 +56,19 @@ def verify_metadata(imas_meta: dict, uuid: str) -> None:
 
     db = get_local_db()
 
-    creators = db.get_metadata(uuid, 'creator')  # List object
+    creators = get_metadata(meta, 'creator')  # List object
     if creators:
-        if not is_missing(imas_meta["provider"]):
-            if (imas_meta["provider"] not in creators) and not is_missing(imas_meta["user"]):
-                if imas_meta["user"] not in creators:
+        if not is_missing(summary_ids["provider"]):
+            if (summary_ids["provider"] not in creators) and not is_missing(summary_ids["user"]):
+                if summary_ids["user"] not in creators:
                     raise ValidationError("dataset_description.ids_properties.provider"
                                           " or dataset_description.data_entry.user inconsistent with metadata")
         else:
-            raise ValidationError("dataset_description.ids_properties.provider not found in IDS")
+            raise ValidationError("dataset_description.ids_properties.provider not found in summary IDS")
     else:
         raise ValidationError("no creator provided in metadata")
 
-    subjects = db.get_metadata(uuid, "subject")  # List object
+    subjects = get_metadata(meta, "subject")  # List object
     if subjects:
         cv = db.get_controlled_vocab("subject")
         if cv:
@@ -69,15 +79,15 @@ def verify_metadata(imas_meta: dict, uuid: str) -> None:
     else:
         raise ValidationError("no subject provided in metadata")
 
-    description = db.get_metadata(uuid, 'description')
+    description = get_metadata(meta, 'description')
     if not description:
         raise ValidationError("do description provided in metadata")
 
-    publisher = db.get_metadata(uuid, 'publisher')
+    publisher = get_metadata(meta, 'publisher')
     if not publisher:
         raise ValidationError("no publisher provided in metadata")
 
-    date = db.get_metadata(uuid, 'date')
+    date = get_metadata(meta, 'date')
     if len(date) == 1:
         if date[0] != imas_meta["creation_date"]:
             raise ValidationError("dataset_description.ids_properties.creation_date inconsistent with metadata")

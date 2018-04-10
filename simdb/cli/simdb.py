@@ -12,7 +12,6 @@ class SimCLI:
     """
 
     commands = {
-        "ingest": IngestCommand(),
         "simulation": SimulationCommand(),
         "manifest": ManifestCommand(),
         "database": DatabaseCommand(),

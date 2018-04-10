@@ -159,6 +159,17 @@ class WorkflowValidator(DictValuesValidator):
     required_keys: Iterable = ("name", "git", "branch", "commit", "codes")
 
 
+def _update_dict(old: dict, new: dict) -> None:
+    for k, v in new.items():
+        if k in old:
+            if type(old[k]) == list:
+                old[k].append(v)
+            else:
+                old[k] = [old[k], v]
+        else:
+            old[k] = v
+
+
 class Manifest:
     """
     Class to handle reading, writing & validation of simulation manifest files.
@@ -193,7 +204,7 @@ class Manifest:
     def _load_metadata(self, path):
         try:
             with open(path) as metadata_file:
-                self.metadata.update(yaml.load(metadata_file))
+                _update_dict(self.metadata, yaml.load(metadata_file))
         except yaml.YAMLError as err:
             raise InvalidManifest("failed to read metadata file %s - %s" % (path, err))
 
@@ -215,7 +226,7 @@ class Manifest:
                 if "path" in item:
                     self._load_metadata(item["path"])
                 elif "values" in item:
-                    self.metadata.update(item["values"])
+                    _update_dict(self.metadata, item["values"])
 
     def save(self, file_path: str) -> None:
         """

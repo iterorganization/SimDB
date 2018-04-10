@@ -8,6 +8,7 @@ from .manifest import Manifest, InvalidManifest
 from .remote_api import RemoteAPI
 from ..database.database import get_local_db
 from ..provenance import create_provenance_file, read_provenance_file
+from ..validation import verify_metadata
 
 
 def required_argument(args: Any, command: str, argument: str):
@@ -50,10 +51,10 @@ class QueryCommand(Command):
         self._query_type = query_type
 
     def add_arguments(self, parser: argparse.ArgumentParser):
-        parser.add_argument("--verbose", "-v", action="store_true", help="print more verbose output")
-        parser.add_argument("--name", "-n", help="search name", required=True)
-        parser.add_argument("--equals", "-e", help="test equality")
-        parser.add_argument("--contains", "-c", help="test string contains")
+        parser.add_argument("name", help="search name")
+        parser.add_argument("-v", "--verbose", action="store_true", help="print more verbose output")
+        parser.add_argument("-e", "--equals", help="test equality")
+        parser.add_argument("-c", "--contains", help="test string contains")
         # parser.add_argument("--greater", "-gt", help="test greater than", type=int)
         # parser.add_argument("--greater-equals", "-ge", help="test greater than or equals", type=int)
         # parser.add_argument("--less", "-lt", help="test less than", type=int)
@@ -152,11 +153,13 @@ class IngestCommand(Command):
         manifest = Manifest()
         manifest.load(args.manifest_file)
         manifest.validate()
+        verify_metadata({}, manifest.metadata)
+
         simulation = Simulation(manifest)
         simulation.alias = args.alias
 
-        database = get_local_db()
-        database.insert_simulation(simulation)
+        db = get_local_db()
+        db.insert_simulation(simulation)
 
 
 def list_simulations(simulations: List[Simulation], verbose: bool=False) -> None:
@@ -190,8 +193,8 @@ class ListCommand(Command):
         verbose: bool
 
     def run(self, args: ListArgs) -> None:
-        database = get_local_db()
-        simulations = database.list_simulations()
+        db = get_local_db()
+        simulations = db.list_simulations()
         list_simulations(simulations, verbose=args.verbose)
 
 
@@ -205,8 +208,8 @@ class DeleteCommand(Command):
         sim_id: str
 
     def run(self, args: DeleteArgs):
-        database = get_local_db()
-        database.delete_simulation(args.sim_id)
+        db = get_local_db()
+        db.delete_simulation(args.sim_id)
 
 
 def print_files(files: List[Dict]):
@@ -228,8 +231,8 @@ class InfoCommand(Command):
         parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
 
     def run(self, args: InfoArgs):
-        database = get_local_db()
-        simulation = database.get_simulation(args.sim_id)
+        db = get_local_db()
+        simulation = db.get_simulation(args.sim_id)
         if simulation is None:
             raise Exception("Failed to find simulation: " + args.sim_id)
         print(str(simulation))
@@ -246,8 +249,8 @@ class PushCommand(Command):
 
     def run(self, args: PushArgs):
         api = RemoteAPI()
-        database = get_local_db()
-        simulation = database.get_simulation(args.sim_id)
+        db = get_local_db()
+        simulation = db.get_simulation(args.sim_id)
         if simulation is None:
             raise Exception("Failed to find simulation: " + args.sim_id)
         api.push_simulation(simulation)
@@ -267,10 +270,10 @@ class ModifyCommand(Command):
 
     def run(self, args: ModifyArgs):
         if args.alias is not None:
-            database = get_local_db()
-            simulation = database.get_simulation(args.sim_id)
+            db = get_local_db()
+            simulation = db.get_simulation(args.sim_id)
             simulation.alias = args.alias
-            database.session.commit()
+            db.session.commit()
         else:
             print("nothing to do")
 
@@ -278,20 +281,21 @@ class ModifyCommand(Command):
 class SimulationCommand(Command):
     _help = "manage ingested simulations"
 
+    _commands = {
+        "push": PushCommand(),
+        "modify": ModifyCommand(),
+        "list": ListCommand(),
+        "info": InfoCommand(),
+        "delete": DeleteCommand(),
+        "query": QueryCommand(),
+        "ingest": IngestCommand(),
+    }
+
     def add_arguments(self, parser: argparse.ArgumentParser):
         command_parsers = parser.add_subparsers(title="action", dest="action")
         command_parsers.required = True
 
-        commands = {
-            "push": PushCommand(),
-            "modify": ModifyCommand(),
-            "list": ListCommand(),
-            "info": InfoCommand(),
-            "delete": DeleteCommand(),
-            "query": QueryCommand(),
-        }
-
-        for name, command in commands.items():
+        for name, command in self._commands.items():
             sub_parser = command_parsers.add_parser(name, help=command.help)
             command.add_arguments(sub_parser)
 
@@ -300,18 +304,7 @@ class SimulationCommand(Command):
         action: str
 
     def run(self, args: SimulationArgs):
-        if args.action == "push":
-            PushCommand().run(args)
-        elif args.action == "modify":
-            ModifyCommand().run(args)
-        elif args.action == "list":
-            ListCommand().run(args)
-        elif args.action == "info":
-            InfoCommand().run(args)
-        elif args.action == "delete":
-            DeleteCommand().run(args)
-        elif args.action == "query":
-            QueryCommand().run(args)
+        self._commands[args.action].run(args)
 
 
 class RemoteDatabaseCommand(Command):
@@ -319,7 +312,7 @@ class RemoteDatabaseCommand(Command):
 
     def add_arguments(self, parser: argparse.ArgumentParser):
         parser.add_argument("remote_command", choices=["clear"],
-                            help="clear all ingested simulations from the database")
+                            help="clear all ingested simulations from the db")
 
     def run(self, args: argparse.Namespace):
         pass
@@ -343,7 +336,7 @@ class RemoteCommand(Command):
         command_parsers = parser.add_subparsers(title="action", dest="action")
         command_parsers.required = True
 
-        parser.add_argument("--verbose", "-v", action="store_true", help="print more verbose output")
+        parser.add_argument("-v", "--verbose", action="store_true", help="print more verbose output")
 
         commands = {
             "list": ListCommand(),
@@ -419,8 +412,8 @@ class DatabaseCommand(Command):
             pass
 
         def run(self, args: Any):
-            database = get_local_db()
-            database.reset()
+            db = get_local_db()
+            db.reset()
 
     class ControlledVocabularyCommand(Command):
         _help = "manage controlled vocabulary"
