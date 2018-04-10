@@ -49,3 +49,8 @@ def get_provenance() -> dict:
 def create_provenance_file(file_name: str) -> None:
     with open(file_name, 'w') as file:
         yaml.dump(get_provenance(), file, default_flow_style=False)
+
+
+def read_provenance_file(file_name: str) -> dict:
+    with open(file_name, 'r') as file:
+        return yaml.load(file)

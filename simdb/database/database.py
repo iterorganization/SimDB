@@ -1,6 +1,6 @@
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.exc import DBAPIError
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, func
 import sqlalchemy
 import uuid
 import os
@@ -8,7 +8,7 @@ import contextlib
 from typing import Optional, List
 from enum import Enum, auto
 
-from .models import Base, Simulation, File, MetaData, ValidationParameter
+from .models import Base, Simulation, File, MetaData, ValidationParameter, Provenance, ProvenanceMetaData
 
 
 class DatabaseError(RuntimeError):
@@ -131,11 +131,11 @@ class Database:
         """
         query = self.session.query(Simulation).join(MetaData, Simulation.meta)
         if equals:
-            query = query.filter(MetaData.element == name, MetaData.value == equals)
-            print(query.all())
-            raise SystemExit()
+            query = query.filter(MetaData.element == name,
+                                 func.lower(MetaData.value) == equals.lower())
         if contains:
-            query = query.filter(MetaData.element == name, MetaData.value.like("%{}%".format(contains)))
+            query = query.filter(MetaData.element == name,
+                                 MetaData.value.ilike("%{}%".format(contains)))
 
         return query.all()
 
@@ -196,6 +196,42 @@ class Database:
     def get_controlled_vocab(self, element):
         return []
 
+    def get_provenance(self, sim_ref: str) -> Provenance:
+        """
+        Get all the provenance for the given simulation.
+
+        :param sim_ref: the simulation identifier
+        :return: The  matching MetaData.
+        """
+        try:
+            sim_uuid = uuid.UUID(sim_ref)
+            simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
+        except ValueError:
+            sim_alias = sim_ref
+            simulation = self.session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
+        if simulation is None:
+            raise DatabaseError("Failed to find simulation: " + sim_ref)
+        self.session.commit()
+        return simulation.provenance
+
+    def query_provenance(self, name, equals=None, contains=None) -> List[Simulation]:
+        """
+        Query the provenance metadata and return matching simulations.
+
+        :return:
+        """
+        query = self.session.query(Simulation)\
+            .join(Provenance, Simulation.provenance)\
+            .join(ProvenanceMetaData, Provenance.meta)
+        if equals:
+            query = query.filter(ProvenanceMetaData.element == name,
+                                 func.lower(ProvenanceMetaData.value) == equals.lower())
+        if contains:
+            query = query.filter(ProvenanceMetaData.element == name,
+                                 ProvenanceMetaData.value.ilike("%{}%".format(contains)))
+
+        return query.all()
+
     def insert_simulation(self, simulation: Simulation) -> None:
         """
         Insert the given simulation into the database.
@@ -209,6 +245,27 @@ class Database:
         except DBAPIError as err:
             self.session.rollback()
             raise DatabaseError(str(err.orig))
+
+    def insert_provenance(self, sim_ref: str, provenance: dict) -> None:
+        """
+        Insert the given simulation into the database.
+
+        :param simulation: The Simulation to insert.
+        :return: None
+        """
+        try:
+            sim_uuid = uuid.UUID(sim_ref)
+            simulation: Simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
+        except ValueError:
+            sim_alias = sim_ref
+            simulation: Simulation = self.session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
+        if simulation is None:
+            raise DatabaseError("Failed to find simulation: " + sim_ref)
+        if not simulation.provenance:
+            simulation.provenance = Provenance(provenance)
+        else:
+            simulation.provenance.add_metadata(provenance)
+        self.session.commit()
 
     def get_validation_parameters(self, path: str) -> dict:
         params = self.session.query(ValidationParameter).filter_by(element=path).all()

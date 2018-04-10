@@ -101,6 +101,7 @@ class Simulation(Base):
     status = Column(String(20), nullable=False)
     files: List["File"] = relationship("File", secondary=simulation_files, backref="simulations")
     meta = relationship("MetaData")
+    provenance = relationship("Provenance", uselist=False)
 
     def __init__(self, manifest: Union[Manifest, None]):
         """
@@ -310,16 +311,29 @@ class Provenance(Base):
     meta = relationship("ProvenanceMetaData")
     signals = relationship("ProvenanceSignal")
 
-    def __init__(self, sim_id: int, metadata: dict):
+    def __init__(self, metadata: dict):
         self.uuid = uuid.uuid1()
-        self.sim_id = sim_id
+        self.add_metadata(metadata)
+        self.add_signals()
 
+    def add_metadata(self, metadata: dict):
         for key, value in metadata.items():
-            self.meta.append(ProvenanceMetaData(key, str(value)))
+            if type(value) == dict:
+                for k, v in value.items():
+                    if type(v) == list:
+                        for i in v:
+                            self.meta.append(ProvenanceMetaData(key + '.' + k, str(i)))
+                    else:
+                        self.meta.append(ProvenanceMetaData(key + '.' + k, str(v)))
+            else:
+                self.meta.append(ProvenanceMetaData(key, str(value)))
+
+    def add_signals(self):
+        pass
 
     @classmethod
     def from_data(cls, data: dict) -> "Provenance":
-        prov = Provenance(data["sim_id"], data["meta"])
+        prov = Provenance(data["meta"])
         prov.uuid = data["uuid"]
         return prov
 
@@ -332,6 +346,15 @@ class Provenance(Base):
         if recurse:
             data["meta"] = [m.data(recurse=True) for m in self.meta]
         return data
+
+    def __str__(self):
+        s = "MetaData:\n"
+        for meta in self.meta:
+            s += ("  " + str(meta))
+        s += "Signals:\n"
+        for signal in self.signals:
+            s += ("  " + str(signal))
+        return s
 
 
 @inherit_docstrings
@@ -364,6 +387,10 @@ class ProvenanceMetaData(Base):
             value=self.value,
         )
         return data
+
+    def __str__(self):
+        s = "{}: {}\n".format(self.element, self.value)
+        return s
 
 
 @inherit_docstrings

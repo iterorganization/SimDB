@@ -6,7 +6,12 @@ from ..database.models import Simulation
 from .manifest import Manifest, InvalidManifest
 from .remote_api import RemoteAPI
 from ..database.database import get_local_db
-from ..provenance import create_provenance_file
+from ..provenance import create_provenance_file, read_provenance_file
+
+
+def required_argument(args: Any, command: str, argument: str):
+    if not getattr(args, argument):
+        raise argparse.ArgumentError(None, "--{} name must be provided with {} command".format(argument, command))
 
 
 class Command:
@@ -23,25 +28,109 @@ class Command:
         raise NotImplementedError
 
 
+class QueryCommand(Command):
+    _help = "query the simulations"
+
+    class QueryArgs(argparse.Namespace):
+        verbose: bool
+        name: str
+        equals: Optional[str]
+        contains: Optional[str]
+        # greater: Optional[int]
+        # greater_equals: Optional[int]
+        # less: Optional[int]
+        # less_equals: Optional[int]
+
+    def add_arguments(self, parser: argparse.ArgumentParser):
+        parser.add_argument("--verbose", "-v", action="store_true", help="print more verbose output")
+        parser.add_argument("--name", "-n", help="search name", required=True)
+        parser.add_argument("--equals", "-e", help="test equality")
+        parser.add_argument("--contains", "-c", help="test string contains")
+        # parser.add_argument("--greater", "-gt", help="test greater than", type=int)
+        # parser.add_argument("--greater-equals", "-ge", help="test greater than or equals", type=int)
+        # parser.add_argument("--less", "-lt", help="test less than", type=int)
+        # parser.add_argument("--less-equals", "-le", help="test less than or equals", type=int)
+
+    def run(self, args: QueryArgs, query_type="meta"):
+        # if not any([args.equals, args.contains, args.greater, args.greater_equals, args.less, args.less_equals]):
+        if not any([args.equals, args.contains]):
+            raise argparse.ArgumentTypeError("At least one test must be provided")
+        db = get_local_db()
+        if query_type == "meta":
+            simulations = db.query_meta(args.name, equals=args.equals, contains=args.contains)
+        elif query_type == "provenance":
+            simulations = db.query_provenance(args.name, equals=args.equals, contains=args.contains)
+        else:
+            raise Exception("Unknown query type " + query_type)
+        list_simulations(simulations, verbose=args.verbose)
+
+
 class ProvenanceCommand(Command):
     _help = "provenance tools"
 
-    def add_arguments(self, parser: argparse.ArgumentParser):
-        parser.add_argument("prov_command", choices=["create"],
-                            help="clear all ingested simulations from the database")
-        parser.add_argument("--file", help="file name to create")
+    class CreateCommand(Command):
+        def add_arguments(self, parser: argparse.ArgumentParser):
+            parser.add_argument("file", help="provenance file")
 
-    class ProvenanceArgs(argparse.Namespace):
-        prov_command: str
+        def run(self, args: Any):
+            create_provenance_file(args.file)
+
+    class IngestCommand(Command):
+        def add_arguments(self, parser: argparse.ArgumentParser):
+            parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
+            parser.add_argument("file", help="provenance file")
+
+        def run(self, args: Any):
+            prov = read_provenance_file(args.file)
+            db = get_local_db()
+            db.insert_provenance(args.sim_id, prov)
+
+    class PrintCommand(Command):
+        def add_arguments(self, parser: argparse.ArgumentParser):
+            parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
+
+        def run(self, args: Any):
+            required_argument(args, "ingest", "sim_id")
+            db = get_local_db()
+            prov = db.get_provenance(args.sim_id)
+            print(str(prov))
+
+    _create_command = CreateCommand()
+    _ingest_command = IngestCommand()
+    _print_command = PrintCommand()
+    _query_command = QueryCommand()
+
+    def add_arguments(self, parser: argparse.ArgumentParser):
+        command_parsers = parser.add_subparsers(title="action", dest="action")
+        command_parsers.required = True
+
+        commands = {
+            "create": self._create_command,
+            "ingest": self._ingest_command,
+            "query": self._query_command,
+            "print": self._print_command,
+        }
+
+        for name, command in commands.items():
+            sub_parser = command_parsers.add_parser(name, help=command.help)
+            command.add_arguments(sub_parser)
+
+    class ProvenanceArgs(QueryCommand.QueryArgs):
+        action: str
         file: Optional[str]
+        sim_id: Optional[str]
 
     def run(self, args: ProvenanceArgs):
-        if args.prov_command == "create":
-            if not args.file:
-                raise argparse.ArgumentTypeError("File name must be provided with create")
-            create_provenance_file(args.file)
+        if args.action == "create":
+            self._create_command.run(args)
+        elif args.action == "ingest":
+            self._ingest_command.run(args)
+        elif args.action == "print":
+            self._print_command.run(args)
+        elif args.action == "query":
+            self._query_command.run(args, "provenance")
         else:
-            raise Exception("Unknown command " + args.prov_command)
+            raise Exception("Unknown command " + args.action)
 
 
 class IngestCommand(Command):
@@ -144,36 +233,6 @@ class InfoCommand(Command):
         if simulation is None:
             raise Exception("Failed to find simulation: " + args.sim_id)
         print(str(simulation))
-
-
-class QueryCommand(Command):
-    _help = "query the simulations"
-
-    class QueryArgs(argparse.Namespace):
-        name: str
-        equals: Optional[str]
-        contains: Optional[str]
-        greater: Optional[int]
-        greater_equals: Optional[int]
-        less: Optional[int]
-        less_equals: Optional[int]
-
-    def add_arguments(self, parser: argparse.ArgumentParser):
-        parser.add_argument("--name", "-n", help="search name", required=True)
-        parser.add_argument("--equals", "-e", help="test equality")
-        parser.add_argument("--contains", "-c", help="test string contains")
-        parser.add_argument("--greater", "-gt", help="test greater than", type=int)
-        parser.add_argument("--greater-equals", "-ge", help="test greater than or equals", type=int)
-        parser.add_argument("--less", "-lt", help="test less than", type=int)
-        parser.add_argument("--less-equals", "-le", help="test less than or equals", type=int)
-
-    def run(self, args: QueryArgs):
-        if not any([args.equals, args.contains, args.greater, args.greater_equals, args.less, args.less_equals]):
-            raise argparse.ArgumentTypeError("At least one test must be provided")
-        db = get_local_db()
-        simulations = db.query_meta(args.name, equals=args.equals, contains=args.contains)
-        for simulation in simulations:
-            print(str(simulation))
 
 
 class PushCommand(Command):
