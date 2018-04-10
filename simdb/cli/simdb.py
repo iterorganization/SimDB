@@ -2,8 +2,8 @@ import argparse
 import argcomplete
 from typing import List
 
-from .commands import IngestCommand, ListCommand, DeleteCommand, SimulationCommand, ManifestCommand, DatabaseCommand,\
-    InfoCommand, RemoteCommand
+from .commands import IngestCommand, SimulationCommand, ManifestCommand, DatabaseCommand, RemoteCommand,\
+    ProvenanceCommand
 
 
 class SimCLI:
@@ -17,6 +17,7 @@ class SimCLI:
         "manifest": ManifestCommand(),
         "database": DatabaseCommand(),
         "remote": RemoteCommand(),
+        "provenance": ProvenanceCommand(),
     }
 
     def run(self, args: List[str]) -> None:

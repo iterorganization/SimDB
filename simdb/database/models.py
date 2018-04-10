@@ -296,3 +296,114 @@ class ValidationParameter(Base):
             value=self.value
         )
         return data
+
+
+@inherit_docstrings
+class Provenance(Base):
+    """
+    Class to represent provenance in the database ORM.
+    """
+    __tablename__ = "provenance"
+    id = Column(Integer, primary_key=True)
+    uuid = Column(UUID, nullable=False)
+    sim_id = Column(Integer, ForeignKey(Simulation.id))
+    meta = relationship("ProvenanceMetaData")
+    signals = relationship("ProvenanceSignal")
+
+    def __init__(self, sim_id: int, metadata: dict):
+        self.uuid = uuid.uuid1()
+        self.sim_id = sim_id
+
+        for key, value in metadata.items():
+            self.meta.append(ProvenanceMetaData(key, str(value)))
+
+    @classmethod
+    def from_data(cls, data: dict) -> "Provenance":
+        prov = Provenance(data["sim_id"], data["meta"])
+        prov.uuid = data["uuid"]
+        return prov
+
+    def data(self, recurse: bool = False) -> dict:
+        data = dict(
+            uuid=self.uuid.hex,
+            element=self.element,
+            value=self.value,
+        )
+        if recurse:
+            data["meta"] = [m.data(recurse=True) for m in self.meta]
+        return data
+
+
+@inherit_docstrings
+class ProvenanceMetaData(Base):
+    """
+    Class to represent provenance metadata in the database ORM.
+    """
+    __tablename__ = "provenance_metadata"
+    id = Column(Integer, primary_key=True)
+    prov_id = Column(Integer, ForeignKey(Provenance.id))
+    uuid = Column(UUID, nullable=False)
+    element = Column(String(250), nullable=False)
+    value = Column(Text, nullable=True)
+
+    def __init__(self, key: str, value: str):
+        self.uuid = uuid.uuid1()
+        self.element = key
+        self.value = value
+
+    @classmethod
+    def from_data(cls, data: dict) -> "ProvenanceMetaData":
+        meta = ProvenanceMetaData(data["element"], data["value"])
+        meta.uuid = data["uuid"]
+        return meta
+
+    def data(self, recurse: bool = False) -> dict:
+        data = dict(
+            uuid=self.uuid.hex,
+            element=self.element,
+            value=self.value,
+        )
+        return data
+
+
+@inherit_docstrings
+class ProvenanceSignal(Base):
+    """
+    Class to represent provenance signal request in the database ORM.
+    """
+    __tablename__ = "provenance_signal"
+    id = Column(Integer, primary_key=True)
+    uuid = Column(UUID, nullable=False)
+    prov_id = Column(Integer, ForeignKey(Provenance.id))
+    requested_signal = Column(Text, nullable=False)
+    requested_source = Column(Text, nullable=False)
+    mapped_signal = Column(Text, nullable=False)
+    mapped_source = Column(Text, nullable=False)
+    mapped_source_uuid = Column(UUID, nullable=False)
+
+    def __init__(self, requested_signal: str, requested_source: str, mapped_signal: str, mapped_source: str,
+                 mapped_source_uuid: str):
+        self.uuid = uuid.uuid1()
+        self.requested_signal = requested_signal
+        self.requested_source = requested_source
+        self.mapped_signal = mapped_signal
+        self.mapped_source = mapped_source
+        self.mapped_source_uuid = uuid.UUID(mapped_source_uuid)
+
+    @classmethod
+    def from_data(cls, data: dict) -> "ProvenanceMetaData":
+        prov_signal = ProvenanceSignal(data["requested_signal"], data["requested_source"], data["mapped_signal"],
+                                       data["mapped_source"], data["mapped_source_uuid"])
+        prov_signal.uuid = data["uuid"]
+        return prov_signal
+
+    def data(self, recurse: bool = False) -> dict:
+        data = dict(
+            uuid=self.uuid.hex,
+            requested_signal=self.requested_signal,
+            requested_source=self.requested_source,
+            mapped_signal=self.mapped_signal,
+            mapped_source=self.mapped_source,
+            mapped_source_uuid=self.mapped_source_uuid.hex,
+        )
+        return data

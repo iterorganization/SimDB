@@ -8,8 +8,6 @@ import contextlib
 from typing import Optional, List
 from enum import Enum, auto
 
-from simdb.cli.manifest import Manifest
-
 from .models import Base, Simulation, File, MetaData, ValidationParameter
 
 
@@ -231,3 +229,11 @@ class Database:
 
     def put_validation_result(self, uuid, path, test_pass, tests, results, stats):
         pass
+
+
+def get_local_db() -> Database:
+    db_dir = os.path.join(os.environ["HOME"], ".simdb")
+    os.makedirs(db_dir, exist_ok=True)
+    db_file = os.path.join(db_dir, "sim.db")
+    database = Database(Database.DBMS.SQLITE, file=db_file)
+    return database

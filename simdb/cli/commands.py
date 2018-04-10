@@ -5,7 +5,8 @@ from typing import Any, Optional, List, Dict
 from ..database.models import Simulation
 from .manifest import Manifest, InvalidManifest
 from .remote_api import RemoteAPI
-from ..utils import get_local_db
+from ..database.database import get_local_db
+from ..provenance import create_provenance_file
 
 
 class Command:
@@ -20,6 +21,27 @@ class Command:
 
     def run(self, args: Any):
         raise NotImplementedError
+
+
+class ProvenanceCommand(Command):
+    _help = "provenance tools"
+
+    def add_arguments(self, parser: argparse.ArgumentParser):
+        parser.add_argument("prov_command", choices=["create"],
+                            help="clear all ingested simulations from the database")
+        parser.add_argument("--file", help="file name to create")
+
+    class ProvenanceArgs(argparse.Namespace):
+        prov_command: str
+        file: Optional[str]
+
+    def run(self, args: ProvenanceArgs):
+        if args.prov_command == "create":
+            if not args.file:
+                raise argparse.ArgumentTypeError("File name must be provided with create")
+            create_provenance_file(args.file)
+        else:
+            raise Exception("Unknown command " + args.prov_command)
 
 
 class IngestCommand(Command):

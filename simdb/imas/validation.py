@@ -1,6 +1,6 @@
 import numpy as np
 
-from ..utils import get_local_db
+from ..database.database import get_local_db
 from .utils import is_missing, remove_methods
 
 
