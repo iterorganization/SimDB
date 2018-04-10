@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, Table
+from sqlalchemy import Column, ForeignKey, Table, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import TypeDecorator, CHAR, String, Integer, DateTime, Enum, Text, Float
@@ -432,5 +432,73 @@ class ProvenanceSignal(Base):
             mapped_signal=self.mapped_signal,
             mapped_source=self.mapped_source,
             mapped_source_uuid=self.mapped_source_uuid.hex,
+        )
+        return data
+
+
+@inherit_docstrings
+class ControlledVocabulary(Base):
+    """
+    Class to represent controlled vocabularies in the database ORM.
+    """
+    __tablename__ = "controlled_vocabulary"
+    id = Column(Integer, primary_key=True)
+    uuid = Column(UUID, nullable=False)
+    name = Column(String(250), nullable=False, unique=True)
+    words: List["ControlledVocabularyWord"] = relationship("ControlledVocabularyWord")
+
+    def __init__(self, name: str, words: List[str]):
+        self.uuid = uuid.uuid1()
+        self.name = name
+        self.add_words(words)
+
+    def add_words(self, words: List[str]):
+        for word in words:
+            self.words.append(ControlledVocabularyWord(word))
+
+    @classmethod
+    def from_data(cls, data: dict) -> "ControlledVocabulary":
+        vocab = ControlledVocabulary(data["name"], data["words"])
+        vocab.uuid = data["uuid"]
+        return vocab
+
+    def data(self, recurse: bool = False) -> dict:
+        data = dict(
+            uuid=self.uuid.hex,
+            name=self.name,
+        )
+        if recurse:
+            data["words"] = [w.data(recurse=True) for w in self.words]
+        return data
+
+
+@inherit_docstrings
+class ControlledVocabularyWord(Base):
+    """
+    Class to represent controlled vocabulary word in the database ORM.
+    """
+    __tablename__ = "controlled_vocabulary_word"
+    id = Column(Integer, primary_key=True)
+    uuid = Column(UUID, nullable=False)
+    vocabulary_id = Column(Integer, ForeignKey(ControlledVocabulary.id))
+    value = Column(Text, nullable=False)
+    __table_args__ = (
+        UniqueConstraint('vocabulary_id', 'value', name='_vocabulary_word'),
+    )
+
+    def __init__(self, value: str):
+        self.uuid = uuid.uuid1()
+        self.value = value
+
+    @classmethod
+    def from_data(cls, data: dict) -> "ControlledVocabularyWord":
+        word = ControlledVocabularyWord(data["value"])
+        word.uuid = data["uuid"]
+        return word
+
+    def data(self, recurse: bool = False) -> dict:
+        data = dict(
+            uuid=self.uuid.hex,
+            value=self.value,
         )
         return data

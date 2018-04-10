@@ -1,6 +1,7 @@
 import os
 import argparse
 from typing import Any, Optional, List, Dict
+from enum import Enum, auto
 
 from ..database.models import Simulation
 from .manifest import Manifest, InvalidManifest
@@ -11,7 +12,7 @@ from ..provenance import create_provenance_file, read_provenance_file
 
 def required_argument(args: Any, command: str, argument: str):
     if not getattr(args, argument):
-        raise argparse.ArgumentError(None, "--{} name must be provided with {} command".format(argument, command))
+        raise argparse.ArgumentError(None, "{} name must be provided with {} command".format(argument, command))
 
 
 class Command:
@@ -41,6 +42,13 @@ class QueryCommand(Command):
         # less: Optional[int]
         # less_equals: Optional[int]
 
+    class QueryType(Enum):
+        META = auto()
+        PROV = auto()
+
+    def __init__(self, query_type: QueryType=QueryType.META):
+        self._query_type = query_type
+
     def add_arguments(self, parser: argparse.ArgumentParser):
         parser.add_argument("--verbose", "-v", action="store_true", help="print more verbose output")
         parser.add_argument("--name", "-n", help="search name", required=True)
@@ -51,17 +59,17 @@ class QueryCommand(Command):
         # parser.add_argument("--less", "-lt", help="test less than", type=int)
         # parser.add_argument("--less-equals", "-le", help="test less than or equals", type=int)
 
-    def run(self, args: QueryArgs, query_type="meta"):
+    def run(self, args: QueryArgs):
         # if not any([args.equals, args.contains, args.greater, args.greater_equals, args.less, args.less_equals]):
         if not any([args.equals, args.contains]):
             raise argparse.ArgumentTypeError("At least one test must be provided")
         db = get_local_db()
-        if query_type == "meta":
+        if self._query_type == QueryCommand.QueryType.META:
             simulations = db.query_meta(args.name, equals=args.equals, contains=args.contains)
-        elif query_type == "provenance":
+        elif self._query_type == QueryCommand.QueryType.PROV:
             simulations = db.query_provenance(args.name, equals=args.equals, contains=args.contains)
         else:
-            raise Exception("Unknown query type " + query_type)
+            raise Exception("Unknown query type " + self._query_type.name)
         list_simulations(simulations, verbose=args.verbose)
 
 
@@ -69,6 +77,8 @@ class ProvenanceCommand(Command):
     _help = "provenance tools"
 
     class CreateCommand(Command):
+        _help = "create the provenance file from the current system"
+
         def add_arguments(self, parser: argparse.ArgumentParser):
             parser.add_argument("file", help="provenance file")
 
@@ -76,6 +86,8 @@ class ProvenanceCommand(Command):
             create_provenance_file(args.file)
 
     class IngestCommand(Command):
+        _help = "ingest the provenance file"
+
         def add_arguments(self, parser: argparse.ArgumentParser):
             parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
             parser.add_argument("file", help="provenance file")
@@ -86,6 +98,8 @@ class ProvenanceCommand(Command):
             db.insert_provenance(args.sim_id, prov)
 
     class PrintCommand(Command):
+        _help = "print the provenance for a simulation"
+
         def add_arguments(self, parser: argparse.ArgumentParser):
             parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
 
@@ -95,23 +109,18 @@ class ProvenanceCommand(Command):
             prov = db.get_provenance(args.sim_id)
             print(str(prov))
 
-    _create_command = CreateCommand()
-    _ingest_command = IngestCommand()
-    _print_command = PrintCommand()
-    _query_command = QueryCommand()
+    _commands = {
+        "create": CreateCommand(),
+        "ingest": IngestCommand(),
+        "print": PrintCommand(),
+        "query": QueryCommand(QueryCommand.QueryType.PROV),
+    }
 
     def add_arguments(self, parser: argparse.ArgumentParser):
         command_parsers = parser.add_subparsers(title="action", dest="action")
         command_parsers.required = True
 
-        commands = {
-            "create": self._create_command,
-            "ingest": self._ingest_command,
-            "query": self._query_command,
-            "print": self._print_command,
-        }
-
-        for name, command in commands.items():
+        for name, command in self._commands.items():
             sub_parser = command_parsers.add_parser(name, help=command.help)
             command.add_arguments(sub_parser)
 
@@ -121,16 +130,7 @@ class ProvenanceCommand(Command):
         sim_id: Optional[str]
 
     def run(self, args: ProvenanceArgs):
-        if args.action == "create":
-            self._create_command.run(args)
-        elif args.action == "ingest":
-            self._ingest_command.run(args)
-        elif args.action == "print":
-            self._print_command.run(args)
-        elif args.action == "query":
-            self._query_command.run(args, "provenance")
-        else:
-            raise Exception("Unknown command " + args.action)
+        self._commands[args.action].run(args)
 
 
 class IngestCommand(Command):
@@ -413,9 +413,65 @@ class ManifestCommand(Command):
 class DatabaseCommand(Command):
     _help = "manage local simulation database file"
 
+    class ClearCommand(Command):
+        _help = "clear the database"
+        def add_arguments(self, parser: argparse.ArgumentParser):
+            pass
+
+        def run(self, args: Any):
+            database = get_local_db()
+            database.reset()
+
+    class ControlledVocabularyCommand(Command):
+        _help = "manage controlled vocabulary"
+
+        def add_arguments(self, parser: argparse.ArgumentParser):
+            parser.add_argument("cv_action", choices=["new", "update", "clear", "list", "print", "delete"],
+                                help="action to perform")
+            parser.add_argument("name", help="vocabulary name", nargs="?")
+            parser.add_argument("words", nargs="*", help="vocabulary words")
+
+        def run(self, args: Any):
+            db = get_local_db()
+            if args.cv_action == "new":
+                required_argument(args, "new", "name")
+                required_argument(args, "new", "words")
+                db.new_vocabulary(args.name, args.words)
+            elif args.cv_action == "update":
+                required_argument(args, "update", "name")
+                required_argument(args, "update", "words")
+                db.clear_vocabulary_words(args.name, args.words)
+            elif args.cv_action == "clear":
+                required_argument(args, "clear", "name")
+                db.clear_vocabulary(args.name)
+            elif args.cv_action == "delete":
+                required_argument(args, "delete", "name")
+                db.delete_vocabulary(args.name)
+            elif args.cv_action == "list":
+                vocabs = db.get_vocabularies()
+                for vocab in vocabs:
+                    print("{} - {} words".format(vocab.name, len(vocab.words)))
+            elif args.cv_action == "print":
+                required_argument(args, "print", "name")
+                vocab = db.get_vocabulary(args.name)
+                print(vocab.name + ':')
+                for word in vocab.words:
+                    print('  ' + word.value)
+            else:
+                raise Exception("Unknown action " + args.cv_action)
+
+    _commands = {
+        "clear": ClearCommand(),
+        "cv": ControlledVocabularyCommand(),
+    }
+
     def add_arguments(self, parser: argparse.ArgumentParser):
-        parser.add_argument("clear", help="clear all ingested simulations from the database")
+        command_parsers = parser.add_subparsers(title="action", dest="action")
+        command_parsers.required = True
+
+        for name, command in self._commands.items():
+            sub_parser = command_parsers.add_parser(name, help=command.help)
+            command.add_arguments(sub_parser)
 
     def run(self, args: argparse.Namespace):
-        database = get_local_db()
-        database.reset()
+        self._commands[args.action].run(args)

@@ -8,7 +8,8 @@ import contextlib
 from typing import Optional, List
 from enum import Enum, auto
 
-from .models import Base, Simulation, File, MetaData, ValidationParameter, Provenance, ProvenanceMetaData
+from .models import Base, Simulation, File, MetaData, ValidationParameter, Provenance, ProvenanceMetaData,\
+    ControlledVocabulary
 
 
 class DatabaseError(RuntimeError):
@@ -193,8 +194,9 @@ class Database:
         self.session.commit()
         return [m.value for m in simulation.meta.filter_by(element=name).all()]
 
-    def get_controlled_vocab(self, element):
-        return []
+    def get_controlled_vocab(self, element) -> List[str]:
+        vocab: ControlledVocabulary = self.session.query(ControlledVocabulary).filter_by(name=element).one()
+        return [i.value for i in vocab.words]
 
     def get_provenance(self, sim_ref: str) -> Provenance:
         """
@@ -286,6 +288,41 @@ class Database:
 
     def put_validation_result(self, uuid, path, test_pass, tests, results, stats):
         pass
+
+    def new_vocabulary(self, name: str, words: List[str]) -> None:
+        vocab = ControlledVocabulary(name, words)
+        self.session.add(vocab)
+        self.session.commit()
+
+    def clear_vocabulary_words(self, name: str, words: List[str]) -> None:
+        vocab: ControlledVocabulary = self.session.query(ControlledVocabulary).filter_by(name=name).one_or_none()
+        if vocab is None:
+            raise DatabaseError("Failed to find vocabulary: " + name)
+        vocab.add_words(words)
+        self.session.commit()
+
+    def clear_vocabulary(self, name: str) -> None:
+        vocab: ControlledVocabulary = self.session.query(ControlledVocabulary).filter_by(name=name).one_or_none()
+        if vocab is None:
+            raise DatabaseError("Failed to find vocabulary: " + name)
+        vocab.words.clear()
+        self.session.commit()
+
+    def delete_vocabulary(self, name: str) -> None:
+        vocab: ControlledVocabulary = self.session.query(ControlledVocabulary).filter_by(name=name).one_or_none()
+        if vocab is None:
+            raise DatabaseError("Failed to find vocabulary: " + name)
+        self.session.delete(vocab)
+        self.session.commit()
+
+    def get_vocabularies(self) -> List[ControlledVocabulary]:
+        return self.session.query(ControlledVocabulary).all()
+
+    def get_vocabulary(self, name: str) -> ControlledVocabulary:
+        vocab: ControlledVocabulary = self.session.query(ControlledVocabulary).filter_by(name=name).one_or_none()
+        if vocab is None:
+            raise DatabaseError("Failed to find vocabulary: " + name)
+        return vocab
 
 
 def get_local_db() -> Database:
