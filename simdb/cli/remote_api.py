@@ -49,7 +49,9 @@ class RemoteAPI:
     url = "https://localhost:5000/api/v%s/" % __version__
     user_name = "test"
     pass_word = "test"
-    cert_path = "/Users/jhollocombe/Projects/simdb/simdb/remote/server.crt"
+
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    cert_path = os.path.join(dir_path, "../remote/server.crt")
 
     def get(self, url: str) -> requests.Response:
         res = requests.get(self.url + url, auth=(self.user_name, self.pass_word), verify=self.cert_path)

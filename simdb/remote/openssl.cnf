@@ -12,7 +12,7 @@ localityName            = Culham
 organizationalUnitName  = CCFE
 commonName              = 127.0.0.1
 commonName_max          = 64
-emailAddress            = simdb@ukaea.ul
+emailAddress            = simdb@ukaea.uk
 emailAddress_max        = 64
 
 [ req_attributes ]

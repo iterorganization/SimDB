@@ -44,8 +44,15 @@ def error(message: str) -> Response:
 
 def get_db() -> Database:
     if not hasattr(g, 'db'):
-        g.db = Database(Database.DBMS.POSTGRESQL,
-                        host=current_app.config["DB_HOST"], port=current_app.config["DB_PORT"])
+        if current_app.config["DB_TYPE"] == "pgsql":
+            g.db = Database(Database.DBMS.POSTGRESQL,
+                            host=current_app.config["DB_HOST"], port=current_app.config["DB_PORT"])
+        elif current_app.config["DB_TYPE"] == "sqlite":
+            db_dir = os.path.join(os.environ["HOME"], ".simdb")
+            os.makedirs(db_dir, exist_ok=True)
+            g.db = Database(Database.DBMS.SQLITE, file=os.path.join(db_dir, "remote.db"))
+        else:
+            raise RuntimeError("Unkown DB_TYPE in app.cfg: " + current_app.config["DB_TYPE"])
     return g.db
 
 
