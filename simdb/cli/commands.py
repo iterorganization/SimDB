@@ -4,11 +4,12 @@ from typing import Any, Optional, List, Dict
 from enum import Enum, auto
 
 from ..database.models import Simulation
-from .manifest import Manifest, InvalidManifest
+from .manifest import Manifest, InvalidManifest, DataObject
 from .remote_api import RemoteAPI
 from ..database.database import get_local_db
 from ..provenance import create_provenance_file, read_provenance_file
-from ..validation import verify_metadata
+from ..validation import verify_metadata, ValidationError
+from ..imas import validation as imas_validation
 
 
 def required_argument(args: Any, command: str, argument: str):
@@ -278,6 +279,34 @@ class ModifyCommand(Command):
             print("nothing to do")
 
 
+class ValidateCommand(Command):
+    _help = "validate the ingested simulation"
+
+    class ValidateArgs(argparse.Namespace):
+        sim_id: str
+
+    def add_arguments(self, parser: argparse.ArgumentParser):
+        parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
+
+    def run(self, args: ValidateArgs):
+        db = get_local_db()
+        simulation = db.get_simulation(args.sim_id)
+        device = simulation.find_meta("device")
+        scenario = simulation.find_meta("scenario")
+        if not device:
+            raise ValidationError("No device found in metadata")
+        if len(device) > 1:
+            raise ValidationError("Multiple devices found in metadata")
+        if not scenario:
+            raise ValidationError("No scenario found in metadata")
+        if len(device) > 1:
+            raise ValidationError("Multiple scenarios found in metadata")
+        for file in simulation.files:
+            if file.type == DataObject.Type.IMAS:
+                imas_obj = imas_validation.load_imas(file.imas["shot"], file.imas["run"])
+                imas_validation.validate_imas(device, scenario, imas_obj)
+
+
 class SimulationCommand(Command):
     _help = "manage ingested simulations"
 
@@ -289,6 +318,7 @@ class SimulationCommand(Command):
         "delete": DeleteCommand(),
         "query": QueryCommand(),
         "ingest": IngestCommand(),
+        "validate": ValidateCommand(),
     }
 
     def add_arguments(self, parser: argparse.ArgumentParser):

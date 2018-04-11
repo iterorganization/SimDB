@@ -1,4 +1,5 @@
 import inspect
+from typing import List
 
 
 def get_metdata(imas_obj) -> dict:
@@ -50,10 +51,10 @@ def is_missing(value):
     return False
 
 
-def remove_methods(obj):
+def remove_methods(obj) -> List[str]:
     members = inspect.getmembers(obj)
     names = []
     for member in members:
         if not member[0].startswith('__') and not callable(getattr(obj, member[0])) and member[0] != 'method':
-            names.append(member)
+            names.append(member[0])
     return names

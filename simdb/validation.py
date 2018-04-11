@@ -1,6 +1,7 @@
-from typing import Dict, List, AnyStr
+from typing import Dict, List, Tuple
 
 from .database.database import get_local_db
+from .database.models import ValidationParameters
 from .imas.utils import is_missing
 
 
@@ -8,7 +9,51 @@ class ValidationError(Exception):
     pass
 
 
-def get_metadata(meta: Dict, name: AnyStr) -> List[str]:
+class TestParameters:
+    mandatory: bool
+    range: Tuple[float, float]
+    mean: Tuple[float, float]
+    median: Tuple[float, float]
+    stdev: Tuple[float, float]
+    mandatory_tests: List[str]
+
+    def __init__(self, mandatory: bool, range: Tuple[float, float], mean: Tuple[float, float],
+                 median: Tuple[float, float], stdev: Tuple[float, float], mandatory_tests: List[str]):
+        self.mandatory = mandatory
+        self.range = range
+        self.mean = mean
+        self.median = median
+        self.stdev = stdev
+        self.mandatory_tests = mandatory_tests
+
+    @classmethod
+    def from_db_parameters(cls, params: ValidationParameters) -> "TestParameters":
+        return TestParameters(
+            mandatory=params.mandatory,
+            range=(params.range_low, params.range_high),
+            mean=(params.mean_low, params.mean_high),
+            median=(params.median_low, params.median_high),
+            stdev=(params.stdev_low, params.stdev_high),
+            mandatory_tests=params.mandatory_tests.split(";")
+        )
+
+    def to_db_parameters(self, path: str) -> ValidationParameters:
+        return ValidationParameters(
+            path=path,
+            mandatory=self.mandatory,
+            range_low=self.range[0],
+            range_high=self.range[1],
+            mean_low=self.mean[0],
+            mean_high=self.mean[1],
+            median_low=self.median[0],
+            median_high=self.median[1],
+            stdev_low=self.stdev[0],
+            stdev_high=self.stdev[1],
+            mandatory_tests=";".join(self.mandatory_tests),
+        )
+
+
+def get_metadata(meta: Dict, name: str) -> List[str]:
     val = meta[name]
     if type(val) == list:
         return val

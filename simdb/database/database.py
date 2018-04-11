@@ -8,7 +8,7 @@ import contextlib
 from typing import Optional, List
 from enum import Enum, auto
 
-from .models import Base, Simulation, File, MetaData, ValidationParameter, Provenance, ProvenanceMetaData,\
+from .models import Base, Simulation, File, MetaData, ValidationParameters, Provenance, ProvenanceMetaData,\
     ControlledVocabulary
 
 
@@ -32,6 +32,7 @@ class Database:
         """
         SQLITE = auto()
         POSTGRESQL = auto()
+        MSSQL = auto()
 
     def __init__(self, db_type: DBMS, **kwargs):
         """
@@ -62,6 +63,17 @@ class Database:
                 res: sqlalchemy.engine.ResultProxy = con.execute(
                     "SELECT * FROM pg_catalog.pg_tables WHERE schemaname = 'public';")
                 new_db = (res.rowcount == 0)
+
+        elif db_type == Database.DBMS.MSSQL:
+            if "user" not in kwargs:
+                raise DatabaseError("Missing file user for MSSQL database")
+            if "pass" not in kwargs:
+                raise DatabaseError("Missing file pass for MSSQL database")
+            if "dsnname" not in kwargs:
+                raise DatabaseError("Missing file dsnname for MSSQL database")
+            self.engine: sqlalchemy.engine.Engine = create_engine("mssql+pyodbc://%(user)s:%(pass)s@%(dsnname)s" % kwargs)
+            new_db = False
+
         else:
             raise DatabaseError("Unknown database type: " + db_type.name)
         if new_db:
@@ -269,12 +281,10 @@ class Database:
             simulation.provenance.add_metadata(provenance)
         self.session.commit()
 
-    def get_validation_parameters(self, path: str) -> dict:
-        params = self.session.query(ValidationParameter).filter_by(element=path).all()
-        data = {}
-        for param in params:
-            data[param.name] = param.value
-        return data
+    def get_validation_parameters(self, device: str, scenario: str, path: str) -> Optional[ValidationParameters]:
+        return self.session.query(ValidationParameters)\
+            .filter_by(device=device, scenario=scenario, path=path)\
+            .one_or_none()
 
     def insert_validation_parameters(self, path: str, params: dict) -> None:
         try:
