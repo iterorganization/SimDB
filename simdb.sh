@@ -11,4 +11,4 @@ done
 DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
 export PYTHONPATH=$DIR:$PYTHONPATH
-python3 -m simdb.cli $*
+python3 -m simdb.cli "$@"
