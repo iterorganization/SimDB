@@ -7,7 +7,7 @@ from .manifest import Manifest, InvalidManifest, DataObject
 from .remote_api import RemoteAPI
 from ..database.database import get_local_db
 from ..provenance import create_provenance_file, read_provenance_file
-from ..validation import verify_metadata, ValidationError
+from ..validation import verify_metadata, ValidationError, TestParameters
 from ..imas import validation as imas_validation
 
 
@@ -153,7 +153,7 @@ class IngestCommand(Command):
         manifest = Manifest()
         manifest.load(args.manifest_file)
         manifest.validate()
-        verify_metadata({}, manifest.metadata)
+        #verify_metadata({}, manifest.metadata)
 
         simulation = Simulation(manifest)
         simulation.alias = args.alias
@@ -508,6 +508,7 @@ class DatabaseCommand(Command):
             parser.add_argument("--device", help="device name")
             parser.add_argument("--scenario", help="scenario name")
             parser.add_argument("--path", help="ids path")
+            parser.add_argument("--ids", help="names of the IDSs to use", action="append")
 
         def run(self, args: Any):
             db = get_local_db()
@@ -516,8 +517,10 @@ class DatabaseCommand(Command):
                 required_argument(args, "load", "run")
                 required_argument(args, "load", "device")
                 required_argument(args, "load", "scenario")
+                required_argument(args, "load", "ids")
                 imas_obj = imas_validation.load_imas(args.shot, args.run)
-                imas_validation.save_validation_parameters(args.device, args.scenario, imas_obj)
+
+                imas_validation.save_validation_parameters(args.device, args.scenario, imas_obj, args.ids)
             elif args.ref_action == "delete":
                 pass
             elif args.ref_action == "list":
@@ -529,7 +532,7 @@ class DatabaseCommand(Command):
                 params = db.list_validation_parameters(args.device, args.scenario)
                 print("Device: {}\nScenario: {}\nPaths:".format(args.device, args.scenario))
                 for param in params:
-                    print("  " + param.path)
+                    print("{} {}".format(param.path, str(TestParameters.from_db_parameters(param))))
             else:
                 raise Exception("Unknown action " + args.cv_action)
 

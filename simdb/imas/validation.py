@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Tuple, Dict, List, Any
+from typing import Tuple, Dict, List, Any, Optional
 from collections import defaultdict
 from enum import Enum, auto
 
@@ -613,8 +613,12 @@ def ids_excludes():
     return ['connected', 'expIdx', 'refRun', 'refShot', 'run', 'shot', 'treeName']
 
 
-def validate_ids(device: str, scenario: str, imas_obj: Any, ids_name: str, mode: RunMode):
+def validate_ids(device: str, scenario: str, imas_obj: Any, ids_name: str, mode: RunMode, ids_names: Optional[List[str]]):
     print('IDS: ' + ids_name)
+
+    if ids_names and ids_names not in ids_names:
+        print('Excluding IDS: ' + ids_name + ' from Validation Testing')
+        return
 
     if ids_name in ids_excludes():
         print('Excluding IDS: ' + ids_name + ' from Validation Testing')
@@ -704,13 +708,13 @@ def validate_ids(device: str, scenario: str, imas_obj: Any, ids_name: str, mode:
 def validate_imas(device: str, scenario: str, imas_obj: Any):
     IDSs = find_IDSs(imas_obj)
     for IDS in IDSs:
-        validate_ids(device, scenario, imas_obj, IDS, RunMode.TEST)
+        validate_ids(device, scenario, imas_obj, IDS, RunMode.TEST, None)
 
 
-def save_validation_parameters(device: str, scenario: str, imas_obj: Any):
+def save_validation_parameters(device: str, scenario: str, imas_obj: Any, ids_names: List[str]):
     IDSs = find_IDSs(imas_obj)
     for IDS in IDSs:
-        validate_ids(device, scenario, imas_obj, IDS, RunMode.SAVE)
+        validate_ids(device, scenario, imas_obj, IDS, RunMode.SAVE, ids_names)
 
 
 def load_imas(shot, run):

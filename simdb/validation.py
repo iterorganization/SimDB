@@ -26,6 +26,10 @@ class TestParameters:
         self.stdev = stdev
         self.mandatory_tests = mandatory_tests
 
+    def __str__(self):
+        return "mandatory={} range={} mean={} median={} stdev={} mandatory_tests={}".format(
+             self.mandatory, self.range, self.mean, self.median, self.stdev, self.mandatory_tests)
+
     @classmethod
     def from_db_parameters(cls, params: ValidationParameters) -> "TestParameters":
         return TestParameters(
@@ -34,7 +38,7 @@ class TestParameters:
             mean=(params.mean_low, params.mean_high),
             median=(params.median_low, params.median_high),
             stdev=(params.stdev_low, params.stdev_high),
-            mandatory_tests=params.mandatory_tests.split(";")
+            mandatory_tests=[i for i in params.mandatory_tests.split(";") if i]
         )
 
     def to_db_parameters(self, device: str, scenario: str, path: str) -> ValidationParameters:
