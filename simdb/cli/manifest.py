@@ -2,7 +2,7 @@ import yaml
 import sys
 import os
 from enum import Enum, auto
-from typing import Iterable, Union
+from typing import Iterable, Union, List
 
 from ..utils import sha1_checksum
 
@@ -53,7 +53,22 @@ class DataObject:
         elif self.type == DataObject.Type.PATH:
             return self.path
         elif self.type == DataObject.Type.IMAS:
-            return self.imas["tree_name"]
+            if "IMAS_VERSION" not in os.environ:
+                raise Exception("$IMAS_VERSION not defined")
+            imas_version = os.environ["IMAS_VERSION"]
+            imas_file_base = "ids_%d%04d" % (self.imas["shot"], self.imas["run"])
+            if "path" in self.imas:
+                path = os.path.join(self.imas["path"], imas_version.split(".")[0], "0")
+            else:
+                if "MDSPLUS_TREE_BASE_0" not in os.environ:
+                    raise Exception("path not specified for IDS and $MDSPLUS_TREE_BASE_0 not defined")
+                path = os.path.join(os.environ["MDSPLUS_TREE_BASE_0"], imas_version.split(".")[0], "0")
+            # return [
+            #     os.path.join(path, imas_file_base + ".characteristics"),
+            #     os.path.join(path, imas_file_base + ".datafile"),
+            #     os.path.join(path, imas_file_base + ".tree"),
+            # ]
+            return os.path.join(path, imas_file_base + ".datafile")
         return DataObject.Type.UUID.name
 
 
