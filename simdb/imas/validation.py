@@ -1,6 +1,7 @@
 import numpy as np
 from typing import Tuple, Dict, List, Any
 from collections import defaultdict
+from enum import Enum, auto
 
 from ..database.database import get_local_db
 from .utils import is_missing, remove_methods
@@ -104,6 +105,24 @@ def float_scalar_validation_tests(device: str, scenario: str, path: str, obj: An
     return
 
 
+def float_scalar_save_validation_parameters(device: str, scenario: str, path: str, obj: Any) -> None:
+    db = get_local_db()
+
+    test_params = TestParameters(False, (0, 0), (0, 0), (0, 0), (0, 0), [])
+
+    if not is_missing(obj):
+        test_params.mandatory = True
+        test_params.range = (obj, obj)
+        test_params.mean = (obj, obj)
+        test_params.median = (obj, obj)
+    else:
+        test_params.mandatory = False
+
+    db.insert_validation_parameters(test_params.to_db_parameters(device, scenario, path))
+
+    return
+
+
 def float_array_validation_tests(device: str, scenario: str, path: str, obj: Any, test_report: TestReport) -> None:
     db = get_local_db()
 
@@ -155,6 +174,32 @@ def float_array_validation_tests(device: str, scenario: str, path: str, obj: Any
     return
 
 
+def float_array_save_validation_parameters(device: str, scenario: str, path: str, obj: Any) -> None:
+    db = get_local_db()
+
+    test_params = TestParameters(False, (0, 0), (0, 0), (0, 0), (0, 0), [])
+
+    if len(obj):
+        not_missing = True
+
+        for el in obj:
+            not_missing = not_missing and not is_missing(el)
+
+        test_params.mean = (np.mean(obj), np.mean(obj))
+        test_params.median = (np.median(obj), np.median(obj))
+        test_params.dmax = (np.max(obj), np.max(obj))
+        test_params.dstd = (np.std(obj), np.std(obj))
+        test_params.mandatory = not_missing
+        test_params.mandatory_tests = ["mean", "median", "max", "stdev", "mandatory"]
+    else:
+        test_params.mandatory = False
+        test_params.mandatory_tests = ["mandatory"]
+
+    db.insert_validation_parameters(test_params.to_db_parameters(device, scenario, path))
+
+    return
+
+
 def string_scalar_validation_tests(device: str, scenario: str, path: str, obj: Any, test_report: TestReport) -> None:
     db = get_local_db()
 
@@ -182,6 +227,21 @@ def string_scalar_validation_tests(device: str, scenario: str, path: str, obj: A
     return
 
 
+def string_scalar_save_validation_parameters(device: str, scenario: str, path: str, obj: Any) -> None:
+    db = get_local_db()
+
+    test_params = TestParameters(False, (0, 0), (0, 0), (0, 0), (0, 0), [])
+
+    if not is_missing(obj):
+        test_params.mandatory = True
+    else:
+        test_params.mandatory = False
+
+    db.insert_validation_parameters(test_params.to_db_parameters(device, scenario, path))
+
+    return
+
+
 def int_scalar_validation_tests(device: str, scenario: str, path: str, obj: Any, test_report: TestReport) -> None:
     return
 
@@ -190,7 +250,12 @@ def int_array_validation_tests(device: str, scenario: str, path: str, obj: Any, 
     return
 
 
-def drilldown(device: str, scenario: str, parent_path: str, obj_name: str, obj: Any, test_report: TestReport):
+class RunMode(Enum):
+    TEST = auto()
+    SAVE = auto()
+
+
+def drilldown(device: str, scenario: str, parent_path: str, obj_name: str, obj: Any, test_report: TestReport, mode: RunMode):
     if ignore_entity(obj_name):
         return
 
@@ -213,12 +278,22 @@ def drilldown(device: str, scenario: str, parent_path: str, obj_name: str, obj: 
     if dtype.startswith('float'):
         print('Float Object: ' + obj_name + ' = ' + str(obj))
         if not not is_missing(obj): print('Missing Value!')
-        float_scalar_validation_tests(device, scenario, path, obj, test_report)
+        if mode == RunMode.TEST:
+            float_scalar_validation_tests(device, scenario, path, obj, test_report)
+        elif mode == RunMode.SAVE:
+            float_scalar_save_validation_parameters(device, scenario, path, obj)
+        else:
+            raise Exception("Uknown mode " + mode.name)
         return
 
     if dtype.startswith('str'):
         print('String Object: ' + obj_name + ' = ' + str(obj))
-        string_scalar_validation_tests(device, scenario, path, obj, test_report)
+        if mode == RunMode.TEST:
+            string_scalar_validation_tests(device, scenario, path, obj, test_report)
+        elif mode == RunMode.SAVE:
+            string_scalar_save_validation_parameters(device, scenario, path, obj)
+        else:
+            raise Exception("Uknown mode " + mode.name)
         return
 
     if dtype == 'ndarray':
@@ -250,9 +325,19 @@ def drilldown(device: str, scenario: str, parent_path: str, obj_name: str, obj: 
                     if missing:
                         print('Missing Data in Float Array detected!')
 
-                    float_array_validation_tests(device, scenario, path, obj, test_report)
+                    if mode == RunMode.TEST:
+                        float_array_validation_tests(device, scenario, path, obj, test_report)
+                    elif mode == RunMode.SAVE:
+                        float_array_save_validation_parameters(device, scenario, path, obj)
+                    else:
+                        raise Exception("Uknown mode " + mode.name)
                 else:
-                    int_array_validation_tests(device, scenario, path, obj, test_report)
+                    if mode == RunMode.TEST:
+                        int_array_validation_tests(device, scenario, path, obj, test_report)
+                    elif mode == RunMode.SAVE:
+                        pass
+                    else:
+                        raise Exception("Uknown mode " + mode.name)
             return
 
         print('Array of NUMPY Structured Type: (' + obj_name + ') ' + str(dtype))
@@ -288,7 +373,7 @@ def drilldown(device: str, scenario: str, parent_path: str, obj_name: str, obj: 
             child = getattr(obj, name)
             print(name)
             print(type(child).__name__)
-            drilldown(device, scenario, path, name, child, test_report)
+            drilldown(device, scenario, path, name, child, test_report, mode)
 
     elif '__structArray' in dtype:
         print('Structure Array Object')
@@ -305,7 +390,7 @@ def drilldown(device: str, scenario: str, parent_path: str, obj_name: str, obj: 
             ctype = type(children).__name__
             if ctype in ['str', 'int', 'float', 'int32', 'float32', 'int64', 'float64']:
                 child_count = 0
-                drilldown(device, scenario, path, name, children, test_report)
+                drilldown(device, scenario, path, name, children, test_report, mode)
             else:
                 child_count = len(children)
                 print('Child Count: ' + str(child_count))
@@ -315,7 +400,7 @@ def drilldown(device: str, scenario: str, parent_path: str, obj_name: str, obj: 
                     print('child[' + str(child_index) + ']: ' + name)
                     print(type(child).__name__)
                     a_name = name + '[' + str(child_index) + ']'
-                    drilldown(device, scenario, path, a_name, child, test_report)
+                    drilldown(device, scenario, path, a_name, child, test_report, mode)
                     child_index += 1
 
     else:
@@ -528,7 +613,7 @@ def ids_excludes():
     return ['connected', 'expIdx', 'refRun', 'refShot', 'run', 'shot', 'treeName']
 
 
-def validate_ids(device: str, scenario: str, imas_obj: Any, ids_name: str):
+def validate_ids(device: str, scenario: str, imas_obj: Any, ids_name: str, mode: RunMode):
     print('IDS: ' + ids_name)
 
     if ids_name in ids_excludes():
@@ -608,18 +693,24 @@ def validate_ids(device: str, scenario: str, imas_obj: Any, ids_name: str):
 
         test_report = TestReport()
 
-        drilldown(device, scenario, base_path, name, obj, test_report)
+        drilldown(device, scenario, base_path, name, obj, test_report, mode)
 
         if test_report.failures:
             print('Failures: %d' % len(test_report.failures))
             for (path, failures) in test_report.failures.items():
-                print ('Path: ' + path)
+                print('Path: ' + path)
 
 
 def validate_imas(device: str, scenario: str, imas_obj: Any):
     IDSs = find_IDSs(imas_obj)
     for IDS in IDSs:
-        validate_ids(device, scenario, imas_obj, IDS)
+        validate_ids(device, scenario, imas_obj, IDS, RunMode.TEST)
+
+
+def save_validation_parameters(device: str, scenario: str, imas_obj: Any):
+    IDSs = find_IDSs(imas_obj)
+    for IDS in IDSs:
+        validate_ids(device, scenario, imas_obj, IDS, RunMode.SAVE)
 
 
 def load_imas(shot, run):

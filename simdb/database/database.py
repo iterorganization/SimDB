@@ -105,7 +105,7 @@ class Database:
 
         :return: A list of Simulations.
         """
-        return list(self.session.query(Simulation))
+        return self.session.query(Simulation).all()
 
     def list_files(self) -> List[File]:
         """
@@ -113,7 +113,14 @@ class Database:
 
         :return:  A list of Files.
         """
-        return list(self.session.query(File))
+        return self.session.query(File).all()
+
+    def list_validation_parameters(self, device: Optional[str], scenario: Optional[str]) -> List[ValidationParameters]:
+        if device is None and scenario is None:
+            return self.session.query(ValidationParameters) \
+                .group_by(ValidationParameters.device, ValidationParameters.scenario).all()
+        else:
+            return self.session.query(ValidationParameters).filter_by(device=device, scenario=scenario).all()
 
     def delete_simulation(self, sim_ref: str) -> Simulation:
         """
@@ -286,11 +293,9 @@ class Database:
             .filter_by(device=device, scenario=scenario, path=path)\
             .one_or_none()
 
-    def insert_validation_parameters(self, path: str, params: dict) -> None:
+    def insert_validation_parameters(self, params: ValidationParameters) -> None:
         try:
-            for k, v in params.items():
-                param = ValidationParameter(path, k, v)
-                self.session.add(param)
+            self.session.add(params)
             self.session.commit()
         except DBAPIError as err:
             self.session.rollback()

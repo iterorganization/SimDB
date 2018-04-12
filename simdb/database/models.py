@@ -530,10 +530,12 @@ class ValidationParameters(Base):
         UniqueConstraint('device', 'scenario', 'path', name='_validation_parameters_identifier'),
     )
 
-    def __init__(self, path: str, mandatory: bool, range_low: float, range_high: float,
+    def __init__(self, device: str, scenario: str, path: str, mandatory: bool, range_low: float, range_high: float,
                  mean_low: float, mean_high: float, median_low: float, median_high: float,
                  stdev_low: float, stdev_high: float, mandatory_tests: str):
         self.uuid = uuid.uuid1()
+        self.device = device
+        self.scenario = scenario
         self.path = path
         self.mandatory = mandatory
         self.range_low = range_low
@@ -548,15 +550,18 @@ class ValidationParameters(Base):
 
     @classmethod
     def from_data(cls, data: dict) -> "ValidationParameters":
-        params = ValidationParameters(data["path"], data["mandatory"], data["range_low"], data["range_high"],
-                                      data["mean_low"], data["mean_high"], data["median_low"], data["median_high"],
-                                      data["stdev_low"], data["stdev_high"], data["mandatory_tests"])
+        params = ValidationParameters(data["device"], data["scenario"], data["path"], data["mandatory"],
+                                      data["range_low"], data["range_high"], data["mean_low"], data["mean_high"],
+                                      data["median_low"], data["median_high"], data["stdev_low"], data["stdev_high"],
+                                      data["mandatory_tests"])
         params.uuid = data["uuid"]
         return params
 
     def data(self, recurse: bool = False) -> dict:
         data = dict(
             uuid=self.uuid.hex,
+            device=self.device,
+            scenario=self.scenario,
             path=self.path,
             mandatory=self.mandatory,
             range_low=self.range_low,

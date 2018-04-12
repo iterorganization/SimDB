@@ -2,7 +2,7 @@ import argparse
 from typing import Any, Optional, List, Dict
 from enum import Enum, auto
 
-from ..database.models import Simulation
+from ..database.models import Simulation, ValidationParameters
 from .manifest import Manifest, InvalidManifest, DataObject
 from .remote_api import RemoteAPI
 from ..database.database import get_local_db
@@ -181,6 +181,21 @@ def list_simulations(simulations: List[Simulation], verbose: bool=False) -> None
             alias_len = len(str(sim.alias))
             print("%s %s %s" % (" " * (max_alias - alias_len), sim.datetime, sim.status), end="")
         print()
+
+
+def list_validation_parameters(parameters: List[ValidationParameters]) -> None:
+    if len(parameters) == 0:
+        print("No validation parameters found")
+        return
+
+    max_device = max(len(str(param.device)) for param in parameters)
+    max_device = max(max_device, 6)
+    device_spaces = (6 - max_device)
+    print("Device%s Scenario" % (" " * device_spaces))
+    print("-" * (15 + device_spaces))
+
+    for param in parameters:
+        print("%s%s %s" % (param.device, " " * (max_device - len(param.device)), param.scenario))
 
 
 class ListCommand(Command):
@@ -482,9 +497,46 @@ class DatabaseCommand(Command):
             else:
                 raise Exception("Unknown action " + args.cv_action)
 
+    class ReferenceCommand(Command):
+        _help = "manage reference scenarios"
+
+        def add_arguments(self, parser: argparse.ArgumentParser):
+            parser.add_argument("ref_action", choices=["load", "list", "print", "delete"],
+                                help="action to perform")
+            parser.add_argument("--shot", help="IDS shot number")
+            parser.add_argument("--run", help="IDS run number")
+            parser.add_argument("--device", help="device name")
+            parser.add_argument("--scenario", help="scenario name")
+            parser.add_argument("--path", help="ids path")
+
+        def run(self, args: Any):
+            db = get_local_db()
+            if args.ref_action == "load":
+                required_argument(args, "load", "shot")
+                required_argument(args, "load", "run")
+                required_argument(args, "load", "device")
+                required_argument(args, "load", "scenario")
+                imas_obj = imas_validation.load_imas(args.shot, args.run)
+                imas_validation.save_validation_parameters(args.device, args.scenario, imas_obj)
+            elif args.ref_action == "delete":
+                pass
+            elif args.ref_action == "list":
+                params = db.list_validation_parameters(None, None)
+                list_validation_parameters(params)
+            elif args.ref_action == "print":
+                required_argument(args, "print", "device")
+                required_argument(args, "print", "scenario")
+                params = db.list_validation_parameters(args.device, args.scenario)
+                print("Device: {}\nScenario: {}\nPaths:".format(args.device, args.scenario))
+                for param in params:
+                    print("  " + param.path)
+            else:
+                raise Exception("Unknown action " + args.cv_action)
+
     _commands = {
         "clear": ClearCommand(),
         "cv": ControlledVocabularyCommand(),
+        "reference": ReferenceCommand(),
     }
 
     def add_arguments(self, parser: argparse.ArgumentParser):

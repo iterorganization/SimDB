@@ -37,8 +37,10 @@ class TestParameters:
             mandatory_tests=params.mandatory_tests.split(";")
         )
 
-    def to_db_parameters(self, path: str) -> ValidationParameters:
+    def to_db_parameters(self, device: str, scenario: str, path: str) -> ValidationParameters:
         return ValidationParameters(
+            device=device,
+            scenario=scenario,
             path=path,
             mandatory=self.mandatory,
             range_low=self.range[0],
