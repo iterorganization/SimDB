@@ -5,11 +5,11 @@ import sqlalchemy
 import uuid
 import os
 import contextlib
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from enum import Enum, auto
 
 from .models import Base, Simulation, File, MetaData, ValidationParameters, Provenance, ProvenanceMetaData,\
-    ControlledVocabulary
+    ControlledVocabulary, Summary
 
 
 class DatabaseError(RuntimeError):
@@ -121,6 +121,17 @@ class Database:
                 .group_by(ValidationParameters.device, ValidationParameters.scenario).all()
         else:
             return self.session.query(ValidationParameters).filter_by(device=device, scenario=scenario).all()
+
+    def list_summaries(self, sim_ref: str) -> List[Summary]:
+        try:
+            sim_uuid = uuid.UUID(sim_ref)
+            simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
+        except ValueError:
+            sim_alias = sim_ref
+            simulation = self.session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
+        if simulation is None:
+            raise DatabaseError("Failed to find simulation: " + sim_ref)
+        return simulation.summary
 
     def delete_simulation(self, sim_ref: str) -> Simulation:
         """
@@ -253,6 +264,17 @@ class Database:
 
         return query.all()
 
+    def query_summary(self, name, equals=None, contains=None) -> List[Simulation]:
+        query = self.session.query(Simulation).join(Summary, Simulation.summary)
+        if equals:
+            query = query.filter(Summary.key == name,
+                                 func.lower(Summary.value) == equals.lower())
+        if contains:
+            query = query.filter(Summary.key == name,
+                                 Summary.value.ilike("%{}%".format(contains)))
+
+        return query.all()
+
     def insert_simulation(self, simulation: Simulation) -> None:
         """
         Insert the given simulation into the database.
@@ -286,6 +308,17 @@ class Database:
             simulation.provenance = Provenance(provenance)
         else:
             simulation.provenance.add_metadata(provenance)
+        self.session.commit()
+
+    def insert_summary(self, sim_ref: str, summary: List[Tuple[str, str]]) -> None:
+        try:
+            sim_uuid = uuid.UUID(sim_ref)
+            simulation: Simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
+        except ValueError:
+            sim_alias = sim_ref
+            simulation: Simulation = self.session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
+        for (k, v) in summary:
+            simulation.summary.append(Summary(k, v))
         self.session.commit()
 
     def get_validation_parameters(self, device: str, scenario: str, path: str) -> Optional[ValidationParameters]:

@@ -102,6 +102,7 @@ class Simulation(Base):
     files: List["File"] = relationship("File", secondary=simulation_files, backref="simulations")
     meta = relationship("MetaData")
     provenance = relationship("Provenance", uselist=False)
+    summary = relationship("Summary")
 
     def __init__(self, manifest: Union[Manifest, None]):
         """
@@ -573,5 +574,41 @@ class ValidationParameters(Base):
             stdev_low=self.stdev_low,
             stdev_high=self.stdev_high,
             mandatory_tests=self.mandatory_tests,
+        )
+        return data
+
+
+@inherit_docstrings
+class Summary(Base):
+    """
+    Class to represent metadata in the database ORM.
+    """
+    __tablename__ = "summary"
+    id = Column(Integer, primary_key=True)
+    sim_id = Column(Integer, ForeignKey(Simulation.id))
+    uuid = Column(UUID, nullable=False)
+    key = Column(String(250), nullable=False)
+    value = Column(Text, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint('sim_id', 'key', name='_simulation_summary'),
+    )
+
+    def __init__(self, key: str, value: str):
+        self.uuid = uuid.uuid1()
+        self.key = key
+        self.value = value
+
+    @classmethod
+    def from_data(cls, data: dict) -> "Summary":
+        summary = Summary(data["key"], data["value"])
+        summary.uuid = data["uuid"]
+        return summary
+
+    def data(self, recurse: bool=False) -> dict:
+        data = dict(
+            uuid=self.uuid.hex,
+            key=self.key,
+            value=self.value,
         )
         return data

@@ -1,8 +1,10 @@
+import os
 import argparse
-from typing import Any, Optional, List, Dict
+import yaml
+from typing import Any, Optional, List, Dict, Tuple
 from enum import Enum, auto
 
-from ..database.models import Simulation, ValidationParameters
+from ..database.models import Simulation, ValidationParameters, Summary
 from .manifest import Manifest, InvalidManifest, DataObject
 from .remote_api import RemoteAPI
 from ..database.database import get_local_db
@@ -14,6 +16,20 @@ from ..imas import validation as imas_validation
 def required_argument(args: Any, command: str, argument: str):
     if not getattr(args, argument):
         raise argparse.ArgumentError(None, "{} name must be provided with {} command".format(argument, command))
+
+
+def flatten_dict(values: Dict) -> List[Tuple[str, str]]:
+    items = []
+    for (k, v) in values.items():
+        if type(v) == list:
+            for n, i in enumerate(v):
+                items.append(("{}[{}]".format(k, n), i))
+        elif type(v) == dict:
+            for i in flatten_dict(v):
+                items.append(("{}.{}".format(k, i[0]), i[1]))
+        else:
+            items.append((k, v))
+    return items
 
 
 class Command:
@@ -45,7 +61,8 @@ class QueryCommand(Command):
 
     class QueryType(Enum):
         META = auto()
-        PROV = auto()
+        PROVENANCE = auto()
+        SUMMARY = auto()
 
     def __init__(self, query_type: QueryType=QueryType.META):
         self._query_type = query_type
@@ -67,8 +84,10 @@ class QueryCommand(Command):
         db = get_local_db()
         if self._query_type == QueryCommand.QueryType.META:
             simulations = db.query_meta(args.name, equals=args.equals, contains=args.contains)
-        elif self._query_type == QueryCommand.QueryType.PROV:
+        elif self._query_type == QueryCommand.QueryType.PROVENANCE:
             simulations = db.query_provenance(args.name, equals=args.equals, contains=args.contains)
+        elif self._query_type == QueryCommand.QueryType.SUMMARY:
+            simulations = db.query_summary(args.name, equals=args.equals, contains=args.contains)
         else:
             raise Exception("Unknown query type " + self._query_type.name)
         list_simulations(simulations, verbose=args.verbose)
@@ -114,7 +133,7 @@ class ProvenanceCommand(Command):
         "create": CreateCommand(),
         "ingest": IngestCommand(),
         "print": PrintCommand(),
-        "query": QueryCommand(QueryCommand.QueryType.PROV),
+        "query": QueryCommand(QueryCommand.QueryType.PROVENANCE),
     }
 
     def add_arguments(self, parser: argparse.ArgumentParser):
@@ -196,6 +215,15 @@ def list_validation_parameters(parameters: List[ValidationParameters]) -> None:
 
     for param in parameters:
         print("%s%s %s" % (param.device, " " * (max_device - len(param.device)), param.scenario))
+
+
+def list_summaries(summaries: List[Summary]) -> None:
+    if len(summaries) == 0:
+        print("No summaries found")
+        return
+
+    for summary in summaries:
+        print("{} = {}".format(summary.key, summary.value))
 
 
 class ListCommand(Command):
@@ -349,6 +377,75 @@ class SimulationCommand(Command):
 
     def run(self, args: SimulationArgs):
         self._commands[args.action].run(args)
+
+
+class SummaryCommand(Command):
+    _help = "create and ingest IMAS summaries"
+
+    class SummaryCreateCommand(Command):
+        _help = "create the summary file"
+        _script = "/work/imas/extra/bin/create_db_entry"
+
+        def add_arguments(self, parser: argparse.ArgumentParser):
+            parser.add_argument("file", help="file to create")
+            parser.add_argument("shot", help="IDS shot")
+            parser.add_argument("run", help="IDS run")
+
+        def run(self, args: Any):
+            cmd = "{} --shot={} --run={}".format(self._script, args.shot, args.run)
+            with os.popen(cmd) as p:
+                with open(args.file) as f:
+                    for line in p:
+                        print(line, file=f, end="")
+
+    class SummaryIngestCommand(Command):
+        _help = "ingest the summary file"
+
+        def add_arguments(self, parser: argparse.ArgumentParser):
+            parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
+            parser.add_argument("file", help="file to create")
+
+        def run(self, args: Any):
+            with open(args.file) as f:
+                y = yaml.load(f)
+                summary = flatten_dict(y)
+            db = get_local_db()
+            db.insert_summary(args.sim_id, summary)
+
+    class SummaryListCommand(Command):
+        _help = "clear the database"
+
+        def add_arguments(self, parser: argparse.ArgumentParser):
+            parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
+
+        class SummaryListArgs(argparse.Namespace):
+            sim_id: str
+
+        def run(self, args: SummaryListArgs) -> None:
+            db = get_local_db()
+            summaries = db.list_summaries(args.sim_id)
+            list_summaries(summaries)
+
+    _commands = {
+        "create": SummaryCreateCommand(),
+        "ingest": SummaryIngestCommand(),
+        "query": QueryCommand(QueryCommand.QueryType.SUMMARY),
+        "list": SummaryListCommand(),
+    }
+
+    def add_arguments(self, parser: argparse.ArgumentParser):
+        command_parsers = parser.add_subparsers(title="action", dest="sum_action")
+        command_parsers.required = True
+
+        for name, command in self._commands.items():
+            sub_parser = command_parsers.add_parser(name, help=command.help)
+            command.add_arguments(sub_parser)
+
+    class SummaryArgs():
+        sum_action: str
+
+    def run(self, args: SummaryArgs):
+        self._commands[args.sum_action].run(args)
 
 
 class RemoteDatabaseCommand(Command):
