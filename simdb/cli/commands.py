@@ -600,8 +600,8 @@ class DatabaseCommand(Command):
         def add_arguments(self, parser: argparse.ArgumentParser):
             parser.add_argument("ref_action", choices=["load", "list", "print", "delete"],
                                 help="action to perform")
-            parser.add_argument("--shot", help="IDS shot number")
-            parser.add_argument("--run", help="IDS run number")
+            parser.add_argument("--shot", help="IDS shot number", type=int)
+            parser.add_argument("--run", help="IDS run number", type=int)
             parser.add_argument("--device", help="device name")
             parser.add_argument("--scenario", help="scenario name")
             parser.add_argument("--path", help="ids path")

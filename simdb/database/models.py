@@ -117,7 +117,7 @@ class Simulation(Base):
         self.status = "UNKNOWN"
 
         for source in manifest.inputs:
-            if source.type == DataObject.Type.PATH:
+            if source.type in (DataObject.Type.PATH, DataObject.Type.IMAS):
                 self.files.append(File(source))
 
         for key, value in manifest.metadata.items():

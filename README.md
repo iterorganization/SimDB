@@ -21,3 +21,7 @@ pip install --user git+ssh://git@git.iter.org/imex/simulation-management.git
 * Flask >= 0.12.2
 * PostgreSQL >= 9.6
 * psycopg2-binary >= 2.7.4
+
+## User Guide
+
+The user guide is available at [User Guide](./docs/user_guide.md)
