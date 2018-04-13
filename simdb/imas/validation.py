@@ -616,7 +616,7 @@ def validate_ids(device: str, scenario: str, imas_obj: Any, ids_name: str, mode:
                  ids_names: Optional[List[str]], out: IO):
     print('IDS: ' + ids_name, file=out)
 
-    if ids_names and ids_names not in ids_names:
+    if ids_names and ids_name not in ids_names:
         print('Excluding IDS: ' + ids_name + ' from Validation Testing', file=out)
         return
 
