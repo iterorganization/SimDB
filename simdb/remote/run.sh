@@ -1,8 +1,5 @@
 #!/bin/bash
 
-module purge
-module load Anaconda3/4.4.0
-
 SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
   DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
