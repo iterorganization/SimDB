@@ -363,6 +363,22 @@ class ValidateCommand(Command):
 class SimulationCommand(Command):
     _help = "manage ingested simulations"
 
+    class NewCommand(Command):
+        _help = "create a new blank simulation and return the UUID"
+
+        def add_arguments(self, parser: argparse.ArgumentParser):
+            parser.add_argument("--alias", "-a", help="alias of to assign to the simulation")
+
+        class NewArgs(argparse.Namespace):
+            alias: str
+
+        def run(self, args: NewArgs) -> None:
+            db = get_local_db()
+            simulation = Simulation(Manifest())
+            simulation.alias = args.alias
+            db.insert_simulation(simulation)
+            print(simulation.uuid)
+
     _commands = {
         "push": PushCommand(),
         "modify": ModifyCommand(),
@@ -372,6 +388,7 @@ class SimulationCommand(Command):
         "query": QueryCommand(),
         "ingest": IngestCommand(),
         "validate": ValidateCommand(),
+        "new": NewCommand(),
     }
 
     def add_arguments(self, parser: argparse.ArgumentParser):
@@ -424,7 +441,7 @@ class SummaryCommand(Command):
             db.insert_summary(args.sim_id, summary)
 
     class SummaryListCommand(Command):
-        _help = "clear the database"
+        _help = "list the ingested summaries"
 
         def add_arguments(self, parser: argparse.ArgumentParser):
             parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
@@ -627,7 +644,6 @@ class DatabaseCommand(Command):
                 required_argument(args, "load", "scenario")
                 required_argument(args, "load", "ids")
                 imas_obj = imas_validation.load_imas(args.shot, args.run)
-
                 imas_validation.save_validation_parameters(args.device, args.scenario, imas_obj, args.ids)
             elif args.ref_action == "delete":
                 pass
