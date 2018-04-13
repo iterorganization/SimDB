@@ -1,5 +1,6 @@
+import sys
 import numpy as np
-from typing import Tuple, Dict, List, Any, Optional
+from typing import Tuple, Dict, List, Any, Optional, IO
 from collections import defaultdict
 from enum import Enum, auto
 
@@ -255,7 +256,8 @@ class RunMode(Enum):
     SAVE = auto()
 
 
-def drilldown(device: str, scenario: str, parent_path: str, obj_name: str, obj: Any, test_report: TestReport, mode: RunMode):
+def drilldown(device: str, scenario: str, parent_path: str, obj_name: str, obj: Any, test_report: TestReport,
+              mode: RunMode, out: IO):
     if ignore_entity(obj_name):
         return
 
@@ -264,20 +266,20 @@ def drilldown(device: str, scenario: str, parent_path: str, obj_name: str, obj: 
     else:
         path = parent_path + '/' + obj_name
 
-    print('========')
-    print('DRILLDOWN:' + path)
+    print('========', file=out)
+    print('DRILLDOWN:' + path, file=out)
 
     dtype = type(obj).__name__
-    print('Type: [' + str(dtype) + '][' + str(type(obj)) + ']')
+    print('Type: [' + str(dtype) + '][' + str(type(obj)) + ']', file=out)
 
     if dtype.startswith('int'):
-        print('Integer Object: ' + obj_name + ' = ' + str(obj))
+        print('Integer Object: ' + obj_name + ' = ' + str(obj), file=out)
         int_scalar_validation_tests(device, scenario, path, obj, test_report)
         return
 
     if dtype.startswith('float'):
-        print('Float Object: ' + obj_name + ' = ' + str(obj))
-        if not not is_missing(obj): print('Missing Value!')
+        print('Float Object: ' + obj_name + ' = ' + str(obj), file=out)
+        if not not is_missing(obj): print('Missing Value!', file=out)
         if mode == RunMode.TEST:
             float_scalar_validation_tests(device, scenario, path, obj, test_report)
         elif mode == RunMode.SAVE:
@@ -287,7 +289,7 @@ def drilldown(device: str, scenario: str, parent_path: str, obj_name: str, obj: 
         return
 
     if dtype.startswith('str'):
-        print('String Object: ' + obj_name + ' = ' + str(obj))
+        print('String Object: ' + obj_name + ' = ' + str(obj), file=out)
         if mode == RunMode.TEST:
             string_scalar_validation_tests(device, scenario, path, obj, test_report)
         elif mode == RunMode.SAVE:
@@ -302,20 +304,20 @@ def drilldown(device: str, scenario: str, parent_path: str, obj_name: str, obj: 
         size = obj.size
 
         if dtype.startswith('int') or dtype.startswith('float'):
-            print('Atomic NUMPY Array Object: ' + obj_name)
-            print('Rank = ' + str(rank))  # Rank
-            print('Shape = ' + str(shape))  # Shape
-            print('Size = ' + str(size))  # Number of elements
-            print('Type = ' + str(dtype))  # Type
+            print('Atomic NUMPY Array Object: ' + obj_name, file=out)
+            print('Rank = ' + str(rank), file=out)  # Rank
+            print('Shape = ' + str(shape), file=out)  # Shape
+            print('Size = ' + str(size), file=out)  # Number of elements
+            print('Type = ' + str(dtype), file=out)  # Type
 
             if size > 0:
                 print(str(obj))
-                print('Maximum Value: ' + str(np.max(obj)))
-                print('Minimum Value: ' + str(np.min(obj)))
-                print('Sum Value: ' + str(np.sum(obj)))
-                print('Std Value: ' + str(np.std(obj)))
-                print('Var Value: ' + str(np.var(obj)))
-                print('Mean Value: ' + str(np.mean(obj)))
+                print('Maximum Value: ' + str(np.max(obj)), file=out)
+                print('Minimum Value: ' + str(np.min(obj)), file=out)
+                print('Sum Value: ' + str(np.sum(obj)), file=out)
+                print('Std Value: ' + str(np.std(obj)), file=out)
+                print('Var Value: ' + str(np.var(obj)), file=out)
+                print('Mean Value: ' + str(np.mean(obj)), file=out)
                 if dtype[0:5] == 'float':
                     missing = False
                     for item in obj:
@@ -323,7 +325,7 @@ def drilldown(device: str, scenario: str, parent_path: str, obj_name: str, obj: 
                         if missing:
                             break
                     if missing:
-                        print('Missing Data in Float Array detected!')
+                        print('Missing Data in Float Array detected!', file=out)
 
                     if mode == RunMode.TEST:
                         float_array_validation_tests(device, scenario, path, obj, test_report)
@@ -340,76 +342,70 @@ def drilldown(device: str, scenario: str, parent_path: str, obj_name: str, obj: 
                         raise Exception("Uknown mode " + mode.name)
             return
 
-        print('Array of NUMPY Structured Type: (' + obj_name + ') ' + str(dtype))
+        print('Array of NUMPY Structured Type: (' + obj_name + ') ' + str(dtype), file=out)
         return
 
-    print('Other Structured Type: (' + obj_name + ')  ' + str(dtype))
+    print('Other Structured Type: (' + obj_name + ')  ' + str(dtype), file=out)
 
     s_mems = remove_methods(obj)
-    s_count = len(s_mems)
 
-    s_list = []
-    for s_index in range(s_count): s_list.append(s_mems[s_index][0])
-
-    print('Structure Data Entity Count: ' + str(s_count))
-    print(str(s_list))
+    print('Structure Data Entity Count: ' + str(len(s_mems)), file=out)
+    print(str(s_mems), file=out)
 
     base_path = ''
-    for s_index in range(s_count):
-        if s_mems[s_index][0] == 'base_path':
+    for mem in s_mems:
+        if mem == 'base_path':
             base_path = getattr(obj, 'base_path')  # the name of the parent object for drill down
-            print('Base Path = ' + base_path)
+            print('Base Path = ' + base_path, file=out)
             break
 
     if base_path == '':
-        print('ERROR: BASE PATH NOT FOUND!')
+        print('ERROR: BASE PATH NOT FOUND!', file=out)
 
-    print('Parent = ' + parent_path + '   Base_Path = ' + base_path + '  Name = ' + obj_name)
+    print('Parent = ' + parent_path + '   Base_Path = ' + base_path + '  Name = ' + obj_name, file=out)
 
     if '__structure' in dtype or '__structArrayElement' in dtype or 'instance' in dtype:
-        print('Structure Object')
-        for s_index in range(s_count):
-            name = s_mems[s_index][0]  # target this data entity
+        print('Structure Object', file=out)
+        for name in s_mems:
             child = getattr(obj, name)
-            print(name)
-            print(type(child).__name__)
-            drilldown(device, scenario, path, name, child, test_report, mode)
+            print(name, file=out)
+            print(type(child).__name__, file=out)
+            drilldown(device, scenario, path, name, child, test_report, mode, out)
 
     elif '__structArray' in dtype:
-        print('Structure Array Object')
+        print('Structure Array Object', file=out)
 
         obj_count = len(obj)
-        print('Array Count: ' + str(obj_count))
+        print('Array Count: ' + str(obj_count), file=out)
 
-        for s_index in range(s_count):
-            name = s_mems[s_index][0]  # target this data entity
+        for name in s_mems:
             children = getattr(obj, name)
-            print(name)
-            print(type(children).__name__)
+            print(name, file=out)
+            print(type(children).__name__, file=out)
 
             ctype = type(children).__name__
             if ctype in ['str', 'int', 'float', 'int32', 'float32', 'int64', 'float64']:
                 child_count = 0
-                drilldown(device, scenario, path, name, children, test_report, mode)
+                drilldown(device, scenario, path, name, children, test_report, mode, out)
             else:
                 child_count = len(children)
-                print('Child Count: ' + str(child_count))
+                print('Child Count: ' + str(child_count), file=out)
 
                 child_index = 0
                 for child in children:
-                    print('child[' + str(child_index) + ']: ' + name)
-                    print(type(child).__name__)
+                    print('child[' + str(child_index) + ']: ' + name, file=out)
+                    print(type(child).__name__, file=out)
                     a_name = name + '[' + str(child_index) + ']'
-                    drilldown(device, scenario, path, a_name, child, test_report, mode)
+                    drilldown(device, scenario, path, a_name, child, test_report, mode, out)
                     child_index += 1
 
     else:
-        print('Unknown Object')
+        print('Unknown Object', file=out)
 
     return
 
 
-def verify_equlibirium_COCOS(imas_obj) -> bool:
+def verify_equlibirium_COCOS(imas_obj: Any) -> bool:
     # Verify the EQUILIBRIUM IDS is COCOS compliant
 
     ids = getattr(imas_obj, 'equilibrium')
@@ -600,7 +596,10 @@ def find_IDSs(imas_obj):
     IDSs = []
     for name in dir(imas_obj):
         type_name = str(type(getattr(imas_obj, name)))
-        if "instance" in type_name and "instancemethod" not in type_name:
+        if sys.version_info.major < 3:
+            if "instance" in type_name and "instancemethod" not in type_name:
+                IDSs.append(name)
+        elif "imas_" in type_name:
             IDSs.append(name)
     return IDSs
 
@@ -613,28 +612,29 @@ def ids_excludes():
     return ['connected', 'expIdx', 'refRun', 'refShot', 'run', 'shot', 'treeName']
 
 
-def validate_ids(device: str, scenario: str, imas_obj: Any, ids_name: str, mode: RunMode, ids_names: Optional[List[str]]):
-    print('IDS: ' + ids_name)
+def validate_ids(device: str, scenario: str, imas_obj: Any, ids_name: str, mode: RunMode,
+                 ids_names: Optional[List[str]], out: IO):
+    print('IDS: ' + ids_name, file=out)
 
     if ids_names and ids_names not in ids_names:
-        print('Excluding IDS: ' + ids_name + ' from Validation Testing')
+        print('Excluding IDS: ' + ids_name + ' from Validation Testing', file=out)
         return
 
     if ids_name in ids_excludes():
-        print('Excluding IDS: ' + ids_name + ' from Validation Testing')
+        print('Excluding IDS: ' + ids_name + ' from Validation Testing', file=out)
         return
 
     if ids_name in ids_targets() and "*" not in ids_targets():
-        print('IDS: ' + ids_name + ' is not a Targeted IDS for Validation Testing')
+        print('IDS: ' + ids_name + ' is not a Targeted IDS for Validation Testing', file=out)
         return
 
-    print('Validating IDS: ' + ids_name)
+    print('Validating IDS: ' + ids_name, file=out)
 
     try:
         ids = getattr(imas_obj, ids_name)
         ids.get()
     except AttributeError:
-        print('ERROR: Unable to read IDS: ' + ids_name)
+        print('ERROR: Unable to read IDS: ' + ids_name, file=out)
         return
 
     # ------------------------------------------------------------------------------
@@ -642,37 +642,39 @@ def validate_ids(device: str, scenario: str, imas_obj: Any, ids_name: str, mode:
 
     ids_mems = remove_methods(ids)
 
-    print('IDS Data Entity Count: ' + str(len(ids_mems)))
-    print(str(ids_mems))
+    print('IDS Data Entity Count: ' + str(len(ids_mems)), file=out)
+    print(str(ids_mems), file=out)
 
     base_path = ''
     for name in ids_mems:
         if name == 'base_path':
             base_path = getattr(ids, 'base_path')  # the name of the parent object for drill down
-            print('Base Path = ' + base_path)
+            print('Base Path = ' + base_path, file=out)
             break
 
     if base_path == '':
-        print('ERROR: BASE PATH NOT FOUND!')
+        print('ERROR: BASE PATH NOT FOUND!', file=out)
+
+    test_report = TestReport()
 
     for ids_index, name in enumerate(ids_mems):
         # deconstruct each object into constituent data elements
 
-        print('\n')
-        print('[' + str(ids_index) + ']  ' + name)
+        print('\n', file=out)
+        print('[' + str(ids_index) + ']  ' + name, file=out)
 
         obj = getattr(ids, name)
-        dtype = str(type(obj))
+        dtype = type(obj).__name__
 
         # Scalar data in the IDS root
         if dtype.startswith("int"):
-            print('Integer Object: ' + name + ' = ' + str(obj))
+            print('Integer Object: ' + name + ' = ' + str(obj), file=out)
             continue
         elif dtype.startswith("float"):
-            print('Float Object: ' + name + ' = ' + str(obj))
+            print('Float Object: ' + name + ' = ' + str(obj), file=out)
             continue
         elif dtype.startswith("str"):
-            print('String Object: ' + name + ' = ' + str(obj))
+            print('String Object: ' + name + ' = ' + str(obj), file=out)
             continue
         elif dtype == 'ndarray':
             rank = obj.ndim
@@ -680,41 +682,43 @@ def validate_ids(device: str, scenario: str, imas_obj: Any, ids_name: str, mode:
             size = obj.size
             dtype = str(obj.dtype)
             if dtype.startswith("int") or dtype.startswith("float"):
-                print('Atomic Array Object: ' + name)
-                print(str(rank))    # Rank
-                print(str(shape))   # Shape
-                print(str(size))    # Number of elements
-                print(str(dtype))   # Type
+                print('Atomic Array Object: ' + name, file=out)
+                print(str(rank), file=out)    # Rank
+                print(str(shape), file=out)   # Shape
+                print(str(size), file=out)    # Number of elements
+                print(str(dtype), file=out)   # Type
 
                 if size > 0:
-                    print(str(obj))
+                    print(str(obj), file=out)
                 continue
 
-            print('Array of Structured Type: (' + name + ')  ' + dtype)
+            print('Array of Structured Type: (' + name + ')  ' + dtype, file=out)
             continue
 
-        print('Structured Type: (' + name + ')  ' + dtype)
+        print('Structured Type: (' + name + ')  ' + dtype, file=out)
 
-        test_report = TestReport()
+        drilldown(device, scenario, base_path, name, obj, test_report, mode, out)
 
-        drilldown(device, scenario, base_path, name, obj, test_report, mode)
-
-        if test_report.failures:
-            print('Failures: %d' % len(test_report.failures))
-            for (path, failures) in test_report.failures.items():
-                print('Path: ' + path)
+    print("IDS:", ids_name)
+    if test_report.failures:
+        print('Failures: %d' % len(test_report.failures), file=out)
+        for (path, failures) in test_report.failures.items():
+            print('Path: ' + path, file=out)
+    else:
+        print("Success")
 
 
 def validate_imas(device: str, scenario: str, imas_obj: Any):
-    IDSs = find_IDSs(imas_obj)
-    for IDS in IDSs:
-        validate_ids(device, scenario, imas_obj, IDS, RunMode.TEST, None)
+    with open("./validate.out", "w") as f:
+        IDSs = find_IDSs(imas_obj)
+        for IDS in IDSs:
+            validate_ids(device, scenario, imas_obj, IDS, RunMode.TEST, None, f)
 
 
 def save_validation_parameters(device: str, scenario: str, imas_obj: Any, ids_names: List[str]):
     IDSs = find_IDSs(imas_obj)
     for IDS in IDSs:
-        validate_ids(device, scenario, imas_obj, IDS, RunMode.SAVE, ids_names)
+        validate_ids(device, scenario, imas_obj, IDS, RunMode.SAVE, ids_names, sys.stderr)
 
 
 def load_imas(shot, run):
@@ -722,4 +726,3 @@ def load_imas(shot, run):
     imas_obj = imas.ids(shot, run)
     imas_obj.open()
     return imas_obj
-

@@ -11,6 +11,7 @@ from ..database.database import get_local_db
 from ..provenance import create_provenance_file, read_provenance_file
 from ..validation import verify_metadata, ValidationError, TestParameters
 from ..imas import validation as imas_validation
+from ..utils import sha1_checksum
 
 
 def required_argument(args: Any, command: str, argument: str):
@@ -343,10 +344,20 @@ class ValidateCommand(Command):
             raise ValidationError("No scenario found in metadata")
         if len(device) > 1:
             raise ValidationError("Multiple scenarios found in metadata")
+        imas_names = set()
         for file in simulation.files:
+            path = os.path.join(file.directory, file.file_name)
+            checksum = sha1_checksum(path)
+            if checksum != file.checksum:
+                raise ValidationError("Checksum doest not match for file " + path)
             if file.type == DataObject.Type.IMAS:
-                imas_obj = imas_validation.load_imas(file.imas["shot"], file.imas["run"])
-                imas_validation.validate_imas(device, scenario, imas_obj)
+                imas_names.add(file.file_name.split(".")[0])
+        for name in imas_names:
+            (tree, num) = name.split("_")
+            shot = int(num[:-4])
+            run = int(num[-4:])
+            imas_obj = imas_validation.load_imas(shot, run)
+            imas_validation.validate_imas(device[0].value, scenario[0].value, imas_obj)
 
 
 class SimulationCommand(Command):

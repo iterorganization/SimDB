@@ -184,10 +184,6 @@ class Simulation(Base):
         return data
 
 
-def _get_checksum(path) -> str:
-    return sha1_checksum(path)
-
-
 @inherit_docstrings
 class File(Base):
     """
@@ -216,7 +212,7 @@ class File(Base):
         self.uuid = uuid.uuid1()
         self.file_name = file_name
         self.directory = directory
-        self.checksum = _get_checksum(os.path.join(directory, file_name))
+        self.checksum = sha1_checksum(os.path.join(directory, file_name))
         self.type = type
         self.datetime = datetime.now()
 
@@ -277,6 +273,9 @@ class MetaData(Base):
         self.uuid = uuid.uuid1()
         self.element = key
         self.value = value
+
+    def __str__(self):
+        return "{}: {}".format(self.element, self.value)
 
     @classmethod
     def from_data(cls, data: dict) -> "MetaData":
