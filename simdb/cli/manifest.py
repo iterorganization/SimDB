@@ -4,33 +4,12 @@ import os
 from enum import Enum, auto
 from typing import Iterable, Union, List
 
-from ..utils import sha1_checksum
-
 
 class InvalidManifest(Exception):
     """
     Exception to throw when a manifest fails to validate.
     """
     pass
-
-
-def _get_imas_path(imas: dict):
-    if "IMAS_VERSION" not in os.environ:
-        raise Exception("$IMAS_VERSION not defined")
-    imas_version = os.environ["IMAS_VERSION"]
-    imas_file_base = "ids_%d%04d" % (imas["shot"], imas["run"])
-    if "path" in imas:
-        path = os.path.join(imas["path"], imas_version.split(".")[0], "0")
-    else:
-        if "MDSPLUS_TREE_BASE_0" not in os.environ:
-            raise Exception("path not specified for IDS and $MDSPLUS_TREE_BASE_0 not defined")
-        path = os.environ["MDSPLUS_TREE_BASE_0"]  
-    # return [
-    #     os.path.join(path, imas_file_base + ".characteristics"),
-    #     os.path.join(path, imas_file_base + ".datafile"),
-    #     os.path.join(path, imas_file_base + ".tree"),
-    # ]
-    return os.path.join(path, imas_file_base + ".datafile")
 
 
 class DataObject:
@@ -57,14 +36,9 @@ class DataObject:
             self.type = DataObject.Type.PATH
         elif "imas" in values:
             self.imas = values["imas"]
-            self.path = _get_imas_path(self.imas)
             self.type = DataObject.Type.IMAS
         else:
             raise InvalidManifest("invalid input")
-
-    @property
-    def checksum(self) -> str:
-        return sha1_checksum(self.path)
 
     @property
     def name(self) -> str:
@@ -73,7 +47,7 @@ class DataObject:
         elif self.type == DataObject.Type.PATH:
             return self.path
         elif self.type == DataObject.Type.IMAS:
-            return self.path
+            return "IDS(shot={}, run={})".format(self.imas["shot"], self.imas["run"])
         return DataObject.Type.UUID.name
 
 

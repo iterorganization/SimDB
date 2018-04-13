@@ -10,7 +10,7 @@ from datetime import datetime
 from dateutil import parser as date_parser
 
 from ..cli.manifest import Manifest, DataObject
-from ..utils import inherit_docstrings
+from ..utils import inherit_docstrings, sha1_checksum
 
 
 class UUID(TypeDecorator):
@@ -87,6 +87,24 @@ simulation_files = Table("simulation_files", Base.metadata,
                          Column("file_id", Integer, ForeignKey("files.id")))
 
 
+def _get_imas_paths(imas: dict) -> List[str]:
+    if "IMAS_VERSION" not in os.environ:
+        raise Exception("$IMAS_VERSION not defined")
+    imas_version = os.environ["IMAS_VERSION"]
+    imas_file_base = "ids_%d%04d" % (imas["shot"], imas["run"])
+    if "path" in imas:
+        path = os.path.join(imas["path"], imas_version.split(".")[0], "0")
+    else:
+        if "MDSPLUS_TREE_BASE_0" not in os.environ:
+            raise Exception("path not specified for IDS and $MDSPLUS_TREE_BASE_0 not defined")
+        path = os.environ["MDSPLUS_TREE_BASE_0"]
+    return [
+        os.path.join(path, imas_file_base + ".characteristics"),
+        os.path.join(path, imas_file_base + ".datafile"),
+        os.path.join(path, imas_file_base + ".tree"),
+    ]
+
+
 @inherit_docstrings
 class Simulation(Base):
     """
@@ -117,8 +135,11 @@ class Simulation(Base):
         self.status = "UNKNOWN"
 
         for source in manifest.inputs:
-            if source.type in (DataObject.Type.PATH, DataObject.Type.IMAS):
-                self.files.append(File(source))
+            if source.type == DataObject.Type.PATH:
+                self.files.append(File(source.type, os.path.dirname(source.path), os.path.basename(source.path)))
+            if source.type == DataObject.Type.IMAS:
+                for path in _get_imas_paths(source.imas):
+                    self.files.append(File(source.type, os.path.dirname(path), os.path.basename(path)))
 
         for key, value in manifest.metadata.items():
             self.meta.append(MetaData(key, str(value)))
@@ -163,6 +184,10 @@ class Simulation(Base):
         return data
 
 
+def _get_checksum(path) -> str:
+    return sha1_checksum(path)
+
+
 @inherit_docstrings
 class File(Base):
     """
@@ -182,19 +207,17 @@ class File(Base):
     embargo = Column(String(20), nullable=True)
     datetime = Column(DateTime, nullable=False)
 
-    def __init__(self, data_object: Union[DataObject, None]):
+    def __init__(self, type: DataObject.Type, directory: str, file_name: str):
         """
         Initialise the File object using the provided DataObject.
 
         :param data_object: The DataObject to load the data from, or None to create an empty File.
         """
-        if data_object is None:
-            return
         self.uuid = uuid.uuid1()
-        self.file_name = os.path.basename(data_object.name)
-        self.directory = os.path.dirname(data_object.name)
-        self.checksum = data_object.checksum
-        self.type = data_object.type
+        self.file_name = file_name
+        self.directory = directory
+        self.checksum = _get_checksum(os.path.join(directory, file_name))
+        self.type = type
         self.datetime = datetime.now()
 
     def __str__(self):
@@ -210,13 +233,10 @@ class File(Base):
 
     @classmethod
     def from_data(cls, data: dict) -> "File":
-        file = File(None)
+        file = File(DataObject.Type[data["type"]], data["directory"], data["file_name"])
         file.uuid = uuid.UUID(data["uuid"])
         file.usage = data["usage"]
-        file.file_name = data["file_name"]
-        file.directory = data["directory"]
         file.checksum = data["checksum"]
-        file.type = DataObject.Type[data["type"]]
         file.purpose = data["purpose"]
         file.sensitivity = data["sensitivity"]
         file.access = data["access"]
