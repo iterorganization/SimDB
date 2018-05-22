@@ -1,9 +1,13 @@
 import argparse
 import argcomplete
 from typing import List
+import urllib3
 
 from .commands import SimulationCommand, ManifestCommand, DatabaseCommand, RemoteCommand,\
     ProvenanceCommand, SummaryCommand
+
+
+urllib3.disable_warnings()
 
 
 class SimCLI:

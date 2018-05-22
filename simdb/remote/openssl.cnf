@@ -1,24 +1,22 @@
 [ req ]
 distinguished_name      = req_distinguished_name
-attributes              = req_attributes
+req_extensions          = req_ext
+prompt                  = no
 
 [ req_distinguished_name ]
 countryName             = UK
-countryName_min         = 2
-countryName_max         = 2
 stateOrProvinceName     = OXON
 localityName            = Culham
 0.organizationName      = UKAEA
 organizationalUnitName  = CCFE
-commonName              = 127.0.0.1
-commonName_max          = 64
+commonName              = localhost
 emailAddress            = simdb@ukaea.uk
-emailAddress_max        = 64
 
-[ req_attributes ]
-challengePassword       = A challenge password
-challengePassword_min   = 4
-challengePassword_max   = 20
+[ req_ext ]
+basicConstraints        = CA:FALSE
+keyUsage                = nonRepudiation, digitalSignature, keyEncipherment
+subjectAltName          = @alt_names
 
-[SAN]
-subjectAltName          = DNS:127.0.0.1,DNS:localhost
+[ alt_names ]
+DNS.1                   = 127.0.0.1
+DNS.2                   = localhost

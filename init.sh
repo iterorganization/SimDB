@@ -6,3 +6,4 @@
 ./simdb.sh database cv new "Temporal coverage" "current ramp-up" "current ramp-down" "current flat top" "L-H transition" "H-L transition"
 ./simdb.sh database cv new "IDSs present" equilibrium core_profiles summary edge_profiles
 ./simdb.sh database cv new "Fuelling species" H He D D-T
+./simdb.sh database cv new "code" LOCUST SOLPS EFIT++

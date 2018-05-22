@@ -25,3 +25,9 @@ pip install --user git+ssh://git@git.iter.org/imex/simulation-management.git
 ## User Guide
 
 The user guide is available at [User Guide](./docs/user_guide.md)
+
+## TODO
+
+* Add remote modify
+* Add remote query
+* Add progress meter to file uploads

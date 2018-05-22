@@ -149,8 +149,8 @@ class WorkflowValidator(DictValuesValidator):
     Validator for the manifest workflow dictionary.
     """
     section_name: str = "workflow"
-    expected_keys: Iterable = ("name", "git", "branch", "commit", "codes")
-    required_keys: Iterable = ("name", "git", "branch", "commit", "codes")
+    expected_keys: Iterable = ("name", "git", "commit", "codes")
+    required_keys: Iterable = ("name", "git", "commit", "codes")
 
 
 def _update_dict(old: dict, new: dict) -> None:
