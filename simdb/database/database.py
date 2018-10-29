@@ -16,21 +16,13 @@ if TYPE_CHECKING:
     import sqlalchemy
     from .models import (Base, Simulation, File, MetaData, ValidationParameters, Provenance, ProvenanceMetaData,
                          ControlledVocabulary, Summary)
-else:
-    sessionmaker = object
-    Simulation = object
-    ValidationParameters = object
-    File = object
-    Summary = object
-    Provenance = object
-    ControlledVocabulary = object
 
 
 class SessionMaker:
-    _session_maker: sessionmaker = None
+    _session_maker: "sessionmaker" = None
 
     @classmethod
-    def get(cls) -> sessionmaker:
+    def get(cls) -> "sessionmaker":
         if cls._session_maker is None:
             from sqlalchemy.orm import sessionmaker
             cls._session_maker = sessionmaker()
@@ -126,7 +118,7 @@ class Database:
                 con.execute(table.delete())
             trans.commit()
 
-    def list_simulations(self) -> List[Simulation]:
+    def list_simulations(self) -> List["Simulation"]:
         """
         Return a list of all the simulations stored in the database.
 
@@ -136,7 +128,7 @@ class Database:
 
         return self.session.query(Simulation).all()
 
-    def list_files(self) -> List[File]:
+    def list_files(self) -> List["File"]:
         """
         Return a list of all the files stored in the database.
 
@@ -146,7 +138,7 @@ class Database:
 
         return self.session.query(File).all()
 
-    def list_validation_parameters(self, device: Optional[str], scenario: Optional[str]) -> List[ValidationParameters]:
+    def list_validation_parameters(self, device: Optional[str], scenario: Optional[str]) -> List["ValidationParameters"]:
         from .models import ValidationParameters
 
         if device is None and scenario is None:
@@ -155,7 +147,7 @@ class Database:
         else:
             return self.session.query(ValidationParameters).filter_by(device=device, scenario=scenario).all()
 
-    def list_summaries(self, sim_ref: str) -> List[Summary]:
+    def list_summaries(self, sim_ref: str) -> List["Summary"]:
         from .models import Simulation
 
         try:
@@ -168,7 +160,7 @@ class Database:
             raise DatabaseError("Failed to find simulation: " + sim_ref)
         return simulation.summary
 
-    def delete_simulation(self, sim_ref: str) -> Simulation:
+    def delete_simulation(self, sim_ref: str) -> "Simulation":
         """
         Delete the specified simulation from the database.
 
@@ -185,19 +177,20 @@ class Database:
             simulation = self.session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
         if simulation is None:
             raise DatabaseError("Failed to find simulation: " + sim_ref)
-        for file in simulation.files:
+        for file in simulation.inputs:
             self.session.delete(file)
         self.session.delete(simulation)
         self.session.commit()
         return simulation
 
-    def query_meta(self, name, equals=None, contains=None) -> List[Simulation]:
+    def query_meta(self, name, equals=None, contains=None) -> List["Simulation"]:
         """
         Query the metadata and return matching simulations.
 
         :return:
         """
         from .models import Simulation, MetaData
+        from sqlalchemy import func
 
         query = self.session.query(Simulation).join(MetaData, Simulation.meta)
         if equals:
@@ -209,7 +202,7 @@ class Database:
 
         return query.all()
 
-    def get_simulation(self, sim_ref: str) -> Simulation:
+    def get_simulation(self, sim_ref: str) -> "Simulation":
         """
         Get the specified simulation from the database.
 
@@ -229,7 +222,7 @@ class Database:
         self.session.commit()
         return simulation
 
-    def get_file(self, file_uuid: str) -> File:
+    def get_file(self, file_uuid: str) -> "File":
         """
         Get the specified file from the database.
 
@@ -275,7 +268,7 @@ class Database:
         vocab: ControlledVocabulary = self.session.query(ControlledVocabulary).filter_by(name=element).one()
         return [i.value for i in vocab.words]
 
-    def get_provenance(self, sim_ref: str) -> Provenance:
+    def get_provenance(self, sim_ref: str) -> "Provenance":
         """
         Get all the provenance for the given simulation.
 
@@ -295,13 +288,14 @@ class Database:
         self.session.commit()
         return simulation.provenance
 
-    def query_provenance(self, name, equals=None, contains=None) -> List[Simulation]:
+    def query_provenance(self, name, equals=None, contains=None) -> List["Simulation"]:
         """
         Query the provenance metadata and return matching simulations.
 
         :return:
         """
         from .models import Simulation, ProvenanceMetaData, Provenance
+        from sqlalchemy import func
 
         query = self.session.query(Simulation)\
             .join(Provenance, Simulation.provenance)\
@@ -315,8 +309,9 @@ class Database:
 
         return query.all()
 
-    def query_summary(self, name, equals=None, contains=None) -> List[Simulation]:
+    def query_summary(self, name, equals=None, contains=None) -> List["Simulation"]:
         from .models import Simulation, Summary
+        from sqlalchemy import func
 
         query = self.session.query(Simulation).join(Summary, Simulation.summary)
         if equals:
@@ -328,7 +323,7 @@ class Database:
 
         return query.all()
 
-    def insert_simulation(self, simulation: Simulation) -> None:
+    def insert_simulation(self, simulation: "Simulation") -> None:
         """
         Insert the given simulation into the database.
 
@@ -378,14 +373,14 @@ class Database:
             simulation.summary.append(Summary(k, v))
         self.session.commit()
 
-    def get_validation_parameters(self, device: str, scenario: str, path: str) -> Optional[ValidationParameters]:
+    def get_validation_parameters(self, device: str, scenario: str, path: str) -> Optional["ValidationParameters"]:
         from .models import ValidationParameters
 
         return self.session.query(ValidationParameters)\
             .filter_by(device=device, scenario=scenario, path=path)\
             .one_or_none()
 
-    def insert_validation_parameters(self, params: ValidationParameters) -> None:
+    def insert_validation_parameters(self, params: "ValidationParameters") -> None:
         try:
             self.session.add(params)
             self.session.commit()
@@ -430,12 +425,12 @@ class Database:
         self.session.delete(vocab)
         self.session.commit()
 
-    def get_vocabularies(self) -> List[ControlledVocabulary]:
+    def get_vocabularies(self) -> List["ControlledVocabulary"]:
         from .models import ControlledVocabulary
 
         return self.session.query(ControlledVocabulary).all()
 
-    def get_vocabulary(self, name: str) -> ControlledVocabulary:
+    def get_vocabulary(self, name: str) -> "ControlledVocabulary":
         from .models import ControlledVocabulary
 
         vocab: ControlledVocabulary = self.session.query(ControlledVocabulary).filter_by(name=name).one_or_none()

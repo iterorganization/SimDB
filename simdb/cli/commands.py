@@ -5,11 +5,6 @@ from enum import (Enum, auto)
 
 if TYPE_CHECKING:
     from ..database.models import Simulation, ValidationParameters, Summary
-else:
-    # dummy types so that the code still compiles without having to pull in the ORM classes every time
-    Simulation = object
-    ValidationParameters = object
-    Summary = object
 
 
 def required_argument(args: Any, command: str, argument: str):
@@ -177,7 +172,8 @@ class IngestCommand(Command):
         update: bool
 
     def run(self, args: IngestArgs):
-        from ..database.database import (get_local_db, Simulation)
+        from ..database.database import get_local_db
+        from ..database.models import Simulation
         from .manifest import Manifest
 
         manifest = Manifest()
@@ -192,7 +188,7 @@ class IngestCommand(Command):
         db.insert_simulation(simulation)
 
 
-def list_simulations(simulations: List[Simulation], verbose: bool=False) -> None:
+def list_simulations(simulations: List["Simulation"], verbose: bool=False) -> None:
     if len(simulations) == 0:
         print("No simulations found")
         return
@@ -213,7 +209,7 @@ def list_simulations(simulations: List[Simulation], verbose: bool=False) -> None
         print()
 
 
-def list_validation_parameters(parameters: List[ValidationParameters]) -> None:
+def list_validation_parameters(parameters: List["ValidationParameters"]) -> None:
     if len(parameters) == 0:
         print("No validation parameters found")
         return
@@ -228,7 +224,7 @@ def list_validation_parameters(parameters: List[ValidationParameters]) -> None:
         print("%s%s %s" % (param.device, " " * (max_device - len(param.device)), param.scenario))
 
 
-def list_summaries(summaries: List[Summary]) -> None:
+def list_summaries(summaries: List["Summary"]) -> None:
     if len(summaries) == 0:
         print("No summaries found")
         return
@@ -353,9 +349,10 @@ class ValidateCommand(Command):
         parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
 
     def run(self, args: ValidateArgs):
+        from itertools import chain
         from ..database.database import get_local_db
         from ..validation import ValidationError
-        from ..utils import sha1_checksum
+        from ..checksum import sha1_checksum
         from ..imas import validation as imas_validation
         from .manifest import DataObject
 
@@ -372,7 +369,9 @@ class ValidateCommand(Command):
         if len(device) > 1:
             raise ValidationError("Multiple scenarios found in metadata")
         imas_names = set()
-        for file in simulation.files:
+        for file in chain(simulation.inputs, simulation.outputs):
+            if file.type == DataObject.Type.UDA:
+                continue
             path = os.path.join(file.directory, file.file_name)
             checksum = sha1_checksum(path)
             if checksum != file.checksum:
@@ -400,7 +399,8 @@ class SimulationCommand(Command):
             alias: str
 
         def run(self, args: NewArgs) -> None:
-            from ..database.database import (get_local_db, Simulation)
+            from ..database.database import get_local_db
+            from ..database.models import Simulation
             from .manifest import Manifest
 
             db = get_local_db()

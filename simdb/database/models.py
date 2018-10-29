@@ -1,24 +1,25 @@
+import os
+import uuid
+from typing import Union, List, Dict, Any, Tuple
+from datetime import datetime
+from dateutil import parser as date_parser
 from sqlalchemy import Column, ForeignKey, Table, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from sqlalchemy.types import TypeDecorator, CHAR, String, Integer, DateTime, Enum, Text, Float, Boolean
-import os
-import uuid
-from typing import Union, List
-from datetime import datetime
-from dateutil import parser as date_parser
+import sqlalchemy.types as sql_types
 
-from ..cli.manifest import Manifest, DataObject
-from ..utils import inherit_docstrings, sha1_checksum
+from ..cli.manifest import Manifest, DataObject, Source
+from ..docstrings import inherit_docstrings
+from ..checksum import sha1_checksum
 
 
-class UUID(TypeDecorator):
+class UUID(sql_types.TypeDecorator):
     """
     Platform-independent GUID type.
 
     Uses PostgreSQL's UUID type, otherwise uses CHAR(32), storing as stringified hex values.
     """
-    impl = CHAR
+    impl = sql_types.CHAR
 
     def load_dialect_impl(self, dialect):
         from sqlalchemy.dialects import postgresql
@@ -26,7 +27,7 @@ class UUID(TypeDecorator):
         if dialect.name == "postgresql":
             return dialect.type_descriptor(postgresql.UUID())
         else:
-            return dialect.type_descriptor(CHAR(32))
+            return dialect.type_descriptor(sql_types.CHAR(32))
 
     def process_bind_param(self, value, dialect):
         if value is None:
@@ -61,7 +62,7 @@ class BaseModel:
         raise NotImplementedError
 
     @classmethod
-    def from_data(cls, data: dict) -> "BaseModel":
+    def from_data(cls, data: Dict) -> "BaseModel":
         """
         Create a Model from serialised data.
 
@@ -70,7 +71,7 @@ class BaseModel:
         """
         raise NotImplementedError
 
-    def data(self, recurse: bool=False) -> dict:
+    def data(self, recurse: bool=False) -> Dict:
         """
         Serialise the {cls.__name__}.
 
@@ -83,12 +84,17 @@ class BaseModel:
 Base = declarative_base(cls=BaseModel)
 
 
-simulation_files = Table("simulation_files", Base.metadata,
-                         Column("simulation_id", Integer, ForeignKey("simulations.id")),
-                         Column("file_id", Integer, ForeignKey("files.id")))
+simulation_input_files = Table("simulation_input_files", Base.metadata,
+                               Column("simulation_id", sql_types.Integer, ForeignKey("simulations.id")),
+                               Column("file_id", sql_types.Integer, ForeignKey("files.id")))
 
 
-def _get_imas_paths(imas: dict) -> List[str]:
+simulation_output_files = Table("simulation_output_files", Base.metadata,
+                                Column("simulation_id", sql_types.Integer, ForeignKey("simulations.id")),
+                                Column("file_id", sql_types.Integer, ForeignKey("files.id")))
+
+
+def _get_imas_paths(imas: Dict) -> List[str]:
     if "IMAS_VERSION" not in os.environ:
         raise Exception("$IMAS_VERSION not defined")
     imas_version = os.environ["IMAS_VERSION"]
@@ -112,16 +118,29 @@ class Simulation(Base):
     Class to represent simulations in the database ORM.
     """
     __tablename__ = "simulations"
-    id = Column(Integer, primary_key=True)
+    id = Column(sql_types.Integer, primary_key=True)
     uuid = Column(UUID, nullable=False, unique=True)
     # metadata_id = Column(Integer, ForeignKey(MetaData.id))
-    alias = Column(String(250), nullable=True, unique=True)
-    datetime = Column(DateTime, nullable=False)
-    status = Column(String(20), nullable=False)
-    files: List["File"] = relationship("File", secondary=simulation_files, backref="simulations")
+    alias = Column(sql_types.String(250), nullable=True, unique=True)
+    datetime = Column(sql_types.DateTime, nullable=False)
+    status = Column(sql_types.String(20), nullable=False)
+    inputs: List["File"] = relationship("File", secondary=simulation_input_files)
+    outputs: List["File"] = relationship("File", secondary=simulation_output_files)
     meta = relationship("MetaData")
     provenance = relationship("Provenance", uselist=False)
     summary = relationship("Summary")
+
+    @staticmethod
+    def _append_file(file_list: List, data_obj: DataObject):
+        if data_obj.type == DataObject.Type.PATH:
+            file_list.append(File(data_obj.type, os.path.dirname(data_obj.path), os.path.basename(data_obj.path)))
+        elif data_obj.type == DataObject.Type.IMAS:
+            for path in _get_imas_paths(data_obj.imas):
+                file_list.append(File(data_obj.type, os.path.dirname(path), os.path.basename(path)))
+        elif data_obj.type == DataObject.Type.UDA:
+            file_list.append(File(data_obj.type, data_obj.uda["source"], data_obj.uda["signal"]))
+        else:
+            raise NotImplementedError("source type " + data_obj.type.name + " not yet implemented")
 
     def __init__(self, manifest: Union[Manifest, None]):
         """
@@ -136,13 +155,18 @@ class Simulation(Base):
         self.status = "UNKNOWN"
 
         for source in manifest.inputs:
-            if source.type == DataObject.Type.PATH:
-                self.files.append(File(source.type, os.path.dirname(source.path), os.path.basename(source.path)))
-            if source.type == DataObject.Type.IMAS:
-                for path in _get_imas_paths(source.imas):
-                    self.files.append(File(source.type, os.path.dirname(path), os.path.basename(path)))
+            self._append_file(self.inputs, source)
 
-        for key, value in manifest.metadata.items():
+        for source in manifest.outputs:
+            self._append_file(self.outputs, source)
+
+        for key, value in manifest.workflow.items():
+            self.meta.append(MetaData("workflow." + key, str(value)))
+
+        flattened_dict: Dict[str, str] = {}
+        _flatten_dict(flattened_dict, manifest.metadata)
+
+        for key, value in flattened_dict.items():
             self.meta.append(MetaData(key, str(value)))
 
     def __str__(self):
@@ -152,8 +176,11 @@ class Simulation(Base):
         result += "metdata:\n"
         for meta in self.meta:
             result += "  %s: %s\n" % (meta.element, meta.value)
-        result += "files:\n"
-        for file in self.files:
+        result += "inputs:\n"
+        for file in self.inputs:
+            result += "%s\n" % file
+        result += "outputs:\n"
+        for file in self.outputs:
             result += "%s\n" % file
         return result
 
@@ -161,7 +188,7 @@ class Simulation(Base):
         return [m for m in self.meta if m.element == name]
 
     @classmethod
-    def from_data(cls, data: dict) -> "Simulation":
+    def from_data(cls, data: Dict[str, Union[str, Dict]]) -> "Simulation":
         simulation = Simulation(None)
         simulation.uuid = uuid.UUID(data["uuid"])
         simulation.datetime = date_parser.parse(data["datetime"])
@@ -173,7 +200,7 @@ class Simulation(Base):
                 simulation.meta.append(MetaData.from_data(d))
         return simulation
 
-    def data(self, recurse: bool=False) -> dict:
+    def data(self, recurse: bool=False) -> Dict[str, Union[str, List]]:
         data = dict(
             uuid=self.uuid.hex,
             datetime=self.datetime.isoformat(),
@@ -191,18 +218,18 @@ class File(Base):
     Class to represent files in the database ORM.
     """
     __tablename__ = "files"
-    id = Column(Integer, primary_key=True)
+    id = Column(sql_types.Integer, primary_key=True)
     uuid = Column(UUID, nullable=False, unique=True)
-    usage = Column(String(250), nullable=True)
-    file_name = Column(String(250), nullable=False)
-    directory = Column(String(250), nullable=True)
-    checksum = Column(String(40), nullable=True)
-    type: DataObject.Type = Column(Enum(DataObject.Type), nullable=True)
-    purpose = Column(String(250), nullable=True)
-    sensitivity = Column(String(20), nullable=True)
-    access = Column(String(20), nullable=True)
-    embargo = Column(String(20), nullable=True)
-    datetime = Column(DateTime, nullable=False)
+    usage = Column(sql_types.String(250), nullable=True)
+    file_name = Column(sql_types.String(250), nullable=False)
+    directory = Column(sql_types.String(250), nullable=True)
+    checksum = Column(sql_types.String(40), nullable=True)
+    type: DataObject.Type = Column(sql_types.Enum(DataObject.Type), nullable=True)
+    purpose = Column(sql_types.String(250), nullable=True)
+    sensitivity = Column(sql_types.String(20), nullable=True)
+    access = Column(sql_types.String(20), nullable=True)
+    embargo = Column(sql_types.String(20), nullable=True)
+    datetime = Column(sql_types.DateTime, nullable=False)
 
     def __init__(self, type: DataObject.Type, directory: str, file_name: str):
         """
@@ -213,7 +240,8 @@ class File(Base):
         self.uuid = uuid.uuid1()
         self.file_name = file_name
         self.directory = directory
-        self.checksum = sha1_checksum(os.path.join(directory, file_name))
+        if type != DataObject.Type.UDA:
+            self.checksum = sha1_checksum(os.path.join(directory, file_name))
         self.type = type
         self.datetime = datetime.now()
 
@@ -229,7 +257,7 @@ class File(Base):
         return result
 
     @classmethod
-    def from_data(cls, data: dict) -> "File":
+    def from_data(cls, data: Dict) -> "File":
         file = File(DataObject.Type[data["type"]], data["directory"], data["file_name"])
         file.uuid = uuid.UUID(data["uuid"])
         file.usage = data["usage"]
@@ -241,7 +269,7 @@ class File(Base):
         file.datetime = date_parser.parse(data["datetime"])
         return file
 
-    def data(self, recurse: bool=False) -> dict:
+    def data(self, recurse: bool=False) -> Dict[str, str]:
         data = dict(
             uuid=self.uuid.hex,
             usage=self.usage,
@@ -264,11 +292,11 @@ class MetaData(Base):
     Class to represent metadata in the database ORM.
     """
     __tablename__ = "metadata"
-    id = Column(Integer, primary_key=True)
-    sim_id = Column(Integer, ForeignKey(Simulation.id))
+    id = Column(sql_types.Integer, primary_key=True)
+    sim_id = Column(sql_types.Integer, ForeignKey(Simulation.id))
     uuid = Column(UUID, nullable=False)
-    element = Column(String(250), nullable=False)
-    value = Column(Text, nullable=True)
+    element = Column(sql_types.String(250), nullable=False)
+    value = Column(sql_types.Text, nullable=True)
 
     def __init__(self, key: str, value: str):
         self.uuid = uuid.uuid1()
@@ -279,12 +307,12 @@ class MetaData(Base):
         return "{}: {}".format(self.element, self.value)
 
     @classmethod
-    def from_data(cls, data: dict) -> "MetaData":
+    def from_data(cls, data: Dict) -> "MetaData":
         meta = MetaData(data["element"], data["value"])
         meta.uuid = data["uuid"]
         return meta
 
-    def data(self, recurse: bool=False) -> dict:
+    def data(self, recurse: bool=False) -> Dict[str, str]:
         data = dict(
             uuid=self.uuid.hex,
             element=self.element,
@@ -299,9 +327,9 @@ class MetaData(Base):
 #     Class to represent validation parameters in the database ORM.
 #     """
 #     __tablename__ = "validation_parameters"
-#     id = Column(Integer, primary_key=True)
+#     id = Column(sql_types.Integer, primary_key=True)
 #     element = Column(Text, nullable=False)
-#     name = Column(String(50), nullable=False)
+#     name = Column(sql_types.String(50), nullable=False)
 #     value = Column(Float, nullable=False)
 #
 #     def __init__(self, element: str, name: str, value: float):
@@ -310,11 +338,11 @@ class MetaData(Base):
 #         self.value = value
 #
 #     @classmethod
-#     def from_data(cls, data: dict) -> "ValidationParameter":
+#     def from_data(cls, data: Dict) -> "ValidationParameter":
 #         param = ValidationParameter(data["element"], data["name"], data["value"])
 #         return param
 #
-#     def data(self, recurse: bool=False) -> dict:
+#     def data(self, recurse: bool=False) -> Dict:
 #         data = dict(
 #             element=self.element,
 #             name=self.name,
@@ -323,45 +351,51 @@ class MetaData(Base):
 #         return data
 
 
+def _flatten_dict(out_dict: Dict[str, str], in_dict: Dict[str, Union[Dict, List, Any]], prefix: Tuple=()):
+    for key, value in in_dict.items():
+        if isinstance(value, dict):
+            _flatten_dict(out_dict, value, prefix + (key,))
+        elif isinstance(value, list):
+            for el in value:
+                _flatten_dict(out_dict, {key: el}, prefix)
+        else:
+            out_dict['.'.join(prefix + (key,))] = str(value)
+
+
 @inherit_docstrings
 class Provenance(Base):
     """
     Class to represent provenance in the database ORM.
     """
     __tablename__ = "provenance"
-    id = Column(Integer, primary_key=True)
+    id = Column(sql_types.Integer, primary_key=True)
     uuid = Column(UUID, nullable=False)
-    sim_id = Column(Integer, ForeignKey(Simulation.id))
+    sim_id = Column(sql_types.Integer, ForeignKey(Simulation.id))
     meta = relationship("ProvenanceMetaData")
     signals = relationship("ProvenanceSignal")
 
-    def __init__(self, metadata: dict):
+    def __init__(self, metadata: Dict):
         self.uuid = uuid.uuid1()
         self.add_metadata(metadata)
         self.add_signals()
 
-    def add_metadata(self, metadata: dict):
-        for key, value in metadata.items():
-            if type(value) == dict:
-                for k, v in value.items():
-                    if type(v) == list:
-                        for i in v:
-                            self.meta.append(ProvenanceMetaData(key + '.' + k, str(i)))
-                    else:
-                        self.meta.append(ProvenanceMetaData(key + '.' + k, str(v)))
-            else:
-                self.meta.append(ProvenanceMetaData(key, str(value)))
+    def add_metadata(self, metadata: Dict):
+        flattened_dict: Dict[str, str] = {}
+        _flatten_dict(flattened_dict, metadata)
+
+        for key, value in flattened_dict.items():
+            self.meta.append(ProvenanceMetaData(key, value))
 
     def add_signals(self):
         pass
 
     @classmethod
-    def from_data(cls, data: dict) -> "Provenance":
+    def from_data(cls, data: Dict) -> "Provenance":
         prov = Provenance(data["meta"])
         prov.uuid = data["uuid"]
         return prov
 
-    def data(self, recurse: bool = False) -> dict:
+    def data(self, recurse: bool = False) -> Dict:
         data = dict(
             uuid=self.uuid.hex,
             element=self.element,
@@ -387,11 +421,11 @@ class ProvenanceMetaData(Base):
     Class to represent provenance metadata in the database ORM.
     """
     __tablename__ = "provenance_metadata"
-    id = Column(Integer, primary_key=True)
-    prov_id = Column(Integer, ForeignKey(Provenance.id))
+    id = Column(sql_types.Integer, primary_key=True)
+    prov_id = Column(sql_types.Integer, ForeignKey(Provenance.id))
     uuid = Column(UUID, nullable=False)
-    element = Column(String(250), nullable=False)
-    value = Column(Text, nullable=True)
+    element = Column(sql_types.String(250), nullable=False)
+    value = Column(sql_types.Text, nullable=True)
 
     def __init__(self, key: str, value: str):
         self.uuid = uuid.uuid1()
@@ -399,12 +433,12 @@ class ProvenanceMetaData(Base):
         self.value = value
 
     @classmethod
-    def from_data(cls, data: dict) -> "ProvenanceMetaData":
+    def from_data(cls, data: Dict) -> "ProvenanceMetaData":
         meta = ProvenanceMetaData(data["element"], data["value"])
         meta.uuid = data["uuid"]
         return meta
 
-    def data(self, recurse: bool = False) -> dict:
+    def data(self, recurse: bool = False) -> Dict:
         data = dict(
             uuid=self.uuid.hex,
             element=self.element,
@@ -423,13 +457,13 @@ class ProvenanceSignal(Base):
     Class to represent provenance signal request in the database ORM.
     """
     __tablename__ = "provenance_signal"
-    id = Column(Integer, primary_key=True)
+    id = Column(sql_types.Integer, primary_key=True)
     uuid = Column(UUID, nullable=False)
-    prov_id = Column(Integer, ForeignKey(Provenance.id))
-    requested_signal = Column(Text, nullable=False)
-    requested_source = Column(Text, nullable=False)
-    mapped_signal = Column(Text, nullable=False)
-    mapped_source = Column(Text, nullable=False)
+    prov_id = Column(sql_types.Integer, ForeignKey(Provenance.id))
+    requested_signal = Column(sql_types.Text, nullable=False)
+    requested_source = Column(sql_types.Text, nullable=False)
+    mapped_signal = Column(sql_types.Text, nullable=False)
+    mapped_source = Column(sql_types.Text, nullable=False)
     mapped_source_uuid = Column(UUID, nullable=False)
 
     def __init__(self, requested_signal: str, requested_source: str, mapped_signal: str, mapped_source: str,
@@ -442,13 +476,13 @@ class ProvenanceSignal(Base):
         self.mapped_source_uuid = uuid.UUID(mapped_source_uuid)
 
     @classmethod
-    def from_data(cls, data: dict) -> "ProvenanceMetaData":
+    def from_data(cls, data: Dict) -> "ProvenanceMetaData":
         prov_signal = ProvenanceSignal(data["requested_signal"], data["requested_source"], data["mapped_signal"],
                                        data["mapped_source"], data["mapped_source_uuid"])
         prov_signal.uuid = data["uuid"]
         return prov_signal
 
-    def data(self, recurse: bool = False) -> dict:
+    def data(self, recurse: bool = False) -> Dict:
         data = dict(
             uuid=self.uuid.hex,
             requested_signal=self.requested_signal,
@@ -466,9 +500,9 @@ class ControlledVocabulary(Base):
     Class to represent controlled vocabularies in the database ORM.
     """
     __tablename__ = "controlled_vocabulary"
-    id = Column(Integer, primary_key=True)
+    id = Column(sql_types.Integer, primary_key=True)
     uuid = Column(UUID, nullable=False)
-    name = Column(String(250), nullable=False, unique=True)
+    name = Column(sql_types.String(250), nullable=False, unique=True)
     words: List["ControlledVocabularyWord"] = relationship("ControlledVocabularyWord")
 
     def __init__(self, name: str, words: List[str]):
@@ -481,12 +515,12 @@ class ControlledVocabulary(Base):
             self.words.append(ControlledVocabularyWord(word))
 
     @classmethod
-    def from_data(cls, data: dict) -> "ControlledVocabulary":
+    def from_data(cls, data: Dict) -> "ControlledVocabulary":
         vocab = ControlledVocabulary(data["name"], data["words"])
         vocab.uuid = data["uuid"]
         return vocab
 
-    def data(self, recurse: bool = False) -> dict:
+    def data(self, recurse: bool = False) -> Dict:
         data = dict(
             uuid=self.uuid.hex,
             name=self.name,
@@ -502,10 +536,10 @@ class ControlledVocabularyWord(Base):
     Class to represent controlled vocabulary word in the database ORM.
     """
     __tablename__ = "controlled_vocabulary_word"
-    id = Column(Integer, primary_key=True)
+    id = Column(sql_types.Integer, primary_key=True)
     uuid = Column(UUID, nullable=False)
-    vocabulary_id = Column(Integer, ForeignKey(ControlledVocabulary.id))
-    value = Column(Text, nullable=False)
+    vocabulary_id = Column(sql_types.Integer, ForeignKey(ControlledVocabulary.id))
+    value = Column(sql_types.Text, nullable=False)
     __table_args__ = (
         UniqueConstraint('vocabulary_id', 'value', name='_vocabulary_word'),
     )
@@ -515,12 +549,12 @@ class ControlledVocabularyWord(Base):
         self.value = value
 
     @classmethod
-    def from_data(cls, data: dict) -> "ControlledVocabularyWord":
+    def from_data(cls, data: Dict) -> "ControlledVocabularyWord":
         word = ControlledVocabularyWord(data["value"])
         word.uuid = data["uuid"]
         return word
 
-    def data(self, recurse: bool = False) -> dict:
+    def data(self, recurse: bool = False) -> Dict:
         data = dict(
             uuid=self.uuid.hex,
             value=self.value,
@@ -531,21 +565,21 @@ class ControlledVocabularyWord(Base):
 @inherit_docstrings
 class ValidationParameters(Base):
     __tablename__ = "validation_parameters"
-    id = Column(Integer, primary_key=True)
+    id = Column(sql_types.Integer, primary_key=True)
     uuid = Column(UUID, nullable=False)
-    device = Column(Text, nullable=False)
-    scenario = Column(Text, nullable=False)
-    path = Column(Text, nullable=False)
-    mandatory = Column(Boolean, nullable=False)
-    range_low = Column(Float, nullable=False)
-    range_high = Column(Float, nullable=False)
-    mean_low = Column(Float, nullable=False)
-    mean_high = Column(Float, nullable=False)
-    median_low = Column(Float, nullable=False)
-    median_high = Column(Float, nullable=False)
-    stdev_low = Column(Float, nullable=False)
-    stdev_high = Column(Float, nullable=False)
-    mandatory_tests = Column(Text, nullable=False)
+    device = Column(sql_types.Text, nullable=False)
+    scenario = Column(sql_types.Text, nullable=False)
+    path = Column(sql_types.Text, nullable=False)
+    mandatory = Column(sql_types.Boolean, nullable=False)
+    range_low = Column(sql_types.Float, nullable=False)
+    range_high = Column(sql_types.Float, nullable=False)
+    mean_low = Column(sql_types.Float, nullable=False)
+    mean_high = Column(sql_types.Float, nullable=False)
+    median_low = Column(sql_types.Float, nullable=False)
+    median_high = Column(sql_types.Float, nullable=False)
+    stdev_low = Column(sql_types.Float, nullable=False)
+    stdev_high = Column(sql_types.Float, nullable=False)
+    mandatory_tests = Column(sql_types.Text, nullable=False)
 
     __table_args__ = (
         UniqueConstraint('device', 'scenario', 'path', name='_validation_parameters_identifier'),
@@ -570,7 +604,7 @@ class ValidationParameters(Base):
         self.mandatory_tests = mandatory_tests
 
     @classmethod
-    def from_data(cls, data: dict) -> "ValidationParameters":
+    def from_data(cls, data: Dict) -> "ValidationParameters":
         params = ValidationParameters(data["device"], data["scenario"], data["path"], data["mandatory"],
                                       data["range_low"], data["range_high"], data["mean_low"], data["mean_high"],
                                       data["median_low"], data["median_high"], data["stdev_low"], data["stdev_high"],
@@ -578,7 +612,7 @@ class ValidationParameters(Base):
         params.uuid = data["uuid"]
         return params
 
-    def data(self, recurse: bool = False) -> dict:
+    def data(self, recurse: bool = False) -> Dict:
         data = dict(
             uuid=self.uuid.hex,
             device=self.device,
@@ -604,11 +638,11 @@ class Summary(Base):
     Class to represent metadata in the database ORM.
     """
     __tablename__ = "summary"
-    id = Column(Integer, primary_key=True)
-    sim_id = Column(Integer, ForeignKey(Simulation.id))
+    id = Column(sql_types.Integer, primary_key=True)
+    sim_id = Column(sql_types.Integer, ForeignKey(Simulation.id))
     uuid = Column(UUID, nullable=False)
-    key = Column(String(250), nullable=False)
-    value = Column(Text, nullable=True)
+    key = Column(sql_types.String(250), nullable=False)
+    value = Column(sql_types.Text, nullable=True)
 
     __table_args__ = (
         UniqueConstraint('sim_id', 'key', name='_simulation_summary'),
@@ -620,12 +654,12 @@ class Summary(Base):
         self.value = value
 
     @classmethod
-    def from_data(cls, data: dict) -> "Summary":
+    def from_data(cls, data: Dict) -> "Summary":
         summary = Summary(data["key"], data["value"])
         summary.uuid = data["uuid"]
         return summary
 
-    def data(self, recurse: bool=False) -> dict:
+    def data(self, recurse: bool=False) -> Dict:
         data = dict(
             uuid=self.uuid.hex,
             key=self.key,

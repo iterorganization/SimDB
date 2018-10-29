@@ -4,10 +4,14 @@ import json
 from typing import List, Dict, Callable
 import gzip
 import io
+import urllib3
 
 from ..database.models import Simulation
 from .manifest import DataObject
 from .. import __version__
+
+
+urllib3.disable_warnings()
 
 
 class FailedConnection(RuntimeError):

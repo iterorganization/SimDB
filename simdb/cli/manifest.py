@@ -1,8 +1,7 @@
-import yaml
 import sys
 import os
 from enum import Enum, auto
-from typing import Iterable, Union, List
+from typing import Iterable, Union, Dict, List
 
 
 class InvalidManifest(Exception):
@@ -10,6 +9,12 @@ class InvalidManifest(Exception):
     Exception to throw when a manifest fails to validate.
     """
     pass
+
+
+def _expand_path(base_path: str, path: str) -> str:
+    if os.path.abspath(path) != path:
+        path = os.path.join(os.path.dirname(os.path.abspath(base_path)), path)
+    return path
 
 
 class DataObject:
@@ -21,22 +26,27 @@ class DataObject:
         UUID = auto()
         PATH = auto()
         IMAS = auto()
+        UDA = auto()
 
     type: Type = Type.UNKNOWN
     uuid: str = None
     path: str = None
-    imas: dict = None
+    imas: Dict = None
+    uda: Dict = None
 
-    def __init__(self, values):
+    def __init__(self, base_path: str, values: Dict) -> None:
         if "uuid" in values:
             self.uuid = values["uuid"]
             self.type = DataObject.Type.UUID
         elif "path" in values:
-            self.path = values["path"]
+            self.path = _expand_path(base_path, values["path"])
             self.type = DataObject.Type.PATH
         elif "imas" in values:
             self.imas = values["imas"]
             self.type = DataObject.Type.IMAS
+        elif "uda" in values:
+            self.uda = values["uda"]
+            self.type = DataObject.Type.UDA
         else:
             raise InvalidManifest("invalid input")
 
@@ -48,6 +58,8 @@ class DataObject:
             return self.path
         elif self.type == DataObject.Type.IMAS:
             return "IDS(shot={}, run={})".format(self.imas["shot"], self.imas["run"])
+        elif self.type == DataObject.Type.UDA:
+            return "UDA(signal={}, shot={}, run={})".format(self.uda["signal"], self.uda["shot"], self.uda["run"])
         return DataObject.Type.UUID.name
 
 
@@ -69,7 +81,7 @@ class ManifestValidator:
     """
     Base class for validation of manifests.
     """
-    def validate(self, values: Union[list, dict]) -> None:
+    def validate(self, values: Union[List, Dict]) -> None:
         pass
 
 
@@ -80,7 +92,7 @@ class ListValuesValidator(ManifestValidator):
     section_name: str = NotImplemented
     expected_keys: Iterable = NotImplemented
 
-    def validate(self, values: Union[list, dict]) -> None:
+    def validate(self, values: Union[List, Dict]) -> None:
         if isinstance(values, dict):
             raise InvalidManifest("badly formatted manifest - %ss should be provided as a list" % self.section_name)
         for item in values:
@@ -96,7 +108,7 @@ class InputsValidator(ListValuesValidator):
     Validator for the manifest inputs list.
     """
     section_name: str = "input"
-    expected_keys: Iterable = ("uuid", "path", "imas")
+    expected_keys: Iterable = ("uuid", "path", "imas", "uda")
 
 
 class ScriptsValidator(ListValuesValidator):
@@ -149,11 +161,11 @@ class WorkflowValidator(DictValuesValidator):
     Validator for the manifest workflow dictionary.
     """
     section_name: str = "workflow"
-    expected_keys: Iterable = ("name", "git", "commit", "codes")
-    required_keys: Iterable = ("name", "git", "commit", "codes")
+    expected_keys: Iterable = ("name", "developer", "date", "git", "commit", "codes")
+    required_keys: Iterable = ("name", "git", "commit")
 
 
-def _update_dict(old: dict, new: dict) -> None:
+def _update_dict(old: Dict, new: Dict) -> None:
     for k, v in new.items():
         if k in old:
             if type(old[k]) == list:
@@ -168,11 +180,13 @@ class Manifest:
     """
     Class to handle reading, writing & validation of simulation manifest files.
     """
-    data: Union[dict, list, None] = None # :int
-    """
-    data: int
-    """
-    metadata: dict = {}
+    _data: Union[Dict, List, None] = None
+    _path: str = ""
+    _metadata: Dict = {}
+
+    @property
+    def metadata(self) -> Dict:
+        return self._metadata
 
     @classmethod
     def from_template(cls) -> "Manifest":
@@ -188,20 +202,31 @@ class Manifest:
 
     @property
     def inputs(self) -> Iterable[Source]:
-        if isinstance(self.data, dict):
-            return [Source(i) for i in self.data["inputs"]]
+        if isinstance(self._data, dict):
+            return [Source(self._path, i) for i in self._data["inputs"]]
         return []
 
     @property
     def outputs(self) -> Iterable[Sink]:
-        if isinstance(self.data, dict):
-            return [Sink(i) for i in self.data["outputs"]]
+        if isinstance(self._data, dict):
+            return [Sink(self._path, i) for i in self._data["outputs"]]
         return []
 
-    def _load_metadata(self, path):
+    @property
+    def workflow(self) -> Dict:
+        if isinstance(self._data, dict):
+            return self._data["workflow"]
+        return {}
+
+    def _load_metadata(self, root_path, path):
+        import yaml
+
         try:
+            if os.path.abspath(path) != path:
+                root_dir = os.path.dirname(os.path.abspath(root_path))
+                path = os.path.join(root_dir, path)
             with open(path) as metadata_file:
-                _update_dict(self.metadata, yaml.load(metadata_file))
+                _update_dict(self._metadata, yaml.load(metadata_file))
         except yaml.YAMLError as err:
             raise InvalidManifest("failed to read metadata file %s - %s" % (path, err))
 
@@ -212,18 +237,21 @@ class Manifest:
         :param file_path: Path to the file read.
         :return: None
         """
+        import yaml
+
+        self._path = file_path
         with open(file_path) as file:
             try:
-                self.data = yaml.load(file)
+                self._data = yaml.load(file)
             except yaml.YAMLError as err:
                 raise InvalidManifest("badly formatted manifest - " + str(err))
 
-        if "metadata" in self.data:
-            for item in self.data["metadata"]:
+        if "metadata" in self._data:
+            for item in self._data["metadata"]:
                 if "path" in item:
-                    self._load_metadata(item["path"])
+                    self._load_metadata(file_path, item["path"])
                 elif "values" in item:
-                    _update_dict(self.metadata, item["values"])
+                    _update_dict(self._metadata, item["values"])
 
     def save(self, file_path: str) -> None:
         """
@@ -232,13 +260,15 @@ class Manifest:
         :param file_path: The path to save the manifest to, or '-' to output to stdout.
         :return: None
         """
+        import yaml
+
         if file_path is None or file_path == "-":
-            yaml.dump(self.data, sys.stdout, default_flow_style=False)
+            yaml.dump(self._data, sys.stdout, default_flow_style=False)
         else:
             if os.path.exists(file_path):
                 raise Exception("file already exists")
             with open(file_path, "w") as out_file:
-                yaml.dump(self.data, out_file, default_flow_style=False)
+                yaml.dump(self._data, out_file, default_flow_style=False)
 
     def validate(self) -> None:
         """
@@ -246,9 +276,9 @@ class Manifest:
 
         :return: None
         """
-        if self.data is None:
+        if self._data is None:
             raise InvalidManifest("failed to read manifest")
-        if isinstance(self.data, list):
+        if isinstance(self._data, list):
             raise InvalidManifest("badly formatted manifest - top level sections must be keys not a list")
 
         section_validators = {
@@ -259,14 +289,14 @@ class Manifest:
             "metadata": MetaDataValidator(),
         }
 
-        for section in self.data.keys():
+        for section in self._data.keys():
             if section not in section_validators.keys():
                 raise InvalidManifest("unknown manifest section found: " + section)
 
         required_sections = ("inputs", "outputs", "workflow")
         for section in required_sections:
-            if section not in self.data.keys():
+            if section not in self._data.keys():
                 raise InvalidManifest("required section not found: " + section)
 
-        for name, values in self.data.items():
+        for name, values in self._data.items():
             section_validators[name].validate(values)
