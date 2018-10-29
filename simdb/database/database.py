@@ -1,30 +1,52 @@
-from sqlalchemy.orm import relationship, sessionmaker
-from sqlalchemy.exc import DBAPIError
-from sqlalchemy import create_engine, func
-import sqlalchemy
 import uuid
 import os
 import contextlib
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, TYPE_CHECKING
 from enum import Enum, auto
-
-from .models import Base, Simulation, File, MetaData, ValidationParameters, Provenance, ProvenanceMetaData,\
-    ControlledVocabulary, Summary
 
 
 class DatabaseError(RuntimeError):
     pass
 
 
-SessionMaker = sessionmaker()
+if TYPE_CHECKING:
+    from sqlalchemy.exc import DBAPIError
+    from sqlalchemy import create_engine, func
+    from sqlalchemy.orm import sessionmaker
+    import sqlalchemy
+    from .models import (Base, Simulation, File, MetaData, ValidationParameters, Provenance, ProvenanceMetaData,
+                         ControlledVocabulary, Summary)
+else:
+    sessionmaker = object
+    Simulation = object
+    ValidationParameters = object
+    File = object
+    Summary = object
+    Provenance = object
+    ControlledVocabulary = object
+
+
+class SessionMaker:
+    _session_maker: sessionmaker = None
+
+    @classmethod
+    def get(cls) -> sessionmaker:
+        if cls._session_maker is None:
+            from sqlalchemy.orm import sessionmaker
+            cls._session_maker = sessionmaker()
+        return cls._session_maker
+
+    @classmethod
+    def create(cls) -> "sqlalchemy.orm.Session":
+        return cls.get()()
 
 
 class Database:
     """
     Class to wrap the database access.
     """
-    engine: sqlalchemy.engine.Engine
-    _session: sqlalchemy.orm.SessionExtension = None
+    engine: "sqlalchemy.engine.Engine"
+    _session: "sqlalchemy.orm.SessionExtension" = None
 
     class DBMS(Enum):
         """
@@ -35,6 +57,9 @@ class Database:
         MSSQL = auto()
 
     def __init__(self, db_type: DBMS, **kwargs):
+        from sqlalchemy import create_engine
+        from .models import Base
+
         """
         Create a new Database object.
 
@@ -51,14 +76,14 @@ class Database:
             if "file" not in kwargs:
                 raise DatabaseError("Missing file parameter for SQLITE database")
             new_db = (not os.path.exists(kwargs["file"]))
-            self.engine: sqlalchemy.engine.Engine = create_engine("sqlite:///%(file)s" % kwargs)
+            self.engine: "sqlalchemy.engine.Engine" = create_engine("sqlite:///%(file)s" % kwargs)
 
         elif db_type == Database.DBMS.POSTGRESQL:
             if "host" not in kwargs:
                 raise DatabaseError("Missing file host for POSTGRESQL database")
             if "port" not in kwargs:
                 raise DatabaseError("Missing file port for POSTGRESQL database")
-            self.engine: sqlalchemy.engine.Engine = create_engine("postgresql://%(host)s:%(port)d/simdb" % kwargs)
+            self.engine: "sqlalchemy.engine.Engine" = create_engine("postgresql://%(host)s:%(port)d/simdb" % kwargs)
             with contextlib.closing(self.engine.connect()) as con:
                 res: sqlalchemy.engine.ResultProxy = con.execute(
                     "SELECT * FROM pg_catalog.pg_tables WHERE schemaname = 'public';")
@@ -71,7 +96,7 @@ class Database:
                 raise DatabaseError("Missing file pass for MSSQL database")
             if "dsnname" not in kwargs:
                 raise DatabaseError("Missing file dsnname for MSSQL database")
-            self.engine: sqlalchemy.engine.Engine = create_engine("mssql+pyodbc://%(user)s:%(pass)s@%(dsnname)s" % kwargs)
+            self.engine: "sqlalchemy.engine.Engine" = create_engine("mssql+pyodbc://%(user)s:%(pass)s@%(dsnname)s" % kwargs)
             new_db = False
 
         else:
@@ -79,12 +104,12 @@ class Database:
         if new_db:
             Base.metadata.create_all(self.engine)
         Base.metadata.bind = self.engine
-        SessionMaker.configure(bind=self.engine)
+        SessionMaker.get().configure(bind=self.engine)
 
     @property
-    def session(self) -> sqlalchemy.orm.Session:
+    def session(self) -> "sqlalchemy.orm.Session":
         if self._session is None:
-            self._session: sqlalchemy.orm.Session = SessionMaker()
+            self._session: "sqlalchemy.orm.Session" = SessionMaker.create()
         return self._session
 
     def reset(self) -> None:
@@ -93,6 +118,8 @@ class Database:
 
         :return: None
         """
+        from .models import Base
+
         with contextlib.closing(self.engine.connect()) as con:
             trans = con.begin()
             for table in reversed(Base.metadata.sorted_tables):
@@ -105,6 +132,8 @@ class Database:
 
         :return: A list of Simulations.
         """
+        from .models import Simulation
+
         return self.session.query(Simulation).all()
 
     def list_files(self) -> List[File]:
@@ -113,9 +142,13 @@ class Database:
 
         :return:  A list of Files.
         """
+        from .models import File
+
         return self.session.query(File).all()
 
     def list_validation_parameters(self, device: Optional[str], scenario: Optional[str]) -> List[ValidationParameters]:
+        from .models import ValidationParameters
+
         if device is None and scenario is None:
             return self.session.query(ValidationParameters) \
                 .group_by(ValidationParameters.device, ValidationParameters.scenario).all()
@@ -123,6 +156,8 @@ class Database:
             return self.session.query(ValidationParameters).filter_by(device=device, scenario=scenario).all()
 
     def list_summaries(self, sim_ref: str) -> List[Summary]:
+        from .models import Simulation
+
         try:
             sim_uuid = uuid.UUID(sim_ref)
             simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
@@ -140,6 +175,8 @@ class Database:
         :param sim_ref: The simulation UUID or alias.
         :return: None
         """
+        from .models import Simulation
+
         try:
             sim_uuid = uuid.UUID(sim_ref)
             simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
@@ -160,6 +197,8 @@ class Database:
 
         :return:
         """
+        from .models import Simulation, MetaData
+
         query = self.session.query(Simulation).join(MetaData, Simulation.meta)
         if equals:
             query = query.filter(MetaData.element == name,
@@ -177,6 +216,8 @@ class Database:
         :param sim_ref: The simulation UUID or alias.
         :return: The Simulation.
         """
+        from .models import Simulation
+
         try:
             sim_uuid = uuid.UUID(sim_ref)
             simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
@@ -195,6 +236,8 @@ class Database:
         :param file_uuid: The file UUID.
         :return: The File.
         """
+        from .models import File
+
         try:
             file_uuid = uuid.UUID(file_uuid)
             file = self.session.query(File).filter_by(uuid=file_uuid).one_or_none()
@@ -213,6 +256,8 @@ class Database:
         :param name: the metadata key
         :return: The  matching MetaData.
         """
+        from .models import Simulation
+
         try:
             sim_uuid = uuid.UUID(sim_ref)
             simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
@@ -225,6 +270,8 @@ class Database:
         return [m.value for m in simulation.meta.filter_by(element=name).all()]
 
     def get_controlled_vocab(self, element) -> List[str]:
+        from .models import ControlledVocabulary
+
         vocab: ControlledVocabulary = self.session.query(ControlledVocabulary).filter_by(name=element).one()
         return [i.value for i in vocab.words]
 
@@ -235,6 +282,8 @@ class Database:
         :param sim_ref: the simulation identifier
         :return: The  matching MetaData.
         """
+        from .models import Simulation
+
         try:
             sim_uuid = uuid.UUID(sim_ref)
             simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
@@ -252,6 +301,8 @@ class Database:
 
         :return:
         """
+        from .models import Simulation, ProvenanceMetaData, Provenance
+
         query = self.session.query(Simulation)\
             .join(Provenance, Simulation.provenance)\
             .join(ProvenanceMetaData, Provenance.meta)
@@ -265,6 +316,8 @@ class Database:
         return query.all()
 
     def query_summary(self, name, equals=None, contains=None) -> List[Simulation]:
+        from .models import Simulation, Summary
+
         query = self.session.query(Simulation).join(Summary, Simulation.summary)
         if equals:
             query = query.filter(Summary.key == name,
@@ -296,6 +349,8 @@ class Database:
         :param simulation: The Simulation to insert.
         :return: None
         """
+        from .models import Simulation, Provenance
+
         try:
             sim_uuid = uuid.UUID(sim_ref)
             simulation: Simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
@@ -311,6 +366,8 @@ class Database:
         self.session.commit()
 
     def insert_summary(self, sim_ref: str, summary: List[Tuple[str, str]]) -> None:
+        from .models import Simulation, Summary
+
         try:
             sim_uuid = uuid.UUID(sim_ref)
             simulation: Simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
@@ -322,6 +379,8 @@ class Database:
         self.session.commit()
 
     def get_validation_parameters(self, device: str, scenario: str, path: str) -> Optional[ValidationParameters]:
+        from .models import ValidationParameters
+
         return self.session.query(ValidationParameters)\
             .filter_by(device=device, scenario=scenario, path=path)\
             .one_or_none()
@@ -338,11 +397,15 @@ class Database:
         pass
 
     def new_vocabulary(self, name: str, words: List[str]) -> None:
+        from .models import ControlledVocabulary
+
         vocab = ControlledVocabulary(name, words)
         self.session.add(vocab)
         self.session.commit()
 
     def clear_vocabulary_words(self, name: str, words: List[str]) -> None:
+        from .models import ControlledVocabulary
+
         vocab: ControlledVocabulary = self.session.query(ControlledVocabulary).filter_by(name=name).one_or_none()
         if vocab is None:
             raise DatabaseError("Failed to find vocabulary: " + name)
@@ -350,6 +413,8 @@ class Database:
         self.session.commit()
 
     def clear_vocabulary(self, name: str) -> None:
+        from .models import ControlledVocabulary
+
         vocab: ControlledVocabulary = self.session.query(ControlledVocabulary).filter_by(name=name).one_or_none()
         if vocab is None:
             raise DatabaseError("Failed to find vocabulary: " + name)
@@ -357,6 +422,8 @@ class Database:
         self.session.commit()
 
     def delete_vocabulary(self, name: str) -> None:
+        from .models import ControlledVocabulary
+
         vocab: ControlledVocabulary = self.session.query(ControlledVocabulary).filter_by(name=name).one_or_none()
         if vocab is None:
             raise DatabaseError("Failed to find vocabulary: " + name)
@@ -364,9 +431,13 @@ class Database:
         self.session.commit()
 
     def get_vocabularies(self) -> List[ControlledVocabulary]:
+        from .models import ControlledVocabulary
+
         return self.session.query(ControlledVocabulary).all()
 
     def get_vocabulary(self, name: str) -> ControlledVocabulary:
+        from .models import ControlledVocabulary
+
         vocab: ControlledVocabulary = self.session.query(ControlledVocabulary).filter_by(name=name).one_or_none()
         if vocab is None:
             raise DatabaseError("Failed to find vocabulary: " + name)

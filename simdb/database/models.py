@@ -2,9 +2,8 @@ from sqlalchemy import Column, ForeignKey, Table, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import TypeDecorator, CHAR, String, Integer, DateTime, Enum, Text, Float, Boolean
-from sqlalchemy.dialects import postgresql
-import uuid
 import os
+import uuid
 from typing import Union, List
 from datetime import datetime
 from dateutil import parser as date_parser
@@ -22,6 +21,8 @@ class UUID(TypeDecorator):
     impl = CHAR
 
     def load_dialect_impl(self, dialect):
+        from sqlalchemy.dialects import postgresql
+
         if dialect.name == "postgresql":
             return dialect.type_descriptor(postgresql.UUID())
         else:

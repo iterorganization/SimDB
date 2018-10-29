@@ -1,17 +1,15 @@
 import os
 import argparse
-import yaml
-from typing import Any, Optional, List, Dict, Tuple
-from enum import Enum, auto
+from typing import (Any, Optional, List, Dict, Tuple, TYPE_CHECKING)
+from enum import (Enum, auto)
 
-from ..database.models import Simulation, ValidationParameters, Summary
-from .manifest import Manifest, InvalidManifest, DataObject
-from .remote_api import RemoteAPI
-from ..database.database import get_local_db
-from ..provenance import create_provenance_file, read_provenance_file
-from ..validation import verify_metadata, ValidationError, TestParameters
-from ..imas import validation as imas_validation
-from ..utils import sha1_checksum
+if TYPE_CHECKING:
+    from ..database.models import Simulation, ValidationParameters, Summary
+else:
+    # dummy types so that the code still compiles without having to pull in the ORM classes every time
+    Simulation = object
+    ValidationParameters = object
+    Summary = object
 
 
 def required_argument(args: Any, command: str, argument: str):
@@ -82,6 +80,9 @@ class QueryCommand(Command):
         # if not any([args.equals, args.contains, args.greater, args.greater_equals, args.less, args.less_equals]):
         if not any([args.equals, args.contains]):
             raise argparse.ArgumentTypeError("At least one test must be provided")
+
+        from ..database.database import get_local_db
+
         db = get_local_db()
         if self._query_type == QueryCommand.QueryType.META:
             simulations = db.query_meta(args.name, equals=args.equals, contains=args.contains)
@@ -104,6 +105,8 @@ class ProvenanceCommand(Command):
             parser.add_argument("file", help="provenance file")
 
         def run(self, args: Any):
+            from ..provenance import create_provenance_file
+
             create_provenance_file(args.file)
 
     class IngestCommand(Command):
@@ -114,6 +117,9 @@ class ProvenanceCommand(Command):
             parser.add_argument("file", help="provenance file")
 
         def run(self, args: Any):
+            from ..database.database import get_local_db
+            from ..provenance import read_provenance_file
+
             prov = read_provenance_file(args.file)
             db = get_local_db()
             db.insert_provenance(args.sim_id, prov)
@@ -125,6 +131,7 @@ class ProvenanceCommand(Command):
             parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
 
         def run(self, args: Any):
+            from ..database.database import get_local_db
             required_argument(args, "ingest", "sim_id")
             db = get_local_db()
             prov = db.get_provenance(args.sim_id)
@@ -170,10 +177,13 @@ class IngestCommand(Command):
         update: bool
 
     def run(self, args: IngestArgs):
+        from ..database.database import (get_local_db, Simulation)
+        from .manifest import Manifest
+
         manifest = Manifest()
         manifest.load(args.manifest_file)
         manifest.validate()
-        #verify_metadata({}, manifest.metadata)
+        # verify_metadata({}, manifest.metadata)
 
         simulation = Simulation(manifest)
         simulation.alias = args.alias
@@ -237,6 +247,8 @@ class ListCommand(Command):
         verbose: bool
 
     def run(self, args: ListArgs) -> None:
+        from ..database.database import get_local_db
+
         db = get_local_db()
         simulations = db.list_simulations()
         list_simulations(simulations, verbose=args.verbose)
@@ -252,6 +264,8 @@ class DeleteCommand(Command):
         sim_id: str
 
     def run(self, args: DeleteArgs):
+        from ..database.database import get_local_db
+
         db = get_local_db()
         db.delete_simulation(args.sim_id)
 
@@ -275,6 +289,8 @@ class InfoCommand(Command):
         parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
 
     def run(self, args: InfoArgs):
+        from ..database.database import get_local_db
+
         db = get_local_db()
         simulation = db.get_simulation(args.sim_id)
         if simulation is None:
@@ -292,6 +308,9 @@ class PushCommand(Command):
         parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
 
     def run(self, args: PushArgs):
+        from ..database.database import get_local_db
+        from .remote_api import RemoteAPI
+
         api = RemoteAPI()
         db = get_local_db()
         simulation = db.get_simulation(args.sim_id)
@@ -313,6 +332,8 @@ class ModifyCommand(Command):
         parser.add_argument("--alias", help="new alias")
 
     def run(self, args: ModifyArgs):
+        from ..database.database import get_local_db
+
         if args.alias is not None:
             db = get_local_db()
             simulation = db.get_simulation(args.sim_id)
@@ -332,6 +353,12 @@ class ValidateCommand(Command):
         parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
 
     def run(self, args: ValidateArgs):
+        from ..database.database import get_local_db
+        from ..validation import ValidationError
+        from ..utils import sha1_checksum
+        from ..imas import validation as imas_validation
+        from .manifest import DataObject
+
         db = get_local_db()
         simulation = db.get_simulation(args.sim_id)
         device = simulation.find_meta("device")
@@ -373,6 +400,9 @@ class SimulationCommand(Command):
             alias: str
 
         def run(self, args: NewArgs) -> None:
+            from ..database.database import (get_local_db, Simulation)
+            from .manifest import Manifest
+
             db = get_local_db()
             simulation = Simulation(Manifest())
             simulation.alias = args.alias
@@ -434,6 +464,9 @@ class SummaryCommand(Command):
             parser.add_argument("file", help="file to create")
 
         def run(self, args: Any):
+            from ..database.database import get_local_db
+            import yaml
+
             with open(args.file) as f:
                 y = yaml.load(f)
                 summary = flatten_dict(y)
@@ -450,6 +483,8 @@ class SummaryCommand(Command):
             sim_id: str
 
         def run(self, args: SummaryListArgs) -> None:
+            from ..database.database import get_local_db
+
             db = get_local_db()
             summaries = db.list_summaries(args.sim_id)
             list_summaries(summaries)
@@ -525,6 +560,8 @@ class RemoteCommand(Command):
         sim_id: str
 
     def run(self, args: RemoteArgs):
+        from .remote_api import RemoteAPI
+
         api = RemoteAPI()
         if args.action == "list":
             simulations = api.list_simulations()
@@ -558,6 +595,8 @@ class ManifestCommand(Command):
         manifest_file: str
 
     def run(self, args: ManifestArgs):
+        from .manifest import (Manifest, InvalidManifest)
+
         manifest = Manifest()
 
         if args.action == "check":
@@ -577,10 +616,13 @@ class DatabaseCommand(Command):
 
     class ClearCommand(Command):
         _help = "clear the database"
+
         def add_arguments(self, parser: argparse.ArgumentParser):
             pass
 
         def run(self, args: Any):
+            from ..database.database import get_local_db
+
             db = get_local_db()
             db.reset()
 
@@ -594,6 +636,8 @@ class DatabaseCommand(Command):
             parser.add_argument("words", nargs="*", help="vocabulary words")
 
         def run(self, args: Any):
+            from ..database.database import get_local_db
+
             db = get_local_db()
             if args.cv_action == "new":
                 required_argument(args, "new", "name")
@@ -636,6 +680,10 @@ class DatabaseCommand(Command):
             parser.add_argument("--ids", help="names of the IDSs to use", action="append")
 
         def run(self, args: Any):
+            from ..database.database import get_local_db
+            from ..imas import validation as imas_validation
+            from ..validation import TestParameters
+
             db = get_local_db()
             if args.ref_action == "load":
                 required_argument(args, "load", "shot")

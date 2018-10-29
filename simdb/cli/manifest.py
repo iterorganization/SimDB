@@ -168,7 +168,10 @@ class Manifest:
     """
     Class to handle reading, writing & validation of simulation manifest files.
     """
-    data: Union[dict, list, None] = None
+    data: Union[dict, list, None] = None # :int
+    """
+    data: int
+    """
     metadata: dict = {}
 
     @classmethod

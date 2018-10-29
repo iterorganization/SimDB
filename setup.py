@@ -10,11 +10,13 @@ setup(
     packages=["simdb", "simdb.cli", "simdb.database"],
     license="See LICENCE.txt",
     requires=[
-        "PyYAML (>= 3.12)",
-        "SqlAlchemy (>= 1.2.2)",
         "argcomplete (>= 1.9.4)",
-        "dateutil (>= 2.6.1)",
-        "requests (>= 2.18.4)",
+        "numpy (>= 1.15.3)",
+        "python-dateutil (>= 2.7.3)",
+        "pyyaml (>= 3.13)",
+        "requests (>= 2.19.1)",
+        "sqlalchemy (>= 1.2.12)",
+        "urllib3 (>= 1.23)",
     ],
     scripts=["scripts/simdb"],
     package_data={

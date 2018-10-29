@@ -62,3 +62,7 @@ def main(args: List[str]) -> None:
     """
     cli = SimCLI()
     cli.run(args)
+
+    # Perform a "dirty" exit to speed up CLI execution time
+    # import os
+    # os._exit(0)
