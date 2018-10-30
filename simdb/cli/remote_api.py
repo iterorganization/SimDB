@@ -104,7 +104,7 @@ class RemoteAPI:
         for file in simulation.files:
             if file.type in (DataObject.Type.PATH, DataObject.Type.IMAS):
                 path = os.path.join(file.directory, file.file_name)
-                files.append(("files", (file.uuid.hex, read_bytes(path), "application/octet-stream")))
+                files.append(("files", (file.uuid.hex, read_bytes(path).decode(), "application/octet-stream")))
 
         self.put("simulations", data={}, files=files)
 

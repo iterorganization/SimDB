@@ -8,9 +8,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 import sqlalchemy.types as sql_types
 
-from ..cli.manifest import Manifest, DataObject, Source
+from ..cli.manifest import Manifest, DataObject
 from ..docstrings import inherit_docstrings
-from ..checksum import sha1_checksum
 
 
 class UUID(sql_types.TypeDecorator):
@@ -81,7 +80,7 @@ class BaseModel:
         raise NotImplementedError
 
 
-Base = declarative_base(cls=BaseModel)
+Base: Any = declarative_base(cls=BaseModel)
 
 
 simulation_input_files = Table("simulation_input_files", Base.metadata,
@@ -142,7 +141,7 @@ class Simulation(Base):
         else:
             raise NotImplementedError("source type " + data_obj.type.name + " not yet implemented")
 
-    def __init__(self, manifest: Union[Manifest, None]):
+    def __init__(self, manifest: Union[Manifest, None]) -> None:
         """
         Initialise a new Simulation object using the provided Manifest.
 
@@ -154,11 +153,11 @@ class Simulation(Base):
         self.datetime = datetime.now()
         self.status = "UNKNOWN"
 
-        for source in manifest.inputs:
-            self._append_file(self.inputs, source)
+        for input in manifest.inputs:
+            self._append_file(self.inputs, input)
 
-        for source in manifest.outputs:
-            self._append_file(self.outputs, source)
+        for output in manifest.outputs:
+            self._append_file(self.outputs, output)
 
         for key, value in manifest.workflow.items():
             self.meta.append(MetaData("workflow." + key, str(value)))
@@ -188,15 +187,27 @@ class Simulation(Base):
         return [m for m in self.meta if m.element == name]
 
     @classmethod
-    def from_data(cls, data: Dict[str, Union[str, Dict]]) -> "Simulation":
+    def from_data(cls, data: Dict[str, Union[str, Dict, List]]) -> "Simulation":
         simulation = Simulation(None)
+        if not isinstance(data["uuid"], str):
+            raise Exception("corrupted uuid - expected string")
         simulation.uuid = uuid.UUID(data["uuid"])
+        if not isinstance(data["datetime"], str):
+            raise Exception("corrupted datetime - expected string")
         simulation.datetime = date_parser.parse(data["datetime"])
         simulation.status = data["status"]
-        if "files" in data:
-            simulation.files = [File.from_data(d) for d in data["files"]]
+        if "inputs" in data:
+            if not isinstance(data["inputs"], list):
+                raise Exception("corrupted files - expected list")
+            simulation.inputs = [File.from_data(d) for d in data["inputs"]]
+        if "outputs" in data:
+            if not isinstance(data["outputs"], list):
+                raise Exception("corrupted files - expected list")
+            simulation.outputs = [File.from_data(d) for d in data["outputs"]]
         if "metadata" in data:
             for d in data["metadata"]:
+                if not isinstance(d, dict):
+                    raise Exception("corrupted files - expected dictionary")
                 simulation.meta.append(MetaData.from_data(d))
         return simulation
 
@@ -231,7 +242,7 @@ class File(Base):
     embargo = Column(sql_types.String(20), nullable=True)
     datetime = Column(sql_types.DateTime, nullable=False)
 
-    def __init__(self, type: DataObject.Type, directory: str, file_name: str):
+    def __init__(self, type: DataObject.Type, directory: str, file_name: str) -> None:
         """
         Initialise the File object using the provided DataObject.
 
@@ -240,7 +251,11 @@ class File(Base):
         self.uuid = uuid.uuid1()
         self.file_name = file_name
         self.directory = directory
-        if type != DataObject.Type.UDA:
+        if type == DataObject.Type.UDA:
+            from ..uda.checksum import checksum as uda_checksum
+            self.checksum = uda_checksum(file_name, directory)
+        else:
+            from ..checksum import sha1_checksum
             self.checksum = sha1_checksum(os.path.join(directory, file_name))
         self.type = type
         self.datetime = datetime.now()
@@ -298,7 +313,7 @@ class MetaData(Base):
     element = Column(sql_types.String(250), nullable=False)
     value = Column(sql_types.Text, nullable=True)
 
-    def __init__(self, key: str, value: str):
+    def __init__(self, key: str, value: str) -> None:
         self.uuid = uuid.uuid1()
         self.element = key
         self.value = value
@@ -374,7 +389,7 @@ class Provenance(Base):
     meta = relationship("ProvenanceMetaData")
     signals = relationship("ProvenanceSignal")
 
-    def __init__(self, metadata: Dict):
+    def __init__(self, metadata: Dict) -> None:
         self.uuid = uuid.uuid1()
         self.add_metadata(metadata)
         self.add_signals()
@@ -427,7 +442,7 @@ class ProvenanceMetaData(Base):
     element = Column(sql_types.String(250), nullable=False)
     value = Column(sql_types.Text, nullable=True)
 
-    def __init__(self, key: str, value: str):
+    def __init__(self, key: str, value: str) -> None:
         self.uuid = uuid.uuid1()
         self.element = key
         self.value = value
@@ -467,7 +482,7 @@ class ProvenanceSignal(Base):
     mapped_source_uuid = Column(UUID, nullable=False)
 
     def __init__(self, requested_signal: str, requested_source: str, mapped_signal: str, mapped_source: str,
-                 mapped_source_uuid: str):
+                 mapped_source_uuid: str) -> None:
         self.uuid = uuid.uuid1()
         self.requested_signal = requested_signal
         self.requested_source = requested_source
@@ -505,7 +520,7 @@ class ControlledVocabulary(Base):
     name = Column(sql_types.String(250), nullable=False, unique=True)
     words: List["ControlledVocabularyWord"] = relationship("ControlledVocabularyWord")
 
-    def __init__(self, name: str, words: List[str]):
+    def __init__(self, name: str, words: List[str]) -> None:
         self.uuid = uuid.uuid1()
         self.name = name
         self.add_words(words)
@@ -544,7 +559,7 @@ class ControlledVocabularyWord(Base):
         UniqueConstraint('vocabulary_id', 'value', name='_vocabulary_word'),
     )
 
-    def __init__(self, value: str):
+    def __init__(self, value: str) -> None:
         self.uuid = uuid.uuid1()
         self.value = value
 
@@ -587,7 +602,7 @@ class ValidationParameters(Base):
 
     def __init__(self, device: str, scenario: str, path: str, mandatory: bool, range_low: float, range_high: float,
                  mean_low: float, mean_high: float, median_low: float, median_high: float,
-                 stdev_low: float, stdev_high: float, mandatory_tests: str):
+                 stdev_low: float, stdev_high: float, mandatory_tests: str) -> None:
         self.uuid = uuid.uuid1()
         self.device = device
         self.scenario = scenario
@@ -648,7 +663,7 @@ class Summary(Base):
         UniqueConstraint('sim_id', 'key', name='_simulation_summary'),
     )
 
-    def __init__(self, key: str, value: str):
+    def __init__(self, key: str, value: str) -> None:
         self.uuid = uuid.uuid1()
         self.key = key
         self.value = value

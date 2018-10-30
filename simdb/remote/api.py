@@ -9,7 +9,7 @@ import gzip
 from .. import __version__
 from ..database.database import Database, DatabaseError
 from ..database.models import Simulation
-from ..docstrings import sha1_checksum
+from ..checksum import sha1_checksum
 
 api = Blueprint("api", __name__)
 

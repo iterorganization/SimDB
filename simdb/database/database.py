@@ -1,7 +1,7 @@
 import uuid
 import os
 import contextlib
-from typing import Optional, List, Tuple, TYPE_CHECKING
+from typing import Optional, List, Tuple, Union, TYPE_CHECKING
 from enum import Enum, auto
 
 
@@ -48,7 +48,7 @@ class Database:
         POSTGRESQL = auto()
         MSSQL = auto()
 
-    def __init__(self, db_type: DBMS, **kwargs):
+    def __init__(self, db_type: DBMS, **kwargs) -> None:
         from sqlalchemy import create_engine
         from .models import Base
 
@@ -222,20 +222,20 @@ class Database:
         self.session.commit()
         return simulation
 
-    def get_file(self, file_uuid: str) -> "File":
+    def get_file(self, file_uuid_str: str) -> "File":
         """
         Get the specified file from the database.
 
-        :param file_uuid: The file UUID.
+        :param file_uuid_str: The string representation of the file UUID.
         :return: The File.
         """
         from .models import File
 
         try:
-            file_uuid = uuid.UUID(file_uuid)
+            file_uuid = uuid.UUID(file_uuid_str)
             file = self.session.query(File).filter_by(uuid=file_uuid).one_or_none()
         except ValueError:
-            raise DatabaseError("Invalid UUID: " + file_uuid)
+            raise DatabaseError("Invalid UUID: " + file_uuid_str)
         if file is None:
             raise DatabaseError("Failed to find file: " + file_uuid.hex)
         self.session.commit()
@@ -346,12 +346,13 @@ class Database:
         """
         from .models import Simulation, Provenance
 
+        simulation: Union[Simulation, None] = None
         try:
             sim_uuid = uuid.UUID(sim_ref)
-            simulation: Simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
+            simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
         except ValueError:
             sim_alias = sim_ref
-            simulation: Simulation = self.session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
+            simulation = self.session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
         if simulation is None:
             raise DatabaseError("Failed to find simulation: " + sim_ref)
         if not simulation.provenance:
@@ -363,12 +364,13 @@ class Database:
     def insert_summary(self, sim_ref: str, summary: List[Tuple[str, str]]) -> None:
         from .models import Simulation, Summary
 
+        simulation: Union[Simulation, None] = None
         try:
             sim_uuid = uuid.UUID(sim_ref)
-            simulation: Simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
+            simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
         except ValueError:
             sim_alias = sim_ref
-            simulation: Simulation = self.session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
+            simulation = self.session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
         for (k, v) in summary:
             simulation.summary.append(Summary(k, v))
         self.session.commit()

@@ -13,12 +13,13 @@ class TestParameters:
     mandatory: bool
     range: Tuple[float, float]
     mean: Tuple[float, float]
+    max: Tuple[float, float]
     median: Tuple[float, float]
     stdev: Tuple[float, float]
     mandatory_tests: List[str]
 
     def __init__(self, mandatory: bool, range: Tuple[float, float], mean: Tuple[float, float],
-                 median: Tuple[float, float], stdev: Tuple[float, float], mandatory_tests: List[str]):
+                 median: Tuple[float, float], stdev: Tuple[float, float], mandatory_tests: List[str]) -> None:
         self.mandatory = mandatory
         self.range = range
         self.mean = mean
@@ -140,7 +141,7 @@ def verify_metadata(summary_ids: dict, meta: dict) -> None:
 
     date = get_metadata(meta, 'date')
     if len(date) == 1:
-        if date[0] != imas_meta["creation_date"]:
+        if date[0] != meta["creation_date"]:
             raise ValidationError("dataset_description.ids_properties.creation_date inconsistent with metadata")
     else:
         raise ValidationError("not date provided in metadata")

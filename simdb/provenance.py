@@ -1,6 +1,7 @@
 import os
 import yaml
 import platform
+from typing import Dict, Union, List
 
 
 def platform_version() -> str:
@@ -10,9 +11,10 @@ def platform_version() -> str:
         return platform.mac_ver()[0] + ' ' + platform.version()
     elif platform.system() == 'Win':
         return ' '.join(platform.win32_ver())
+    return 'Unknown'
 
 
-def platform_details() -> dict:
+def platform_details() -> Dict:
     data = dict(
         architecture=' '.join(platform.architecture()),
         libc_ver=' '.join(platform.libc_ver()),
@@ -28,8 +30,8 @@ def platform_details() -> dict:
     return data
 
 
-def enironmental_vars() -> dict:
-    vars = {}
+def enironmental_vars() -> Dict:
+    vars: Dict[str, Union[str, List[str]]] = {}
     for (k, v) in os.environ.items():
         if 'PATH' in k:
             vars[k] = [i for i in v.split(os.pathsep) if i]
@@ -38,7 +40,7 @@ def enironmental_vars() -> dict:
     return vars
 
 
-def get_provenance() -> dict:
+def get_provenance() -> Dict:
     prov = dict(
         environment=enironmental_vars(),
         platform=platform_details()
@@ -51,6 +53,6 @@ def create_provenance_file(file_name: str) -> None:
         yaml.dump(get_provenance(), file, default_flow_style=False)
 
 
-def read_provenance_file(file_name: str) -> dict:
+def read_provenance_file(file_name: str) -> Dict:
     with open(file_name, 'r') as file:
         return yaml.load(file)

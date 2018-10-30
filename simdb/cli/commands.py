@@ -58,7 +58,7 @@ class QueryCommand(Command):
         PROVENANCE = auto()
         SUMMARY = auto()
 
-    def __init__(self, query_type: QueryType=QueryType.META):
+    def __init__(self, query_type: QueryType=QueryType.META) -> None:
         self._query_type = query_type
 
     def add_arguments(self, parser: argparse.ArgumentParser):
@@ -352,7 +352,6 @@ class ValidateCommand(Command):
         from itertools import chain
         from ..database.database import get_local_db
         from ..validation import ValidationError
-        from ..checksum import sha1_checksum
         from ..imas import validation as imas_validation
         from .manifest import DataObject
 
@@ -371,9 +370,12 @@ class ValidateCommand(Command):
         imas_names = set()
         for file in chain(simulation.inputs, simulation.outputs):
             if file.type == DataObject.Type.UDA:
-                continue
-            path = os.path.join(file.directory, file.file_name)
-            checksum = sha1_checksum(path)
+                from ..uda.checksum import checksum as uda_checksum
+                checksum = uda_checksum(file.file_name, file.directory)
+            else:
+                from ..checksum import sha1_checksum
+                path = os.path.join(file.directory, file.file_name)
+                checksum = sha1_checksum(path)
             if checksum != file.checksum:
                 raise ValidationError("Checksum doest not match for file " + path)
             if file.type == DataObject.Type.IMAS:

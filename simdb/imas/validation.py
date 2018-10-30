@@ -188,8 +188,8 @@ def float_array_save_validation_parameters(device: str, scenario: str, path: str
 
         test_params.mean = (np.mean(obj), np.mean(obj))
         test_params.median = (np.median(obj), np.median(obj))
-        test_params.dmax = (np.max(obj), np.max(obj))
-        test_params.dstd = (np.std(obj), np.std(obj))
+        test_params.max = (np.max(obj), np.max(obj))
+        test_params.stdev = (np.std(obj), np.std(obj))
         test_params.mandatory = not_missing
         test_params.mandatory_tests = ["mean", "median", "max", "stdev", "mandatory"]
     else:

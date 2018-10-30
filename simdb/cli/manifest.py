@@ -246,7 +246,7 @@ class Manifest:
             except yaml.YAMLError as err:
                 raise InvalidManifest("badly formatted manifest - " + str(err))
 
-        if "metadata" in self._data:
+        if isinstance(self._data, dict) and "metadata" in self._data:
             for item in self._data["metadata"]:
                 if "path" in item:
                     self._load_metadata(file_path, item["path"])
