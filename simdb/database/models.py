@@ -1,6 +1,6 @@
 import os
 import uuid
-from typing import Union, List, Dict, Any, Tuple
+from typing import Union, List, Dict, Any, Tuple, Type
 from datetime import datetime
 from dateutil import parser as date_parser
 from sqlalchemy import Column, ForeignKey, Table, UniqueConstraint
@@ -27,6 +27,14 @@ class UUID(sql_types.TypeDecorator):
             return dialect.type_descriptor(postgresql.UUID())
         else:
             return dialect.type_descriptor(sql_types.CHAR(32))
+
+    def process_literal_param(self, value, dialect):
+        if value is None:
+            return value
+        else:
+            if not isinstance(value, uuid.UUID):
+                value = uuid.UUID(value)
+            return value
 
     def process_bind_param(self, value, dialect):
         if value is None:
@@ -111,6 +119,12 @@ def _get_imas_paths(imas: Dict) -> List[str]:
     ]
 
 
+def _checked_get(data: Dict[str, Any], key, type: Type):
+    if not isinstance(data[key], type):
+        raise ValueError("corrupted %s - expected %s" % (key, type.name))
+    return data[key]
+
+
 @inherit_docstrings
 class Simulation(Base):
     """
@@ -189,29 +203,22 @@ class Simulation(Base):
     @classmethod
     def from_data(cls, data: Dict[str, Union[str, Dict, List]]) -> "Simulation":
         simulation = Simulation(None)
-        if not isinstance(data["uuid"], str):
-            raise Exception("corrupted uuid - expected string")
-        simulation.uuid = uuid.UUID(data["uuid"])
-        if not isinstance(data["alias"], str):
-            raise Exception("corrupted alias - expected string")
-        simulation.alias = data["alias"]
-        if not isinstance(data["datetime"], str):
-            raise Exception("corrupted datetime - expected string")
-        simulation.datetime = date_parser.parse(data["datetime"])
-        simulation.status = data["status"]
+        simulation.uuid = uuid.UUID(_checked_get(data, "uuid", str))
+        simulation.alias = _checked_get(data, "alias", str)
+        simulation.datetime = date_parser.parse(_checked_get(data, "datetime", str))
+        simulation.status = _checked_get(data, "status", str)
         if "inputs" in data:
-            if not isinstance(data["inputs"], list):
-                raise Exception("corrupted files - expected list")
-            simulation.inputs = [File.from_data(d) for d in data["inputs"]]
+            inputs = _checked_get(data, "inputs", list)
+            simulation.inputs = [File.from_data(el) for el in inputs]
         if "outputs" in data:
-            if not isinstance(data["outputs"], list):
-                raise Exception("corrupted files - expected list")
-            simulation.outputs = [File.from_data(d) for d in data["outputs"]]
+            outputs = _checked_get(data, "outputs", list)
+            simulation.outputs = [File.from_data(el) for el in outputs]
         if "metadata" in data:
-            for d in data["metadata"]:
-                if not isinstance(d, dict):
-                    raise Exception("corrupted files - expected dictionary")
-                simulation.meta.append(MetaData.from_data(d))
+            metadata = _checked_get(data, "metadata", list)
+            for el in metadata:
+                if not isinstance(el, dict):
+                    raise Exception("corrupted metadata element - expected dictionary")
+                simulation.meta.append(MetaData.from_data(el))
         return simulation
 
     def data(self, recurse: bool=False) -> Dict[str, Union[str, List]]:

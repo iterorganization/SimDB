@@ -441,6 +441,14 @@ class Database:
             raise DatabaseError("Failed to find vocabulary: " + name)
         return vocab
 
+    def get_aliases(self, prefix: Optional[str]) -> List[str]:
+        from .models import Simulation
+
+        if prefix:
+            return [el[0] for el in self.session.query(Simulation).filter(Simulation.alias.like(prefix + '%')).values('alias')]
+        else:
+            return [el[0] for el in self.session.query(Simulation).values('alias')]
+
 
 def get_local_db() -> Database:
     import appdirs

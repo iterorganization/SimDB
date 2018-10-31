@@ -189,6 +189,7 @@ class IngestCommand(Command):
 
         db = get_local_db()
         db.insert_simulation(simulation)
+        print("success")
 
 
 def list_simulations(simulations: List["Simulation"], verbose: bool=False) -> None:
@@ -268,6 +269,8 @@ class DeleteCommand(Command):
         db = get_local_db()
         db.delete_simulation(args.sim_id)
 
+        print("success")
+
 
 def print_files(files: List[Dict]):
     for file in files:
@@ -316,6 +319,7 @@ class PushCommand(Command):
         if simulation is None:
             raise Exception("Failed to find simulation: " + args.sim_id)
         api.push_simulation(simulation)
+
         print("success")
 
 
@@ -390,6 +394,8 @@ class ValidateCommand(Command):
             imas_obj = imas_validation.load_imas(shot, run)
             imas_validation.validate_imas(device[0].value, scenario[0].value, imas_obj)
 
+        print("success")
+
 
 class SimulationCommand(Command):
     _help = "manage ingested simulations"
@@ -414,6 +420,34 @@ class SimulationCommand(Command):
             db.insert_simulation(simulation)
             print(simulation.uuid)
 
+    class AliasCommand(Command):
+        _help = "generated a new unique alias"
+
+        def add_arguments(self, parser: argparse.ArgumentParser):
+            parser.add_argument("--prefix", "-p", help="prefix to use for the alias")
+
+        class AliasArgs(argparse.Namespace):
+            prefix: Optional[str]
+
+        def run(self, args: AliasArgs, _: Config) -> None:
+            from ..database.database import get_local_db
+
+            prefix: str = args.prefix or 'sim'
+
+            db = get_local_db()
+            aliases = db.get_aliases(prefix)
+
+            n = 1
+            alias = prefix + ('%03d' % n)
+
+            print(aliases)
+
+            while alias in aliases:
+                n += 1
+                alias = prefix + ('%03d' % n)
+
+            print(alias)
+
     _commands = {
         "push": PushCommand(),
         "modify": ModifyCommand(),
@@ -424,6 +458,7 @@ class SimulationCommand(Command):
         "ingest": IngestCommand(),
         "validate": ValidateCommand(),
         "new": NewCommand(),
+        "alias": AliasCommand(),
     }
 
     def add_arguments(self, parser: argparse.ArgumentParser):
