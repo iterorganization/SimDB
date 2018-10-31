@@ -192,6 +192,9 @@ class Simulation(Base):
         if not isinstance(data["uuid"], str):
             raise Exception("corrupted uuid - expected string")
         simulation.uuid = uuid.UUID(data["uuid"])
+        if not isinstance(data["alias"], str):
+            raise Exception("corrupted alias - expected string")
+        simulation.alias = data["alias"]
         if not isinstance(data["datetime"], str):
             raise Exception("corrupted datetime - expected string")
         simulation.datetime = date_parser.parse(data["datetime"])
@@ -214,11 +217,13 @@ class Simulation(Base):
     def data(self, recurse: bool=False) -> Dict[str, Union[str, List]]:
         data = dict(
             uuid=self.uuid.hex,
+            alias=self.alias,
             datetime=self.datetime.isoformat(),
             status=self.status,
         )
         if recurse:
-            data["files"] = [f.data(recurse=True) for f in self.files]
+            data["inputs"] = [f.data(recurse=True) for f in self.inputs]
+            data["outputs"] = [f.data(recurse=True) for f in self.outputs]
             data["metadata"] = [m.data(recurse=True) for m in self.meta]
         return data
 
@@ -242,7 +247,15 @@ class File(Base):
     embargo = Column(sql_types.String(20), nullable=True)
     datetime = Column(sql_types.DateTime, nullable=False)
 
-    def __init__(self, type: DataObject.Type, directory: str, file_name: str) -> None:
+    def _integrity_check(self) -> None:
+        if self.type == DataObject.Type.UDA:
+            from ..uda.checksum import checksum as uda_checksum
+            self.checksum = uda_checksum(self.file_name, self.directory)
+        else:
+            from ..checksum import sha1_checksum
+            self.checksum = sha1_checksum(os.path.join(self.directory, self.file_name))
+
+    def __init__(self, type: DataObject.Type, directory: str, file_name: str, perform_integrity_check: bool=True) -> None:
         """
         Initialise the File object using the provided DataObject.
 
@@ -251,14 +264,11 @@ class File(Base):
         self.uuid = uuid.uuid1()
         self.file_name = file_name
         self.directory = directory
-        if type == DataObject.Type.UDA:
-            from ..uda.checksum import checksum as uda_checksum
-            self.checksum = uda_checksum(file_name, directory)
-        else:
-            from ..checksum import sha1_checksum
-            self.checksum = sha1_checksum(os.path.join(directory, file_name))
         self.type = type
         self.datetime = datetime.now()
+
+        if perform_integrity_check:
+            self._integrity_check()
 
     def __str__(self):
         result = ""
@@ -273,7 +283,7 @@ class File(Base):
 
     @classmethod
     def from_data(cls, data: Dict) -> "File":
-        file = File(DataObject.Type[data["type"]], data["directory"], data["file_name"])
+        file = File(DataObject.Type[data["type"]], data["directory"], data["file_name"], perform_integrity_check=False)
         file.uuid = uuid.UUID(data["uuid"])
         file.usage = data["usage"]
         file.checksum = data["checksum"]

@@ -215,8 +215,7 @@ class Database:
             sim_uuid = uuid.UUID(sim_ref)
             simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
         except ValueError:
-            sim_alias = sim_ref
-            simulation = self.session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
+            simulation = self.session.query(Simulation).filter_by(alias=sim_ref).one_or_none()
         if simulation is None:
             raise DatabaseError("Failed to find simulation: " + sim_ref)
         self.session.commit()
@@ -330,6 +329,8 @@ class Database:
         :param simulation: The Simulation to insert.
         :return: None
         """
+        from sqlalchemy.exc import DBAPIError
+
         try:
             self.session.add(simulation)
             self.session.commit()
@@ -442,7 +443,8 @@ class Database:
 
 
 def get_local_db() -> Database:
-    db_dir = os.path.join(os.environ["HOME"], ".simdb")
+    import appdirs
+    db_dir = appdirs.user_data_dir('simdb')
     os.makedirs(db_dir, exist_ok=True)
     db_file = os.path.join(db_dir, "sim.db")
     database = Database(Database.DBMS.SQLITE, file=db_file)

@@ -3,8 +3,8 @@ import argcomplete
 from typing import List
 
 from .commands import SimulationCommand, ManifestCommand, DatabaseCommand, RemoteCommand,\
-    ProvenanceCommand, SummaryCommand
-
+    ProvenanceCommand, SummaryCommand, ConfigCommand
+from ..config.config import Config
 
 class SimCLI:
     """
@@ -18,6 +18,7 @@ class SimCLI:
         "remote": RemoteCommand(),
         "provenance": ProvenanceCommand(),
         "summary": SummaryCommand(),
+        "config": ConfigCommand()
     }
 
     def run(self, args: List[str]) -> None:
@@ -40,8 +41,11 @@ class SimCLI:
         argcomplete.autocomplete(parser)
         parsed_args = parser.parse_args(args)
 
+        config = Config()
+        config.load()
+
         try:
-            self.commands[parsed_args.command].run(parsed_args)
+            self.commands[parsed_args.command].run(parsed_args, config)
         except Exception as ex:
             if parsed_args.debug:
                 raise ex

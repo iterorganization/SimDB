@@ -1,10 +1,9 @@
 import sys
 
+
 def checksum(signal: str, source: str) -> str:
     import pyuda
     import hashlib
-
-    print('fetching: %s %s' % (signal, source), file=sys.stderr)
 
     client = pyuda.Client()
     res = client.get(signal, source, raw=True)

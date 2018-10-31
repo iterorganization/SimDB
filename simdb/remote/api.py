@@ -1,14 +1,17 @@
 import os
 import json
+import itertools
 from flask import g, Blueprint, request, jsonify, Response, current_app
 from werkzeug.utils import secure_filename
+from werkzeug.datastructures import FileStorage
 from functools import wraps
 import uuid
 import gzip
+from typing import List
 
 from .. import __version__
 from ..database.database import Database, DatabaseError
-from ..database.models import Simulation
+from ..database.models import Simulation, File
 from ..checksum import sha1_checksum
 
 api = Blueprint("api", __name__)
@@ -48,7 +51,8 @@ def get_db() -> Database:
             g.db = Database(Database.DBMS.POSTGRESQL,
                             host=current_app.config["DB_HOST"], port=current_app.config["DB_PORT"])
         elif current_app.config["DB_TYPE"] == "sqlite":
-            db_dir = os.path.join(os.environ["HOME"], ".simdb")
+            import appdirs
+            db_dir = appdirs.user_data_dir('simdb')
             os.makedirs(db_dir, exist_ok=True)
             g.db = Database(Database.DBMS.SQLITE, file=os.path.join(db_dir, "remote.db"))
         else:
@@ -102,6 +106,25 @@ def save_file(file, path: str, compressed: bool=True):
         file.save(path)
 
 
+def _stage_files(files: List[FileStorage], uuid_hex: str, sim_files: List[File]) -> None:
+    staging_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], uuid_hex)
+    os.makedirs(staging_dir, exist_ok=True)
+
+    for file in files:
+        if file.filename:
+            file_uuid = uuid.UUID(file.filename)
+            if sum(1 if x.uuid == file_uuid else 0 for x in sim_files) == 0:
+                raise ValueError("file with uuid %s not found in simulation" % file_uuid.hex)
+            sim_file = next(filter(lambda x: x.uuid == file_uuid, sim_files))
+            file_name = secure_filename(sim_file.file_name)
+            path = os.path.join(staging_dir, file_name)
+            save_file(file, path)
+            checksum = sha1_checksum(path)
+            if sim_file.checksum != checksum:
+                raise ValueError("checksum failed for file %s" % repr(sim_file))
+            sim_file.directory = staging_dir
+
+
 @api.route("/simulations", methods=["PUT"])
 @requires_auth
 def ingest_simulation():
@@ -111,29 +134,20 @@ def ingest_simulation():
         return error("Simulation data not provided")
 
     simulation = Simulation.from_data(data["simulation"])
-
-    if "files" in request.files:
-        files = request.files.getlist("files")
-
-        staging_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], simulation.uuid.hex)
-        os.makedirs(staging_dir, exist_ok=True)
-
-        for file in files:
-            if file.filename:
-                file_uuid = uuid.UUID(file.filename)
-                sim_file = next(filter(lambda x: x.uuid == file_uuid, simulation.files))
-                file_name = secure_filename(sim_file.file_name)
-                path = os.path.join(staging_dir, file_name)
-                save_file(file, path)
-                checksum = sha1_checksum(path)
-                if sim_file.checksum != checksum:
-                    return error("checksum failed for file %s" % repr(sim_file))
-                sim_file.directory = staging_dir
+    simulation.alias = simulation.uuid.hex[0:8]
 
     try:
+        if "inputs" in request.files:
+            files = request.files.getlist("inputs")
+            _stage_files(files, simulation.uuid.hex, simulation.inputs)
+
+        if "outputs" in request.files:
+            files = request.files.getlist("outputs")
+            _stage_files(files, simulation.uuid.hex, simulation.outputs)
+
         get_db().insert_simulation(simulation)
         return jsonify({})
-    except DatabaseError as err:
+    except (DatabaseError, ValueError) as err:
         return error(str(err))
 
 
@@ -153,11 +167,12 @@ def delete_simulation(sim_id):
     try:
         simulation = get_db().delete_simulation(sim_id)
         files = []
-        for file in simulation.files:
+        for file in itertools.chain(simulation.inputs, simulation.outputs):
             files.append("%s (%s)" % (file.uuid, file.file_name))
             os.remove(os.path.join(file.directory, file.file_name))
-        if simulation.files:
-            os.rmdir(simulation.files[0].directory)
+        if simulation.inputs or simulation.outputs:
+            dir = simulation.inputs[0].directory if simulation.inputs else simulation.outputs[0].directory
+            os.rmdir(simulation.inputs[0].directory)
         return jsonify({"deleted": {"simulation": simulation.uuid, "files": files}})
     except DatabaseError as err:
         return error(str(err))

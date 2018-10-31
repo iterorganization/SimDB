@@ -1,15 +1,18 @@
 import os
 import argparse
-from typing import (Any, Optional, List, Dict, Tuple, TYPE_CHECKING)
+from typing import (Any, Optional, List, Dict, Tuple, TYPE_CHECKING, TypeVar)
 from enum import (Enum, auto)
 
 if TYPE_CHECKING:
     from ..database.models import Simulation, ValidationParameters, Summary
+    from ..config.config import Config
+else:
+    Config = TypeVar('Config')
 
 
 def required_argument(args: Any, command: str, argument: str):
     if not getattr(args, argument):
-        raise argparse.ArgumentError(None, "{} name must be provided with {} command".format(argument, command))
+        raise argparse.ArgumentError(None, "{} argument must be provided with {} command".format(argument, command))
 
 
 def flatten_dict(values: Dict) -> List[Tuple[str, str]]:
@@ -36,7 +39,7 @@ class Command:
     def add_arguments(self, parser: argparse.ArgumentParser):
         pass
 
-    def run(self, args: Any):
+    def run(self, args: Any, config: Config):
         raise NotImplementedError
 
 
@@ -71,7 +74,7 @@ class QueryCommand(Command):
         # parser.add_argument("--less", "-lt", help="test less than", type=int)
         # parser.add_argument("--less-equals", "-le", help="test less than or equals", type=int)
 
-    def run(self, args: QueryArgs):
+    def run(self, args: QueryArgs, _: Config):
         # if not any([args.equals, args.contains, args.greater, args.greater_equals, args.less, args.less_equals]):
         if not any([args.equals, args.contains]):
             raise argparse.ArgumentTypeError("At least one test must be provided")
@@ -99,7 +102,7 @@ class ProvenanceCommand(Command):
         def add_arguments(self, parser: argparse.ArgumentParser):
             parser.add_argument("file", help="provenance file")
 
-        def run(self, args: Any):
+        def run(self, args: Any, _: Config):
             from ..provenance import create_provenance_file
 
             create_provenance_file(args.file)
@@ -111,7 +114,7 @@ class ProvenanceCommand(Command):
             parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
             parser.add_argument("file", help="provenance file")
 
-        def run(self, args: Any):
+        def run(self, args: Any, _: Config):
             from ..database.database import get_local_db
             from ..provenance import read_provenance_file
 
@@ -125,7 +128,7 @@ class ProvenanceCommand(Command):
         def add_arguments(self, parser: argparse.ArgumentParser):
             parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
 
-        def run(self, args: Any):
+        def run(self, args: Any, _: Config):
             from ..database.database import get_local_db
             required_argument(args, "ingest", "sim_id")
             db = get_local_db()
@@ -152,8 +155,8 @@ class ProvenanceCommand(Command):
         file: Optional[str]
         sim_id: Optional[str]
 
-    def run(self, args: ProvenanceArgs):
-        self._commands[args.action].run(args)
+    def run(self, args: ProvenanceArgs, config: Config):
+        self._commands[args.action].run(args, config)
 
 
 class IngestCommand(Command):
@@ -171,7 +174,7 @@ class IngestCommand(Command):
         uuid: Optional[str]
         update: bool
 
-    def run(self, args: IngestArgs):
+    def run(self, args: IngestArgs, _: Config):
         from ..database.database import get_local_db
         from ..database.models import Simulation
         from .manifest import Manifest
@@ -242,7 +245,7 @@ class ListCommand(Command):
     class ListArgs(argparse.Namespace):
         verbose: bool
 
-    def run(self, args: ListArgs) -> None:
+    def run(self, args: ListArgs, _: Config) -> None:
         from ..database.database import get_local_db
 
         db = get_local_db()
@@ -259,7 +262,7 @@ class DeleteCommand(Command):
     class DeleteArgs(argparse.Namespace):
         sim_id: str
 
-    def run(self, args: DeleteArgs):
+    def run(self, args: DeleteArgs, _: Config):
         from ..database.database import get_local_db
 
         db = get_local_db()
@@ -284,7 +287,7 @@ class InfoCommand(Command):
     def add_arguments(self, parser: argparse.ArgumentParser):
         parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
 
-    def run(self, args: InfoArgs):
+    def run(self, args: InfoArgs, _: Config):
         from ..database.database import get_local_db
 
         db = get_local_db()
@@ -303,11 +306,11 @@ class PushCommand(Command):
     def add_arguments(self, parser: argparse.ArgumentParser):
         parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
 
-    def run(self, args: PushArgs):
+    def run(self, args: PushArgs, config: Config):
         from ..database.database import get_local_db
         from .remote_api import RemoteAPI
 
-        api = RemoteAPI()
+        api = RemoteAPI(config)
         db = get_local_db()
         simulation = db.get_simulation(args.sim_id)
         if simulation is None:
@@ -327,7 +330,7 @@ class ModifyCommand(Command):
         parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
         parser.add_argument("--alias", help="new alias")
 
-    def run(self, args: ModifyArgs):
+    def run(self, args: ModifyArgs, _: Config):
         from ..database.database import get_local_db
 
         if args.alias is not None:
@@ -348,7 +351,7 @@ class ValidateCommand(Command):
     def add_arguments(self, parser: argparse.ArgumentParser):
         parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
 
-    def run(self, args: ValidateArgs):
+    def run(self, args: ValidateArgs, _: Config):
         from itertools import chain
         from ..database.database import get_local_db
         from ..validation import ValidationError
@@ -400,7 +403,7 @@ class SimulationCommand(Command):
         class NewArgs(argparse.Namespace):
             alias: str
 
-        def run(self, args: NewArgs) -> None:
+        def run(self, args: NewArgs, _: Config) -> None:
             from ..database.database import get_local_db
             from ..database.models import Simulation
             from .manifest import Manifest
@@ -435,8 +438,8 @@ class SimulationCommand(Command):
                          InfoCommand.InfoArgs, QueryCommand.QueryArgs):
         action: str
 
-    def run(self, args: SimulationArgs):
-        self._commands[args.action].run(args)
+    def run(self, args: SimulationArgs, config: Config):
+        self._commands[args.action].run(args, config)
 
 
 class SummaryCommand(Command):
@@ -451,7 +454,7 @@ class SummaryCommand(Command):
             parser.add_argument("shot", help="IDS shot")
             parser.add_argument("run", help="IDS run")
 
-        def run(self, args: Any):
+        def run(self, args: Any, _: Config):
             cmd = "{} --shot={} --run={}".format(self._script, args.shot, args.run)
             with os.popen(cmd) as p:
                 with open(args.file) as f:
@@ -465,7 +468,7 @@ class SummaryCommand(Command):
             parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
             parser.add_argument("file", help="file to create")
 
-        def run(self, args: Any):
+        def run(self, args: Any, _: Config):
             from ..database.database import get_local_db
             import yaml
 
@@ -484,7 +487,7 @@ class SummaryCommand(Command):
         class SummaryListArgs(argparse.Namespace):
             sim_id: str
 
-        def run(self, args: SummaryListArgs) -> None:
+        def run(self, args: SummaryListArgs, _: Config) -> None:
             from ..database.database import get_local_db
 
             db = get_local_db()
@@ -509,8 +512,8 @@ class SummaryCommand(Command):
     class SummaryArgs():
         sum_action: str
 
-    def run(self, args: SummaryArgs):
-        self._commands[args.sum_action].run(args)
+    def run(self, args: SummaryArgs, config: Config):
+        self._commands[args.sum_action].run(args, config)
 
 
 class RemoteDatabaseCommand(Command):
@@ -520,7 +523,7 @@ class RemoteDatabaseCommand(Command):
         parser.add_argument("remote_command", choices=["clear"],
                             help="clear all ingested simulations from the db")
 
-    def run(self, args: argparse.Namespace):
+    def run(self, args: argparse.Namespace, _: Config):
         pass
 
 
@@ -530,7 +533,7 @@ class RemoteSimulationCommand(Command):
     def add_arguments(self, parser: argparse.ArgumentParser):
         parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
 
-    def run(self, args: Any):
+    def run(self, args: Any, _: Config):
         pass
 
 
@@ -561,10 +564,10 @@ class RemoteCommand(Command):
         verbose: bool
         sim_id: str
 
-    def run(self, args: RemoteArgs):
+    def run(self, args: RemoteArgs, config: Config):
         from .remote_api import RemoteAPI
 
-        api = RemoteAPI()
+        api = RemoteAPI(config)
         if args.action == "list":
             simulations = api.list_simulations()
             list_simulations(simulations, verbose=args.verbose)
@@ -596,7 +599,7 @@ class ManifestCommand(Command):
         action: str
         manifest_file: str
 
-    def run(self, args: ManifestArgs):
+    def run(self, args: ManifestArgs, _: Config):
         from .manifest import (Manifest, InvalidManifest)
 
         manifest = Manifest()
@@ -622,7 +625,7 @@ class DatabaseCommand(Command):
         def add_arguments(self, parser: argparse.ArgumentParser):
             pass
 
-        def run(self, args: Any):
+        def run(self, args: Any, _: Config):
             from ..database.database import get_local_db
 
             db = get_local_db()
@@ -637,7 +640,7 @@ class DatabaseCommand(Command):
             parser.add_argument("name", help="vocabulary name", nargs="?")
             parser.add_argument("words", nargs="*", help="vocabulary words")
 
-        def run(self, args: Any):
+        def run(self, args: Any, _: Config):
             from ..database.database import get_local_db
 
             db = get_local_db()
@@ -681,7 +684,7 @@ class DatabaseCommand(Command):
             parser.add_argument("--path", help="ids path")
             parser.add_argument("--ids", help="names of the IDSs to use", action="append")
 
-        def run(self, args: Any):
+        def run(self, args: Any, _: Config):
             from ..database.database import get_local_db
             from ..imas import validation as imas_validation
             from ..validation import TestParameters
@@ -724,5 +727,46 @@ class DatabaseCommand(Command):
             sub_parser = command_parsers.add_parser(name, help=command.help)
             command.add_arguments(sub_parser)
 
-    def run(self, args: argparse.Namespace):
-        self._commands[args.action].run(args)
+    def run(self, args: argparse.Namespace, config: Config):
+        self._commands[args.action].run(args, config)
+
+
+class ConfigCommand(Command):
+    _help = "query/update application configuration"
+
+    class Actions(Enum):
+        GET = auto()
+        SET = auto()
+        LIST = auto()
+
+        def __str__(self) -> str:
+            return self.name.lower()
+
+        @staticmethod
+        def from_string(s: str) -> 'ConfigCommand.Actions':
+            try:
+                return ConfigCommand.Actions[s.upper()]
+            except KeyError:
+                raise ValueError()
+
+    def add_arguments(self, parser: argparse.ArgumentParser):
+        parser.add_argument("action", type=ConfigCommand.Actions.from_string, choices=list(ConfigCommand.Actions), help="action to perform")
+        parser.add_argument("option", help="configuration option", nargs='?')
+        parser.add_argument("value", help="value to set the option to (only for set action)", nargs='?')
+
+    class ConfigArgs(argparse.Namespace):
+        action: str
+        option: str
+        value: str
+
+    def run(self, args: ConfigArgs, config: Config):
+        if args.action == ConfigCommand.Actions.GET:
+            required_argument(args, "set", "option")
+            print(config.get_option(args.option))
+        elif args.action == ConfigCommand.Actions.SET:
+            required_argument(args, "set", "option")
+            required_argument(args, "set", "value")
+            config.set_option(args.option, args.value)
+        elif args.action == ConfigCommand.Actions.LIST:
+            for i in config.list_options():
+                print(i)
