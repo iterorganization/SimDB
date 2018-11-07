@@ -1,9 +1,8 @@
 def sha1_checksum(path: str) -> str:
-    """
-    Generate a SHA1 checksum from the given file.
+    """Generate a SHA1 checksum from the given file.
 
-    :param path:
-    :return:
+    :param path: the path of the file to checksum
+    :return: a string containing the hex representation of the computed SHA1 checksum
     """
     import hashlib
 

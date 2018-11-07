@@ -1,9 +1,21 @@
+# -*- coding: utf-8 -*-
+"""SimDB.
+
+SimDB is the ITER simulation database management tool designed to track, manage and validate simulations and allow for
+these simulations to be sent for remote archiving and verification.
+
+The tool comes in two parts:
+    * The command line interface (CLI) tool which users can run on the command line to add, edit, view and query
+      stored simulations.
+    * The remote REST API which is run in a centralised location to allow the users simulations to be pushed for
+      staging and checking.
+"""
+
 import os
+from typing import Tuple, cast
 
-__version__ = "0.1.1"
+__version__: str = "0.1.1"
+__version_info__: Tuple[str, str, str] = cast(Tuple[str, str, str], tuple(__version__.split('.')))
 
-dir_path = os.path.dirname(os.path.realpath(__file__))
-__licence__ = open(os.path.join(dir_path, "LICENCE.txt")).read()
-
-del dir_path
-del os
+_dir_path = os.path.dirname(os.path.realpath(__file__))
+__licence__: str = open(os.path.join(_dir_path, "LICENCE.txt")).read()

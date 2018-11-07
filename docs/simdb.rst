@@ -1,5 +1,10 @@
-SimDB Package
+simdb package
 =============
+
+.. automodule:: simdb
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 Subpackages
 -----------
@@ -16,43 +21,9 @@ Subpackages
 Submodules
 ----------
 
-simdb.checksum module
----------------------
+.. toctree::
 
-.. automodule:: simdb.checksum
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   simdb.checksum
+   simdb.docstrings
+   simdb.validation
 
-simdb.docstrings module
------------------------
-
-.. automodule:: simdb.docstrings
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-simdb.provenance module
------------------------
-
-.. automodule:: simdb.provenance
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-simdb.validation module
------------------------
-
-.. automodule:: simdb.validation
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
-Module contents
----------------
-
-.. automodule:: simdb
-    :members:
-    :undoc-members:
-    :show-inheritance:

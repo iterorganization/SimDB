@@ -1,8 +1,16 @@
-simdb
-=====
+ITER Simulation Database
+========================
+
+SimDB is the ITER simulation database management tool designed to track, manage and validate simulations and allow for
+these simulations to be sent for remote archiving and verification.
+
+A user guide can be found at `here <user_guide.html>`_.
+
+Contents
+--------
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 2
 
    user_guide
    simdb

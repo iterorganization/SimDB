@@ -15,6 +15,7 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
+import simdb
 
 
 # -- Project information -----------------------------------------------------
@@ -24,9 +25,9 @@ copyright = '2018, J. Hollocombe, D. Muir'
 author = 'J. Hollocombe, D. Muir'
 
 # The short X.Y version
-version = '0.1'
+version = '.'.join(simdb.__version_info__[:2])
 # The full version, including alpha/beta/rc tags
-release = '0.1'
+release = simdb.__version__
 
 
 # -- General configuration ---------------------------------------------------

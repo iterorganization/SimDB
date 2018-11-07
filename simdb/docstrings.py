@@ -1,4 +1,12 @@
 def inherit_docstrings(cls):
+    """Inherit method docstrings from parent classes.
+
+    Class decorator which finds goes through all the methods defined on this class and if that method does not
+    already have a docstring then looks for one on the same method in the parent class hierarchy.
+
+    :param cls: The class to decorate
+    :return: The decorated class
+    """
     from inspect import getmembers, isfunction
 
     for name, func in getmembers(cls, isfunction):
@@ -8,10 +16,3 @@ def inherit_docstrings(cls):
             if hasattr(parent, name):
                 func.__doc__ = getattr(parent, name).__doc__.format(cls=cls)
     return cls
-
-
-def format_docstring(cls):
-    def decorator(func):
-        func.__doc__ = func.__doc__.format(cls=cls)
-        return func
-    return decorator

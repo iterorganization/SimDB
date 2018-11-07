@@ -105,7 +105,7 @@ class ProvenanceCommand(Command):
             parser.add_argument("file", help="provenance file")
 
         def run(self, args: Any, _: Config):
-            from ..provenance import create_provenance_file
+            from .provenance import create_provenance_file
 
             create_provenance_file(args.file)
 
@@ -118,7 +118,7 @@ class ProvenanceCommand(Command):
 
         def run(self, args: Any, _: Config):
             from ..database.database import get_local_db
-            from ..provenance import read_provenance_file
+            from .provenance import read_provenance_file
 
             prov = read_provenance_file(args.file)
             db = get_local_db()

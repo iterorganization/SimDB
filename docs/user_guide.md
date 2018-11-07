@@ -1,4 +1,4 @@
-# SimDB Usage
+# simdb usage
 
 Before running the simulation management tool you need to set up the environment.
 This can be done with the following:
