@@ -1,9 +1,11 @@
 import os
+import sys
 import argparse
 from typing import (Any, Optional, List, Dict, Tuple, TYPE_CHECKING, TypeVar)
 from enum import (Enum, auto)
 
-if TYPE_CHECKING:
+if TYPE_CHECKING or 'sphinx' in sys.modules:
+    # Only importing these for type checking and documentation generation in order to speed up runtime startup.
     from ..database.models import Simulation, ValidationParameters, Summary
     from ..config.config import Config
 else:

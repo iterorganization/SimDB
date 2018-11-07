@@ -1,5 +1,6 @@
 import uuid
 import os
+import sys
 import contextlib
 from typing import Optional, List, Tuple, Union, TYPE_CHECKING
 from enum import Enum, auto
@@ -9,7 +10,8 @@ class DatabaseError(RuntimeError):
     pass
 
 
-if TYPE_CHECKING:
+if TYPE_CHECKING or 'sphinx' in sys.modules:
+    # Only importing these for type checking and documentation generation in order to speed up runtime startup.
     from sqlalchemy.exc import DBAPIError
     from sqlalchemy import create_engine, func
     from sqlalchemy.orm import sessionmaker
