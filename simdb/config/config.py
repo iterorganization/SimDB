@@ -25,6 +25,7 @@ class Config:
         self._site_config_file: str = os.path.join(self._site_config_dir, Config.CONFIG_FILE_NAME)
         self._user_config_dir: str = appdirs.user_config_dir('simdb')
         self._user_config_file: str = os.path.join(self._user_config_dir, Config.CONFIG_FILE_NAME)
+        self.api_version: str = ''
 
     def load(self) -> None:
         if os.path.exists(self._site_config_file):

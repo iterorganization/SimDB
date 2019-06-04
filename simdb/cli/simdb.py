@@ -3,8 +3,9 @@ import argcomplete
 from typing import List
 
 from .commands import SimulationCommand, ManifestCommand, DatabaseCommand, RemoteCommand,\
-    ProvenanceCommand, SummaryCommand, ConfigCommand
+    ProvenanceCommand, SummaryCommand, ConfigCommand, AliasCommand
 from ..config.config import Config
+
 
 class SimCLI:
     """
@@ -18,7 +19,8 @@ class SimCLI:
         "remote": RemoteCommand(),
         "provenance": ProvenanceCommand(),
         "summary": SummaryCommand(),
-        "config": ConfigCommand()
+        "config": ConfigCommand(),
+        "alias": AliasCommand(),
     }
 
     def run(self, args: List[str]) -> None:
