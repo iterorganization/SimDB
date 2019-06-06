@@ -863,6 +863,7 @@ class ConfigCommand(Command):
             _required_argument(args, "set", "option")
             _required_argument(args, "set", "value")
             config.set_option(args.option, args.value)
+            config.save()
         elif args.action == ConfigCommand.Actions.LIST:
             for i in config.list_options():
                 print(i)

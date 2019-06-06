@@ -27,6 +27,12 @@ class Config:
         self._user_config_file: str = os.path.join(self._user_config_dir, Config.CONFIG_FILE_NAME)
         self.api_version: str = ''
 
+    def _load_environmental_vars(self):
+        vars = [v for v in os.environ if v.startswith('SIMDB_')]
+        for var in vars:
+            name = var.replace('SIMDB_', '').replace('_', '-').lower()
+            self.set_option(name, os.environ[var])
+
     def load(self) -> None:
         if os.path.exists(self._site_config_file):
             with open(self._site_config_file) as file:
@@ -35,6 +41,8 @@ class Config:
         if os.path.exists(self._user_config_file):
             with open(self._user_config_file) as file:
                 self._parser.read_file(file)
+
+        self._load_environmental_vars()
 
         self.api_version = __version__
 
@@ -57,7 +65,6 @@ class Config:
         if not self._parser.has_section(section):
             self._parser.add_section(section)
         self._parser.set(section, option, value)
-        self.save()
 
     def list_options(self) -> List[str]:
         options = []
