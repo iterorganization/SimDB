@@ -1,15 +1,15 @@
-from distutils.core import setup
+from setuptools import setup
 
 setup(
     name="simdb",
     version="0.1.0",
-    description="ITER Simulataion Management Tool",
+    description="ITER Simulation Management Tool",
     author="Jonathan Hollocombe",
     author_email="jonathan.hollocombe@ukaea.uk",
     url="https://git.iter.org/projects/IMEX/repos/simulation-management/browse",
-    packages=["simdb", "simdb.cli", "simdb.database"],
+    packages=["simdb", "simdb.cli", "simdb.config", "simdb.database", "simdb.imas", "simdb.uda"],
     license="See LICENCE.txt",
-    requires=[
+    install_requires=[
         "argcomplete (>= 1.9.4)",
         "numpy (>= 1.15.3)",
         "python-dateutil (>= 2.7.3)",

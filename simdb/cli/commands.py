@@ -888,8 +888,8 @@ class AliasCommand(Command):
                 raise ValueError()
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("action", type=AliasCommand.Actions.from_string, choices=list(AliasCommand.Actions),
-                            help="action to perform", dest="alias_action")
+        parser.add_argument("alias_action", type=AliasCommand.Actions.from_string, choices=list(AliasCommand.Actions),
+                            help="action to perform")
         parser.add_argument("value", help="search value (only for search action)", nargs='?')
 
     class AliasArgs(argparse.Namespace):
@@ -907,7 +907,7 @@ class AliasCommand(Command):
         db = get_local_db()
         simulations += db.list_simulations()
 
-        aliases = [sim.alias for sim in simulations if sim.alias.contains(value)]
+        aliases = [sim.alias for sim in simulations if value in sim.alias]
         for alias in aliases:
             print(alias)
 
