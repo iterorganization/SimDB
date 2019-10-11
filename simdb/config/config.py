@@ -79,7 +79,7 @@ class Config:
 
     def set_option(self, name: str, value: str) -> None:
         section, option = _parser_arg(name)
-        if not self._parser.has_section(section):
+        if not self._parser.has_section(section) and section != 'DEFAULT': 
             self._parser.add_section(section)
         self._parser.set(section, option, value)
 
