@@ -107,7 +107,7 @@ class InputsValidator(ListValuesValidator):
     """
     Validator for the manifest inputs list.
     """
-    section_name: str = "input"
+    section_name: str = "inputs"
     expected_keys: Iterable = ("uuid", "path", "imas", "uda")
 
 
@@ -115,21 +115,21 @@ class ScriptsValidator(ListValuesValidator):
     """
     Validator for the manifest scripts list.
     """
-    section_name: str = "script"
-    expected_keys: Iterable = ("path",)
+    section_name: str = "scripts"
+    expected_keys: Iterable = ("name", "path",)
 
 
 class OutputsValidator(ListValuesValidator):
     """
     Validator for the manifest outputs list.
     """
-    section_name: str = "output"
+    section_name: str = "outputs"
     expected_keys: Iterable = ("path", "imas")
 
 
 class MetaDataValidator(ListValuesValidator):
     """
-    Validator for the manifest outputs list.
+    Validator for the manifest Metadata list.
     """
     section_name: str = "metadata"
     expected_keys: Iterable = ("path", "values")
@@ -161,8 +161,8 @@ class WorkflowValidator(DictValuesValidator):
     Validator for the manifest workflow dictionary.
     """
     section_name: str = "workflow"
-    expected_keys: Iterable = ("name", "developer", "date", "git", "commit", "codes")
-    required_keys: Iterable = ("name", "git", "commit")
+    expected_keys: Iterable = ("name", "developer", "date", "git", "commit", "codes", "branch")
+    required_keys: Iterable = ("name", "git", "commit", "branch")
 
 
 def _update_dict(old: Dict, new: Dict) -> None:
@@ -242,7 +242,7 @@ class Manifest:
         self._path = file_path
         with open(file_path) as file:
             try:
-                self._data = yaml.load(file)
+                self._data = yaml.load(file, Loader=yaml.FullLoader)
             except yaml.YAMLError as err:
                 raise InvalidManifest("badly formatted manifest - " + str(err))
 

@@ -31,7 +31,7 @@ class SimCLI:
         :return: None
         """
         parser = argparse.ArgumentParser(prog="simdb")
-        parser.add_argument("--debug", "-d", action="store_true", help="run in debug mode")
+        parser.add_argument("-d", "--debug", action="store_true", help="run in debug mode")
 
         command_parsers = parser.add_subparsers(title="commands", dest="command")
         command_parsers.required = True

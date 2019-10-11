@@ -34,17 +34,34 @@ class Config:
             self.set_option(name, os.environ[var])
 
     def load(self) -> None:
-        if os.path.exists(self._site_config_file):
-            with open(self._site_config_file) as file:
-                self._parser.read_file(file)
-
-        if os.path.exists(self._user_config_file):
-            with open(self._user_config_file) as file:
-                self._parser.read_file(file)
+        def load_site():
+            if os.path.exists(self._site_config_file):
+                with open(self._site_config_file) as file:
+                    self._parser.read_file(file)
+        def load_user():
+            if os.path.exists(self._user_config_file):
+                with open(self._user_config_file) as file:
+                    self._parser.read_file(file)
 
         self._load_environmental_vars()
 
         self.api_version = __version__
+
+        # Import configuration options from files defined by environment variables
+        for opt in self.list_options():
+
+            if opt.find('user-config-path:') == 0: 
+                self._user_config_file = opt[17:].strip()
+                self._user_config_dir = opt.rpartition('/')[0][17:].strip()
+                continue
+
+            if opt.find('site-config-path:') == 0: 
+                self._site_config_file = opt[17:].strip()
+                self._site_config_dir = opt.rpartition('/')[0][17:].strip()
+                continue
+
+        load_site()
+        load_user()
 
     def save(self) -> None:
         os.makedirs(self._user_config_dir, exist_ok=True)

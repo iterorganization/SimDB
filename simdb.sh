@@ -1,8 +1,13 @@
 #!/bin/bash
 # PYTHON_ARGCOMPLETE_OK
 
-module purge
-module load anaconda3
+#dgm module purge
+#dgm module load anaconda3
+export PATH=$HOME/anaconda3/bin:$PATH
+
+export SIMDB_USER_CONFIG_PATH=$HOME/.simdb/config.cfg
+#export SIMDB_SITE_CONFIG_PATH=$HOME/.simdb/site_config.cfg
+
 source activate simdb
 
 SOURCE="${BASH_SOURCE[0]}"

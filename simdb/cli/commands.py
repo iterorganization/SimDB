@@ -857,7 +857,7 @@ class ConfigCommand(Command):
 
     def run(self, args: ConfigArgs, config: Config) -> None:
         if args.action == ConfigCommand.Actions.GET:
-            _required_argument(args, "set", "option")
+            _required_argument(args, "get", "option")
             print(config.get_option(args.option))
         elif args.action == ConfigCommand.Actions.SET:
             _required_argument(args, "set", "option")
