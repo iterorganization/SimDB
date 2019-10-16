@@ -9,7 +9,7 @@ setup(
     url="https://git.iter.org/projects/IMEX/repos/simulation-management/browse",
     packages=["simdb", "simdb.cli", "simdb.database"],
     license="See LICENCE.txt",
-    requires=[
+    install_requires=[
         "argcomplete (>= 1.9.4)",
         "numpy (>= 1.15.3)",
         "python-dateutil (>= 2.7.3)",
