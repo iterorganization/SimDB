@@ -888,7 +888,7 @@ class AliasCommand(Command):
                 raise ValueError()
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("action", type=AliasCommand.Actions.from_string, choices=list(AliasCommand.Actions),
+        parser.add_argument("--action", type=AliasCommand.Actions.from_string, choices=list(AliasCommand.Actions),
                             help="action to perform", dest="alias_action")
         parser.add_argument("value", help="search value (only for search action)", nargs='?')
 
