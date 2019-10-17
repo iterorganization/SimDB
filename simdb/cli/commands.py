@@ -448,6 +448,7 @@ class SimulationCommand(Command):
 
         def add_arguments(self, parser: argparse.ArgumentParser) -> None:
             parser.add_argument("--alias", "-a", help="alias of to assign to the simulation")
+            parser.add_argument("--uuid-only", "-u", dest="uuid", default=False, action="store_true", help="return a new UUID but do not insert the new simulation into the database")
 
         class NewArgs(argparse.Namespace):
             alias: str
@@ -457,10 +458,11 @@ class SimulationCommand(Command):
             from ..database.models import Simulation
             from .manifest import Manifest
 
-            db = get_local_db()
             simulation = Simulation(Manifest())
             simulation.alias = args.alias
-            db.insert_simulation(simulation)
+            if not args.uuid:
+                db = get_local_db()
+                db.insert_simulation(simulation)
             print(simulation.uuid)
 
     class AliasCommand(Command):
