@@ -196,7 +196,7 @@ class IngestCommand(Command):
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("manifest_file", help="manifest file location")
         parser.add_argument("--alias", "-a", help="alias of an existing manifest to update, or a new alias use")
-        parser.add_argument("--uuid", "-u", help="uuid of an already ingested manifest to update")
+        parser.add_argument("--uuid", "-u", help="set the uuid of the simulation")
         parser.add_argument("--update", action="store_true", help="update an existing manifest")
 
     class IngestArgs(argparse.Namespace):
@@ -217,6 +217,8 @@ class IngestCommand(Command):
 
         simulation = Simulation(manifest)
         simulation.alias = args.alias
+        if args.uuid:
+            simulation.uuid = args.uuid
 
         db = get_local_db()
         db.insert_simulation(simulation)
