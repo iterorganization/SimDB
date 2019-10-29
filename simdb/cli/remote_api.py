@@ -62,8 +62,8 @@ class RemoteAPI:
         self._user_name: str = config.get_option('user-name', default='test')
         self._pass_word: str = config.get_option('user-password', default='test')
 
-    def get(self, url: str) -> requests.Response:
-        res = requests.get(self._api_url + url, auth=(self._user_name, self._pass_word))
+    def get(self, url: str, params: Dict = {}) -> requests.Response:
+        res = requests.get(self._api_url + url, params=params, auth=(self._user_name, self._pass_word))
         #res = requests.get(self.url + url, auth=(self.user_name, self.pass_word), verify=self.cert_path)
         check_return(res)
         return res
