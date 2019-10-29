@@ -639,6 +639,7 @@ class RemoteCommand(Command):
         commands = {
             "list": ListCommand(),
             "info": InfoCommand(),
+            "query": QueryCommand(),
             "publish": RemoteCommand.RemoteSimulationCommand("publish staged simulation"),
             "delete": RemoteCommand.RemoteSimulationCommand("delete staged simulation"),
             "database": RemoteCommand.RemoteDatabaseCommand(),
@@ -675,6 +676,9 @@ class RemoteCommand(Command):
             if result["deleted"]["files"]:
                 for file in result["deleted"]["files"]:
                     print("              file: " + file)
+        elif args.action == "query":
+            simulations = api.query_simulations(args.constraint)
+            _list_simulations(simulations, verbose=args.verbose)
 
 
 @inherit_docstrings
