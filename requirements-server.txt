@@ -38,9 +38,9 @@ libxcb=1.13=h1bed415_1
 libxml2=2.9.8=h26e45fe_1
 markupsafe=1.0=py37h14c3975_1
 matplotlib=3.0.1=py37h5429711_0
-mkl=2019.0=118
-mkl_fft=1.0.6=py37h7dd41cf_0
-mkl_random=1.0.1=py37h4414c95_1
+mkl
+mkl_fft
+mkl_random
 mypy=0.630=py37_0
 mypy_extensions=0.4.1=py37_0
 ncurses=6.1=hf484d3e_0
