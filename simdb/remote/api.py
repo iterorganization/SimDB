@@ -76,7 +76,20 @@ def reset_db():
 @api.route("/simulations", methods=["GET"])
 @requires_auth
 def list_simulations():
-    simulations = get_db().list_simulations()
+    if not request.args:
+        simulations = get_db().list_simulations()
+    else:
+        equals = {}
+        contains = {}
+        for name in request.args:
+            value = request.args[name]
+            if value.startswith('in:'):
+                contains[name] = value.replace('in:', '')
+            else:
+                equals[name] = value
+
+        simulations = get_db().query_meta(equals, contains)
+
     return jsonify([sim.data() for sim in simulations])
 
 
