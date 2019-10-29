@@ -69,13 +69,7 @@ class QueryCommand(Command):
 
     class QueryArgs(argparse.Namespace):
         verbose: bool
-        name: str
-        equals: Optional[str]
-        contains: Optional[str]
-        # greater: Optional[int]
-        # greater_equals: Optional[int]
-        # less: Optional[int]
-        # less_equals: Optional[int]
+        constraint: List[str]
 
     class QueryType(Enum):
         META = auto()
@@ -90,29 +84,33 @@ class QueryCommand(Command):
         self._query_type = query_type
 
     def add_arguments(self, parser: argparse.ArgumentParser):
-        parser.add_argument("name", help="search name")
         parser.add_argument("-v", "--verbose", action="store_true", help="print more verbose output")
-        parser.add_argument("-e", "--equals", help="test equality")
-        parser.add_argument("-c", "--contains", help="test string contains")
-        # parser.add_argument("--greater", "-gt", help="test greater than", type=int)
-        # parser.add_argument("--greater-equals", "-ge", help="test greater than or equals", type=int)
-        # parser.add_argument("--less", "-lt", help="test less than", type=int)
-        # parser.add_argument("--less-equals", "-le", help="test less than or equals", type=int)
+        parser.add_argument('constraint', nargs='*', help="constraint in the form key=value or key=in:value")
 
     def run(self, args: QueryArgs, _: Config) -> None:
-        # if not any([args.equals, args.contains, args.greater, args.greater_equals, args.less, args.less_equals]):
-        if not any([args.equals, args.contains]):
-            raise argparse.ArgumentTypeError("At least one test must be provided")
+        if not args.constraint:
+            raise argparse.ArgumentTypeError("At least one constraint must be provided")
 
         from ..database.database import get_local_db
 
+        equals = {}
+        contains = {}
+        for item in args.constraint:
+            if '=' not in item:
+                raise argparse.ArgumentTypeError("Invalid constraint")
+            (key, value) = item.split('=')
+            if '=in:' in item:
+                contains[key] = value.replace('in:', '')
+            else:
+                equals[key] = value
+
         db = get_local_db()
         if self._query_type == QueryCommand.QueryType.META:
-            simulations = db.query_meta(args.name, equals=args.equals, contains=args.contains)
+            simulations = db.query_meta(equals=equals, contains=contains)
         elif self._query_type == QueryCommand.QueryType.PROVENANCE:
-            simulations = db.query_provenance(args.name, equals=args.equals, contains=args.contains)
+            simulations = db.query_provenance(equals=equals, contains=contains)
         elif self._query_type == QueryCommand.QueryType.SUMMARY:
-            simulations = db.query_summary(args.name, equals=args.equals, contains=args.contains)
+            simulations = db.query_summary(equals=equals, contains=contains)
         else:
             raise Exception("Unknown query type " + self._query_type.name)
         _list_simulations(simulations, verbose=args.verbose)
