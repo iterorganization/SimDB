@@ -97,6 +97,16 @@ class RemoteAPI:
         return Simulation.from_data(res.json())
 
     @try_request
+    def query_simulations(self, constraints: List[str]) -> Simulation:
+        params = {}
+        for item in constraints:
+            (key, value) = item.split('=')
+            params[key] = value
+
+        res = self.get("simulations", params)
+        return [Simulation.from_data(sim) for sim in res.json()]
+
+    @try_request
     def delete_simulation(self, sim_id: str) -> Dict:
         res = self.delete("simulation/" + sim_id)
         return res.json()
