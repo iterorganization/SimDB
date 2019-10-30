@@ -1,6 +1,7 @@
 # This file may be used to create an environment using:
 # $ conda create --name <env> --file <this file>
 # platform: linux-64
+appdirs
 argcomplete=1.9.4=py37_0
 asn1crypto=0.24.0=py37_0
 blas=1.0=mkl
