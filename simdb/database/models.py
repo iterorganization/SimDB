@@ -152,6 +152,8 @@ class Simulation(Base):
                 file_list.append(File(data_obj.type, os.path.dirname(path), os.path.basename(path)))
         elif data_obj.type == DataObject.Type.UDA:
             file_list.append(File(data_obj.type, data_obj.uda["source"], data_obj.uda["signal"]))
+        elif data_obj.type == DataObject.Type.UUID:
+            return
         else:
             raise NotImplementedError("source type " + data_obj.type.name + " not yet implemented")
 
@@ -260,7 +262,10 @@ class File(Base):
             self.checksum = uda_checksum(self.file_name, self.directory)
         else:
             from ..checksum import sha1_checksum
-            self.checksum = sha1_checksum(os.path.join(self.directory, self.file_name))
+            if os.path.isfile(os.path.join(self.directory, self.file_name)):
+                self.checksum = sha1_checksum(os.path.join(self.directory, self.file_name))
+            else:
+                print('**** File does not exist ****')
 
     def __init__(self, type: DataObject.Type, directory: str, file_name: str, perform_integrity_check: bool=True) -> None:
         """

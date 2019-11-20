@@ -5,3 +5,16 @@ sql/sim.db
 /build
 /data
 /logs
+
+environment.txt
+environment.yml
+git_update
+runtests
+sdb
+simdb/cli/runtests
+test.yml
+test4_manifest.yml
+test7_manifest.yml
+test_manifest.yml
+/temp
+

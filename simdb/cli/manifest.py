@@ -89,80 +89,108 @@ class ListValuesValidator(ManifestValidator):
     """
     Class for the validation of list items in the manifest.
     """
-    section_name: str = NotImplemented
-    expected_keys: Iterable = NotImplemented
+    def __init__(self, section_name: str = NotImplemented, expected_keys: Iterable = NotImplemented,
+                 required_keys: Iterable = NotImplemented) -> None:
+        self.section_name: str = section_name
+        self.expected_keys: Iterable = expected_keys
+        self.required_keys: Iterable = required_keys
 
-    def validate(self, values: Union[List, Dict]) -> None:
+    def validate(self, values: Union[list, dict]) -> None:
         if isinstance(values, dict):
-            raise InvalidManifest("badly formatted manifest - %ss should be provided as a list" % self.section_name)
+            raise InvalidManifest("badly formatted manifest - %s should be provided as a list" % self.section_name)
         for item in values:
             if not isinstance(item, dict) or len(item) > 1:
                 raise InvalidManifest("badly formatted manifest - %s values should be a name value pair" % self.section_name)
             name = list(item.keys())[0]
-            if name not in self.expected_keys:
-                raise InvalidManifest("unknown %s entry: %s" % (self.section_name, name))
+            if isinstance(self.expected_keys, list) and name not in self.expected_keys:
+                raise InvalidManifest("unknown %s entry in manifest: %s" % (self.section_name, name))
+            if isinstance(self.required_keys, list) and name not in self.required_keys:
+                raise InvalidManifest("required %s key not found in manifest: %s" % (self.section_name, name))
+            if name == 'path' and not os.path.isfile(list(item.values())[0]):
+                raise InvalidManifest("invalid path to file in manifest: %s" % (list(item.values())[0]))
 
 
 class InputsValidator(ListValuesValidator):
     """
     Validator for the manifest inputs list.
     """
-    section_name: str = "inputs"
-    expected_keys: Iterable = ("uuid", "path", "imas", "uda")
+    def __init__(self) -> None:
+        self.section_name: str = "inputs"
+        self.expected_keys: Iterable = ("uuid", "path", "imas", "uda")
+        super().__init__(self.section_name, self.expected_keys)
 
 
 class ScriptsValidator(ListValuesValidator):
     """
     Validator for the manifest scripts list.
     """
-    section_name: str = "scripts"
-    expected_keys: Iterable = ("name", "path",)
+    def __init__(self) -> None:
+        self.section_name: str = "scripts"
+        self.expected_keys: Iterable = ("name", "path",)
+        super().__init__(self.section_name, self.expected_keys)
 
 
 class OutputsValidator(ListValuesValidator):
     """
     Validator for the manifest outputs list.
     """
-    section_name: str = "outputs"
-    expected_keys: Iterable = ("path", "imas")
+    def __init__(self) -> None:
+        self.section_name: str = "outputs"
+        self.expected_keys: Iterable = ("path", "imas")
+        super().__init__(self.section_name, self.expected_keys)
 
 
 class MetaDataValidator(ListValuesValidator):
     """
     Validator for the manifest Metadata list.
     """
-    section_name: str = "metadata"
-    expected_keys: Iterable = ("path", "values")
+    def __init__(self) -> None:
+        self.section_name: str = "metadata"
+        self.expected_keys: Iterable = ("path", "values")
+        super().__init__(self.section_name, self.expected_keys)
 
 
 class DictValuesValidator(ManifestValidator):
     """
     Class for the validation of dictionary items in the manifest.
     """
-    section_name: str = NotImplemented
-    expected_keys: Iterable = NotImplemented
-    required_keys: Iterable = NotImplemented
+    def __init__(self, section_name: str = NotImplemented, expected_keys: Iterable = NotImplemented,
+                 required_keys: Iterable = NotImplemented) -> None:
+        self.section_name: str = section_name
+        self.expected_keys: Iterable = expected_keys
+        self.required_keys: Iterable = required_keys
 
     def validate(self, values: Union[list, dict]) -> None:
         if isinstance(values, list):
             raise InvalidManifest("badly formatted manifest - %s should be provided as a dict" % self.section_name)
 
         for key in values.keys():
-            if key not in self.expected_keys:
-                raise InvalidManifest("unknown %s key: %s" % (self.section_name, key))
+            if isinstance(self.expected_keys, list) and key not in self.expected_keys:
+                raise InvalidManifest("unknown %s key in manifest: %s" % (self.section_name, key))
 
         for key in self.required_keys:
-            if key not in values.keys():
-                raise InvalidManifest("required %s key not found: %s" % (self.section_name, key))
+            if isinstance(self.expected_keys, list) and key not in values.keys():
+                raise InvalidManifest("required %s key not found in manifest: %s" % (self.section_name, key))
+
+        # verify git commit
+
+        cmd = "git ls-remote {} {}; echo $?".format(values["git"], values["commit"])
+        #cmd = "git ls-remote --exit-code ssh://git@git.iter.org/imas/data-dictionary.git 6aaffc84dd5178c3b4f20c2892db6701dfca1dc7; echo $?"
+
+        if int(os.popen(cmd).read()) == 2:
+            raise InvalidManifest("invalid git repository commit specified in manifest: %s" %
+                                  (self.section_name, "{} {}".format(values["git"], values["commit"])))
 
 
 class WorkflowValidator(DictValuesValidator):
     """
     Validator for the manifest workflow dictionary.
     """
-    section_name: str = "workflow"
-    expected_keys: Iterable = ("name", "developer", "date", "git", "commit", "codes", "branch")
-    required_keys: Iterable = ("name", "git", "commit", "branch")
+    def __init__(self) -> None:
+        self.section_name: str = "workflow"
+        self.expected_keys: Iterable = ("name", "developer", "date", "git", "commit", "codes", "branch")
+        self.required_keys: Iterable = ("name", "git", "commit", "branch")
+        super().__init__(self.section_name, self.expected_keys, self.required_keys)
 
 
 def _update_dict(old: Dict, new: Dict) -> None:
@@ -296,7 +324,8 @@ class Manifest:
         required_sections = ("inputs", "outputs", "workflow")
         for section in required_sections:
             if section not in self._data.keys():
-                raise InvalidManifest("required section not found: " + section)
+                raise InvalidManifest("required manifest section not found: " + section)
 
         for name, values in self._data.items():
+            #print("******", name)
             section_validators[name].validate(values)

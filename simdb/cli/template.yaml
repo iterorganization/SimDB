@@ -1,13 +1,13 @@
 # Data and configuration files
 inputs:
   - uuid: 123e4567-e89b-12d3-a456-426655440000
-  - path: /home/user/path/to/a/file
+  - path: /home/user/path/to/a/file1
   - imas:
       tree_name: local
       shot: 10000
       pass: 0
   - imas:
-      tree_name: /home/user/full/path
+      tree_name: /home/user/full/path1
       shot: 10000
       pass: 0
   - imas:
@@ -18,16 +18,17 @@ inputs:
 
 scripts:
   - name: runme
+  - path: /home/user/full/path/runme
 
 # Data and log files.
 outputs:
-  - path: /home/user/path/to/a/file
+  - path: /home/user/path/to/a/file2
   - imas:
       tree_name: local
       shot: 10000
       pass: 0
   - imas:
-      tree_name: /home/user/full/path
+      tree_name: /home/user/full/path2
       shot: 10000
       pass: 0
 

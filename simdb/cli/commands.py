@@ -918,7 +918,11 @@ class AliasCommand(Command):
         from ..database.database import get_local_db
 
         api = RemoteAPI(config)
-        remote_simulations = api.list_simulations()
+        if isinstance(api._url, str):
+            remote_simulations = api.list_simulations()
+        else:
+            remote_simulations = []
+            print('The Remote Server has not been specified in the configuration file. Please set remote-url')
 
         db = get_local_db()
         local_simulations = db.list_simulations()

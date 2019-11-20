@@ -58,7 +58,9 @@ class RemoteAPI:
 
     def __init__(self, config: Config) -> None:
         self._config: Config = config
-        self._api_url: str = '%s/api/v%s/' % (config.get_option('remote-url'), config.api_version)
+        self._url: Union[bool,str] = config.get_option('remote-url', default=False)
+        if isinstance(self._url, str):
+            self._api_url: str = '%s/api/v%s/' % (self._url, config.api_version)
         self._user_name: str = config.get_option('user-name', default='test')
         self._pass_word: str = config.get_option('user-password', default='test')
 
