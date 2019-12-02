@@ -90,7 +90,7 @@ def list_simulations():
 
         simulations = get_db().query_meta(equals, contains)
 
-    return jsonify([sim.data() for sim in simulations])
+    return jsonify([sim.data(recurse=True) for sim in simulations])
 
 
 @api.route("/files", methods=["GET"])
