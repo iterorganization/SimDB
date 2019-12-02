@@ -346,7 +346,7 @@ class MetaData(Base):
 
     def data(self, recurse: bool=False) -> Dict[str, str]:
         data = dict(
-            uuid=self.uuid.hex,
+            uuid=self.uuid,
             element=self.element,
             value=self.value,
         )
