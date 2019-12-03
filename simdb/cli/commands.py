@@ -223,25 +223,48 @@ class IngestCommand(Command):
         print("success")
 
 
-def _list_simulations(simulations: List["Simulation"], verbose: bool=False) -> None:
+def _list_simulations(simulations: List["Simulation"], verbose: bool=False, metadata_names: str=None) -> None:
     if len(simulations) == 0:
         print("No simulations found")
         return
 
-    print("UUID%s alias" % (" " * 32), end="")
-    max_alias = max(len(str(sim.alias)) for sim in simulations)
-    max_alias = max(max_alias, 5)
+    lines = []
+    header = ["UUID", "alias"]
     if verbose:
-        print("%s datetime%s status" % (" " * (max_alias - 5), " " * 18), end="")
-    print()
-    print("-" * (37 + max_alias + (35 if verbose else 0)))
+        header.append("datetime")
+        header.append("status")
 
     for sim in simulations:
-        print("%s %s" % (sim.uuid, sim.alias), end="")
+        line = [str(sim.uuid), sim.alias]
         if verbose:
-            alias_len = len(str(sim.alias))
-            print("%s %s %s" % (" " * (max_alias - alias_len), sim.datetime, sim.status), end="")
+            line.append(sim.datetime)
+            line.append(sim.status)
+        if metadata_elements:
+            for name in metadata_elements.split(","):
+                if sim.find_meta(name):
+                    if name not in header:
+                        header.append(name)
+                    line.append(sim.find_meta(name)[0].data()["value"])
+        if not lines:
+            lines.append(header)
+        lines.append(line)
+
+    column_widths = [0] * len(header)
+    for line in lines:
+        width = 0
+        for col in range(len(line)):
+            width = len(str(line[col]))
+            if width > column_widths[col]:
+                column_widths[col] = width
+
+    line_written = False
+    for line in lines:
+        for col in range(len(line)):
+            print("%s" % str(line[col]).ljust(column_widths[col] + 1), end="")
         print()
+        if not line_written:
+            print("-" * (sum(column_widths) + len(column_widths) - 1))
+            line_written = True
 
 
 def _list_validation_parameters(parameters: List["ValidationParameters"]) -> None:
