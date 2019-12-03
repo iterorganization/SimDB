@@ -70,6 +70,7 @@ class QueryCommand(Command):
     class QueryArgs(argparse.Namespace):
         verbose: bool
         constraint: List[str]
+        attributes: str
 
     class QueryType(Enum):
         META = auto()
@@ -85,6 +86,7 @@ class QueryCommand(Command):
 
     def add_arguments(self, parser: argparse.ArgumentParser):
         parser.add_argument("-v", "--verbose", action="store_true", help="print more verbose output")
+        parser.add_argument("-a", "--attributes", dest="attributes", default=None, help="list of attributes to include in output")
         parser.add_argument('constraint', nargs='*', help="constraint in the form key=value or key=in:value")
 
     def run(self, args: QueryArgs, _: Config) -> None:
@@ -256,7 +258,7 @@ def _list_simulations(simulations: List["Simulation"], verbose: bool=False, meta
             width = len(str(line[col]))
             if width > column_widths[col]:
                 column_widths[col] = width
-
+              
     line_written = False
     for line in lines:
         for col in range(len(line)):
@@ -265,7 +267,7 @@ def _list_simulations(simulations: List["Simulation"], verbose: bool=False, meta
         if not line_written:
             print("-" * (sum(column_widths) + len(column_widths) - 1))
             line_written = True
-
+        
 
 def _list_validation_parameters(parameters: List["ValidationParameters"]) -> None:
     if len(parameters) == 0:
@@ -701,7 +703,7 @@ class RemoteCommand(Command):
                     print("              file: " + file)
         elif args.action == "query":
             simulations = api.query_simulations(args.constraint)
-            _list_simulations(simulations, verbose=args.verbose)
+            _list_simulations(simulations, verbose=args.verbose, metadata_names=args.attributes)
 
 
 @inherit_docstrings
