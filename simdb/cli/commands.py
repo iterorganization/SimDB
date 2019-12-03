@@ -241,8 +241,8 @@ def _list_simulations(simulations: List["Simulation"], verbose: bool=False, meta
         if verbose:
             line.append(sim.datetime)
             line.append(sim.status)
-        if metadata_elements:
-            for name in metadata_elements.split(","):
+        if metadata_names:
+            for name in metadata_names.split(","):
                 if sim.find_meta(name):
                     if name not in header:
                         header.append(name)
