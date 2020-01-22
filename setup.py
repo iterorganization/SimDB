@@ -1,4 +1,4 @@
-from setuptools import setup
+from distutils.core import setup
 
 setup(
     name="simdb",
@@ -7,7 +7,7 @@ setup(
     author="Jonathan Hollocombe",
     author_email="jonathan.hollocombe@ukaea.uk",
     url="https://git.iter.org/projects/IMEX/repos/simulation-management/browse",
-    packages=["simdb", "simdb.cli", "simdb.config", "simdb.database", "simdb.imas", "simdb.uda"],
+    packages=["simdb", "simdb.cli", "simdb.database", "simdb.config"],
     license="See LICENCE.txt",
     install_requires=[
         "argcomplete (>= 1.9.4)",

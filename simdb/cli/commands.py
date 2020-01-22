@@ -69,13 +69,8 @@ class QueryCommand(Command):
 
     class QueryArgs(argparse.Namespace):
         verbose: bool
-        name: str
-        equals: Optional[str]
-        contains: Optional[str]
-        # greater: Optional[int]
-        # greater_equals: Optional[int]
-        # less: Optional[int]
-        # less_equals: Optional[int]
+        constraint: List[str]
+        attributes: str
 
     class QueryType(Enum):
         META = auto()
@@ -90,29 +85,34 @@ class QueryCommand(Command):
         self._query_type = query_type
 
     def add_arguments(self, parser: argparse.ArgumentParser):
-        parser.add_argument("name", help="search name")
         parser.add_argument("-v", "--verbose", action="store_true", help="print more verbose output")
-        parser.add_argument("-e", "--equals", help="test equality")
-        parser.add_argument("-c", "--contains", help="test string contains")
-        # parser.add_argument("--greater", "-gt", help="test greater than", type=int)
-        # parser.add_argument("--greater-equals", "-ge", help="test greater than or equals", type=int)
-        # parser.add_argument("--less", "-lt", help="test less than", type=int)
-        # parser.add_argument("--less-equals", "-le", help="test less than or equals", type=int)
+        parser.add_argument("-a", "--attributes", dest="attributes", default=None, help="list of attributes to include in output")
+        parser.add_argument('constraint', nargs='*', help="constraint in the form key=value or key=in:value")
 
     def run(self, args: QueryArgs, _: Config) -> None:
-        # if not any([args.equals, args.contains, args.greater, args.greater_equals, args.less, args.less_equals]):
-        if not any([args.equals, args.contains]):
-            raise argparse.ArgumentTypeError("At least one test must be provided")
+        if not args.constraint:
+            raise argparse.ArgumentTypeError("At least one constraint must be provided")
 
         from ..database.database import get_local_db
 
+        equals = {}
+        contains = {}
+        for item in args.constraint:
+            if '=' not in item:
+                raise argparse.ArgumentTypeError("Invalid constraint")
+            (key, value) = item.split('=')
+            if '=in:' in item:
+                contains[key] = value.replace('in:', '')
+            else:
+                equals[key] = value
+
         db = get_local_db()
         if self._query_type == QueryCommand.QueryType.META:
-            simulations = db.query_meta(args.name, equals=args.equals, contains=args.contains)
+            simulations = db.query_meta(equals=equals, contains=contains)
         elif self._query_type == QueryCommand.QueryType.PROVENANCE:
-            simulations = db.query_provenance(args.name, equals=args.equals, contains=args.contains)
+            simulations = db.query_provenance(equals=equals, contains=contains)
         elif self._query_type == QueryCommand.QueryType.SUMMARY:
-            simulations = db.query_summary(args.name, equals=args.equals, contains=args.contains)
+            simulations = db.query_summary(equals=equals, contains=contains)
         else:
             raise Exception("Unknown query type " + self._query_type.name)
         _list_simulations(simulations, verbose=args.verbose)
@@ -217,32 +217,57 @@ class IngestCommand(Command):
 
         simulation = Simulation(manifest)
         simulation.alias = args.alias
+        if args.uuid:
+            simulation.uuid = args.uuid
 
         db = get_local_db()
         db.insert_simulation(simulation)
         print("success")
 
 
-def _list_simulations(simulations: List["Simulation"], verbose: bool=False) -> None:
+def _list_simulations(simulations: List["Simulation"], verbose: bool=False, metadata_names: str=None) -> None:
     if len(simulations) == 0:
         print("No simulations found")
         return
 
-    print("UUID%s alias" % (" " * 32), end="")
-    max_alias = max(len(str(sim.alias)) for sim in simulations)
-    max_alias = max(max_alias, 5)
+    lines = []
+    header = ["UUID", "alias"]
     if verbose:
-        print("%s datetime%s status" % (" " * (max_alias - 5), " " * 18), end="")
-    print()
-    print("-" * (37 + max_alias + (35 if verbose else 0)))
+        header.append("datetime")
+        header.append("status")
 
     for sim in simulations:
-        print("%s %s" % (sim.uuid, sim.alias), end="")
+        line = [str(sim.uuid), sim.alias]
         if verbose:
-            alias_len = len(str(sim.alias))
-            print("%s %s %s" % (" " * (max_alias - alias_len), sim.datetime, sim.status), end="")
-        print()
+            line.append(sim.datetime)
+            line.append(sim.status)
+        if metadata_names:
+            for name in metadata_names.split(","):
+                if sim.find_meta(name):
+                    if name not in header:
+                        header.append(name)
+                    line.append(sim.find_meta(name)[0].data()["value"])
+        if not lines:
+            lines.append(header)
+        lines.append(line)
 
+    column_widths = [0] * len(header)
+    for line in lines:
+        width = 0
+        for col in range(len(line)):
+            width = len(str(line[col]))
+            if width > column_widths[col]:
+                column_widths[col] = width
+              
+    line_written = False
+    for line in lines:
+        for col in range(len(line)):
+            print("%s" % str(line[col]).ljust(column_widths[col] + 1), end="")
+        print()
+        if not line_written:
+            print("-" * (sum(column_widths) + len(column_widths) - 1))
+            line_written = True
+        
 
 def _list_validation_parameters(parameters: List["ValidationParameters"]) -> None:
     if len(parameters) == 0:
@@ -448,6 +473,7 @@ class SimulationCommand(Command):
 
         def add_arguments(self, parser: argparse.ArgumentParser) -> None:
             parser.add_argument("--alias", "-a", help="alias of to assign to the simulation")
+            parser.add_argument("--uuid-only", "-u", dest="uuid", default=False, action="store_true", help="return a new UUID but do not insert the new simulation into the database")
 
         class NewArgs(argparse.Namespace):
             alias: str
@@ -457,10 +483,11 @@ class SimulationCommand(Command):
             from ..database.models import Simulation
             from .manifest import Manifest
 
-            db = get_local_db()
             simulation = Simulation(Manifest())
             simulation.alias = args.alias
-            db.insert_simulation(simulation)
+            if not args.uuid:
+                db = get_local_db()
+                db.insert_simulation(simulation)
             print(simulation.uuid)
 
     class AliasCommand(Command):
@@ -637,6 +664,7 @@ class RemoteCommand(Command):
         commands = {
             "list": ListCommand(),
             "info": InfoCommand(),
+            "query": QueryCommand(),
             "publish": RemoteCommand.RemoteSimulationCommand("publish staged simulation"),
             "delete": RemoteCommand.RemoteSimulationCommand("delete staged simulation"),
             "database": RemoteCommand.RemoteDatabaseCommand(),
@@ -673,6 +701,9 @@ class RemoteCommand(Command):
             if result["deleted"]["files"]:
                 for file in result["deleted"]["files"]:
                     print("              file: " + file)
+        elif args.action == "query":
+            simulations = api.query_simulations(args.constraint)
+            _list_simulations(simulations, verbose=args.verbose, metadata_names=args.attributes)
 
 
 @inherit_docstrings
@@ -889,8 +920,8 @@ class AliasCommand(Command):
                 raise ValueError()
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("alias_action", type=AliasCommand.Actions.from_string, choices=list(AliasCommand.Actions),
-                            help="action to perform")
+        parser.add_argument("--action", type=AliasCommand.Actions.from_string, choices=list(AliasCommand.Actions),
+                            help="action to perform", dest="alias_action")
         parser.add_argument("value", help="search value (only for search action)", nargs='?')
 
     class AliasArgs(argparse.Namespace):
@@ -908,7 +939,7 @@ class AliasCommand(Command):
         db = get_local_db()
         simulations += db.list_simulations()
 
-        aliases = [sim.alias for sim in simulations if value in sim.alias]
+        aliases = [sim.alias for sim in simulations if sim.alias.contains(value)]
         for alias in aliases:
             print(alias)
 

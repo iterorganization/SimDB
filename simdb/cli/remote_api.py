@@ -64,8 +64,8 @@ class RemoteAPI:
         self._user_name: str = config.get_option('user-name', default='test')
         self._pass_word: str = config.get_option('user-password', default='test')
 
-    def get(self, url: str) -> requests.Response:
-        res = requests.get(self._api_url + url, auth=(self._user_name, self._pass_word))
+    def get(self, url: str, params: Dict = {}) -> requests.Response:
+        res = requests.get(self._api_url + url, params=params, auth=(self._user_name, self._pass_word))
         #res = requests.get(self.url + url, auth=(self.user_name, self.pass_word), verify=self.cert_path)
         check_return(res)
         return res
@@ -97,6 +97,16 @@ class RemoteAPI:
     def get_simulation(self, sim_id: str) -> Simulation:
         res = self.get("simulation/" + sim_id)
         return Simulation.from_data(res.json())
+
+    @try_request
+    def query_simulations(self, constraints: List[str]) -> Simulation:
+        params = {}
+        for item in constraints:
+            (key, value) = item.split('=')
+            params[key] = value
+
+        res = self.get("simulations", params)
+        return [Simulation.from_data(sim) for sim in res.json()]
 
     @try_request
     def delete_simulation(self, sim_id: str) -> Dict:

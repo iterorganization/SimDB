@@ -185,7 +185,7 @@ class Database:
         self.session.commit()
         return simulation
 
-    def query_meta(self, name, equals=None, contains=None) -> List["Simulation"]:
+    def query_meta(self, equals={}, contains={}) -> List["Simulation"]:
         """
         Query the metadata and return matching simulations.
 
@@ -194,13 +194,21 @@ class Database:
         from .models import Simulation, MetaData
         from sqlalchemy import func
 
-        query = self.session.query(Simulation).join(MetaData, Simulation.meta)
-        if equals:
-            query = query.filter(MetaData.element == name,
-                                 func.lower(MetaData.value) == equals.lower())
-        if contains:
-            query = query.filter(MetaData.element == name,
-                                 MetaData.value.ilike("%{}%".format(contains)))
+        queries = []
+
+        for name in equals:
+            queries.append(self.session.query(Simulation).join(MetaData, Simulation.meta)\
+                           .filter(MetaData.element == name,
+                                   func.lower(MetaData.value) == equals[name].lower()))
+
+        for name in contains:
+            queries.append(self.session.query(Simulation).join(MetaData, Simulation.meta)\
+                           .filter(MetaData.element == name,
+                                   MetaData.value.ilike("%{}%".format(contains[name]))))
+
+        query = queries[0]
+        for i in range(1, len(queries)):
+            query = query.intersect(queries[i])
 
         return query.all()
 
@@ -289,7 +297,7 @@ class Database:
         self.session.commit()
         return simulation.provenance
 
-    def query_provenance(self, name, equals=None, contains=None) -> List["Simulation"]:
+    def query_provenance(self, equals={}, contains={}) -> List["Simulation"]:
         """
         Query the provenance metadata and return matching simulations.
 
@@ -298,29 +306,47 @@ class Database:
         from .models import Simulation, ProvenanceMetaData, Provenance
         from sqlalchemy import func
 
-        query = self.session.query(Simulation)\
-            .join(Provenance, Simulation.provenance)\
-            .join(ProvenanceMetaData, Provenance.meta)
-        if equals:
-            query = query.filter(ProvenanceMetaData.element == name,
-                                 func.lower(ProvenanceMetaData.value) == equals.lower())
-        if contains:
-            query = query.filter(ProvenanceMetaData.element == name,
-                                 ProvenanceMetaData.value.ilike("%{}%".format(contains)))
+        queries = []
+
+        for name in equals:
+            queries.append(self.session.query(Simulation)\
+                           .join(Provenance, Simulation.provenance)\
+                           .join(ProvenanceMetaData, Provenance.meta)\
+                           .filter(ProvenanceMetaData.element == name,
+                                  func.lower(ProvenanceMetaData.value) == equals[name].lower()))
+
+        for name in contains:
+            queries.append(self.session.query(Simulation)
+                           .join(Provenance, Simulation.provenance)\
+                           .join(ProvenanceMetaData, Provenance.meta)\
+                           .filter(ProvenanceMetaData.element == name,
+                                   ProvenanceMetaData.value.ilike("%{}%".format(contains[name]))))
+
+        query = queries[0]
+        for i in range(1, len(queries)):
+            query = query.intersect(queries[i])
 
         return query.all()
 
-    def query_summary(self, name, equals=None, contains=None) -> List["Simulation"]:
+    def query_summary(self, equals={}, contains={}) -> List["Simulation"]:
         from .models import Simulation, Summary
         from sqlalchemy import func
 
-        query = self.session.query(Simulation).join(Summary, Simulation.summary)
-        if equals:
-            query = query.filter(Summary.key == name,
-                                 func.lower(Summary.value) == equals.lower())
-        if contains:
-            query = query.filter(Summary.key == name,
-                                 Summary.value.ilike("%{}%".format(contains)))
+        queries = []
+
+        for name in equals:
+            queries.append(self.session.query(Simulation).join(Summary, Simulation.summary)\
+                           .filter(Summary.key == name,
+                                   func.lower(Summary.value) == equals[name].lower()))
+
+        for name in contains:
+            queries.append(self.session.query(Simulation).join(Summary, Simulation.summary)\
+                           .filter(Summary.key == name,
+                                   Summary.value.ilike("%{}%".format(contains[name]))))
+
+        query = queries[0]
+        for i in range(1, len(queries)):
+            query = query.intersect(queries[i])        
 
         return query.all()
 
