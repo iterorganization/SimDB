@@ -50,12 +50,12 @@ class Config:
         # Import configuration options from files defined by environment variables
         for opt in self.list_options():
 
-            if opt.find('user-config-path:') == 0: 
+            if opt.find('user-config-path:') == 0:
                 self._user_config_file = opt[17:].strip()
                 self._user_config_dir = opt.rpartition('/')[0][17:].strip()
                 continue
 
-            if opt.find('site-config-path:') == 0: 
+            if opt.find('site-config-path:') == 0:
                 self._site_config_file = opt[17:].strip()
                 self._site_config_dir = opt.rpartition('/')[0][17:].strip()
                 continue
@@ -79,7 +79,7 @@ class Config:
 
     def set_option(self, name: str, value: str) -> None:
         section, option = _parser_arg(name)
-        if not self._parser.has_section(section) and section != 'DEFAULT': 
+        if not self._parser.has_section(section) and section != 'DEFAULT':
             self._parser.add_section(section)
         self._parser.set(section, option, value)
 

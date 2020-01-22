@@ -29,10 +29,10 @@ class DataObject:
         UDA = auto()
 
     type: Type = Type.UNKNOWN
-    uuid: str = None
-    path: str = None
-    imas: Dict = None
-    uda: Dict = None
+    uuid: str = ""
+    path: str = ""
+    imas: Dict = {}
+    uda: Dict = {}
 
     def __init__(self, base_path: str, values: Dict) -> None:
         if "uuid" in values:
@@ -178,7 +178,7 @@ class DictValuesValidator(ManifestValidator):
         #cmd = "git ls-remote --exit-code ssh://git@git.iter.org/imas/data-dictionary.git 6aaffc84dd5178c3b4f20c2892db6701dfca1dc7; echo $?"
 
         if int(os.popen(cmd).read()) == 2:
-            raise InvalidManifest("invalid git repository commit specified in manifest: %s" %
+            raise InvalidManifest("invalid git repository commit specified in manifest: %s (%s)" %
                                   (self.section_name, "{} {}".format(values["git"], values["commit"])))
 
 
@@ -327,5 +327,4 @@ class Manifest:
                 raise InvalidManifest("required manifest section not found: " + section)
 
         for name, values in self._data.items():
-            #print("******", name)
             section_validators[name].validate(values)
