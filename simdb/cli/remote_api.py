@@ -1,7 +1,7 @@
 import os
 import requests
 import json
-from typing import List, Dict, Callable, Tuple
+from typing import List, Dict, Callable, Tuple, Union
 import gzip
 import io
 import urllib3
@@ -58,13 +58,15 @@ class RemoteAPI:
 
     def __init__(self, config: Config) -> None:
         self._config: Config = config
-        self._url: Union[bool,str] = config.get_option('remote-url', default=False)
-        if isinstance(self._url, str):
+        self._url: str = config.get_option('remote-url', default='')
+        if self._url:
             self._api_url: str = '%s/api/v%s/' % (self._url, config.api_version)
         self._user_name: str = config.get_option('user-name', default='test')
         self._pass_word: str = config.get_option('user-password', default='test')
 
-    def get(self, url: str, params: Dict = {}) -> requests.Response:
+    def get(self, url: str, params: Dict=None) -> requests.Response:
+        if params is None:
+            params = {}
         res = requests.get(self._api_url + url, params=params, auth=(self._user_name, self._pass_word))
         #res = requests.get(self.url + url, auth=(self.user_name, self.pass_word), verify=self.cert_path)
         check_return(res)
@@ -99,7 +101,7 @@ class RemoteAPI:
         return Simulation.from_data(res.json())
 
     @try_request
-    def query_simulations(self, constraints: List[str]) -> Simulation:
+    def query_simulations(self, constraints: List[str]) -> List[Simulation]:
         params = {}
         for item in constraints:
             (key, value) = item.split('=')

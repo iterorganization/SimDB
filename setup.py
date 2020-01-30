@@ -1,13 +1,22 @@
-from distutils.core import setup
+import setuptools
 
-setup(
+with open("README.md", "r") as fh:
+    long_description = fh.read()
+
+setuptools.setup(
     name="simdb",
     version="0.1.0",
-    description="ITER Simulation Management Tool",
     author="Jonathan Hollocombe",
     author_email="jonathan.hollocombe@ukaea.uk",
-    url="https://git.iter.org/projects/IMEX/repos/simulation-management/browse",
-    packages=["simdb", "simdb.cli", "simdb.database", "simdb.config"],
+    description="ITER Simulation Management Tool",
+    long_description=long_description,
+    url="https://git.iter.org/projects/IMEX/repos/simdb/browse",
+    packages=setuptools.find_packages(),
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "Operating System :: OS Independent",
+        "Development Status :: 4 - Beta",
+    ],
     license="See LICENCE.txt",
     install_requires=[
         "argcomplete (>= 1.9.4)",
@@ -17,10 +26,16 @@ setup(
         "requests (>= 2.19.1)",
         "sqlalchemy (>= 1.2.12)",
         "urllib3 (>= 1.23)",
+        "appdirs (>=1.4.0)",
+        "Flask (>= 1.0.0)",
     ],
-    scripts=["scripts/simdb"],
+    scripts=[
+        "scripts/simdb",
+        "scripts/simdb_server",
+    ],
     package_data={
         "simdb": ["LICENCE.txt"],
         "simdb.cli": ["template.yaml"],
     },
+    python_requires='>=3.6',
 )

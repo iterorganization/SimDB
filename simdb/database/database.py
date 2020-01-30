@@ -185,7 +185,7 @@ class Database:
         self.session.commit()
         return simulation
 
-    def query_meta(self, equals={}, contains={}) -> List["Simulation"]:
+    def query_meta(self, equals=None, contains=None) -> List["Simulation"]:
         """
         Query the metadata and return matching simulations.
 
@@ -195,6 +195,11 @@ class Database:
         from sqlalchemy import func
 
         queries = []
+
+        if equals is None:
+            equals = {}
+        if contains is None:
+            contains = {}
 
         for name in equals:
             queries.append(self.session.query(Simulation).join(MetaData, Simulation.meta)\
@@ -297,7 +302,7 @@ class Database:
         self.session.commit()
         return simulation.provenance
 
-    def query_provenance(self, equals={}, contains={}) -> List["Simulation"]:
+    def query_provenance(self, equals=None, contains=None) -> List["Simulation"]:
         """
         Query the provenance metadata and return matching simulations.
 
@@ -307,6 +312,11 @@ class Database:
         from sqlalchemy import func
 
         queries = []
+
+        if equals is None:
+            equals = {}
+        if contains is None:
+            contains = {}
 
         for name in equals:
             queries.append(self.session.query(Simulation)\
@@ -328,11 +338,16 @@ class Database:
 
         return query.all()
 
-    def query_summary(self, equals={}, contains={}) -> List["Simulation"]:
+    def query_summary(self, equals=None, contains=None) -> List["Simulation"]:
         from .models import Simulation, Summary
         from sqlalchemy import func
 
         queries = []
+
+        if equals is None:
+            equals = {}
+        if contains is None:
+            contains = {}
 
         for name in equals:
             queries.append(self.session.query(Simulation).join(Summary, Simulation.summary)\

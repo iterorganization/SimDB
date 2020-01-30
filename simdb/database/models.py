@@ -346,12 +346,12 @@ class MetaData(Base):
     @classmethod
     def from_data(cls, data: Dict) -> "MetaData":
         meta = MetaData(data["element"], data["value"])
-        meta.uuid = data["uuid"]
+        meta.uuid = uuid.UUID(data["uuid"])
         return meta
 
     def data(self, recurse: bool=False) -> Dict[str, str]:
         data = dict(
-            uuid=self.uuid,
+            uuid=self.uuid.hex,
             element=self.element,
             value=self.value,
         )

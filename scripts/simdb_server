@@ -1,0 +1,5 @@
+#!/usr/bin/env python3
+
+from simdb.remote.app import run
+
+run()
