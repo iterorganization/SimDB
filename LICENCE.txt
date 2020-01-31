@@ -1,10 +1,7 @@
 Copyright (c) 2019, UKAEA/Euratom Fusion Association
 Culham Laboratory, Abingdon, Oxon, OX14 3DB, UK
 
-Copyright (c) 2019, CEA, IRFM
-F-13108 Saint-Paul-lez-Durance, France
-
-ITER Organization
+Copyright (c) 2019, ITER Organization
 Route de Vinon-sur-Verdon, CS 90 046, 13067 St-Paul-lez-Durance Cedex, France
 
 All rights reserved.
