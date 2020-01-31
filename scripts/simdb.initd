@@ -1,0 +1,62 @@
+#! /bin/bash
+### BEGIN INIT INFO
+# Provides:          simdb
+# Required-Start:    nginx
+# Required-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: SimDB Flask App
+# Description:       The gunicorn process that receives HTTP requests
+#                    from nginx
+#
+### END INIT INFO
+#
+# Author:            Jonathan Hollocombe <jonathan.hollocombe@ukaea.uk>
+#
+APPNAME=simdb
+USER=simdb
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+APPMODULE=simdb.remote.app:app
+DAEMON=gunicorn
+BIND=unix:/var/run/simdb.sock
+PIDFILE=/var/run/simdb.pid
+LOGFILE=/var/log/$DAEMON.log
+WORKERS=3
+
+
+. /etc/rc.d/init.d/functions
+
+
+if [ -e "/etc/default/$APPNAME" ]
+then
+    . /etc/default/$APPNAME
+fi
+
+
+case "$1" in
+  start)
+        echo -n "Starting deferred execution scheduler" "$APPNAME"
+        $DAEMON --daemon --bind=$BIND --pid=$PIDFILE --workers=$WORKERS --user=$USER --log-file=$LOGFILE $APPMODULE
+	echo
+        exit $?
+    ;;
+  stop)
+        echo -n "Stopping deferred execution scheduler" "APPNAME"
+        killproc -p $PIDFILE $DAEMON
+	echo
+        exit $?
+    ;;
+  force-reload|restart)
+    $0 stop
+    $0 start
+    ;;
+  status)
+    status -p $PIDFILE $DAEMON && exit 0 || exit $?
+    ;;
+  *)
+    echo "Usage: /etc/init.d/$APPNAME {start|stop|restart|force-reload|status}"
+    exit 1
+    ;;
+esac
+
+exit 0
