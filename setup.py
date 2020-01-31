@@ -36,6 +36,7 @@ setuptools.setup(
     package_data={
         "simdb": ["LICENCE.txt"],
         "simdb.cli": ["template.yaml"],
+        "simdb.remote": ["simdb.initd", "simdb.nginx"],
     },
     python_requires='>=3.6',
 )
