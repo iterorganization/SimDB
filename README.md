@@ -26,6 +26,10 @@ pip install --user git+ssh://git@git.iter.org/imex/simulation-management.git
 
 The user guide is available at [User Guide](./docs/user_guide.md)
 
+## Server Setup Guide
+
+The guide for installation of the server is available at [install Guide](./docs/install_guide.md)
+
 ## TODO
 
 * Add remote modify
