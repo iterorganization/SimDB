@@ -11,7 +11,7 @@
 ### Installing the CLI
 
 ```bash
-pip install --user git+ssh://git@git.iter.org/imex/simulation-management.git
+pip install --user git+ssh://git@git.iter.org/imex/simdb.git
 ```
 
 ## Remote API
