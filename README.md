@@ -7,6 +7,8 @@
 * Python >= 3.6
 * PyYAML >= 3.12
 * SqlAlchemy >= 1.2.2
+* argcomplete >= 1.11.1
+* appdirs >= 1.4.3
 
 ### Installing the CLI
 
