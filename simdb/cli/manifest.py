@@ -140,6 +140,13 @@ class OutputsValidator(ListValuesValidator):
         self.expected_keys: Iterable = ("path", "imas")
         super().__init__(self.section_name, self.expected_keys)
 
+class DescriptionValidator(ManifestValidator):
+    """
+    Validator for simulation description.
+    """
+    def validate(self, value):
+        if not isinstance(value, str):
+            raise InvalidManifest("description must be a string")
 
 class MetaDataValidator(ListValuesValidator):
     """
@@ -243,6 +250,12 @@ class Manifest:
             return self._data["workflow"]
         return {}
 
+    @property
+    def description(self) -> Dict:
+        if isinstance(self._data, dict):
+            return self._data["description"]
+        return {}
+
     def _load_metadata(self, root_path, path):
         import yaml
 
@@ -312,6 +325,7 @@ class Manifest:
             "outputs": OutputsValidator(),
             "workflow": WorkflowValidator(),
             "metadata": MetaDataValidator(),
+            "description": DescriptionValidator()
         }
 
         for section in self._data.keys():

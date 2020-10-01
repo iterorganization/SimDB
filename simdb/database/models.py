@@ -183,6 +183,8 @@ class Simulation(Base):
             else:
                 self.meta.append(MetaData("workflow." + key, str(value)))
 
+        self.meta.append(MetaData("description", str(manifest.description)))
+
         flattened_dict: Dict[str, str] = {}
         _flatten_dict(flattened_dict, manifest.metadata)
 
@@ -193,9 +195,18 @@ class Simulation(Base):
         result = ""
         for name in ("uuid", "alias", "datetime", "status"):
             result += "%s:%s%s\n" % (name, ((10 - len(name)) * " "), getattr(self, name))
-        result += "metdata:\n"
+        result += "metadata:\n"
         for meta in self.meta:
-            result += "  %s: %s\n" % (meta.element, meta.value)
+            if meta.element == "description":
+                count = 0
+                for line in meta.value.split('\n'):
+                    if count == 0:
+                        result += "  %s: %s\n" % (meta.element, line)
+                    elif line != "":
+                        result += "               %s\n" % line
+                    count += 1
+            else:
+                result += "  %s: %s\n" % (meta.element, meta.value)
         result += "inputs:\n"
         for file in self.inputs:
             result += "%s\n" % file
@@ -233,7 +244,7 @@ class Simulation(Base):
             uuid=self.uuid.hex,
             alias=self.alias,
             datetime=self.datetime.isoformat(),
-            status=self.status,
+            status=self.status
         )
         if recurse:
             data["inputs"] = [f.data(recurse=True) for f in self.inputs]
