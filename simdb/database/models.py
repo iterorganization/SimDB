@@ -1,3 +1,4 @@
+import re
 import os
 import uuid
 from typing import Union, List, Dict, Any, Tuple, Type
@@ -176,7 +177,11 @@ class Simulation(Base):
             self._append_file(self.outputs, output)
 
         for key, value in manifest.workflow.items():
-            self.meta.append(MetaData("workflow." + key, str(value)))
+            if re.match(r"code[0-9]+", key) and isinstance(value, dict):
+                for code_key in value:
+                    self.meta.append(MetaData("workflow." + key + "." + code_key, str(value[code_key])))
+            else:
+                self.meta.append(MetaData("workflow." + key, str(value)))
 
         flattened_dict: Dict[str, str] = {}
         _flatten_dict(flattened_dict, manifest.metadata)

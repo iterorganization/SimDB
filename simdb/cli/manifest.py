@@ -1,3 +1,4 @@
+import re
 import sys
 import os
 from enum import Enum, auto
@@ -165,21 +166,17 @@ class DictValuesValidator(ManifestValidator):
             raise InvalidManifest("badly formatted manifest - %s should be provided as a dict" % self.section_name)
 
         for key in values.keys():
-            if isinstance(self.expected_keys, list) and key not in self.expected_keys:
-                raise InvalidManifest("unknown %s key in manifest: %s" % (self.section_name, key))
+            if key not in self.expected_keys:
+                if re.match(r"code[0-9]+", key):
+                    for code_key in values[key]:
+                        if code_key not in ("name", "repo", "commit"):
+                            raise InvalidManifest("unknown %s.%s key in manifest: %s" % (self.section_name, key, code_key))
+                else:
+                    raise InvalidManifest("unknown %s key in manifest: %s" % (self.section_name, key))
 
         for key in self.required_keys:
             if isinstance(self.expected_keys, list) and key not in values.keys():
                 raise InvalidManifest("required %s key not found in manifest: %s" % (self.section_name, key))
-
-        # verify git commit
-
-        cmd = "git ls-remote {} {}; echo $?".format(values["git"], values["commit"])
-        #cmd = "git ls-remote --exit-code ssh://git@git.iter.org/imas/data-dictionary.git 6aaffc84dd5178c3b4f20c2892db6701dfca1dc7; echo $?"
-
-        if int(os.popen(cmd).read()) == 2:
-            raise InvalidManifest("invalid git repository commit specified in manifest: %s (%s)" %
-                                  (self.section_name, "{} {}".format(values["git"], values["commit"])))
 
 
 class WorkflowValidator(DictValuesValidator):
@@ -188,8 +185,8 @@ class WorkflowValidator(DictValuesValidator):
     """
     def __init__(self) -> None:
         self.section_name: str = "workflow"
-        self.expected_keys: Iterable = ("name", "developer", "date", "git", "commit", "codes", "branch")
-        self.required_keys: Iterable = ("name", "git", "commit", "branch")
+        self.expected_keys: Iterable = ("name", "developer", "date", "repo", "commit", "codes", "branch")
+        self.required_keys: Iterable = ("name", "repo", "commit", "branch")
         super().__init__(self.section_name, self.expected_keys, self.required_keys)
 
 
