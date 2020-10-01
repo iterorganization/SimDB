@@ -17,10 +17,19 @@ from ..checksum import sha1_checksum
 api = Blueprint("api", __name__)
 
 
-def check_auth(username, password):
+def check_auth(username, password, user):
     """This function is called to check if a username / password combination is valid.
     """
-    return username == "test" and password == "test"
+    if user and username != user:
+        return False
+
+    if username == "test" and password == "test":
+        return True
+
+    if username == "admin" and password == current_app.config["ADMIN_PASSWORD"]:
+        return True
+
+    return False
 
 
 def authenticate():
@@ -67,7 +76,7 @@ def index():
 
 
 @api.route("/reset", methods=["POST"])
-@requires_auth
+@requires_auth("admin")
 def reset_db():
     get_db().reset()
     return jsonify({})
@@ -175,7 +184,7 @@ def get_simulation(sim_id):
 
 
 @api.route("/simulation/<string:sim_id>", methods=["DELETE"])
-@requires_auth
+@requires_auth("admin")
 def delete_simulation(sim_id):
     try:
         simulation = get_db().delete_simulation(sim_id)
