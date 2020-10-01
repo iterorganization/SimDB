@@ -11,7 +11,7 @@ from typing import List
 
 from .. import __version__
 from ..database.database import Database, DatabaseError
-from ..database.models import Simulation, File
+from ..database.models import Simulation, File, MetaData
 from ..checksum import sha1_checksum
 
 api = Blueprint("api", __name__)
@@ -138,6 +138,27 @@ def _stage_files(files: List[FileStorage], uuid_hex: str, sim_files: List[File])
             sim_file.directory = staging_dir
 
 
+def _set_alias(alias):
+    character = None
+    if alias.endswith('-'):
+        character = '-'
+    elif alias.endswith('#'):
+        character = '#'
+
+    if not character:
+        return (alias, -1)
+
+    next_id = 1
+    aliases = get_db().get_aliases(alias)
+    for existing_alias in aliases:
+        existing_id = int(existing_alias.split(character)[1])
+        if next_id <= existing_id:
+            next_id = existing_id + 1
+    alias = '%s%d' % (alias, next_id)
+
+    return (alias, next_id)
+
+
 @api.route("/simulations", methods=["PUT"])
 @requires_auth
 def ingest_simulation():
@@ -147,7 +168,17 @@ def ingest_simulation():
         return error("Simulation data not provided")
 
     simulation = Simulation.from_data(data["simulation"])
-    simulation.alias = simulation.uuid.hex[0:8]
+
+    if "alias" in data["simulation"]:
+        alias = data["simulation"]["alias"]
+        (updated_alias, next_id) = _set_alias(data["simulation"]["alias"])
+        if updated_alias:
+            simulation.meta.append(MetaData('seqid', next_id))
+            simulation.alias = updated_alias
+        else:
+            simulation.alias = alias
+    else:
+        simulation.alias = simulation.uuid.hex[0:8]
 
     try:
         if "inputs" in request.files:
