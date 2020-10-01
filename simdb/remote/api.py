@@ -38,14 +38,19 @@ def authenticate():
                     401, {"WWW-Authenticate": "Basic realm='Login Required'"})
 
 
-def requires_auth(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        auth = request.authorization
-        if not auth or not check_auth(auth.username, auth.password):
-            return authenticate()
-        return f(*args, **kwargs)
-    return decorated
+class requires_auth:
+
+    def __init__(self, user=None):
+        self.user = user
+
+    def __call__(self, f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            auth = request.authorization
+            if not auth or not check_auth(auth.username, auth.password, self.user):
+                return authenticate()
+            return f(*args, **kwargs)
+        return decorated
 
 
 def error(message: str) -> Response:
@@ -70,7 +75,7 @@ def get_db() -> Database:
 
 
 @api.route("/")
-@requires_auth
+@requires_auth()
 def index():
     return jsonify({"api": "simdb", "version": __version__})
 
@@ -83,7 +88,7 @@ def reset_db():
 
 
 @api.route("/simulations", methods=["GET"])
-@requires_auth
+@requires_auth()
 def list_simulations():
     if not request.args:
         simulations = get_db().list_simulations()
@@ -103,14 +108,14 @@ def list_simulations():
 
 
 @api.route("/files", methods=["GET"])
-@requires_auth
+@requires_auth()
 def list_files():
     files = get_db().list_files()
     return jsonify([file.data() for file in files])
 
 
 @api.route("/file/<string:file_uuid>", methods=["GET"])
-@requires_auth
+@requires_auth()
 def get_file(file_uuid):
     try:
         file = get_db().get_file(file_uuid)
@@ -148,7 +153,7 @@ def _stage_files(files: List[FileStorage], uuid_hex: str, sim_files: List[File])
 
 
 @api.route("/simulations", methods=["PUT"])
-@requires_auth
+@requires_auth()
 def ingest_simulation():
     data = json.loads(request.files["data"].read())
 
@@ -174,7 +179,7 @@ def ingest_simulation():
 
 
 @api.route("/simulation/<string:sim_id>", methods=["GET"])
-@requires_auth
+@requires_auth()
 def get_simulation(sim_id):
     try:
         simulation = get_db().get_simulation(sim_id)
@@ -201,7 +206,7 @@ def delete_simulation(sim_id):
 
 
 @api.route("/publish/<string:sim_id>", methods=["POST"])
-@requires_auth
+@requires_auth()
 def publish_simulation(sim_id):
     try:
         simulation = get_db().get_simulation(sim_id)
