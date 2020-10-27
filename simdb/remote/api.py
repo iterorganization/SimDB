@@ -146,7 +146,7 @@ def _set_alias(alias):
         character = '#'
 
     if not character:
-        return (alias, -1)
+        return (None, -1)
 
     next_id = 1
     aliases = get_db().get_aliases(alias)
