@@ -5,7 +5,7 @@ sql/sim.db
 /build
 /data
 /logs
-
+venv
 environment.txt
 environment.yml
 git_update
