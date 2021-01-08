@@ -38,6 +38,7 @@ class Config:
             if os.path.exists(self._site_config_file):
                 with open(self._site_config_file) as file:
                     self._parser.read_file(file)
+
         def load_user():
             if os.path.exists(self._user_config_file):
                 with open(self._user_config_file) as file:

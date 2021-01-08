@@ -7,7 +7,8 @@ from werkzeug.datastructures import FileStorage
 from functools import wraps
 import uuid
 import gzip
-from typing import List
+from typing import List, Iterable, Dict
+from itertools import chain
 
 from .. import __version__
 from ..database.database import Database, DatabaseError
@@ -38,7 +39,7 @@ def authenticate():
                     401, {"WWW-Authenticate": "Basic realm='Login Required'"})
 
 
-class requires_auth:
+class RequiresAuth:
 
     def __init__(self, user=None):
         self.user = user
@@ -51,6 +52,10 @@ class requires_auth:
                 return authenticate()
             return f(*args, **kwargs)
         return decorated
+
+
+def requires_auth(*args):
+    return RequiresAuth(*args)
 
 
 def error(message: str) -> Response:
@@ -124,55 +129,106 @@ def get_file(file_uuid):
         return error(str(err))
 
 
-def save_file(file, path: str, compressed: bool=True):
-    if compressed:
-        with gzip.GzipFile(fileobj=file, mode="rb") as gzfile:
-            with open(path, "wb") as file:
-                file.write(gzfile.read())
-    else:
-        file.save(path)
+def _save_chunked_file(file: FileStorage, chunk_info: Dict, path: str, compressed: bool=True):
+    with open(path, "r+b" if os.path.exists(path) else "wb") as file_out:
+        file_out.seek(chunk_info['chunk_size'] * chunk_info['chunk'])
+        if compressed:
+            with gzip.GzipFile(fileobj=file, mode="rb") as gz_file:
+                file_out.write(gz_file.read())
+        else:
+            file_out.write(file.stream.read())
 
 
-def _stage_files(files: List[FileStorage], uuid_hex: str, sim_files: List[File]) -> None:
-    staging_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], uuid_hex)
+def _stage_file_from_chunks(files: Iterable[FileStorage], chunk_info: Dict, sim_uuid: uuid.UUID, sim_files: List[File]) -> None:
+    staging_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], sim_uuid.hex)
     os.makedirs(staging_dir, exist_ok=True)
 
     for file in files:
         if file.filename:
             file_uuid = uuid.UUID(file.filename)
-            if sum(1 if x.uuid == file_uuid else 0 for x in sim_files) == 0:
-                raise ValueError("file with uuid %s not found in simulation" % file_uuid.hex)
-            sim_file = next(filter(lambda x: x.uuid == file_uuid, sim_files))
+            sim_file = next((f for f in sim_files if f.uuid == file_uuid), None)
+            if sim_file is None:
+                raise ValueError("file with uuid %s not found in simulation" % file_uuid)
             file_name = secure_filename(sim_file.file_name)
             path = os.path.join(staging_dir, file_name)
-            save_file(file, path)
-            checksum = sha1_checksum(path)
-            if sim_file.checksum != checksum:
-                raise ValueError("checksum failed for file %s" % repr(sim_file))
-            sim_file.directory = staging_dir
+            file_chunk_info = chunk_info.get(sim_file.uuid.hex, {'chunk_size': 0, 'chunk': 0, 'num_chunks': 1})
+            _save_chunked_file(file, file_chunk_info, path)
 
 
-@api.route("/simulations", methods=["PUT"])
+def _verify_files(file_uuid: uuid.UUID, sim_uuid: uuid.UUID, sim_files: List[File]):
+    staging_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], sim_uuid.hex)
+    sim_file = next((f for f in sim_files if f.uuid == file_uuid), None)
+    if sim_file is None:
+        raise ValueError("file with uuid %s not found in simulation" % file_uuid)
+    file_name = secure_filename(sim_file.file_name)
+    path = os.path.join(staging_dir, file_name)
+    if not os.path.exists(path):
+        raise ValueError('file %s does not exist' % path)
+    checksum = sha1_checksum(path)
+    if sim_file.checksum != checksum:
+        raise ValueError("checksum failed for file %s" % repr(sim_file))
+
+
+@api.route("/files", methods=["POST"])
+@requires_auth()
+def upload_file():
+    try:
+        data = request.get_json()
+        if data:
+            simulation = Simulation.from_data(data["simulation"])
+            for file in data['files']:
+                file_uuid = uuid.UUID(file['file_uuid'])
+                file_type = file['file_type']
+                sim_files = simulation.inputs if file_type == 'input' else simulation.outputs
+                _verify_files(file_uuid, simulation.uuid, sim_files)
+            return jsonify({})
+
+        data = json.load(request.files["data"])
+
+        if "simulation" not in data:
+            return error("Simulation data not provided")
+
+        simulation = Simulation.from_data(data["simulation"])
+        simulation.alias = simulation.uuid.hex[0:8]
+
+        chunk_info = data.get("chunk_info", {})
+        file_type = data['file_type']
+
+        files = request.files.getlist("files")
+        if not files:
+            return error("No files given")
+
+        sim_files = simulation.inputs if file_type == 'input' else simulation.outputs
+        _stage_file_from_chunks(files, chunk_info, simulation.uuid, sim_files)
+
+        return jsonify({})
+    except ValueError as err:
+        return error(str(err))
+
+
+@api.route("/simulations", methods=["POST"])
 @requires_auth()
 def ingest_simulation():
-    data = json.loads(request.files["data"].read())
-
-    if "simulation" not in data:
-        return error("Simulation data not provided")
-
-    simulation = Simulation.from_data(data["simulation"])
-    simulation.alias = simulation.uuid.hex[0:8]
-
     try:
-        if "inputs" in request.files:
-            files = request.files.getlist("inputs")
-            _stage_files(files, simulation.uuid.hex, simulation.inputs)
+        data = request.get_json()
 
-        if "outputs" in request.files:
-            files = request.files.getlist("outputs")
-            _stage_files(files, simulation.uuid.hex, simulation.outputs)
+        if "simulation" not in data:
+            return error("Simulation data not provided")
+
+        simulation = Simulation.from_data(data["simulation"])
+        simulation.alias = simulation.uuid.hex[0:8]
+
+        staging_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], simulation.uuid.hex)
+
+        for sim_file in chain(simulation.inputs, simulation.outputs):
+            file_name = secure_filename(sim_file.file_name)
+            path = os.path.join(staging_dir, file_name)
+            if not os.path.exists(path):
+                raise ValueError('simulation file %s not uploaded' % sim_file.uuid)
+            sim_file.directory = staging_dir
 
         get_db().insert_simulation(simulation)
+
         return jsonify({})
     except (DatabaseError, ValueError) as err:
         return error(str(err))

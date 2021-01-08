@@ -1,7 +1,7 @@
 import os
 import requests
 import json
-from typing import List, Dict, Callable, Tuple, Union
+from typing import List, Dict, Callable, Tuple, Union, Iterable
 import gzip
 import io
 import urllib3
@@ -30,14 +30,33 @@ def try_request(func: Callable) -> Callable:
 def read_bytes(path: str, compressed: bool=True) -> bytes:
     if compressed:
         with io.BytesIO() as buffer:
-            with gzip.GzipFile(fileobj=buffer, mode="wb") as gzfile:
+            with gzip.GzipFile(fileobj=buffer, mode="wb") as gz_file:
                 with open(path, "rb") as file_in:
-                    gzfile.write(file_in.read())
+                    gz_file.write(file_in.read())
             buffer.seek(0)
             return buffer.read()
     else:
         with open(path, "rb") as file:
             return file.read()
+
+
+def read_bytes_in_chunks(path: str, compressed: bool=True, chunk_size: int=1024) -> Iterable[bytes]:
+    with open(path, "rb") as file_in:
+        while True:
+            if compressed:
+                with io.BytesIO() as buffer:
+                    with gzip.GzipFile(fileobj=buffer, mode="wb") as gz_file:
+                        data = file_in.read(chunk_size)
+                        if not data:
+                            break
+                        gz_file.write(data)
+                    buffer.seek(0)
+                    yield buffer.read()
+            else:
+                data = file_in.read(chunk_size)
+                if not data:
+                    break
+                yield data
 
 
 def check_return(res: requests.Response) -> None:
@@ -58,7 +77,7 @@ class RemoteAPI:
 
     def __init__(self, config: Config) -> None:
         self._config: Config = config
-        self._url: str = config.get_option('remote-url', default='')
+        self._url: str = config.get_option('remote-url')
         if self._url:
             self._api_url: str = '%s/api/v%s/' % (self._url, config.api_version)
         self._user_name: str = config.get_option('user-name', default='test')
@@ -68,7 +87,7 @@ class RemoteAPI:
         if params is None:
             params = {}
         res = requests.get(self._api_url + url, params=params, auth=(self._user_name, self._pass_word))
-        #res = requests.get(self.url + url, auth=(self.user_name, self.pass_word), verify=self.cert_path)
+        # res = requests.get(self.url + url, auth=(self.user_name, self.pass_word), verify=self.cert_path)
         check_return(res)
         return res
 
@@ -78,9 +97,9 @@ class RemoteAPI:
         check_return(res)
         return res
 
-    def post(self, url: str, data: Dict) -> requests.Response:
+    def post(self, url: str, data: Dict, **kwargs) -> requests.Response:
         # res = requests.post(self.url + url, json=data, auth=(self.user_name, self.pass_word), verify=self.cert_path)
-        res = requests.post(self._api_url + url, json=data, auth=(self._user_name, self._pass_word))
+        res = requests.post(self._api_url + url, json=data, auth=(self._user_name, self._pass_word), **kwargs)
         check_return(res)
         return res
 
@@ -121,21 +140,52 @@ class RemoteAPI:
 
     @try_request
     def push_simulation(self, simulation: Simulation) -> None:
-        files: List[Tuple[str, Tuple[str, bytes, str]]] = [
-            ("data", ("data", json.dumps({"simulation": simulation.data(recurse=True)}).encode(), "text/json"))
-        ]
+        sim_data = simulation.data(recurse=True)
+        chunk_size = 10*1024*1024  # 10 MB
 
         for file in simulation.inputs:
             if file.type in (DataObject.Type.PATH, DataObject.Type.IMAS):
                 path = os.path.join(file.directory, file.file_name)
-                files.append(("inputs", (file.uuid.hex, read_bytes(path), "application/octet-stream")))
+                num_chunks = 0
+                for i, chunk in enumerate(read_bytes_in_chunks(path, compressed=True, chunk_size=chunk_size)):
+                    data = {
+                        'simulation': sim_data,
+                        'file_type': 'input',
+                        'chunk_info': {file.uuid.hex: {'chunk_size': chunk_size, 'chunk': i}}
+                    }
+                    files: List[Tuple[str, Tuple[str, bytes, str]]] = [
+                        ("data", ("data", json.dumps(data).encode(), "text/json")),
+                        ("files", (file.uuid.hex, chunk, "application/octet-stream"))
+                    ]
+                    self.post("files", data={}, files=files)
+                    num_chunks += 1
+                self.post("files", data={
+                    'simulation': sim_data,
+                    'files': [{'chunks': num_chunks, 'file_type': 'input', 'file_uuid': file.uuid.hex}]
+                })
 
         for file in simulation.outputs:
             if file.type in (DataObject.Type.PATH, DataObject.Type.IMAS):
                 path = os.path.join(file.directory, file.file_name)
-                files.append(("outputs", (file.uuid.hex, read_bytes(path), "application/octet-stream")))
+                num_chunks = 0
+                for i, chunk in enumerate(read_bytes_in_chunks(path, compressed=True, chunk_size=chunk_size)):
+                    data = {
+                        'simulation': sim_data,
+                        'file_type': 'output',
+                        'chunk_info': {file.uuid.hex: {'chunk_size': chunk_size, 'chunk': i}}
+                    }
+                    files: List[Tuple[str, Tuple[str, bytes, str]]] = [
+                        ("data", ("data", json.dumps(data).encode(), "text/json")),
+                        ("files", (file.uuid.hex, chunk, "application/octet-stream"))
+                    ]
+                    self.post("files", data={}, files=files)
+                    num_chunks += 1
+                self.post("files", data={
+                    'simulation': sim_data,
+                    'files': [{'chunks': num_chunks, 'file_type': 'output', 'file_uuid': file.uuid.hex}]
+                })
 
-        self.put("simulations", data={}, files=files)
+        self.post("simulations", data={'simulation': sim_data})
 
     @try_request
     def reset_database(self) -> None:
