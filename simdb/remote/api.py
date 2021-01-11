@@ -12,7 +12,7 @@ from itertools import chain
 
 from .. import __version__
 from ..database.database import Database, DatabaseError
-from ..database.models import Simulation, File
+from ..database.models import Simulation, File, MetaData
 from ..checksum import sha1_checksum
 
 api = Blueprint("api", __name__)
@@ -153,6 +153,27 @@ def _stage_file_from_chunks(files: Iterable[FileStorage], chunk_info: Dict, sim_
             path = os.path.join(staging_dir, file_name)
             file_chunk_info = chunk_info.get(sim_file.uuid.hex, {'chunk_size': 0, 'chunk': 0, 'num_chunks': 1})
             _save_chunked_file(file, file_chunk_info, path)
+
+
+def _set_alias(alias):
+    character = None
+    if alias.endswith('-'):
+        character = '-'
+    elif alias.endswith('#'):
+        character = '#'
+
+    if not character:
+        return (None, -1)
+
+    next_id = 1
+    aliases = get_db().get_aliases(alias)
+    for existing_alias in aliases:
+        existing_id = int(existing_alias.split(character)[1])
+        if next_id <= existing_id:
+            next_id = existing_id + 1
+    alias = '%s%d' % (alias, next_id)
+
+    return (alias, next_id)
 
 
 def _verify_files(file_uuid: uuid.UUID, sim_uuid: uuid.UUID, sim_files: List[File]):
