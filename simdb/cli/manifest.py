@@ -264,7 +264,7 @@ class Manifest:
                 root_dir = os.path.dirname(os.path.abspath(root_path))
                 path = os.path.join(root_dir, path)
             with open(path) as metadata_file:
-                _update_dict(self._metadata, yaml.load(metadata_file))
+                _update_dict(self._metadata, yaml.load(metadata_file, Loader=yaml.SafeLoader))
         except yaml.YAMLError as err:
             raise InvalidManifest("failed to read metadata file %s - %s" % (path, err))
 
@@ -280,7 +280,7 @@ class Manifest:
         self._path = file_path
         with open(file_path) as file:
             try:
-                self._data = yaml.load(file, Loader=yaml.FullLoader)
+                self._data = yaml.load(file, Loader=yaml.SafeLoader)
             except yaml.YAMLError as err:
                 raise InvalidManifest("badly formatted manifest - " + str(err))
 

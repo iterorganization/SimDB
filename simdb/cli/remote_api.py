@@ -1,12 +1,13 @@
 import os
 import requests
 import json
-from typing import List, Dict, Callable, Tuple, Union, Iterable
+from typing import List, Dict, Callable, Tuple, IO, Iterable
 import gzip
 import io
 import urllib3
+import sys
 
-from ..database.models import Simulation
+from ..database.models import Simulation, File
 from .manifest import DataObject
 from ..config.config import Config
 
@@ -109,6 +110,9 @@ class RemoteAPI:
         check_return(res)
         return res
 
+    def has_url(self) -> bool:
+        return bool(self._url)
+
     @try_request
     def list_simulations(self) -> List[Simulation]:
         res = self.get("simulations")
@@ -138,54 +142,52 @@ class RemoteAPI:
     def publish_simulation(self, sim_id: str) -> None:
         self.post("publish/" + sim_id, {})
 
+    def _push_file(self, file: File, file_type: str, sim_data: Dict, chunk_size: int, out_stream: IO):
+        if file.type in (DataObject.Type.PATH, DataObject.Type.IMAS):
+            path = os.path.join(file.directory, file.file_name)
+            print('Uploading file {} '.format(path), file=out_stream, end='')
+            num_chunks = 0
+            for i, chunk in enumerate(read_bytes_in_chunks(path, compressed=True, chunk_size=chunk_size)):
+                print('.', file=out_stream, end='')
+                data = {
+                    'simulation': sim_data,
+                    'file_type': file_type,
+                    'chunk_info': {file.uuid.hex: {'chunk_size': chunk_size, 'chunk': i}}
+                }
+                files: List[Tuple[str, Tuple[str, bytes, str]]] = [
+                    ("data", ("data", json.dumps(data).encode(), "text/json")),
+                    ("files", (file.uuid.hex, chunk, "application/octet-stream"))
+                ]
+                self.post("files", data={}, files=files)
+                num_chunks += 1
+            self.post("files", data={
+                'simulation': sim_data,
+                'files': [{'chunks': num_chunks, 'file_type': file_type, 'file_uuid': file.uuid.hex}]
+            })
+            print('Complete', file=out_stream)
+
     @try_request
-    def push_simulation(self, simulation: Simulation) -> None:
+    def push_simulation(self, simulation: Simulation, out_stream: IO=sys.stdout) -> None:
+        """
+        Push the local simulation to the remote server.
+
+        First we upload any files associated with the simulation, then push the simulation metadata.
+
+        :param simulation: Simulation to push to remote server
+        :param out_stream: IO stream to write messages to the user (default: stdout)
+        """
         sim_data = simulation.data(recurse=True)
         chunk_size = 10*1024*1024  # 10 MB
 
         for file in simulation.inputs:
-            if file.type in (DataObject.Type.PATH, DataObject.Type.IMAS):
-                path = os.path.join(file.directory, file.file_name)
-                num_chunks = 0
-                for i, chunk in enumerate(read_bytes_in_chunks(path, compressed=True, chunk_size=chunk_size)):
-                    data = {
-                        'simulation': sim_data,
-                        'file_type': 'input',
-                        'chunk_info': {file.uuid.hex: {'chunk_size': chunk_size, 'chunk': i}}
-                    }
-                    files: List[Tuple[str, Tuple[str, bytes, str]]] = [
-                        ("data", ("data", json.dumps(data).encode(), "text/json")),
-                        ("files", (file.uuid.hex, chunk, "application/octet-stream"))
-                    ]
-                    self.post("files", data={}, files=files)
-                    num_chunks += 1
-                self.post("files", data={
-                    'simulation': sim_data,
-                    'files': [{'chunks': num_chunks, 'file_type': 'input', 'file_uuid': file.uuid.hex}]
-                })
+            self._push_file(file, 'input', sim_data, chunk_size, out_stream)
 
         for file in simulation.outputs:
-            if file.type in (DataObject.Type.PATH, DataObject.Type.IMAS):
-                path = os.path.join(file.directory, file.file_name)
-                num_chunks = 0
-                for i, chunk in enumerate(read_bytes_in_chunks(path, compressed=True, chunk_size=chunk_size)):
-                    data = {
-                        'simulation': sim_data,
-                        'file_type': 'output',
-                        'chunk_info': {file.uuid.hex: {'chunk_size': chunk_size, 'chunk': i}}
-                    }
-                    files: List[Tuple[str, Tuple[str, bytes, str]]] = [
-                        ("data", ("data", json.dumps(data).encode(), "text/json")),
-                        ("files", (file.uuid.hex, chunk, "application/octet-stream"))
-                    ]
-                    self.post("files", data={}, files=files)
-                    num_chunks += 1
-                self.post("files", data={
-                    'simulation': sim_data,
-                    'files': [{'chunks': num_chunks, 'file_type': 'output', 'file_uuid': file.uuid.hex}]
-                })
+            self._push_file(file, 'output', sim_data, chunk_size, out_stream)
 
+        print('Uploading simulation data', file=out_stream)
         self.post("simulations", data={'simulation': sim_data})
+        print('Complete', file=out_stream)
 
     @try_request
     def reset_database(self) -> None:

@@ -89,7 +89,7 @@ class QueryCommand(Command):
         parser.add_argument("-a", "--attributes", dest="attributes", default=None, help="list of attributes to include in output")
         parser.add_argument('constraint', nargs='*', help="constraint in the form key=value or key=in:value")
 
-    def run(self, args: QueryArgs, _: Config) -> None:
+    def run(self, args: QueryArgs, config: Config) -> None:
         if not args.constraint:
             raise argparse.ArgumentTypeError("At least one constraint must be provided")
 
@@ -106,7 +106,7 @@ class QueryCommand(Command):
             else:
                 equals[key] = value
 
-        db = get_local_db()
+        db = get_local_db(config)
         if self._query_type == QueryCommand.QueryType.META:
             simulations = db.query_meta(equals=equals, contains=contains)
         elif self._query_type == QueryCommand.QueryType.PROVENANCE:
@@ -142,12 +142,12 @@ class ProvenanceCommand(Command):
             parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
             parser.add_argument("file", help="provenance file")
 
-        def run(self, args: Any, _: Config) -> None:
+        def run(self, args: Any, config: Config) -> None:
             from ..database.database import get_local_db
             from .provenance import read_provenance_file
 
             prov = read_provenance_file(args.file)
-            db = get_local_db()
+            db = get_local_db(config)
             db.insert_provenance(args.sim_id, prov)
 
     class PrintCommand(Command):
@@ -156,10 +156,10 @@ class ProvenanceCommand(Command):
         def add_arguments(self, parser: argparse.ArgumentParser) -> None:
             parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
 
-        def run(self, args: Any, _: Config) -> None:
+        def run(self, args: Any, config: Config) -> None:
             from ..database.database import get_local_db
             _required_argument(args, "ingest", "sim_id")
-            db = get_local_db()
+            db = get_local_db(config)
             prov = db.get_provenance(args.sim_id)
             print(str(prov))
 
@@ -205,7 +205,7 @@ class IngestCommand(Command):
         uuid: Optional[str]
         update: bool
 
-    def run(self, args: IngestArgs, _: Config) -> None:
+    def run(self, args: IngestArgs, config: Config) -> None:
         from ..database.database import get_local_db
         from ..database.models import Simulation
         from .manifest import Manifest
@@ -220,7 +220,7 @@ class IngestCommand(Command):
         if args.uuid:
             simulation.uuid = args.uuid
 
-        db = get_local_db()
+        db = get_local_db(config)
         db.insert_simulation(simulation)
         print("success")
 
@@ -305,10 +305,10 @@ class ListCommand(Command):
     class ListArgs(argparse.Namespace):
         verbose: bool
 
-    def run(self, args: ListArgs, _: Config) -> None:
+    def run(self, args: ListArgs, config: Config) -> None:
         from ..database.database import get_local_db
 
-        db = get_local_db()
+        db = get_local_db(config)
         simulations = db.list_simulations()
         _list_simulations(simulations, verbose=args.verbose)
 
@@ -325,10 +325,10 @@ class DeleteCommand(Command):
     class DeleteArgs(argparse.Namespace):
         sim_id: str
 
-    def run(self, args: DeleteArgs, _: Config) -> None:
+    def run(self, args: DeleteArgs, config: Config) -> None:
         from ..database.database import get_local_db
 
-        db = get_local_db()
+        db = get_local_db(config)
         db.delete_simulation(args.sim_id)
 
         print("success")
@@ -346,10 +346,10 @@ class InfoCommand(Command):
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
 
-    def run(self, args: InfoArgs, _: Config) -> None:
+    def run(self, args: InfoArgs, config: Config) -> None:
         from ..database.database import get_local_db
 
-        db = get_local_db()
+        db = get_local_db(config)
         simulation = db.get_simulation(args.sim_id)
         if simulation is None:
             raise Exception("Failed to find simulation: " + args.sim_id)
@@ -373,7 +373,7 @@ class PushCommand(Command):
         from .remote_api import RemoteAPI
 
         api = RemoteAPI(config)
-        db = get_local_db()
+        db = get_local_db(config)
         simulation = db.get_simulation(args.sim_id)
         if simulation is None:
             raise Exception("Failed to find simulation: " + args.sim_id)
@@ -396,11 +396,11 @@ class ModifyCommand(Command):
         parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
         parser.add_argument("--alias", help="new alias")
 
-    def run(self, args: ModifyArgs, _: Config) -> None:
+    def run(self, args: ModifyArgs, config: Config) -> None:
         from ..database.database import get_local_db
 
         if args.alias is not None:
-            db = get_local_db()
+            db = get_local_db(config)
             simulation = db.get_simulation(args.sim_id)
             simulation.alias = args.alias
             db.session.commit()
@@ -420,14 +420,14 @@ class ValidateCommand(Command):
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
 
-    def run(self, args: ValidateArgs, _: Config) -> None:
+    def run(self, args: ValidateArgs, config: Config) -> None:
         from itertools import chain
         from ..database.database import get_local_db
         from ..validation import ValidationError
         from ..imas import validation as imas_validation
         from .manifest import DataObject
 
-        db = get_local_db()
+        db = get_local_db(config)
         simulation = db.get_simulation(args.sim_id)
         device = simulation.find_meta("device")
         scenario = simulation.find_meta("scenario")
@@ -478,7 +478,7 @@ class SimulationCommand(Command):
         class NewArgs(argparse.Namespace):
             alias: str
 
-        def run(self, args: NewArgs, _: Config) -> None:
+        def run(self, args: NewArgs, config: Config) -> None:
             from ..database.database import get_local_db
             from ..database.models import Simulation
             from .manifest import Manifest
@@ -486,7 +486,7 @@ class SimulationCommand(Command):
             simulation = Simulation(Manifest())
             simulation.alias = args.alias
             if not args.uuid:
-                db = get_local_db()
+                db = get_local_db(config)
                 db.insert_simulation(simulation)
             print(simulation.uuid)
 
@@ -499,12 +499,12 @@ class SimulationCommand(Command):
         class AliasArgs(argparse.Namespace):
             prefix: Optional[str]
 
-        def run(self, args: AliasArgs, _: Config) -> None:
+        def run(self, args: AliasArgs, config: Config) -> None:
             from ..database.database import get_local_db
 
             prefix: str = args.prefix or 'sim'
 
-            db = get_local_db()
+            db = get_local_db(config)
             aliases = db.get_aliases(prefix)
 
             n = 1
@@ -576,14 +576,15 @@ class SummaryCommand(Command):
             parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
             parser.add_argument("file", help="file to create")
 
-        def run(self, args: Any, _: Config) -> None:
+        def run(self, args: Any, config: Config) -> None:
             from ..database.database import get_local_db
             import yaml
 
             with open(args.file) as f:
-                y = yaml.load(f)
+                yaml.safe_load()
+                y = yaml.load(f, Loader=yaml.SafeLoader)
                 summary = _flatten_dict(y)
-            db = get_local_db()
+            db = get_local_db(config)
             db.insert_summary(args.sim_id, summary)
 
     class SummaryListCommand(Command):
@@ -595,10 +596,10 @@ class SummaryCommand(Command):
         class SummaryListArgs(argparse.Namespace):
             sim_id: str
 
-        def run(self, args: SummaryListArgs, _: Config) -> None:
+        def run(self, args: SummaryListArgs, config: Config) -> None:
             from ..database.database import get_local_db
 
-            db = get_local_db()
+            db = get_local_db(config)
             summaries = db.list_summaries(args.sim_id)
             _list_summaries(summaries)
 
@@ -749,10 +750,10 @@ class DatabaseCommand(Command):
         def add_arguments(self, parser: argparse.ArgumentParser) -> None:
             pass
 
-        def run(self, args: Any, _: Config) -> None:
+        def run(self, args: Any, config: Config) -> None:
             from ..database.database import get_local_db
 
-            db = get_local_db()
+            db = get_local_db(config)
             db.reset()
 
     class ControlledVocabularyCommand(Command):
@@ -764,10 +765,10 @@ class DatabaseCommand(Command):
             parser.add_argument("name", help="vocabulary name", nargs="?")
             parser.add_argument("words", nargs="*", help="vocabulary words")
 
-        def run(self, args: Any, _: Config) -> None:
+        def run(self, args: Any, config: Config) -> None:
             from ..database.database import get_local_db
 
-            db = get_local_db()
+            db = get_local_db(config)
             if args.cv_action == "new":
                 _required_argument(args, "new", "name")
                 _required_argument(args, "new", "words")
@@ -808,12 +809,12 @@ class DatabaseCommand(Command):
             parser.add_argument("--path", help="ids path")
             parser.add_argument("--ids", help="names of the IDSs to use", action="append")
 
-        def run(self, args: Any, _: Config) -> None:
+        def run(self, args: Any, config: Config) -> None:
             from ..database.database import get_local_db
             from ..imas import validation as imas_validation
             from ..validation import TestParameters
 
-            db = get_local_db()
+            db = get_local_db(config)
             if args.ref_action == "load":
                 _required_argument(args, "load", "shot")
                 _required_argument(args, "load", "run")
@@ -936,7 +937,7 @@ class AliasCommand(Command):
         api = RemoteAPI(config)
         simulations = api.list_simulations()
 
-        db = get_local_db()
+        db = get_local_db(config)
         simulations += db.list_simulations()
 
         aliases = [sim.alias for sim in simulations if sim.alias.contains(value)]
@@ -949,13 +950,13 @@ class AliasCommand(Command):
         from ..database.database import get_local_db
 
         api = RemoteAPI(config)
-        if isinstance(api._url, str):
+        if api.has_url():
             remote_simulations = api.list_simulations()
         else:
             remote_simulations = []
             print('The Remote Server has not been specified in the configuration file. Please set remote-url')
 
-        db = get_local_db()
+        db = get_local_db(config)
         local_simulations = db.list_simulations()
 
         print("Remote:")

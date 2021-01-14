@@ -33,36 +33,34 @@ class Config:
             name = var.replace('SIMDB_', '').replace('_', '-').lower()
             self.set_option(name, os.environ[var])
 
+    def _load_site(self):
+        if os.path.exists(self._site_config_file):
+            with open(self._site_config_file) as file:
+                self._parser.read_file(file)
+
+    def _load_user(self):
+        if os.path.exists(self._user_config_file):
+            with open(self._user_config_file) as file:
+                self._parser.read_file(file)
+
     def load(self) -> None:
-        def load_site():
-            if os.path.exists(self._site_config_file):
-                with open(self._site_config_file) as file:
-                    self._parser.read_file(file)
-
-        def load_user():
-            if os.path.exists(self._user_config_file):
-                with open(self._user_config_file) as file:
-                    self._parser.read_file(file)
-
         self._load_environmental_vars()
 
         self.api_version = __version__
 
         # Import configuration options from files defined by environment variables
-        for opt in self.list_options():
+        path = self.get_option('user-config-path', default=None)
+        if path:
+            self._user_config_dir = os.path.dirname(path)
+            self._user_config_file = path
 
-            if opt.find('user-config-path:') == 0:
-                self._user_config_file = opt[17:].strip()
-                self._user_config_dir = opt.rpartition('/')[0][17:].strip()
-                continue
+        path = self.get_option('site-config-path', default=None)
+        if path:
+            self._site_config_dir = os.path.dirname(path)
+            self._site_config_file = path
 
-            if opt.find('site-config-path:') == 0:
-                self._site_config_file = opt[17:].strip()
-                self._site_config_dir = opt.rpartition('/')[0][17:].strip()
-                continue
-
-        load_site()
-        load_user()
+        self._load_site()
+        self._load_user()
 
     def save(self) -> None:
         os.makedirs(self._user_config_dir, exist_ok=True)

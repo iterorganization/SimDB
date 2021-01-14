@@ -1,6 +1,7 @@
 import os
 import yaml
 import platform
+import distro
 from typing import Dict, Union, List, NewType
 
 
@@ -10,7 +11,7 @@ EnvironmentDetails = NewType('EnvironmentDetails', Dict[str, Union[str, List[str
 
 def _platform_version() -> str:
     if platform.system() == 'Linux':
-        return ' '.join(platform.linux_distribution()) + ' ' + platform.version()
+        return ' '.join(distro.linux_distribution()) + ' ' + platform.version()
     elif platform.system() == 'Darwin':
         return platform.mac_ver()[0] + ' ' + platform.version()
     elif platform.system() == 'Win':
@@ -75,4 +76,4 @@ def read_provenance_file(file_name: str) -> Union[Dict, List, None]:
     :return: The YAML provenance data.
     """
     with open(file_name, 'r') as file:
-        return yaml.load(file)
+        return yaml.load(file, Loader=yaml.SafeLoader)

@@ -75,7 +75,7 @@ def get_db() -> Database:
             os.makedirs(db_dir, exist_ok=True)
             g.db = Database(Database.DBMS.SQLITE, file=os.path.join(db_dir, "remote.db"))
         else:
-            raise RuntimeError("Unkown DB_TYPE in app.cfg: " + current_app.config["DB_TYPE"])
+            raise RuntimeError("Unknown DB_TYPE in app.cfg: " + current_app.config["DB_TYPE"])
     return g.db
 
 

@@ -4,6 +4,7 @@ import sys
 import contextlib
 from typing import Optional, List, Tuple, Union, TYPE_CHECKING
 from enum import Enum, auto
+from ..config.config import Config
 
 
 class DatabaseError(RuntimeError):
@@ -493,10 +494,10 @@ class Database:
             return [el[0] for el in self.session.query(Simulation).values('alias')]
 
 
-def get_local_db() -> Database:
+def get_local_db(config: Config) -> Database:
     import appdirs
-    db_dir = appdirs.user_data_dir('simdb')
+    db_file = config.get_option('db-file', default=os.path.join(appdirs.user_data_dir('simdb'), 'sim.db'))
+    db_dir = os.path.dirname(db_file)
     os.makedirs(db_dir, exist_ok=True)
-    db_file = os.path.join(db_dir, "sim.db")
     database = Database(Database.DBMS.SQLITE, file=db_file)
     return database
