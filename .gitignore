@@ -11,9 +11,11 @@ environment.yml
 git_update
 runtests
 sdb
-simdb/cli/runtests
+src/simdb/cli/runtests
 test.yml
 test4_manifest.yml
 test7_manifest.yml
 test_manifest.yml
 /temp
+/htmlcov
+/test-reports/

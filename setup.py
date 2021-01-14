@@ -11,7 +11,8 @@ setuptools.setup(
     description="ITER Simulation Management Tool",
     long_description=long_description,
     url="https://git.iter.org/projects/IMEX/repos/simdb/browse",
-    packages=setuptools.find_packages(),
+    packages=setuptools.find_packages(where='src'),
+    package_dir={'': 'src'},
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
