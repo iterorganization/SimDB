@@ -69,15 +69,15 @@ class Database:
         new_db = False
         if db_type == Database.DBMS.SQLITE:
             if "file" not in kwargs:
-                raise DatabaseError("Missing file parameter for SQLITE database")
+                raise ValueError("Missing file parameter for SQLITE database")
             new_db = (not os.path.exists(kwargs["file"]))
             self.engine: "sqlalchemy.engine.Engine" = create_engine("sqlite:///%(file)s" % kwargs)
 
         elif db_type == Database.DBMS.POSTGRESQL:
             if "host" not in kwargs:
-                raise DatabaseError("Missing file host for POSTGRESQL database")
+                raise ValueError("Missing host parameter for POSTGRESQL database")
             if "port" not in kwargs:
-                raise DatabaseError("Missing file port for POSTGRESQL database")
+                raise ValueError("Missing port parameter for POSTGRESQL database")
             self.engine: "sqlalchemy.engine.Engine" = create_engine("postgresql://%(host)s:%(port)d/simdb" % kwargs)
             with contextlib.closing(self.engine.connect()) as con:
                 res: sqlalchemy.engine.ResultProxy = con.execute(
@@ -86,16 +86,17 @@ class Database:
 
         elif db_type == Database.DBMS.MSSQL:
             if "user" not in kwargs:
-                raise DatabaseError("Missing file user for MSSQL database")
-            if "pass" not in kwargs:
-                raise DatabaseError("Missing file pass for MSSQL database")
+                raise ValueError("Missing user parameter for MSSQL database")
+            if "password" not in kwargs:
+                raise ValueError("Missing password parameter for MSSQL database")
             if "dsnname" not in kwargs:
-                raise DatabaseError("Missing file dsnname for MSSQL database")
-            self.engine: "sqlalchemy.engine.Engine" = create_engine("mssql+pyodbc://%(user)s:%(pass)s@%(dsnname)s" % kwargs)
+                raise ValueError("Missing dsnname parameter for MSSQL database")
+            self.engine: "sqlalchemy.engine.Engine" = create_engine("mssql+pyodbc://%(user)s:%(password)s@%(dsnname)s"
+                                                                    % kwargs)
             new_db = False
 
         else:
-            raise DatabaseError("Unknown database type: " + db_type.name)
+            raise ValueError("Unknown database type: " + db_type.name)
         if new_db:
             Base.metadata.create_all(self.engine)
         Base.metadata.bind = self.engine
