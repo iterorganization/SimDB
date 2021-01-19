@@ -10,6 +10,7 @@ import sys
 from ..database.models import Simulation, File
 from .manifest import DataObject
 from ..config.config import Config
+from ..validation import Validator
 
 
 urllib3.disable_warnings()
@@ -148,7 +149,7 @@ class RemoteAPI:
             print('Uploading file {} '.format(path), file=out_stream, end='')
             num_chunks = 0
             for i, chunk in enumerate(read_bytes_in_chunks(path, compressed=True, chunk_size=chunk_size)):
-                print('.', file=out_stream, end='')
+                print('.', file=out_stream, end='', flush=True)
                 data = {
                     'simulation': sim_data,
                     'file_type': file_type,
@@ -164,7 +165,7 @@ class RemoteAPI:
                 'simulation': sim_data,
                 'files': [{'chunks': num_chunks, 'file_type': file_type, 'file_uuid': file.uuid.hex}]
             })
-            print('Complete', file=out_stream)
+            print('Complete', file=out_stream, flush=True)
 
     @try_request
     def push_simulation(self, simulation: Simulation, out_stream: IO=sys.stdout) -> None:
@@ -176,6 +177,8 @@ class RemoteAPI:
         :param simulation: Simulation to push to remote server
         :param out_stream: IO stream to write messages to the user (default: stdout)
         """
+        Validator().validate(simulation)
+
         sim_data = simulation.data(recurse=True)
         chunk_size = 10*1024*1024  # 10 MB
 

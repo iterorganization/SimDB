@@ -1,13 +1,15 @@
 import re
 import os
 import uuid
-from typing import Union, List, Dict, Any, Tuple, Type
+from itertools import chain
+from typing import Union, List, Dict, Any, Tuple, Type, Optional
 from datetime import datetime
 from dateutil import parser as date_parser
 from sqlalchemy import Column, ForeignKey, Table, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 import sqlalchemy.types as sql_types
+import uri as urilib
 
 from ..cli.manifest import Manifest, DataObject
 from ..docstrings import inherit_docstrings
@@ -21,6 +23,10 @@ class UUID(sql_types.TypeDecorator):
     """
     impl = sql_types.CHAR
 
+    @property
+    def python_type(self):
+        return uuid.UUID
+
     def load_dialect_impl(self, dialect):
         from sqlalchemy.dialects import postgresql
 
@@ -28,14 +34,6 @@ class UUID(sql_types.TypeDecorator):
             return dialect.type_descriptor(postgresql.UUID())
         else:
             return dialect.type_descriptor(sql_types.CHAR(32))
-
-    def process_literal_param(self, value, dialect):
-        if value is None:
-            return value
-        else:
-            if not isinstance(value, uuid.UUID):
-                value = uuid.UUID(value)
-            return value
 
     def process_bind_param(self, value, dialect):
         if value is None:
@@ -55,6 +53,33 @@ class UUID(sql_types.TypeDecorator):
             if not isinstance(value, uuid.UUID):
                 value = uuid.UUID(value)
             return value
+
+    def process_literal_param(self, value, dialect):
+        return self.process_result_value(value, dialect)
+
+
+class URI(sql_types.TypeDecorator):
+    """
+    UUID type for reading/writing to the ORM.
+    """
+    impl = sql_types.CHAR
+
+    @property
+    def python_type(self):
+        return urilib.URI
+
+    def process_bind_param(self, value: Optional[urilib.URI], dialect) -> Optional[str]:
+        if value is None:
+            return value
+        return str(value)
+
+    def process_result_value(self, value: Optional[str], dialect) -> Optional[urilib.URI]:
+        if value is None:
+            return value
+        return urilib.URI(value)
+
+    def process_literal_param(self, value, dialect) -> Optional[urilib.URI]:
+        return self.process_result_value(value, dialect)
 
 
 class BaseModel:
@@ -144,20 +169,6 @@ class Simulation(Base):
     provenance = relationship("Provenance", uselist=False)
     summary = relationship("Summary")
 
-    @staticmethod
-    def _append_file(file_list: List, data_obj: DataObject):
-        if data_obj.type == DataObject.Type.PATH:
-            file_list.append(File(data_obj.type, os.path.dirname(data_obj.path), os.path.basename(data_obj.path)))
-        elif data_obj.type == DataObject.Type.IMAS:
-            for path in _get_imas_paths(data_obj.imas):
-                file_list.append(File(data_obj.type, os.path.dirname(path), os.path.basename(path)))
-        elif data_obj.type == DataObject.Type.UDA:
-            file_list.append(File(data_obj.type, data_obj.uda["source"], data_obj.uda["signal"]))
-        elif data_obj.type == DataObject.Type.UUID:
-            return
-        else:
-            raise NotImplementedError("source type " + data_obj.type.name + " not yet implemented")
-
     def __init__(self, manifest: Union[Manifest, None]) -> None:
         """
         Initialise a new Simulation object using the provided Manifest.
@@ -171,10 +182,10 @@ class Simulation(Base):
         self.status = "UNKNOWN"
 
         for input in manifest.inputs:
-            self._append_file(self.inputs, input)
+            self.inputs.append(File(input.type, input.uri))
 
         for output in manifest.outputs:
-            self._append_file(self.outputs, output)
+            self.outputs.append(File(output.type, output.uri))
 
         for key, value in manifest.workflow.items():
             if re.match(r"code[0-9]+", key) and isinstance(value, dict):
@@ -252,6 +263,46 @@ class Simulation(Base):
             data["metadata"] = [m.data(recurse=True) for m in self.meta]
         return data
 
+    def check_files(self):
+        for file in chain(self.inputs, self.outputs):
+            if file.type == DataObject.Type.UDA:
+                from ..uda.checksum import checksum as uda_checksum
+                checksum = uda_checksum(file.uri)
+            elif file.type == DataObject.Type.IMAS:
+                from ..imas.checksum import checksum as imas_checksum
+                checksum = imas_checksum(file.uri)
+            elif file.type == DataObject.Type.PATH:
+                from ..checksum import sha1_checksum
+                checksum = sha1_checksum(file.uri)
+            else:
+                raise NotImplementedError("Not implemented for file type " + str(file.type))
+            if checksum != file.checksum:
+                raise ValueError("Checksum does not not match for file " + str(file))
+
+
+def _generate_checksum(type: DataObject.Type, uri: urilib.URI) -> str:
+    if type == DataObject.Type.UDA:
+        """
+        URI: uda:///?signal=<SIGNAL>&source=<SOURCE>
+        """
+        from ..uda.checksum import checksum as uda_checksum
+        checksum = uda_checksum(uri)
+    elif type == DataObject.Type.IMAS:
+        """
+        URI: imas:///?shot=<SHOT>&run=<RUN>&machine=<MACHINE>&user=<USER>
+        """
+        from ..imas.checksum import checksum as imas_checksum
+        checksum = imas_checksum(uri)
+    elif type == DataObject.Type.PATH:
+        """
+        URI: file:///path/to/file
+        """
+        from ..checksum import sha1_checksum
+        checksum = sha1_checksum(uri)
+    else:
+        raise NotImplementedError("Cannot generate checksum for type " + str(type))
+    return checksum
+
 
 @inherit_docstrings
 class File(Base):
@@ -262,8 +313,9 @@ class File(Base):
     id = Column(sql_types.Integer, primary_key=True)
     uuid = Column(UUID, nullable=False, unique=True)
     usage = Column(sql_types.String(250), nullable=True)
-    file_name = Column(sql_types.String(250), nullable=False)
-    directory = Column(sql_types.String(250), nullable=True)
+    # file_name = Column(sql_types.String(250), nullable=False)
+    # directory = Column(sql_types.String(250), nullable=True)
+    uri: urilib.URI = Column(URI(1024), nullable=True)
     checksum = Column(sql_types.String(40), nullable=True)
     type: DataObject.Type = Column(sql_types.Enum(DataObject.Type), nullable=True)
     purpose = Column(sql_types.String(250), nullable=True)
@@ -273,25 +325,13 @@ class File(Base):
     datetime = Column(sql_types.DateTime, nullable=False)
 
     def _integrity_check(self) -> None:
-        if self.type == DataObject.Type.UDA:
-            from ..uda.checksum import checksum as uda_checksum
-            self.checksum = uda_checksum(self.file_name, self.directory)
-        else:
-            from ..checksum import sha1_checksum
-            if os.path.isfile(os.path.join(self.directory, self.file_name)):
-                self.checksum = sha1_checksum(os.path.join(self.directory, self.file_name))
-            else:
-                print('**** File does not exist ****')
+        self.checksum = _generate_checksum(self.type, self.uri)
 
-    def __init__(self, type: DataObject.Type, directory: str, file_name: str, perform_integrity_check: bool=True) -> None:
-        """
-        Initialise the File object using the provided DataObject.
-
-        :param data_object: The DataObject to load the data from, or None to create an empty File.
-        """
+    def __init__(self, type: DataObject.Type, uri: urilib.URI, perform_integrity_check: bool=True) -> None:
         self.uuid = uuid.uuid1()
-        self.file_name = file_name
-        self.directory = directory
+        # self.file_name = file_name
+        # self.directory = directory
+        self.uri = uri
         self.type = type
         self.datetime = datetime.now()
 
@@ -311,7 +351,7 @@ class File(Base):
 
     @classmethod
     def from_data(cls, data: Dict) -> "File":
-        file = File(DataObject.Type[data["type"]], data["directory"], data["file_name"], perform_integrity_check=False)
+        file = File(DataObject.Type[data["type"]], data["uri"], perform_integrity_check=False)
         file.uuid = uuid.UUID(data["uuid"])
         file.usage = data["usage"]
         file.checksum = data["checksum"]

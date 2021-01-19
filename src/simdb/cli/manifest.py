@@ -2,7 +2,9 @@ import re
 import sys
 import os
 from enum import Enum, auto
-from typing import Iterable, Union, Dict, List
+from typing import Iterable, Union, Dict, List, Tuple, Optional
+import uri as urilib
+from pathlib import Path
 
 
 class InvalidManifest(Exception):
@@ -12,15 +14,38 @@ class InvalidManifest(Exception):
     pass
 
 
-def _expand_path(base_path: str, path: str) -> str:
-    if os.path.abspath(path) != path:
-        path = os.path.join(os.path.dirname(os.path.abspath(base_path)), path)
+def _expand_path(path: Path, base_path: Path) -> Path:
+    if not path.is_absolute():
+        if not base_path.is_absolute():
+            raise ValueError('base_path must be absolute')
+        return base_path / path
     return path
+
+
+def _to_uri(uri_str: str, base_path: Path) -> Tuple["DataObject.Type", urilib.URI]:
+    uri = urilib.URI(uri_str)
+    if uri.scheme is None:
+        raise ValueError()
+    if uri.scheme.name == 'file':
+        uri = urilib.URI(uri, path=_expand_path(uri.path, base_path))
+        return DataObject.Type.PATH, uri
+    if uri.scheme.name == "imas":
+        return DataObject.Type.IMAS, uri
+    if uri.scheme.name == "uda":
+        return DataObject.Type.UDA, uri
+    if uri.scheme.name == "simdb":
+        return DataObject.Type.UUID, uri
+    raise InvalidManifest("invalid uri " + uri_str)
 
 
 class DataObject:
     """
     Simulation data object, either a file, an IDS or an already registered object identifiable by the UUID.
+
+    UUID: simdb:///<UUID>
+    PATH: file:///<PATH>
+    IMAS: imas:///?shot=<SHOT>&run=<RUN>&machine=<MACHINE>&user=<USER>
+    UDA:  uda:///?signal=<SIGNAL>&source=<SOURCE>
     """
     class Type(Enum):
         UNKNOWN = auto()
@@ -30,38 +55,16 @@ class DataObject:
         UDA = auto()
 
     type: Type = Type.UNKNOWN
-    uuid: str = ""
-    path: str = ""
-    imas: Dict = {}
-    uda: Dict = {}
+    uri: urilib.URI = urilib.URI()
 
-    def __init__(self, base_path: str, values: Dict) -> None:
-        if "uuid" in values:
-            self.uuid = values["uuid"]
-            self.type = DataObject.Type.UUID
-        elif "path" in values:
-            self.path = _expand_path(base_path, values["path"])
-            self.type = DataObject.Type.PATH
-        elif "imas" in values:
-            self.imas = values["imas"]
-            self.type = DataObject.Type.IMAS
-        elif "uda" in values:
-            self.uda = values["uda"]
-            self.type = DataObject.Type.UDA
-        else:
+    def __init__(self, base_path: Path, uri: str) -> None:
+        (self.type, self.uri) = _to_uri(uri, base_path)
+        if self.type == DataObject.Type.UNKNOWN or not self.uri:
             raise InvalidManifest("invalid input")
 
     @property
     def name(self) -> str:
-        if self.type == DataObject.Type.UUID:
-            return self.uuid
-        elif self.type == DataObject.Type.PATH:
-            return self.path
-        elif self.type == DataObject.Type.IMAS:
-            return "IDS(shot={}, run={})".format(self.imas["shot"], self.imas["run"])
-        elif self.type == DataObject.Type.UDA:
-            return "UDA(signal={}, shot={}, run={})".format(self.uda["signal"], self.uda["shot"], self.uda["run"])
-        return DataObject.Type.UUID.name
+        return str(self.uri)
 
 
 class Source(DataObject):
@@ -228,8 +231,8 @@ class Manifest:
         :return: A new manifest object.
         """
         manifest = cls()
-        dir_path = os.path.dirname(os.path.realpath(__file__))
-        manifest.load(os.path.join(dir_path, "template.yaml"))
+        dir_path = Path(__file__).resolve().parent
+        manifest.load(dir_path / "template.yaml")
         return manifest
 
     @property
@@ -256,19 +259,19 @@ class Manifest:
             return self._data["description"]
         return {}
 
-    def _load_metadata(self, root_path, path):
+    def _load_metadata(self, root_path: Path, path: Path):
         import yaml
 
         try:
-            if os.path.abspath(path) != path:
-                root_dir = os.path.dirname(os.path.abspath(root_path))
-                path = os.path.join(root_dir, path)
+            if not path.is_absolute():
+                root_dir = root_path.absolute().parent
+                path = root_dir / path
             with open(path) as metadata_file:
                 _update_dict(self._metadata, yaml.load(metadata_file, Loader=yaml.SafeLoader))
         except yaml.YAMLError as err:
             raise InvalidManifest("failed to read metadata file %s - %s" % (path, err))
 
-    def load(self, file_path) -> None:
+    def load(self, file_path: Path) -> None:
         """
         Load a manifest from the given file.
 
@@ -277,7 +280,7 @@ class Manifest:
         """
         import yaml
 
-        self._path = file_path
+        self._path: Path = file_path
         with open(file_path) as file:
             try:
                 self._data = yaml.load(file, Loader=yaml.SafeLoader)
@@ -291,7 +294,7 @@ class Manifest:
                 elif "values" in item:
                     _update_dict(self._metadata, item["values"])
 
-    def save(self, file_path: str) -> None:
+    def save(self, file_path: Optional[Path]) -> None:
         """
         Save the manifest to the given file.
 
@@ -300,10 +303,10 @@ class Manifest:
         """
         import yaml
 
-        if file_path is None or file_path == "-":
+        if file_path is None or str(file_path) == "-":
             yaml.dump(self._data, sys.stdout, default_flow_style=False)
         else:
-            if os.path.exists(file_path):
+            if file_path.exists():
                 raise Exception("file already exists")
             with open(file_path, "w") as out_file:
                 yaml.dump(self._data, out_file, default_flow_style=False)

@@ -377,7 +377,7 @@ class PushCommand(Command):
         simulation = db.get_simulation(args.sim_id)
         if simulation is None:
             raise Exception("Failed to find simulation: " + args.sim_id)
-        api.push_simulation(simulation)
+        api.push_simulation(simulation, out_stream=sys.stdout)
 
         print("success")
 
@@ -423,12 +423,15 @@ class ValidateCommand(Command):
     def run(self, args: ValidateArgs, config: Config) -> None:
         from itertools import chain
         from ..database.database import get_local_db
-        from ..validation import ValidationError
+        from ..validation import ValidationError, Validator
         from ..imas import validation as imas_validation
         from .manifest import DataObject
 
         db = get_local_db(config)
         simulation = db.get_simulation(args.sim_id)
+
+        Validator().validate(simulation)
+
         device = simulation.find_meta("device")
         scenario = simulation.find_meta("scenario")
         if not device:
@@ -449,7 +452,7 @@ class ValidateCommand(Command):
                 path = os.path.join(file.directory, file.file_name)
                 checksum = sha1_checksum(path)
             if checksum != file.checksum:
-                raise ValidationError("Checksum doest not match for file " + path)
+                raise ValidationError("Checksum doest not match for file " + str(file))
             if file.type == DataObject.Type.IMAS:
                 imas_names.add(file.file_name.split(".")[0])
         for name in imas_names:

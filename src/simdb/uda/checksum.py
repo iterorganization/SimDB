@@ -1,9 +1,15 @@
-import sys
+import uri as urilib
 
 
-def checksum(signal: str, source: str) -> str:
+def checksum(uri: urilib.URI) -> str:
     import pyuda
     import hashlib
+
+    query: urilib.QSO = uri.query
+    signal = query.get('signal')
+    source = query.get('source')
+    if signal is None or source is None:
+        raise ValueError('UDA object must have uri uda:///?signal=<SIGNAL>&source=<SOURCE>')
 
     client = pyuda.Client()
     res = client.get(signal, source, raw=True)

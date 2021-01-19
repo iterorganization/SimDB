@@ -1,0 +1,2 @@
+def checksum(value):
+    pass
