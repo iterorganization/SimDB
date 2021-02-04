@@ -64,10 +64,6 @@ def error(message: str) -> Response:
     return response
 
 
-def get_db() -> Database:
-    return api.db
-
-
 @api.record
 def setup_db(setup_state):
     app = setup_state.app
@@ -99,7 +95,7 @@ def index():
 @api.route("/reset", methods=["POST"])
 @requires_auth("admin")
 def reset_db():
-    get_db().reset()
+    api.db.reset()
     return jsonify({})
 
 
@@ -107,7 +103,7 @@ def reset_db():
 @requires_auth()
 def list_simulations():
     if not request.args:
-        simulations = get_db().list_simulations()
+        simulations = api.db.list_simulations()
     else:
         equals = {}
         contains = {}
@@ -118,7 +114,7 @@ def list_simulations():
             else:
                 equals[name] = value
 
-        simulations = get_db().query_meta(equals, contains)
+        simulations = api.db.query_meta(equals, contains)
 
     return jsonify([sim.data(recurse=True) for sim in simulations])
 
@@ -126,7 +122,7 @@ def list_simulations():
 @api.route("/files", methods=["GET"])
 @requires_auth()
 def list_files():
-    files = get_db().list_files()
+    files = api.db.list_files()
     return jsonify([file.data() for file in files])
 
 
@@ -134,7 +130,7 @@ def list_files():
 @requires_auth()
 def get_file(file_uuid):
     try:
-        file = get_db().get_file(file_uuid)
+        file = api.db.get_file(file_uuid)
         return jsonify(file.data(recurse=True))
     except DatabaseError as err:
         return error(str(err))
@@ -177,7 +173,7 @@ def _set_alias(alias):
         return (None, -1)
 
     next_id = 1
-    aliases = get_db().get_aliases(alias)
+    aliases = api.db.get_aliases(alias)
     for existing_alias in aliases:
         existing_id = int(existing_alias.split(character)[1])
         if next_id <= existing_id:
@@ -259,7 +255,7 @@ def ingest_simulation():
                 raise ValueError('simulation file %s not uploaded' % sim_file.uuid)
             sim_file.directory = staging_dir
 
-        get_db().insert_simulation(simulation)
+        api.db.insert_simulation(simulation)
 
         return jsonify({})
     except (DatabaseError, ValueError) as err:
@@ -270,7 +266,7 @@ def ingest_simulation():
 @requires_auth()
 def get_simulation(sim_id):
     try:
-        simulation = get_db().get_simulation(sim_id)
+        simulation = api.db.get_simulation(sim_id)
         return jsonify(simulation.data(recurse=True))
     except DatabaseError as err:
         return error(str(err))
@@ -280,7 +276,7 @@ def get_simulation(sim_id):
 @requires_auth("admin")
 def delete_simulation(sim_id):
     try:
-        simulation = get_db().delete_simulation(sim_id)
+        simulation = api.db.delete_simulation(sim_id)
         files = []
         for file in itertools.chain(simulation.inputs, simulation.outputs):
             files.append("%s (%s)" % (file.uuid, file.file_name))
@@ -297,7 +293,7 @@ def delete_simulation(sim_id):
 @requires_auth()
 def publish_simulation(sim_id):
     try:
-        simulation = get_db().get_simulation(sim_id)
+        simulation = api.db.get_simulation(sim_id)
         return error("not yet implemented")
     except DatabaseError as err:
         return error(str(err))
