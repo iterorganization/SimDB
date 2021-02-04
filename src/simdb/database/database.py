@@ -102,6 +102,13 @@ class Database:
         Base.metadata.bind = self.engine
         SessionMaker.get().configure(bind=self.engine)
 
+    def close(self):
+        """
+        Close the current session
+        """
+        if self._session:
+            self._session.close()
+
     @property
     def session(self) -> "sqlalchemy.orm.Session":
         if self._session is None:
