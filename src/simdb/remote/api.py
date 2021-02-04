@@ -70,7 +70,7 @@ def setup_db(setup_state):
 
     if app.config["DB_TYPE"] == "pgsql":
         api.db = Database(Database.DBMS.POSTGRESQL,
-                        host=app.config["DB_HOST"], port=app.config["DB_PORT"])
+                          host=app.config["DB_HOST"], port=app.config["DB_PORT"])
     elif app.config["DB_TYPE"] == "sqlite":
         import appdirs
         db_dir = appdirs.user_data_dir('simdb')
