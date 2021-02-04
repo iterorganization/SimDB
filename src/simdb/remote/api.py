@@ -65,18 +65,29 @@ def error(message: str) -> Response:
 
 
 def get_db() -> Database:
-    if not hasattr(g, 'db'):
-        if current_app.config["DB_TYPE"] == "pgsql":
-            g.db = Database(Database.DBMS.POSTGRESQL,
-                            host=current_app.config["DB_HOST"], port=current_app.config["DB_PORT"])
-        elif current_app.config["DB_TYPE"] == "sqlite":
-            import appdirs
-            db_dir = appdirs.user_data_dir('simdb')
-            os.makedirs(db_dir, exist_ok=True)
-            g.db = Database(Database.DBMS.SQLITE, file=os.path.join(db_dir, "remote.db"))
-        else:
-            raise RuntimeError("Unknown DB_TYPE in app.cfg: " + current_app.config["DB_TYPE"])
-    return g.db
+    return api.db
+
+
+@api.record
+def setup_db(setup_state):
+    app = setup_state.app
+
+    if app.config["DB_TYPE"] == "pgsql":
+        api.db = Database(Database.DBMS.POSTGRESQL,
+                        host=app.config["DB_HOST"], port=app.config["DB_PORT"])
+    elif app.config["DB_TYPE"] == "sqlite":
+        import appdirs
+        db_dir = appdirs.user_data_dir('simdb')
+        os.makedirs(db_dir, exist_ok=True)
+        api.db = Database(Database.DBMS.SQLITE, file=os.path.join(db_dir, "remote.db"))
+    else:
+        raise RuntimeError("Unkown DB_TYPE in app.cfg: " + app.config["DB_TYPE"])
+
+
+@api.teardown_request
+def close_db_session(error):
+    if api.db:
+        api.db.close()
 
 
 @api.route("/")
