@@ -1,7 +1,7 @@
 import os
 import json
 import itertools
-from flask import g, Blueprint, request, jsonify, Response, current_app
+from flask import g, Blueprint, request, jsonify, Response, current_app, _app_ctx_stack
 from werkzeug.utils import secure_filename
 from werkzeug.datastructures import FileStorage
 from functools import wraps
@@ -69,7 +69,8 @@ def setup_db(setup_state):
     app = setup_state.app
 
     if app.config["DB_TYPE"] == "pgsql":
-        api.db = Database(Database.DBMS.POSTGRESQL,
+        api.db = Database(_app_ctx_stack.__ident_func__,
+                          Database.DBMS.POSTGRESQL,
                           host=app.config["DB_HOST"], port=app.config["DB_PORT"])
     elif app.config["DB_TYPE"] == "sqlite":
         import appdirs
@@ -81,9 +82,9 @@ def setup_db(setup_state):
 
 
 @api.teardown_request
-def close_db_session(error):
+def remove_db_session(error):
     if api.db:
-        api.db.close()
+        api.db.remove()
 
 
 @api.route("/")

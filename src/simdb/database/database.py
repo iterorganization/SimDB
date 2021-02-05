@@ -15,25 +15,10 @@ if TYPE_CHECKING or 'sphinx' in sys.modules:
     # Only importing these for type checking and documentation generation in order to speed up runtime startup.
     from sqlalchemy.exc import DBAPIError
     from sqlalchemy import create_engine, func
-    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.orm import scoped_session, sessionmaker
     import sqlalchemy
     from .models import (Base, Simulation, File, MetaData, ValidationParameters, Provenance, ProvenanceMetaData,
                          ControlledVocabulary, Summary)
-
-
-class SessionMaker:
-    _session_maker: "sessionmaker" = None
-
-    @classmethod
-    def get(cls) -> "sessionmaker":
-        if cls._session_maker is None:
-            from sqlalchemy.orm import sessionmaker
-            cls._session_maker = sessionmaker()
-        return cls._session_maker
-
-    @classmethod
-    def create(cls) -> "sqlalchemy.orm.Session":
-        return cls.get()()
 
 
 class Database:
@@ -51,8 +36,9 @@ class Database:
         POSTGRESQL = auto()
         MSSQL = auto()
 
-    def __init__(self, db_type: DBMS, **kwargs) -> None:
+    def __init__(self, scopefunc, db_type: DBMS, **kwargs) -> None:
         from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker, scoped_session
         from .models import Base
 
         """
@@ -100,20 +86,14 @@ class Database:
         if new_db:
             Base.metadata.create_all(self.engine)
         Base.metadata.bind = self.engine
-        SessionMaker.get().configure(bind=self.engine)
+        self.session = scoped_session(sessionmaker(bind=self.engine), scopefunc=scopefunc)
 
-    def close(self):
+    def remove(self):
         """
-        Close the current session
+        Remove the current session
         """
-        if self._session:
-            self._session.close()
-
-    @property
-    def session(self) -> "sqlalchemy.orm.Session":
-        if self._session is None:
-            self._session: "sqlalchemy.orm.Session" = SessionMaker.create()
-        return self._session
+        if self.session:
+            self.session.remove()
 
     def reset(self) -> None:
         """
