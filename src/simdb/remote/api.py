@@ -76,7 +76,8 @@ def setup_db(setup_state):
         import appdirs
         db_dir = appdirs.user_data_dir('simdb')
         os.makedirs(db_dir, exist_ok=True)
-        api.db = Database(Database.DBMS.SQLITE, file=os.path.join(db_dir, "remote.db"))
+        api.db = Database(_app_ctx_stack.__ident_func__,
+                          Database.DBMS.SQLITE, file=os.path.join(db_dir, "remote.db"))
     else:
         raise RuntimeError("Unkown DB_TYPE in app.cfg: " + app.config["DB_TYPE"])
 
