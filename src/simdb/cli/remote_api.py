@@ -105,9 +105,9 @@ class RemoteAPI:
         check_return(res)
         return res
 
-    def delete(self, url: str) -> requests.Response:
+    def delete(self, url: str, data: Dict) -> requests.Response:
         # res = requests.delete(self.url + url, auth=(self.user_name, self.pass_word), verify=self.cert_path)
-        res = requests.delete(self._api_url + url, auth=(self._user_name, self._pass_word))
+        res = requests.delete(self._api_url + url, json=data, auth=(self._user_name, self._pass_word))
         check_return(res)
         return res
 
@@ -136,12 +136,25 @@ class RemoteAPI:
 
     @try_request
     def delete_simulation(self, sim_id: str) -> Dict:
-        res = self.delete("simulation/" + sim_id)
+        res = self.delete("simulation/" + sim_id, {})
         return res.json()
 
     @try_request
     def publish_simulation(self, sim_id: str) -> None:
         self.post("publish/" + sim_id, {})
+
+    @try_request
+    def add_watcher(self, sim_id: str, user: str, email: str) -> None:
+        self.post("watchers/" + sim_id, {'user': user, 'email': email})
+
+    @try_request
+    def remove_watcher(self, sim_id: str, user: str) -> None:
+        self.delete("watchers/" + sim_id, {'user': user})
+
+    @try_request
+    def list_watchers(self, sim_id: str) -> List[str]:
+        res = self.get("watchers/" + sim_id)
+        return res.json()
 
     def _push_file(self, file: File, file_type: str, sim_data: Dict, chunk_size: int, out_stream: IO):
         if file.type in (DataObject.Type.PATH, DataObject.Type.IMAS):

@@ -7,9 +7,10 @@ from datetime import datetime
 from dateutil import parser as date_parser
 from sqlalchemy import Column, ForeignKey, Table, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, validates
 import sqlalchemy.types as sql_types
 import uri as urilib
+from email_validator import validate_email
 
 from ..cli.manifest import Manifest, DataObject
 from ..docstrings import inherit_docstrings
@@ -159,7 +160,6 @@ class Simulation(Base):
     __tablename__ = "simulations"
     id = Column(sql_types.Integer, primary_key=True)
     uuid = Column(UUID, nullable=False, unique=True)
-    # metadata_id = Column(Integer, ForeignKey(MetaData.id))
     alias = Column(sql_types.String(250), nullable=True, unique=True)
     datetime = Column(sql_types.DateTime, nullable=False)
     status = Column(sql_types.String(20), nullable=False)
@@ -168,6 +168,7 @@ class Simulation(Base):
     meta = relationship("MetaData")
     provenance = relationship("Provenance", uselist=False)
     summary = relationship("Summary")
+    watchers = relationship("Watcher")
 
     def __init__(self, manifest: Union[Manifest, None]) -> None:
         """
@@ -410,6 +411,38 @@ class MetaData(Base):
             uuid=self.uuid.hex,
             element=self.element,
             value=self.value,
+        )
+        return data
+
+
+@inherit_docstrings
+class Watcher(Base):
+    """
+    Class to represent people watching simulations for updates.
+    """
+    __tablename__ = "watchers"
+    id = Column(sql_types.Integer, primary_key=True)
+    username = Column(sql_types.String(250))
+    email = Column(sql_types.String(1000))
+
+    @validates('email')
+    def validate_email(self, key, address):
+        validate_email(address)
+        return address
+
+    def __init__(self, username, email):
+        self.username = username
+        self.email = email
+
+    @classmethod
+    def from_data(cls, data: Dict) -> "Watcher":
+        watcher = Watcher(data["username"], data["email"])
+        return watcher
+
+    def data(self, recurse: bool=False) -> Dict[str, str]:
+        data = dict(
+            username=self.username,
+            email=self.email,
         )
         return data
 

@@ -1,6 +1,7 @@
 import os
 import json
 import itertools
+from pathlib import Path
 from flask import g, Blueprint, request, jsonify, Response, current_app, _app_ctx_stack
 from werkzeug.utils import secure_filename
 from werkzeug.datastructures import FileStorage
@@ -12,7 +13,7 @@ from itertools import chain
 
 from .. import __version__
 from ..database.database import Database, DatabaseError
-from ..database.models import Simulation, File, MetaData
+from ..database.models import Simulation, File, Watcher
 from ..checksum import sha1_checksum
 
 api = Blueprint("api", __name__)
@@ -130,7 +131,7 @@ def list_files():
 
 @api.route("/file/<string:file_uuid>", methods=["GET"])
 @requires_auth()
-def get_file(file_uuid):
+def get_file(file_uuid: str):
     try:
         file = api.db.get_file(file_uuid)
         return jsonify(file.data(recurse=True))
@@ -164,7 +165,7 @@ def _stage_file_from_chunks(files: Iterable[FileStorage], chunk_info: Dict, sim_
             _save_chunked_file(file, file_chunk_info, path)
 
 
-def _set_alias(alias):
+def _set_alias(alias: str):
     character = None
     if alias.endswith('-'):
         character = '-'
@@ -182,7 +183,7 @@ def _set_alias(alias):
             next_id = existing_id + 1
     alias = '%s%d' % (alias, next_id)
 
-    return (alias, next_id)
+    return alias, next_id
 
 
 def _verify_files(file_uuid: uuid.UUID, sim_uuid: uuid.UUID, sim_files: List[File]):
@@ -191,8 +192,8 @@ def _verify_files(file_uuid: uuid.UUID, sim_uuid: uuid.UUID, sim_files: List[Fil
     if sim_file is None:
         raise ValueError("file with uuid %s not found in simulation" % file_uuid)
     file_name = secure_filename(sim_file.file_name)
-    path = os.path.join(staging_dir, file_name)
-    if not os.path.exists(path):
+    path = Path(staging_dir) / file_name
+    if not path.exists():
         raise ValueError('file %s does not exist' % path)
     checksum = sha1_checksum(path)
     if sim_file.checksum != checksum:
@@ -266,7 +267,7 @@ def ingest_simulation():
 
 @api.route("/simulation/<string:sim_id>", methods=["GET"])
 @requires_auth()
-def get_simulation(sim_id):
+def get_simulation(sim_id: str):
     try:
         simulation = api.db.get_simulation(sim_id)
         return jsonify(simulation.data(recurse=True))
@@ -276,7 +277,7 @@ def get_simulation(sim_id):
 
 @api.route("/simulation/<string:sim_id>", methods=["DELETE"])
 @requires_auth("admin")
-def delete_simulation(sim_id):
+def delete_simulation(sim_id: str):
     try:
         simulation = api.db.delete_simulation(sim_id)
         files = []
@@ -293,9 +294,49 @@ def delete_simulation(sim_id):
 
 @api.route("/publish/<string:sim_id>", methods=["POST"])
 @requires_auth()
-def publish_simulation(sim_id):
+def publish_simulation(sim_id: str):
     try:
         simulation = api.db.get_simulation(sim_id)
         return error("not yet implemented")
+    except DatabaseError as err:
+        return error(str(err))
+
+
+@api.route("/watchers/<string:sim_id>", method=["POST"])
+@requires_auth()
+def add_watcher(sim_id: str):
+    try:
+        data = request.get_json()
+
+        if "username" not in data:
+            return error("Watcher username not provided")
+        if "email" not in data:
+            return error("Watcher email not provided")
+
+        watcher = Watcher(data["username"], data["email"])
+        api.db.add_watcher(sim_id, watcher)
+    except DatabaseError as err:
+        return error(str(err))
+
+
+@api.route("/watchers/<string:sim_id>", method=["DELETE"])
+@requires_auth()
+def remove_watcher(sim_id: str):
+    try:
+        data = request.get_json()
+
+        if "username" not in data:
+            return error("Watcher username not provided")
+
+        api.db.remove_watcher(sim_id, data["username"])
+    except DatabaseError as err:
+        return error(str(err))
+
+
+@api.route("/watchers/<string:sim_id>", method=["GET"])
+@requires_auth()
+def list_watchers(sim_id: str):
+    try:
+        return api.db.get_watchers(sim_id)
     except DatabaseError as err:
         return error(str(err))

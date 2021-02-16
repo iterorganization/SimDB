@@ -1,8 +1,11 @@
 import os
 import sys
 import argparse
+from pathlib import Path
+from uri import URI
 from typing import (Any, Optional, List, Dict, Tuple, TYPE_CHECKING, TypeVar)
 from enum import (Enum, auto)
+from email_validator import validate_email, EmailNotValidError
 from ..docstrings import inherit_docstrings
 
 if TYPE_CHECKING or 'sphinx' in sys.modules:
@@ -78,7 +81,7 @@ class QueryCommand(Command):
         SUMMARY = auto()
 
     def __init__(self, query_type: QueryType=QueryType.META) -> None:
-        """Specify what type of query should be perfomed by this command, based on the enum value provided.
+        """Specify what type of query should be performed by this command, based on the enum value provided.
 
         :param query_type: the query type to perform when the command is run
         """
@@ -86,7 +89,8 @@ class QueryCommand(Command):
 
     def add_arguments(self, parser: argparse.ArgumentParser):
         parser.add_argument("-v", "--verbose", action="store_true", help="print more verbose output")
-        parser.add_argument("-a", "--attributes", dest="attributes", default=None, help="list of attributes to include in output")
+        parser.add_argument("-a", "--attributes", dest="attributes", default=None,
+                            help="list of attributes to include in output")
         parser.add_argument('constraint', nargs='*', help="constraint in the form key=value or key=in:value")
 
     def run(self, args: QueryArgs, config: Config) -> None:
@@ -194,13 +198,13 @@ class IngestCommand(Command):
     _help = "ingest a manifest file"
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("manifest_file", help="manifest file location")
+        parser.add_argument("manifest_file", help="manifest file location", type=Path)
         parser.add_argument("--alias", "-a", help="alias of an existing manifest to update, or a new alias use")
         parser.add_argument("--uuid", "-u", help="uuid of an already ingested manifest to update")
         parser.add_argument("--update", action="store_true", help="update an existing manifest")
 
     class IngestArgs(argparse.Namespace):
-        manifest_file: str
+        manifest_file: Path
         alias: Optional[str]
         uuid: Optional[str]
         update: bool
@@ -446,10 +450,11 @@ class ValidateCommand(Command):
         for file in chain(simulation.inputs, simulation.outputs):
             if file.type == DataObject.Type.UDA:
                 from ..uda.checksum import checksum as uda_checksum
-                checksum = uda_checksum(file.file_name, file.directory)
+                uri = URI('uda:///?signal=%s&source=%s' % (file.file_name, file.directory))
+                checksum = uda_checksum(uri)
             else:
                 from ..checksum import sha1_checksum
-                path = os.path.join(file.directory, file.file_name)
+                path = Path(file.directory) / file.file_name
                 checksum = sha1_checksum(path)
             if checksum != file.checksum:
                 raise ValidationError("Checksum doest not match for file " + str(file))
@@ -476,7 +481,8 @@ class SimulationCommand(Command):
 
         def add_arguments(self, parser: argparse.ArgumentParser) -> None:
             parser.add_argument("--alias", "-a", help="alias of to assign to the simulation")
-            parser.add_argument("--uuid-only", "-u", dest="uuid", default=False, action="store_true", help="return a new UUID but do not insert the new simulation into the database")
+            parser.add_argument("--uuid-only", "-u", dest="uuid", default=False, action="store_true",
+                                help="return a new UUID but do not insert the new simulation into the database")
 
         class NewArgs(argparse.Namespace):
             alias: str
@@ -584,8 +590,7 @@ class SummaryCommand(Command):
             import yaml
 
             with open(args.file) as f:
-                yaml.safe_load()
-                y = yaml.load(f, Loader=yaml.SafeLoader)
+                y = yaml.safe_load(f)
                 summary = _flatten_dict(y)
             db = get_local_db(config)
             db.insert_summary(args.sim_id, summary)
@@ -621,7 +626,7 @@ class SummaryCommand(Command):
             sub_parser = command_parsers.add_parser(name, help=command.help)
             command.add_arguments(sub_parser)
 
-    class SummaryArgs():
+    class SummaryArgs:
         sum_action: str
 
     def run(self, args: SummaryArgs, config: Config) -> None:
@@ -634,6 +639,7 @@ class RemoteCommand(Command):
     """
     _help = "query remote system"
     _parser: argparse.ArgumentParser
+    _commands: Dict[str, Command]
 
     @inherit_docstrings
     class RemoteDatabaseCommand(Command):
@@ -659,22 +665,52 @@ class RemoteCommand(Command):
         def run(self, args: Any, _: Config) -> None:
             pass
 
+    @inherit_docstrings
+    class WatchCommand(Command):
+        """Command to manage the remote database [for development use only -- to be removed]."""
+        _help = "manage remote simulation database file"
+
+        def add_arguments(self, parser: argparse.ArgumentParser) -> None:
+            parser.add_argument("--user", "-u", help="username of the the user to add as a watcher",
+                                default=os.getlogin())
+            parser.add_argument("--email", "-e", help="email address of the user to add as a watcher")
+            parser.add_argument("--remove", "-r", action="store_true", help="remove the watcher from the simulation")
+            parser.add_argument("--list", "-l", action="store_true", help="list existing watchers for the simulation")
+
+        def run(self, args: argparse.Namespace, config: Config) -> None:
+            from .remote_api import RemoteAPI
+            api = RemoteAPI(config)
+            if args.list:
+                print("watchers:")
+                for watcher in api.list_watchers():
+                    print(watcher)
+            elif args.remove:
+                try:
+                    validate_email(args.email)
+                except EmailNotValidError:
+                    print("invalid email")
+                    return
+                api.add_watcher(args.sim_id, args.name, args.email)
+            else:
+                api.remove_watcher(args.sim_id, args.name, args.email)
+
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
         command_parsers = parser.add_subparsers(title="action", dest="action")
         command_parsers.required = True
 
         parser.add_argument("-v", "--verbose", action="store_true", help="print more verbose output")
 
-        commands = {
+        self._commands = {
             "list": ListCommand(),
             "info": InfoCommand(),
             "query": QueryCommand(),
+            "watch": RemoteCommand.WatchCommand(),
             "publish": RemoteCommand.RemoteSimulationCommand("publish staged simulation"),
             "delete": RemoteCommand.RemoteSimulationCommand("delete staged simulation"),
             "database": RemoteCommand.RemoteDatabaseCommand(),
         }
 
-        for name, command in commands.items():
+        for name, command in self._commands.items():
             sub_parser = command_parsers.add_parser(name, help=command.help)
             command.add_arguments(sub_parser)
 
@@ -708,6 +744,8 @@ class RemoteCommand(Command):
         elif args.action == "query":
             simulations = api.query_simulations(args.constraint)
             _list_simulations(simulations, verbose=args.verbose, metadata_names=args.attributes)
+        elif args.action == "watch":
+            self._commands["watch"].run(args, config)
 
 
 @inherit_docstrings
@@ -718,11 +756,11 @@ class ManifestCommand(Command):
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("action", choices=["check", "create"])
-        parser.add_argument("manifest_file", help="manifest file location")
+        parser.add_argument("manifest_file", help="manifest file location", type=Path)
 
     class ManifestArgs(argparse.Namespace):
         action: str
-        manifest_file: str
+        manifest_file: Path
 
     def run(self, args: ManifestArgs, _: Config) -> None:
         from .manifest import (Manifest, InvalidManifest)

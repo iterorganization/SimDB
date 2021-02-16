@@ -14,3 +14,4 @@ distro~=1.5.0
 setuptools~=49.2.1
 pytest-cov~=2.10.1
 uri~=2.0
+email-validator~=1.1

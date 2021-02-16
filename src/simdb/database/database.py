@@ -18,7 +18,7 @@ if TYPE_CHECKING or 'sphinx' in sys.modules:
     from sqlalchemy.orm import scoped_session, sessionmaker
     import sqlalchemy
     from .models import (Base, Simulation, File, MetaData, ValidationParameters, Provenance, ProvenanceMetaData,
-                         ControlledVocabulary, Summary)
+                         ControlledVocabulary, Summary, Watcher)
 
 
 class Database:
@@ -290,6 +290,23 @@ class Database:
             raise DatabaseError("Failed to find simulation: " + sim_ref)
         self.session.commit()
         return simulation.provenance
+
+    def add_watcher(self, sim_ref: str, watcher: "Watcher"):
+        sim = self.get_simulation(sim_ref)
+        sim.watchers.append(watcher)
+        self.session.commit()
+
+    def remove_watcher(self, sim_ref: str, username: str):
+        sim = self.get_simulation(sim_ref)
+        watchers = sim.watchers.filter_by(username=username).all()
+        if not watchers:
+            raise DatabaseError("Watcher not found for simulation: " + sim_ref)
+        for watcher in watchers:
+            sim.watchers.remove(watcher)
+        self.session.commit()
+
+    def list_watchers(self, sim_ref: str) -> List[Watcher]:
+        return self.get_simulation(sim_ref).watchers.all()
 
     def query_provenance(self, equals=None, contains=None) -> List["Simulation"]:
         """

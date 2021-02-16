@@ -1,0 +1,17 @@
+magnetics:
+  flux_loop:
+    flux:
+      data:
+        metrics:
+          - len
+          - max
+          - min
+      time:
+        metrics:
+          - len
+          - max
+          - min
+    position:
+      r: value
+      z: value
+      phi: value

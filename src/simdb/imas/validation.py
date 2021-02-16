@@ -405,7 +405,7 @@ def drilldown(device: str, scenario: str, parent_path: str, obj_name: str, obj: 
     return
 
 
-def verify_equlibirium_COCOS(imas_obj: Any) -> bool:
+def verify_equilibrium_cocos(imas_obj: Any) -> bool:
     # Verify the EQUILIBRIUM IDS is COCOS compliant
 
     ids = getattr(imas_obj, 'equilibrium')
@@ -437,7 +437,8 @@ def verify_equlibirium_COCOS(imas_obj: Any) -> bool:
         b0 = time_slice[a_index].global_quantities.magnetic_axis.b_field_tor
         sigma_b0 = +1
         if not is_missing(b0):
-            if b0 < 0.0: sigma_b0 = -1
+            if b0 < 0.0:
+                sigma_b0 = -1
         else:
             b0 = ids.vacuum_toroidal_field.b0  # array of length ids.time
             if not is_missing(b0):
@@ -449,8 +450,10 @@ def verify_equlibirium_COCOS(imas_obj: Any) -> bool:
                         if t >= tvec[t_index]:
                             b0_t = b0[t_index]
                             break
-                    if b0_t == 0.0: b0_t = b0.mean()
-                    if b0_t < 0.0: sigma_b0 = -1
+                    if b0_t == 0.0:
+                        b0_t = b0.mean()
+                    if b0_t < 0.0:
+                        sigma_b0 = -1
             else:
                 print('Unable to verify COCOS compliance: missing toroidal magnetic field')
                 compliance = False
@@ -505,7 +508,8 @@ def verify_equlibirium_COCOS(imas_obj: Any) -> bool:
                     sign_vote = sign_vote - 1
                 else:
                     sign_vote = sign_vote + 1
-            if sign_vote < 0: sign_pprime = -1
+            if sign_vote < 0:
+                sign_pprime = -1
         else:
             print('Unable to verify COCOS compliance: missing pprime profile')
             compliance = False
