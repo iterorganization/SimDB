@@ -20,10 +20,16 @@ class ValidationError(Exception):
 
 class CustomValidator(cerberus.Validator):
     def _validate_exists(self, check_exists, field, value):
+        """ The rule's arguments are validated against this schema:
+        {'type': ['string'],
+             'check_with': 'type'} """
         if check_exists and not Path(value).exists():
             self._error(field, "File must exist")
 
     def _validate_checksum(self, check_checksum, field, value):
+        """ The rule's arguments are validated against this schema:
+        {'type': ['string'],
+             'check_with': 'type'} """
         if check_checksum and False:
             self._error(field, "File checksum must be valid")
 

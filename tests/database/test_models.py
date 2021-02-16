@@ -21,7 +21,7 @@ def test_create_simulation_without_manifest_creates_empty_sim():
 def test_create_simulation_with_manifest(manifest_cls, data_object_cls):
     manifest = manifest_cls()
     data_object = data_object_cls()
-    data_object.type = data_object_cls.Type.PATH
+    data_object.type = data_object_cls.Type.FILE
     data_object.path = '/test/file/path.txt'
     manifest.inputs = [data_object]
     manifest.outputs = [data_object]
@@ -29,11 +29,11 @@ def test_create_simulation_with_manifest(manifest_cls, data_object_cls):
     manifest.description = 'test description'
     sim = Simulation(manifest=manifest)
     assert len(sim.inputs) == 1
-    assert sim.inputs[0].type == data_object_cls.Type.PATH
+    assert sim.inputs[0].type == data_object_cls.Type.FILE
     assert sim.inputs[0].directory == '/test/file'
     assert sim.inputs[0].file_name == 'path.txt'
     assert len(sim.outputs) == 1
-    assert sim.outputs[0].type == data_object_cls.Type.PATH
+    assert sim.outputs[0].type == data_object_cls.Type.FILE
     assert sim.outputs[0].directory == '/test/file'
     assert sim.outputs[0].file_name == 'path.txt'
     assert len(sim.meta) == 1

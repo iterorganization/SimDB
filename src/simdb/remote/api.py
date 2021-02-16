@@ -70,17 +70,18 @@ def setup_db(setup_state):
     app = setup_state.app
 
     if app.config["DB_TYPE"] == "pgsql":
-        api.db = Database(_app_ctx_stack.__ident_func__,
-                          Database.DBMS.POSTGRESQL,
+        api.db = Database(Database.DBMS.POSTGRESQL,
+                          scopefunc=_app_ctx_stack.__ident_func__,
                           host=app.config["DB_HOST"], port=app.config["DB_PORT"])
     elif app.config["DB_TYPE"] == "sqlite":
         import appdirs
         db_dir = appdirs.user_data_dir('simdb')
         os.makedirs(db_dir, exist_ok=True)
-        api.db = Database(_app_ctx_stack.__ident_func__,
-                          Database.DBMS.SQLITE, file=os.path.join(db_dir, "remote.db"))
+        api.db = Database(Database.DBMS.SQLITE,
+                          scopefunc=_app_ctx_stack.__ident_func__,
+                          file=os.path.join(db_dir, "remote.db"))
     else:
-        raise RuntimeError("Unkown DB_TYPE in app.cfg: " + app.config["DB_TYPE"])
+        raise RuntimeError("Unknown DB_TYPE in app.cfg: " + app.config["DB_TYPE"])
 
 
 @api.teardown_request
@@ -150,7 +151,7 @@ def _save_chunked_file(file: FileStorage, chunk_info: Dict, path: str, compresse
 
 
 def _stage_file_from_chunks(files: Iterable[FileStorage], chunk_info: Dict, sim_uuid: uuid.UUID, sim_files: List[File]) -> None:
-    staging_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], sim_uuid.hex)
+    staging_dir = Path(current_app.config["UPLOAD_FOLDER"]) / sim_uuid.hex
     os.makedirs(staging_dir, exist_ok=True)
 
     for file in files:
@@ -159,8 +160,8 @@ def _stage_file_from_chunks(files: Iterable[FileStorage], chunk_info: Dict, sim_
             sim_file = next((f for f in sim_files if f.uuid == file_uuid), None)
             if sim_file is None:
                 raise ValueError("file with uuid %s not found in simulation" % file_uuid)
-            file_name = secure_filename(sim_file.file_name)
-            path = os.path.join(staging_dir, file_name)
+            file_name = secure_filename(str(sim_file.uri.path))
+            path = staging_dir / file_name
             file_chunk_info = chunk_info.get(sim_file.uuid.hex, {'chunk_size': 0, 'chunk': 0, 'num_chunks': 1})
             _save_chunked_file(file, file_chunk_info, path)
 
@@ -187,12 +188,12 @@ def _set_alias(alias: str):
 
 
 def _verify_files(file_uuid: uuid.UUID, sim_uuid: uuid.UUID, sim_files: List[File]):
-    staging_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], sim_uuid.hex)
+    staging_dir = Path(current_app.config["UPLOAD_FOLDER"]) / sim_uuid.hex
     sim_file = next((f for f in sim_files if f.uuid == file_uuid), None)
     if sim_file is None:
         raise ValueError("file with uuid %s not found in simulation" % file_uuid)
-    file_name = secure_filename(sim_file.file_name)
-    path = Path(staging_dir) / file_name
+    file_name = secure_filename(str(sim_file.uri.path))
+    path = staging_dir / file_name
     if not path.exists():
         raise ValueError('file %s does not exist' % path)
     checksum = sha1_checksum(path)
@@ -249,12 +250,12 @@ def ingest_simulation():
         simulation = Simulation.from_data(data["simulation"])
         simulation.alias = simulation.uuid.hex[0:8]
 
-        staging_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], simulation.uuid.hex)
+        staging_dir = Path(current_app.config["UPLOAD_FOLDER"]) / simulation.uuid.hex
 
         for sim_file in chain(simulation.inputs, simulation.outputs):
-            file_name = secure_filename(sim_file.file_name)
-            path = os.path.join(staging_dir, file_name)
-            if not os.path.exists(path):
+            file_name = secure_filename(str(sim_file.uri.path))
+            path = staging_dir / file_name
+            if not path.exists():
                 raise ValueError('simulation file %s not uploaded' % sim_file.uuid)
             sim_file.directory = staging_dir
 
@@ -302,41 +303,43 @@ def publish_simulation(sim_id: str):
         return error(str(err))
 
 
-@api.route("/watchers/<string:sim_id>", method=["POST"])
+@api.route("/watchers/<string:sim_id>", methods=["POST"])
 @requires_auth()
 def add_watcher(sim_id: str):
     try:
         data = request.get_json()
 
-        if "username" not in data:
+        if "user" not in data:
             return error("Watcher username not provided")
         if "email" not in data:
             return error("Watcher email not provided")
 
-        watcher = Watcher(data["username"], data["email"])
+        watcher = Watcher(data["user"], data["email"])
         api.db.add_watcher(sim_id, watcher)
+        return jsonify({"added": {"simulation": sim_id, "watcher": data["user"]}})
     except DatabaseError as err:
         return error(str(err))
 
 
-@api.route("/watchers/<string:sim_id>", method=["DELETE"])
+@api.route("/watchers/<string:sim_id>", methods=["DELETE"])
 @requires_auth()
 def remove_watcher(sim_id: str):
     try:
         data = request.get_json()
 
-        if "username" not in data:
+        if "user" not in data:
             return error("Watcher username not provided")
 
-        api.db.remove_watcher(sim_id, data["username"])
+        api.db.remove_watcher(sim_id, data["user"])
+        return jsonify({"removed": {"simulation": sim_id, "watcher": data["user"]}})
     except DatabaseError as err:
         return error(str(err))
 
 
-@api.route("/watchers/<string:sim_id>", method=["GET"])
+@api.route("/watchers/<string:sim_id>", methods=["GET"])
 @requires_auth()
 def list_watchers(sim_id: str):
     try:
-        return api.db.get_watchers(sim_id)
+        return jsonify([watcher.data(recurse=True) for watcher in api.db.list_watchers(sim_id)])
     except DatabaseError as err:
         return error(str(err))

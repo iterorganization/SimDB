@@ -152,13 +152,13 @@ class RemoteAPI:
         self.delete("watchers/" + sim_id, {'user': user})
 
     @try_request
-    def list_watchers(self, sim_id: str) -> List[str]:
+    def list_watchers(self, sim_id: str) -> List[Tuple]:
         res = self.get("watchers/" + sim_id)
-        return res.json()
+        return [(d["username"], d["email"]) for d in res.json()]
 
     def _push_file(self, file: File, file_type: str, sim_data: Dict, chunk_size: int, out_stream: IO):
-        if file.type in (DataObject.Type.PATH, DataObject.Type.IMAS):
-            path = os.path.join(file.directory, file.file_name)
+        if file.type in (DataObject.Type.FILE, DataObject.Type.IMAS):
+            path = file.uri.path
             print('Uploading file {} '.format(path), file=out_stream, end='')
             num_chunks = 0
             for i, chunk in enumerate(read_bytes_in_chunks(path, compressed=True, chunk_size=chunk_size)):

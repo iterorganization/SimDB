@@ -2,7 +2,7 @@ import uuid
 import os
 import sys
 import contextlib
-from typing import Optional, List, Tuple, Union, TYPE_CHECKING
+from typing import Optional, List, Tuple, Union, TYPE_CHECKING, cast, Any
 from enum import Enum, auto
 from ..config.config import Config
 
@@ -20,6 +20,22 @@ if TYPE_CHECKING or 'sphinx' in sys.modules:
     from .models import (Base, Simulation, File, MetaData, ValidationParameters, Provenance, ProvenanceMetaData,
                          ControlledVocabulary, Summary, Watcher)
 
+    class Session(scoped_session):
+        def query(self, obj: Base) -> Any:
+            pass
+
+        def commit(self):
+            pass
+
+        def delete(self, obj: Base):
+            pass
+
+        def add(self, obj: Base):
+            pass
+
+        def rollback(self):
+            pass
+
 
 class Database:
     """
@@ -36,7 +52,7 @@ class Database:
         POSTGRESQL = auto()
         MSSQL = auto()
 
-    def __init__(self, scopefunc, db_type: DBMS, **kwargs) -> None:
+    def __init__(self, db_type: DBMS, scopefunc=None, **kwargs) -> None:
         from sqlalchemy import create_engine
         from sqlalchemy.orm import sessionmaker, scoped_session
         from .models import Base
@@ -86,7 +102,9 @@ class Database:
         if new_db:
             Base.metadata.create_all(self.engine)
         Base.metadata.bind = self.engine
-        self.session = scoped_session(sessionmaker(bind=self.engine), scopefunc=scopefunc)
+        if scopefunc is None:
+            scopefunc = lambda: 0
+        self.session: "Session" = cast("Session", scoped_session(sessionmaker(bind=self.engine), scopefunc=scopefunc))
 
     def remove(self):
         """
@@ -129,7 +147,8 @@ class Database:
 
         return self.session.query(File).all()
 
-    def list_validation_parameters(self, device: Optional[str], scenario: Optional[str]) -> List["ValidationParameters"]:
+    def list_validation_parameters(self, device: Optional[str], scenario: Optional[str]) -> List[
+        "ValidationParameters"]:
         from .models import ValidationParameters
 
         if device is None and scenario is None:
@@ -191,12 +210,12 @@ class Database:
             contains = {}
 
         for name in equals:
-            queries.append(self.session.query(Simulation).join(MetaData, Simulation.meta)\
+            queries.append(self.session.query(Simulation).join(MetaData, Simulation.meta) \
                            .filter(MetaData.element == name,
                                    func.lower(MetaData.value) == equals[name].lower()))
 
         for name in contains:
-            queries.append(self.session.query(Simulation).join(MetaData, Simulation.meta)\
+            queries.append(self.session.query(Simulation).join(MetaData, Simulation.meta) \
                            .filter(MetaData.element == name,
                                    MetaData.value.ilike("%{}%".format(contains[name]))))
 
@@ -305,7 +324,7 @@ class Database:
             sim.watchers.remove(watcher)
         self.session.commit()
 
-    def list_watchers(self, sim_ref: str) -> List[Watcher]:
+    def list_watchers(self, sim_ref: str) -> List["Watcher"]:
         return self.get_simulation(sim_ref).watchers.all()
 
     def query_provenance(self, equals=None, contains=None) -> List["Simulation"]:
@@ -325,16 +344,16 @@ class Database:
             contains = {}
 
         for name in equals:
-            queries.append(self.session.query(Simulation)\
-                           .join(Provenance, Simulation.provenance)\
-                           .join(ProvenanceMetaData, Provenance.meta)\
+            queries.append(self.session.query(Simulation)
+                           .join(Provenance, Simulation.provenance)
+                           .join(ProvenanceMetaData, Provenance.meta)
                            .filter(ProvenanceMetaData.element == name,
-                                  func.lower(ProvenanceMetaData.value) == equals[name].lower()))
+                                   func.lower(ProvenanceMetaData.value) == equals[name].lower()))
 
         for name in contains:
             queries.append(self.session.query(Simulation)
-                           .join(Provenance, Simulation.provenance)\
-                           .join(ProvenanceMetaData, Provenance.meta)\
+                           .join(Provenance, Simulation.provenance)
+                           .join(ProvenanceMetaData, Provenance.meta)
                            .filter(ProvenanceMetaData.element == name,
                                    ProvenanceMetaData.value.ilike("%{}%".format(contains[name]))))
 
@@ -356,18 +375,18 @@ class Database:
             contains = {}
 
         for name in equals:
-            queries.append(self.session.query(Simulation).join(Summary, Simulation.summary)\
+            queries.append(self.session.query(Simulation).join(Summary, Simulation.summary)
                            .filter(Summary.key == name,
                                    func.lower(Summary.value) == equals[name].lower()))
 
         for name in contains:
-            queries.append(self.session.query(Simulation).join(Summary, Simulation.summary)\
+            queries.append(self.session.query(Simulation).join(Summary, Simulation.summary)
                            .filter(Summary.key == name,
                                    Summary.value.ilike("%{}%".format(contains[name]))))
 
         query = queries[0]
         for i in range(1, len(queries)):
-            query = query.intersect(queries[i])        
+            query = query.intersect(queries[i])
 
         return query.all()
 
@@ -391,7 +410,8 @@ class Database:
         """
         Insert the given simulation into the database.
 
-        :param simulation: The Simulation to insert.
+        :param sim_ref: The Simulation to insert.
+        :param provenance:
         :return: None
         """
         from .models import Simulation, Provenance
@@ -428,8 +448,8 @@ class Database:
     def get_validation_parameters(self, device: str, scenario: str, path: str) -> Optional["ValidationParameters"]:
         from .models import ValidationParameters
 
-        return self.session.query(ValidationParameters)\
-            .filter_by(device=device, scenario=scenario, path=path)\
+        return self.session.query(ValidationParameters) \
+            .filter_by(device=device, scenario=scenario, path=path) \
             .one_or_none()
 
     def insert_validation_parameters(self, params: "ValidationParameters") -> None:
@@ -494,7 +514,8 @@ class Database:
         from .models import Simulation
 
         if prefix:
-            return [el[0] for el in self.session.query(Simulation).filter(Simulation.alias.like(prefix + '%')).values('alias')]
+            return [el[0] for el in
+                    self.session.query(Simulation).filter(Simulation.alias.like(prefix + '%')).values('alias')]
         else:
             return [el[0] for el in self.session.query(Simulation).values('alias')]
 

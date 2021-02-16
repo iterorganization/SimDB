@@ -3,7 +3,7 @@ import argcomplete
 from typing import List
 
 from .commands import SimulationCommand, ManifestCommand, DatabaseCommand, RemoteCommand,\
-    ProvenanceCommand, SummaryCommand, ConfigCommand, AliasCommand
+    ProvenanceCommand, SummaryCommand, ConfigCommand, AliasCommand, Command
 from ..config.config import Config
 
 
@@ -12,7 +12,7 @@ class SimCLI:
     Class to provide the simulation management tool command line interface.
     """
 
-    commands = {
+    commands: [str, Command] = {
         "simulation": SimulationCommand(),
         "manifest": ManifestCommand(),
         "database": DatabaseCommand(),
@@ -42,6 +42,9 @@ class SimCLI:
 
         argcomplete.autocomplete(parser)
         parsed_args = parser.parse_args(args)
+
+        for _, command in self.commands.items():
+            command.validate_arguments(parser, parsed_args)
 
         config = Config()
         config.load()

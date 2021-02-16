@@ -25,10 +25,10 @@ def _expand_path(path: Path, base_path: Path) -> Path:
 def _to_uri(uri_str: str, base_path: Path) -> Tuple["DataObject.Type", urilib.URI]:
     uri = urilib.URI(uri_str)
     if uri.scheme is None:
-        raise ValueError()
+        raise ValueError("invalid uri: %s" % uri_str)
     if uri.scheme.name == 'file':
         uri = urilib.URI(uri, path=_expand_path(uri.path, base_path))
-        return DataObject.Type.PATH, uri
+        return DataObject.Type.FILE, uri
     if uri.scheme.name == "imas":
         return DataObject.Type.IMAS, uri
     if uri.scheme.name == "uda":
@@ -50,7 +50,7 @@ class DataObject:
     class Type(Enum):
         UNKNOWN = auto()
         UUID = auto()
-        PATH = auto()
+        FILE = auto()
         IMAS = auto()
         UDA = auto()
 
@@ -106,9 +106,9 @@ class ListValuesValidator(ManifestValidator):
             if not isinstance(item, dict) or len(item) > 1:
                 raise InvalidManifest("badly formatted manifest - %s values should be a name value pair" % self.section_name)
             name = list(item.keys())[0]
-            if isinstance(self.expected_keys, list) and name not in self.expected_keys:
+            if isinstance(self.expected_keys, tuple) and name not in self.expected_keys:
                 raise InvalidManifest("unknown %s entry in manifest: %s" % (self.section_name, name))
-            if isinstance(self.required_keys, list) and name not in self.required_keys:
+            if isinstance(self.required_keys, tuple) and name not in self.required_keys:
                 raise InvalidManifest("required %s key not found in manifest: %s" % (self.section_name, name))
             if name == 'path' and not os.path.isfile(list(item.values())[0]):
                 raise InvalidManifest("invalid path to file in manifest: %s" % (list(item.values())[0]))
@@ -120,7 +120,8 @@ class InputsValidator(ListValuesValidator):
     """
     def __init__(self) -> None:
         self.section_name: str = "inputs"
-        self.expected_keys: Iterable = ("uuid", "path", "imas", "uda")
+        # self.expected_keys: Iterable = ("uuid", "path", "imas", "uda")
+        self.expected_keys: Iterable = ("uri",)
         super().__init__(self.section_name, self.expected_keys)
 
 
@@ -140,7 +141,8 @@ class OutputsValidator(ListValuesValidator):
     """
     def __init__(self) -> None:
         self.section_name: str = "outputs"
-        self.expected_keys: Iterable = ("path", "imas")
+        # self.expected_keys: Iterable = ("path", "imas")
+        self.expected_keys: Iterable = ("uri",)
         super().__init__(self.section_name, self.expected_keys)
 
 class DescriptionValidator(ManifestValidator):
@@ -238,13 +240,13 @@ class Manifest:
     @property
     def inputs(self) -> Iterable[Source]:
         if isinstance(self._data, dict):
-            return [Source(self._path, i) for i in self._data["inputs"]]
+            return [Source(self._path, i["uri"]) for i in self._data["inputs"]]
         return []
 
     @property
     def outputs(self) -> Iterable[Sink]:
         if isinstance(self._data, dict):
-            return [Sink(self._path, i) for i in self._data["outputs"]]
+            return [Sink(self._path, i["uri"]) for i in self._data["outputs"]]
         return []
 
     @property

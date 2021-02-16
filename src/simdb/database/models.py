@@ -128,6 +128,11 @@ simulation_output_files = Table("simulation_output_files", Base.metadata,
                                 Column("file_id", sql_types.Integer, ForeignKey("files.id")))
 
 
+simulation_watchers = Table("simulation_watchers", Base.metadata,
+                            Column("simulation_id", sql_types.Integer, ForeignKey("simulations.id")),
+                            Column("watcher_id", sql_types.Integer, ForeignKey("watchers.id")))
+
+
 def _get_imas_paths(imas: Dict) -> List[str]:
     if "IMAS_VERSION" not in os.environ:
         raise Exception("$IMAS_VERSION not defined")
@@ -168,7 +173,7 @@ class Simulation(Base):
     meta = relationship("MetaData")
     provenance = relationship("Provenance", uselist=False)
     summary = relationship("Summary")
-    watchers = relationship("Watcher")
+    watchers = relationship("Watcher", secondary=simulation_watchers, lazy='dynamic')
 
     def __init__(self, manifest: Union[Manifest, None]) -> None:
         """
@@ -272,7 +277,7 @@ class Simulation(Base):
             elif file.type == DataObject.Type.IMAS:
                 from ..imas.checksum import checksum as imas_checksum
                 checksum = imas_checksum(file.uri)
-            elif file.type == DataObject.Type.PATH:
+            elif file.type == DataObject.Type.FILE:
                 from ..checksum import sha1_checksum
                 checksum = sha1_checksum(file.uri)
             else:
@@ -294,12 +299,12 @@ def _generate_checksum(type: DataObject.Type, uri: urilib.URI) -> str:
         """
         from ..imas.checksum import checksum as imas_checksum
         checksum = imas_checksum(uri)
-    elif type == DataObject.Type.PATH:
+    elif type == DataObject.Type.FILE:
         """
         URI: file:///path/to/file
         """
         from ..checksum import sha1_checksum
-        checksum = sha1_checksum(uri)
+        checksum = sha1_checksum(uri.path)
     else:
         raise NotImplementedError("Cannot generate checksum for type " + str(type))
     return checksum
@@ -341,7 +346,7 @@ class File(Base):
 
     def __str__(self):
         result = ""
-        for name in ("uuid", "usage", "file_name", "directory", "checksum", "type", "purpose", "sensitivity", "access",
+        for name in ("uuid", "usage", "uri", "checksum", "type", "purpose", "sensitivity", "access",
                      "embargo", "datetime"):
             result += "  %s:%s%s\n" % (name, ((14 - len(name)) * " "), getattr(self, name))
         return result
@@ -352,7 +357,7 @@ class File(Base):
 
     @classmethod
     def from_data(cls, data: Dict) -> "File":
-        file = File(DataObject.Type[data["type"]], data["uri"], perform_integrity_check=False)
+        file = File(DataObject.Type[data["type"]], urilib.URI(data["uri"]), perform_integrity_check=False)
         file.uuid = uuid.UUID(data["uuid"])
         file.usage = data["usage"]
         file.checksum = data["checksum"]
@@ -367,8 +372,7 @@ class File(Base):
         data = dict(
             uuid=self.uuid.hex,
             usage=self.usage,
-            file_name=self.file_name,
-            directory=self.directory,
+            uri=str(self.uri),
             checksum=self.checksum,
             type=self.type.name,
             purpose=self.purpose,
