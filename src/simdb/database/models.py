@@ -83,6 +83,31 @@ class URI(sql_types.TypeDecorator):
         return self.process_result_value(value, dialect)
 
 
+class ChoiceType(sql_types.TypeDecorator):
+
+    impl = sql_types.CHAR
+
+    @property
+    def python_type(self):
+        return str
+
+    def __init__(self, choices, **kw):
+        self.choices = dict(choices)
+        self.choices_inverse = {v: k for k, v in self.choices.items()}
+        if len(self.choices) != len(self.choices_inverse):
+            raise TypeError('Values in choices dict must be unique')
+        super().__init__(**kw)
+
+    def process_bind_param(self, value, dialect):
+        return self.choices_inverse[value]
+
+    def process_result_value(self, value, dialect):
+        return self.choices[value]
+
+    def process_literal_param(self, value, dialect):
+        return self.process_result_value(value, dialect)
+
+
 class BaseModel:
     """
     Base model for ORM classes.
@@ -279,7 +304,7 @@ class Simulation(Base):
                 checksum = imas_checksum(file.uri)
             elif file.type == DataObject.Type.FILE:
                 from ..checksum import sha1_checksum
-                checksum = sha1_checksum(file.uri)
+                checksum = sha1_checksum(file.uri.path)
             else:
                 raise NotImplementedError("Not implemented for file type " + str(file.type))
             if checksum != file.checksum:
@@ -424,19 +449,28 @@ class Watcher(Base):
     """
     Class to represent people watching simulations for updates.
     """
+    NOTIFICATION_CHOICES = {
+        'V': 'validation',
+        'R': 'revision',
+        'O': 'obsolescence',
+        'A': 'all',
+    }
+
     __tablename__ = "watchers"
     id = Column(sql_types.Integer, primary_key=True)
     username = Column(sql_types.String(250))
     email = Column(sql_types.String(1000))
+    notification = ChoiceType(choices=NOTIFICATION_CHOICES, length=1)
 
     @validates('email')
     def validate_email(self, key, address):
         validate_email(address)
         return address
 
-    def __init__(self, username, email):
+    def __init__(self, username, email, notification):
         self.username = username
         self.email = email
+        self.notification = notification
 
     @classmethod
     def from_data(cls, data: Dict) -> "Watcher":

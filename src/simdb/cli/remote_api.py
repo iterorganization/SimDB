@@ -144,8 +144,8 @@ class RemoteAPI:
         self.post("publish/" + sim_id, {})
 
     @try_request
-    def add_watcher(self, sim_id: str, user: str, email: str) -> None:
-        self.post("watchers/" + sim_id, {'user': user, 'email': email})
+    def add_watcher(self, sim_id: str, user: str, email: str, notification: str) -> None:
+        self.post("watchers/" + sim_id, {'user': user, 'email': email, 'notification': notification})
 
     @try_request
     def remove_watcher(self, sim_id: str, user: str) -> None:

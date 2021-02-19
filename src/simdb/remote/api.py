@@ -313,8 +313,10 @@ def add_watcher(sim_id: str):
             return error("Watcher username not provided")
         if "email" not in data:
             return error("Watcher email not provided")
+        if "notification" not in data:
+            return error("Watcher notification not provided")
 
-        watcher = Watcher(data["user"], data["email"])
+        watcher = Watcher(data["user"], data["email"], data["notification"])
         api.db.add_watcher(sim_id, watcher)
         return jsonify({"added": {"simulation": sim_id, "watcher": data["user"]}})
     except DatabaseError as err:

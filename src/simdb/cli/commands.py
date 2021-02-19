@@ -685,6 +685,8 @@ class RemoteCommand(Command):
             parser.add_argument("--user", "-u", help="username of the the user to add as a watcher",
                                 default=os.getlogin())
             parser.add_argument("--email", "-e", help="email address of the user to add as a watcher")
+            parser.add_argument("--notification", "-n", choices=('validation', 'revision', 'obsolescence', 'all'),
+                                help="what event(s) to be notified of for the simulation", default='obsolescence')
             parser.add_argument("--remove", "-r", action="store_true", help="remove the watcher from the simulation")
             parser.add_argument("--list", "-l", action="store_true", help="list existing watchers for the simulation")
             parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
@@ -714,7 +716,7 @@ class RemoteCommand(Command):
                 api.remove_watcher(args.sim_id, args.user)
                 print("Watcher successfully removed for simulation " + args.sim_id)
             else:
-                api.add_watcher(args.sim_id, args.user, args.email)
+                api.add_watcher(args.sim_id, args.user, args.email, args.notification)
                 print("Watcher successfully added for simulation " + args.sim_id)
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
