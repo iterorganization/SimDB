@@ -15,3 +15,6 @@ magnetics:
       r: value
       z: value
       phi: value
+
+summary:
+  values: all
