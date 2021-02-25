@@ -1,0 +1,270 @@
+imas:
+  type: dict
+  schema:
+    equilibrium:
+      type: dict
+      schema:
+        time_slice:
+          type: list
+          schema:
+            global_quantities:
+              type: dict
+              schema:
+                ip:
+                  type: float
+                  le: -17000000
+                  gt: 0
+            profiles_2d:
+              type: list
+              schema:
+                phi:
+                  type: float
+                psi:
+                  type: float
+                r:
+                  type: float
+                  gt: 0
+                z:
+                  type: float
+        vacuum_toroidal_field:
+          type: dict
+          schema:
+            r0:
+              type: float
+              gt: 0
+            b0:
+              type: float
+              lt: 0
+    core_profiles:
+      type: dict
+      global_quantities:
+        type: dict
+        schema:
+          beta_pol:
+            type: float
+          beta_tor_norm:
+            type: float
+            min: 0
+            max: 1
+          current_bootstrap:
+            type: float
+          current_non_inductive:
+            type: float
+          energy_diamagnetic:
+            type: float
+          ip:
+            type: float
+            min: -17000000
+            max: 0
+          v_loop:
+            type: float
+      profiles_1d:
+        type: list
+        schema:
+          e_field:
+            type: dict
+            schema:
+              radial:
+                type: float
+          electrons:
+            type: dict
+            schema:
+              density:
+                type: float
+                ge: 0
+              pressure:
+                type: float
+                ge: 0
+              pressure_fast_parallel:
+                type: float
+              pressure_fast_perpendicular:
+                type: float
+              pressure_thermal:
+                type: float
+              temperature:
+                type: float
+                ge: 0
+          grid:
+            type: dict
+            schema:
+              rho_tor:
+                type: float
+              rho_tor_norm:
+                type: float
+                ge: 0
+                le: 1
+              psi:
+                type: float
+              volume:
+                type: float
+                ge: 0
+          ion:
+            type: list
+            schema:
+              density:
+                type: float
+              element:
+                type: list
+                schema:
+                  a:
+                    type: float
+                    gt: 0
+                  z_n:
+                    type: float
+                    gt: 0
+              pressure:
+                type: float
+                ge: 0
+              pressure_fast_parallel:
+                type: float
+                ge: 0
+              pressure_fast_perpendicular:
+                type: float
+                ge: 0
+              pressure_thermal:
+                type: float
+                ge: 0
+              temperature:
+                type: float
+                ge: 0
+              velocity:
+                type: dict
+                schema:
+                  diamagnetic:
+                    type: float
+                  poloidal:
+                    type: float
+                  toroidal:
+                    type: float
+          j_bootstrap:
+            type: float
+          j_non_inductive:
+            type: float
+          j_ohmic:
+            type: float
+          j_total:
+            type: float
+          magnetic_shear:
+            type: float
+          pressure_ion_total:
+            type: float
+            ge: 0
+          pressure_parallel:
+            type: float
+            ge: 0
+          pressure_perpendicular:
+            type: float
+            ge: 0
+          pressure_thermal:
+            type: float
+            ge: 0
+          q:
+            type: float
+          t_i_average:
+            type: float
+          zeff:
+            type: float
+            ge: 0
+    summary:
+      type: dict
+      schema:
+        time:
+          type: float
+        global_quantities:
+          type: dict
+          schema:
+            b0:
+              type: dict
+              schema:
+                value:
+                  type: float
+                  lt: 0
+            r0:
+              type: dict
+              schema:
+                value:
+                  type: float
+                  gt: 0
+            beta_pol:
+              type: dict
+              schema:
+                value:
+                  type: float
+                  ge: 0
+            current_bootstrap:
+              type: dict
+              schema:
+                value:
+                  type: float
+            current_non_inductive:
+              type: dict
+              schema:
+                value:
+                  type: float
+            current_ohm:
+              type: dict
+              schema:
+                value:
+                  type: float
+            energy_diamagnetic:
+              type: dict
+              schema:
+                value:
+                  type: float
+                  ge: 0
+            energy_thermal:
+              type: dict
+              schema:
+                value:
+                  type: float
+            energy_total:
+              type: dict
+              schema:
+                value:
+                  type: float
+            h_98:
+              type: dict
+              schema:
+                value:
+                  type: float
+                  ge: 0
+            h_mode:
+              type: dict
+              schema:
+                value:
+                  type: float
+            ip:
+              type: dict
+              schema:
+                value:
+                  type: float
+                  gt: -17000000
+                  le: 0
+            tau_energy:
+              type: dict
+              schema:
+                value:
+                  type: float
+                  ge: 0
+            v_loop:
+              type: dict
+              schema:
+                value:
+                  type: float
+        local:
+          type: dict
+          schema:
+            separatrix:
+              type: dict
+              schema:
+                n_e:
+                  type: dict
+                  schema:
+                    value:
+                      type: float
+                      gt: 0
+                zeff:
+                  type: dict
+                  schema:
+                    value:
+                      type: float
