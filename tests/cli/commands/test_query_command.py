@@ -1,5 +1,5 @@
 from unittest import mock
-from simdb.cli.commands import QueryCommand
+from simdb.cli.commands.query import QueryCommand
 
 
 def test_create_query_command():

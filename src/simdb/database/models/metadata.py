@@ -1,0 +1,43 @@
+import uuid
+from typing import Dict
+
+from sqlalchemy import Column, types as sql_types, ForeignKey
+
+from .types import UUID
+from . import Base, Simulation
+from ...docstrings import inherit_docstrings
+
+
+@inherit_docstrings
+class MetaData(Base):
+    """
+    Class to represent metadata in the database ORM.
+    """
+    __tablename__ = "metadata"
+    id = Column(sql_types.Integer, primary_key=True)
+    sim_id = Column(sql_types.Integer, ForeignKey(Simulation.id))
+    uuid = Column(UUID, nullable=False)
+    element = Column(sql_types.String(250), nullable=False)
+    value = Column(sql_types.Text, nullable=True)
+
+    def __init__(self, key: str, value: str) -> None:
+        self.uuid = uuid.uuid1()
+        self.element = key
+        self.value = value
+
+    def __str__(self):
+        return "{}: {}".format(self.element, self.value)
+
+    @classmethod
+    def from_data(cls, data: Dict) -> "MetaData":
+        meta = MetaData(data["element"], data["value"])
+        meta.uuid = uuid.UUID(data["uuid"])
+        return meta
+
+    def data(self, recurse: bool=False) -> Dict[str, str]:
+        data = dict(
+            uuid=self.uuid.hex,
+            element=self.element,
+            value=self.value,
+        )
+        return data

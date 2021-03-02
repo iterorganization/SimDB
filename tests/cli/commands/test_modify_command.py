@@ -1,5 +1,5 @@
 from unittest import mock
-from simdb.cli.commands import ModifyCommand
+from simdb.cli.commands.modify import ModifyCommand
 
 
 def test_create_modify_command():

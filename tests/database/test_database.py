@@ -1,6 +1,6 @@
 import pytest
 from unittest import mock
-from simdb.database.database import Database
+from simdb.database import Database
 
 
 @mock.patch('sqlalchemy.create_engine')

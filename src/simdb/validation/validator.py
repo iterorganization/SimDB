@@ -3,7 +3,6 @@ import yaml
 import appdirs
 from pathlib import Path
 from ..database.models import Simulation
-from ..config.config import Config
 
 
 class TestParameters:

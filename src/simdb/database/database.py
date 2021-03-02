@@ -4,7 +4,7 @@ import sys
 import contextlib
 from typing import Optional, List, Tuple, Union, TYPE_CHECKING, cast, Any
 from enum import Enum, auto
-from ..config.config import Config
+from ..config import Config
 
 
 class DatabaseError(RuntimeError):

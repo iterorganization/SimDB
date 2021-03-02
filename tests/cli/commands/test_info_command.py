@@ -1,5 +1,5 @@
 from unittest import mock
-from simdb.cli.commands import InfoCommand
+from simdb.cli.commands.info import InfoCommand
 
 
 def test_create_info_command():

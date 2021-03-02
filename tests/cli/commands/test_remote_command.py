@@ -1,5 +1,5 @@
 from unittest import mock
-from simdb.cli.commands import RemoteCommand
+from simdb.cli.commands.remote import RemoteCommand
 
 
 def test_create_remote_command():

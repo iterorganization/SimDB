@@ -4,7 +4,7 @@ from typing import Tuple, Dict, List, Any, Optional, IO
 from collections import defaultdict
 from enum import Enum, auto
 
-from ..database.database import get_local_db
+from ..database import get_local_db
 from .utils import is_missing, remove_methods
 from ..validation import TestParameters
 

@@ -1,5 +1,5 @@
 from unittest import mock
-from simdb.cli.commands import ConfigCommand
+from simdb.cli.commands.config import ConfigCommand
 
 
 def test_create_config_command():

@@ -1,5 +1,5 @@
 from unittest import mock
-from simdb.cli.commands import DatabaseCommand
+from simdb.cli.commands.database import DatabaseCommand
 
 
 def test_create_database_command():

@@ -12,7 +12,7 @@ from typing import List, Iterable, Dict
 from itertools import chain
 
 from .. import __version__
-from ..database.database import Database, DatabaseError
+from ..database import Database, DatabaseError
 from ..database.models import Simulation, File, Watcher
 from ..checksum import sha1_checksum
 

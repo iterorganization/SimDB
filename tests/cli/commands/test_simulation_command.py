@@ -1,5 +1,5 @@
 from unittest import mock
-from simdb.cli.commands import SimulationCommand
+from simdb.cli.commands.simulation import SimulationCommand
 
 
 def test_create_simulation_command():

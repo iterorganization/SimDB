@@ -1,5 +1,5 @@
 from unittest import mock
-from simdb.cli.commands import DeleteCommand
+from simdb.cli.commands.delete import DeleteCommand
 
 
 def test_create_delete_command():

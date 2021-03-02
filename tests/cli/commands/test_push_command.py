@@ -1,5 +1,5 @@
 from unittest import mock
-from simdb.cli.commands import PushCommand
+from simdb.cli.commands.push import PushCommand
 
 
 def test_create_push_command():

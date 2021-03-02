@@ -120,7 +120,6 @@ class InputsValidator(ListValuesValidator):
     """
     def __init__(self) -> None:
         self.section_name: str = "inputs"
-        # self.expected_keys: Iterable = ("uuid", "path", "imas", "uda")
         self.expected_keys: Iterable = ("uri",)
         super().__init__(self.section_name, self.expected_keys)
 

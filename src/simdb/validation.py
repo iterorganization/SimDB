@@ -1,6 +1,6 @@
 from typing import Dict, List, Tuple
 
-from .database.database import get_local_db
+from .database import get_local_db
 from .database.models import ValidationParameters
 from .imas.utils import is_missing
 

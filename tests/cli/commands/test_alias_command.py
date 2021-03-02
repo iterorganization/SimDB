@@ -1,5 +1,5 @@
 from unittest import mock
-from simdb.cli.commands import AliasCommand
+from simdb.cli.commands.alias import AliasCommand
 
 
 def test_create_alias_command():

@@ -96,3 +96,9 @@ def load_metadata(shot, run):
     data = yaml.safe_load(text)
     meta = walk_dict(data, imas_obj, 0, ReadValues.SELECTED)
     return meta
+
+
+def check_ids(imas_obj):
+    for name in (i for i in dir(imas_obj) if not i.startswith('_')):
+        if '%s.%s' % (name, name) in str(type(getattr(imas_obj, name))):
+            pass

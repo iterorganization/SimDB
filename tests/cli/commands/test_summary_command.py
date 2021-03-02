@@ -1,5 +1,5 @@
 from unittest import mock
-from simdb.cli.commands import SummaryCommand
+from simdb.cli.commands.summary import SummaryCommand
 
 
 def test_create_summary_command():

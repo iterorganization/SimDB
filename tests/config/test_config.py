@@ -1,5 +1,5 @@
 from unittest import mock
-from simdb.config.config import Config
+from simdb.config import Config
 from io import StringIO
 import simdb
 

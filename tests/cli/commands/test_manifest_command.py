@@ -1,5 +1,5 @@
 from unittest import mock
-from simdb.cli.commands import ManifestCommand
+from simdb.cli.commands.manifest import ManifestCommand
 
 
 def test_create_manifest_command():

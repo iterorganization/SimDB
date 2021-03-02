@@ -1,5 +1,5 @@
 from unittest import mock
-from simdb.cli.commands import ProvenanceCommand
+from simdb.cli.commands.provenance import ProvenanceCommand
 
 
 def test_create_provenance_command():

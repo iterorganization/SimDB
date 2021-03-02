@@ -1,5 +1,5 @@
 from unittest import mock
-from simdb.cli.commands import ListCommand
+from simdb.cli.commands.list import ListCommand
 
 
 def test_create_list_command():

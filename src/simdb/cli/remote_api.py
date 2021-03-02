@@ -9,7 +9,7 @@ import sys
 
 from ..database.models import Simulation, File
 from .manifest import DataObject
-from ..config.config import Config
+from ..config import Config
 from ..validation import Validator
 
 

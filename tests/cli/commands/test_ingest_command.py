@@ -1,5 +1,5 @@
 from unittest import mock
-from simdb.cli.commands import IngestCommand
+from simdb.cli.commands.ingest import IngestCommand
 
 
 def test_create_ingest_command():
@@ -18,7 +18,7 @@ def test_ingest_command_add_args(parser):
 
 @mock.patch('simdb.database.models.Simulation')
 @mock.patch('simdb.cli.manifest.Manifest')
-@mock.patch('simdb.database.database.get_local_db')
+@mock.patch('simdb.database.get_local_db')
 def test_ingest_run(get_local_db, manifest_cls, simulation_cls):
     import uuid
     cmd = IngestCommand()

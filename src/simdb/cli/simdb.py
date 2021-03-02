@@ -2,9 +2,9 @@ import argparse
 import argcomplete
 from typing import List
 
-from .commands import SimulationCommand, ManifestCommand, DatabaseCommand, RemoteCommand,\
-    ProvenanceCommand, SummaryCommand, ConfigCommand, AliasCommand, Command
-from ..config.config import Config
+from .commands import (Command, AliasCommand, ProvenanceCommand, ConfigCommand, DatabaseCommand, ManifestCommand,
+                       RemoteCommand, SummaryCommand, SimulationCommand)
+from ..config import Config
 
 
 class SimCLI:

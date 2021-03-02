@@ -1,5 +1,5 @@
 from unittest import mock
-from simdb.cli.commands import ValidateCommand
+from simdb.cli.commands.validate import ValidateCommand
 
 
 def test_create_validate_command():
