@@ -71,6 +71,19 @@ class Simulation(Base):
 
         for output in manifest.outputs:
             self.outputs.append(File(output.type, output.uri))
+            if output.type == DataObject.Type.IMAS:
+                from ...imas.utils import open_imas
+                from ...imas.metadata import load_metadata, list_idss
+                imas_obj = open_imas(output.uri)
+                idss = list_idss(imas_obj)
+                self.meta.append(MetaData('ids', '[%s]' % ', '.join(idss)))
+
+                meta = load_metadata(imas_obj)
+                flattened_meta: Dict[str, str] = {}
+                _flatten_dict(flattened_meta, meta)
+
+                for key, value in flattened_meta.items():
+                    self.meta.append(MetaData(key, str(value)))
 
         for key, value in manifest.workflow.items():
             if re.match(r"code[0-9]+", key) and isinstance(value, dict):

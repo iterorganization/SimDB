@@ -1,8 +1,9 @@
 import inspect
-from typing import List
+from typing import List, Any
+from uri import URI
 
 
-def get_metdata(imas_obj) -> dict:
+def get_metadata(imas_obj) -> dict:
 
     ids = getattr(imas_obj, 'dataset_description')
     ids.get()
@@ -58,3 +59,22 @@ def remove_methods(obj) -> List[str]:
         if not member[0].startswith('__') and not callable(getattr(obj, member[0])) and member[0] != 'method':
             names.append(member[0])
     return names
+
+
+def open_imas(uri: URI) -> Any:
+    import os
+    import imas
+    shot = uri.query.get('shot')
+    run = uri.query.get('run')
+    user = uri.query.get('user', os.environ['USER'])
+    machine = uri.query.get('machine')
+    version = uri.query.get('version', '3')
+    if not shot:
+        raise KeyError('IDS shot not provided in URI ' + str(uri))
+    if not run:
+        raise KeyError('IDS run not provided in URI ' + str(uri))
+    if not machine:
+        raise KeyError('IDS machine not provided in URI ' + str(uri))
+    ids = imas.ids(shot, run)
+    ids.open_env(user, machine, version)
+    return ids

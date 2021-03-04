@@ -1,8 +1,10 @@
 import os
 import yaml
-from typing import Dict, Any
+from typing import Dict, Any, List
 from pathlib import Path
 from enum import Enum
+
+from .utils import is_missing
 
 
 class MetricException(Exception):
@@ -85,11 +87,7 @@ def walk_dict(d: Dict, imas_obj, depth: int, read_values: ReadValues) -> Dict:
     return meta
 
 
-def load_metadata(shot, run):
-    import imas
-    imas_obj = imas.ids(shot, run)
-    imas_obj.open_env(os.environ['USER'], 'iter', '3')
-
+def load_metadata(imas_obj):
     with open(Path(__file__).absolute().parent / 'imas_metadata.yaml') as f:
         text = f.read()
 
@@ -98,7 +96,12 @@ def load_metadata(shot, run):
     return meta
 
 
-def check_ids(imas_obj):
+def list_idss(imas_obj) -> List[str]:
+    idss = []
     for name in (i for i in dir(imas_obj) if not i.startswith('_')):
         if '%s.%s' % (name, name) in str(type(getattr(imas_obj, name))):
-            pass
+            ids = getattr(imas_obj, name)
+            ids.get()
+            if not is_missing(ids.ids_properties.creation_date):
+                idss.append(name)
+    return idss

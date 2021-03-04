@@ -45,8 +45,6 @@ class File(Base):
     id = Column(sql_types.Integer, primary_key=True)
     uuid = Column(UUID, nullable=False, unique=True)
     usage = Column(sql_types.String(250), nullable=True)
-    # file_name = Column(sql_types.String(250), nullable=False)
-    # directory = Column(sql_types.String(250), nullable=True)
     uri: urilib.URI = Column(URI(1024), nullable=True)
     checksum = Column(sql_types.String(40), nullable=True)
     type: DataObject.Type = Column(sql_types.Enum(DataObject.Type), nullable=True)
@@ -61,8 +59,6 @@ class File(Base):
 
     def __init__(self, type: DataObject.Type, uri: urilib.URI, perform_integrity_check: bool=True) -> None:
         self.uuid = uuid.uuid1()
-        # self.file_name = file_name
-        # self.directory = directory
         self.uri = uri
         self.type = type
         self.datetime = datetime.now()
