@@ -1,8 +1,8 @@
 import argparse
 
 from ._base import Command, _list_simulations
-from simdb.config import Config
-from simdb.docstrings import inherit_docstrings
+from ...config import Config
+from ...docstrings import inherit_docstrings
 
 
 @inherit_docstrings

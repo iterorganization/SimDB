@@ -6,7 +6,8 @@ from sqlalchemy.orm import relationship
 
 from ._base import _flatten_dict
 from .types import UUID
-from . import Base, Simulation
+from ._base import Base
+from .simulation import Simulation
 from ...docstrings import inherit_docstrings
 
 

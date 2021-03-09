@@ -4,7 +4,7 @@ from email_validator import validate_email
 from sqlalchemy import Column, types as sql_types
 from sqlalchemy.orm import validates
 
-from . import Base
+from ._base import Base
 from .types import ChoiceType
 from ...docstrings import inherit_docstrings
 

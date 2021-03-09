@@ -10,7 +10,8 @@ from sqlalchemy.orm import relationship
 
 from ._base import _flatten_dict
 from .types import UUID
-from . import Base, MetaData, File
+from ._base import Base
+from .file import File
 from ...cli.manifest import Manifest, DataObject
 from ...docstrings import inherit_docstrings
 
@@ -60,6 +61,8 @@ class Simulation(Base):
 
         :param manifest: The Manifest to load the data from, or None to create an empty Simulation.
         """
+        from .metadata import MetaData
+
         if manifest is None:
             return
         self.uuid = uuid.uuid1()

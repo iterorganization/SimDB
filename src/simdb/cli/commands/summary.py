@@ -3,7 +3,7 @@ import os
 from typing import Any
 
 from ._base import Command, _flatten_dict, _list_summaries
-from . import QueryCommand
+from .query import QueryCommand
 from ...config import Config
 from ...docstrings import inherit_docstrings
 

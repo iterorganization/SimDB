@@ -2,7 +2,7 @@ import argparse
 from typing import Any, Optional
 
 from ._base import Command, _required_argument
-from . import QueryCommand
+from .query import QueryCommand
 from ...config import Config
 from ...docstrings import inherit_docstrings
 

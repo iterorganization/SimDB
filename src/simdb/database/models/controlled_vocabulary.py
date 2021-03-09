@@ -4,7 +4,7 @@ from typing import List, Dict
 from sqlalchemy import Column, types as sql_types, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 
-from . import Base
+from ._base import Base
 from .types import UUID
 from ...docstrings import inherit_docstrings
 

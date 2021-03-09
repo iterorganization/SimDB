@@ -4,7 +4,12 @@ from typing import Optional
 from ._base import Command
 from .modify import ModifyCommand
 from .delete import DeleteCommand
-from . import InfoCommand, IngestCommand, ListCommand, PushCommand, QueryCommand, ValidateCommand
+from .info import InfoCommand
+from .ingest import IngestCommand
+from .list import ListCommand
+from .push import PushCommand
+from .query import QueryCommand
+from .validate import ValidateCommand
 from ...config import Config
 from ...docstrings import inherit_docstrings
 

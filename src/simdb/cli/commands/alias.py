@@ -1,9 +1,9 @@
 import argparse
 from enum import Enum, auto
 
-from simdb.cli.commands._base import Command, _required_argument
-from simdb.config import Config
-from simdb.docstrings import inherit_docstrings
+from ._base import Command, _required_argument
+from ...config import Config
+from ...docstrings import inherit_docstrings
 
 
 @inherit_docstrings

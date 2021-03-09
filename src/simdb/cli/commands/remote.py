@@ -59,6 +59,8 @@ class RemoteCommand(Command):
             parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
 
         def validate_arguments(self, parser: argparse.ArgumentParser, args: Any) -> None:
+            if not args.action == 'watch':
+                return
             if not (args.remove or args.list):
                 if "email" not in args or not args.email:
                     parser.error("email must be provided to add a watcher")

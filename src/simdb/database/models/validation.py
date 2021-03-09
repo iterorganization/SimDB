@@ -3,7 +3,7 @@ from typing import Dict
 
 from sqlalchemy import Column, types as sql_types, UniqueConstraint
 
-from . import Base
+from ._base import Base
 from .types import UUID
 from ...docstrings import inherit_docstrings
 

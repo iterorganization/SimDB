@@ -3,8 +3,8 @@ from pathlib import Path
 from typing import Optional
 
 from ._base import Command
-from simdb.config import Config
-from simdb.docstrings import inherit_docstrings
+from ...config import Config
+from ...docstrings import inherit_docstrings
 
 
 @inherit_docstrings
