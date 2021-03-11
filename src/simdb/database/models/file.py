@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 from typing import Dict
+from pathlib import Path
 
 import uri as urilib
 from dateutil import parser as date_parser
@@ -14,26 +15,29 @@ from ...docstrings import inherit_docstrings
 
 def _generate_checksum(type: DataObject.Type, uri: urilib.URI) -> str:
     if type == DataObject.Type.UDA:
-        """
-        URI: uda:///?signal=<SIGNAL>&source=<SOURCE>
-        """
         from ...uda.checksum import checksum as uda_checksum
         checksum = uda_checksum(uri)
     elif type == DataObject.Type.IMAS:
-        """
-        URI: imas:///?shot=<SHOT>&run=<RUN>&machine=<MACHINE>&user=<USER>
-        """
         from ...imas.checksum import checksum as imas_checksum
         checksum = imas_checksum(uri)
     elif type == DataObject.Type.FILE:
-        """
-        URI: file:///path/to/file
-        """
         from ...checksum import sha1_checksum
-        checksum = sha1_checksum(uri.path)
+        checksum = sha1_checksum(uri)
     else:
         raise NotImplementedError("Cannot generate checksum for type " + str(type))
     return checksum
+
+
+def _get_datetime(type: DataObject.Type, uri: urilib.URI) -> datetime:
+    if type == DataObject.Type.UDA:
+        return datetime.now()
+    elif type == DataObject.Type.IMAS:
+        from ...imas.utils import imas_timestamp
+        return imas_timestamp(uri)
+    elif type == DataObject.Type.FILE:
+        return datetime.fromtimestamp(Path(uri.path).stat().st_ctime)
+    else:
+        raise NotImplementedError("Cannot generate checksum for type " + str(type))
 
 
 @inherit_docstrings

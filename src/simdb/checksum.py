@@ -1,12 +1,16 @@
-from pathlib import Path
+from uri import URI
 
 
-def sha1_checksum(path: Path) -> str:
+def sha1_checksum(uri: URI) -> str:
     """Generate a SHA1 checksum from the given file.
 
-    :param path: the path of the file to checksum
+    :param uri: the URI of the file to checksum
     :return: a string containing the hex representation of the computed SHA1 checksum
     """
+    if uri.scheme != "file":
+        raise ValueError("invalid scheme for file checksum: %s" % uri.scheme)
+    path = uri.path
+
     import hashlib
 
     if not path.exists():

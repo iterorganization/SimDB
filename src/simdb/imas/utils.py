@@ -1,6 +1,7 @@
 import inspect
 from typing import List, Any
 from uri import URI
+from datetime import datetime
 
 
 def get_metadata(imas_obj) -> dict:
@@ -64,6 +65,8 @@ def remove_methods(obj) -> List[str]:
 def open_imas(uri: URI) -> Any:
     import os
     import imas
+    if uri.scheme != "imas":
+        raise ValueError("invalid imas URI scheme: %s" % uri.scheme)
     shot = int(uri.query.get('shot'))
     run = int(uri.query.get('run'))
     user = uri.query.get('user', os.environ['USER'])
@@ -75,6 +78,17 @@ def open_imas(uri: URI) -> Any:
         raise KeyError('IDS run not provided in URI ' + str(uri))
     if not machine:
         raise KeyError('IDS machine not provided in URI ' + str(uri))
-    ids = imas.ids(shot, run)
-    ids.open_env(user, machine, version)
-    return ids
+    imas_obj = imas.ids(shot, run)
+    imas_obj.open_env(user, machine, version)
+    return imas_obj
+
+
+def imas_timestamp(uri: URI) -> datetime:
+    imas_obj = open_imas(uri)
+    imas_obj.summary.get()
+    creation = imas_obj.summary.ids_properties.creation_date
+    if creation:
+        creation = datetime.strptime(creation, '%Y-%m-%d %H:%M:%S.%f')
+    else:
+        creation = datetime.now()
+    return creation

@@ -2,6 +2,9 @@ import uri as urilib
 
 
 def checksum(uri: urilib.URI) -> str:
+    if uri.scheme != "uda":
+        raise ValueError("invalid scheme for UDA checksum: %s" % uri.scheme)
+
     import pyuda
     import hashlib
 
