@@ -3,7 +3,7 @@ from typing import Dict
 
 from sqlalchemy import Column, types as sql_types, ForeignKey
 
-from .types import UUID
+# from .types import UUID
 from ._base import Base
 from .simulation import Simulation
 from ...docstrings import inherit_docstrings
@@ -17,7 +17,7 @@ class MetaData(Base):
     __tablename__ = "metadata"
     id = Column(sql_types.Integer, primary_key=True)
     sim_id = Column(sql_types.Integer, ForeignKey(Simulation.id))
-    uuid = Column(UUID, nullable=False)
+    # uuid = Column(UUID, nullable=False)
     element = Column(sql_types.String(250), nullable=False)
     value = Column(sql_types.Text, nullable=True)
 
@@ -32,12 +32,12 @@ class MetaData(Base):
     @classmethod
     def from_data(cls, data: Dict) -> "MetaData":
         meta = MetaData(data["element"], data["value"])
-        meta.uuid = uuid.UUID(data["uuid"])
+        # meta.uuid = uuid.UUID(data["uuid"])
         return meta
 
     def data(self, recurse: bool=False) -> Dict[str, str]:
         data = dict(
-            uuid=self.uuid.hex,
+            # uuid=self.uuid.hex,
             element=self.element,
             value=self.value,
         )

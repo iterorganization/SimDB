@@ -1,9 +1,13 @@
 import os
-from typing import List, Dict, Any, Union, Tuple
+from collections import deque
+from typing import List, Dict, Any, Union, Tuple, Deque
 from sqlalchemy.ext.declarative import declarative_base
 
 
-def _flatten_dict(out_dict: Dict[str, str], in_dict: Dict[str, Union[Dict, List, Any]], prefix: Tuple=()):
+FLATTEN_DICT_DELIM = '.'
+
+
+def _flatten_dict(out_dict: Dict[str, Any], in_dict: Dict[str, Union[Dict, List, Any]], prefix: Tuple=()):
     for key, value in in_dict.items():
         if isinstance(value, dict):
             _flatten_dict(out_dict, value, prefix + (key,))
@@ -11,7 +15,25 @@ def _flatten_dict(out_dict: Dict[str, str], in_dict: Dict[str, Union[Dict, List,
             for el in value:
                 _flatten_dict(out_dict, {key: el}, prefix)
         else:
-            out_dict['.'.join(prefix + (key,))] = str(value)
+            out_dict[FLATTEN_DICT_DELIM.join(prefix + (key,))] = str(value)
+
+
+def _unflatten_value(out_dict: Dict[str, Union[Dict, Any]], key: Deque[str], value: Any) -> None:
+    head = key.popleft()
+    tail = key
+    if tail:
+        if head not in out_dict:
+            out_dict[head] = {}
+        _unflatten_value(out_dict[head], tail, value)
+    else:
+        out_dict[head] = value
+
+
+def _unflatten_dict(in_dict: Dict[str, Any]) -> Dict[str, Union[Dict, Any]]:
+    out_dict: Dict[str, Union[Dict, List, Any]] = {}
+    for key, value in in_dict.items():
+        _unflatten_value(out_dict, deque(key.split(FLATTEN_DICT_DELIM)), value)
+    return out_dict
 
 
 class BaseModel:

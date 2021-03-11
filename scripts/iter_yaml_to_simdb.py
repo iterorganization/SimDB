@@ -3,38 +3,58 @@ import yaml
 
 def get_meta(data):
     meta = {
+        'device': 'ITER',
+        'workflow': {'name': data['characteristics']['workflow']},
+        'description': Literal(data['free_description']),
         'status': data['status'],
         'reference_name': data['reference_name'],
         'responsible_name': data['responsible_name'],
-        'replaces': data['database_relations']['replaces'],
-        'replaced_by': data['database_relations']['replaced_by'],
         'scenario_key_parameters': data['scenario_key_parameters'],
         'hcd': data['hcd'],
         'plasma_composition': data['plasma_composition'],
     }
+    if 'database_relations' in data:
+        meta['replaces'] = data['database_relations']['replaces']
+        meta['replaced_by'] = data['database_relations']['replaces']
     return meta
 
 
+class Literal(str):
+    pass
+
+
+def literal_presenter(dumper, data):
+    return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
+
+
+yaml.add_representer(Literal, literal_presenter)
+
+
+def to_uri(**kwargs):
+    return 'imas:?machine={machine}&user=public&shot={shot}&run={run}'.format(**kwargs)
+
+
 def main(args):
-    if len(args) != 2:
-        print('usage: %s file_name' % args[0])
+    if len(args) != 3:
+        print('usage: %s iter_yaml out_file' % args[0])
         return
-    file_name = args[1]
-    with open(file_name) as file:
+
+    in_file = args[1]
+    out_file = args[2]
+
+    with open(in_file) as file:
         text = file.read()
     in_data = yaml.safe_load(text)
 
     out_data = {
-        'workflow': {'name': in_data['characteristics']['workflow']},
-        'description': in_data['free_description'],
-        'inputs': [{'ids': 'imas://{machine}?shot={shot}&run={run}'.format(**in_data['characteristics'])}],
-        'outputs': [],
+        'alias': in_data['reference_name'],
+        'outputs': [{'uri': to_uri(**in_data['characteristics'])}],
+        'inputs': [],
         'metadata': [{'values': get_meta(in_data)}],
     }
 
-    out_file_name = '../temp.yaml'
-    with open(out_file_name, 'w') as file:
-        yaml.dump(out_data, file)
+    with open(out_file, 'w') as file:
+        yaml.dump(out_data, file, default_flow_style=False)
 
 
 if __name__ == '__main__':

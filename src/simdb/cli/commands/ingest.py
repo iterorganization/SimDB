@@ -36,10 +36,11 @@ class IngestCommand(Command):
         # verify_metadata({}, manifest.metadata)
 
         simulation = Simulation(manifest)
-        simulation.alias = args.alias
+        if args.alias:
+            simulation.alias = args.alias
         if args.uuid:
             simulation.uuid = args.uuid
 
         db = get_local_db(config)
         db.insert_simulation(simulation)
-        print("success")
+        print(simulation.uuid)

@@ -35,6 +35,7 @@ class RemoteCommand(Command):
     class RemoteSimulationCommand(Command):
         """Placeholder command to set up arguments for remote manipulations of simulations."""
         def __init__(self, help: str) -> None:
+            super().__init__()
             self._help = help
 
         def add_arguments(self, parser: argparse.ArgumentParser) -> None:
@@ -45,7 +46,7 @@ class RemoteCommand(Command):
 
     @inherit_docstrings
     class WatchCommand(Command):
-        """Command to manage the remote database [for development use only -- to be removed]."""
+        """Command to manage watchers for simulations."""
         _help = "manage remote simulation database file"
 
         def add_arguments(self, parser: argparse.ArgumentParser) -> None:
@@ -101,7 +102,7 @@ class RemoteCommand(Command):
             "watch": RemoteCommand.WatchCommand(),
             "publish": RemoteCommand.RemoteSimulationCommand("publish staged simulation"),
             "delete": RemoteCommand.RemoteSimulationCommand("delete staged simulation"),
-            "database": RemoteCommand.RemoteDatabaseCommand(),
+            # "database": RemoteCommand.RemoteDatabaseCommand(),
         }
 
         for name, command in self._commands.items():

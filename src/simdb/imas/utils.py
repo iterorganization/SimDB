@@ -64,8 +64,8 @@ def remove_methods(obj) -> List[str]:
 def open_imas(uri: URI) -> Any:
     import os
     import imas
-    shot = uri.query.get('shot')
-    run = uri.query.get('run')
+    shot = int(uri.query.get('shot'))
+    run = int(uri.query.get('run'))
     user = uri.query.get('user', os.environ['USER'])
     machine = uri.query.get('machine')
     version = uri.query.get('version', '3')

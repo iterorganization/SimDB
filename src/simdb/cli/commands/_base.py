@@ -107,7 +107,7 @@ class Command:
 
     @property
     def help(self) -> str:
-        return type(self)._help
+        return self._help
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
         """Update the ArgumentParser with the arguments for this command.

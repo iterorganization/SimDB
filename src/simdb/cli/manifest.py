@@ -1,6 +1,7 @@
 import re
 import sys
 import os
+import urllib
 from enum import Enum, auto
 from typing import Iterable, Union, Dict, List, Tuple, Optional
 import uri as urilib
@@ -105,61 +106,11 @@ class ListValuesValidator(ManifestValidator):
         for item in values:
             if not isinstance(item, dict) or len(item) > 1:
                 raise InvalidManifest("badly formatted manifest - %s values should be a name value pair" % self.section_name)
-            name = list(item.keys())[0]
+            name = next(iter(item))
             if isinstance(self.expected_keys, tuple) and name not in self.expected_keys:
                 raise InvalidManifest("unknown %s entry in manifest: %s" % (self.section_name, name))
             if isinstance(self.required_keys, tuple) and name not in self.required_keys:
                 raise InvalidManifest("required %s key not found in manifest: %s" % (self.section_name, name))
-            if name == 'path' and not os.path.isfile(list(item.values())[0]):
-                raise InvalidManifest("invalid path to file in manifest: %s" % (list(item.values())[0]))
-
-
-class InputsValidator(ListValuesValidator):
-    """
-    Validator for the manifest inputs list.
-    """
-    def __init__(self) -> None:
-        self.section_name: str = "inputs"
-        self.expected_keys: Iterable = ("uri",)
-        super().__init__(self.section_name, self.expected_keys)
-
-
-class ScriptsValidator(ListValuesValidator):
-    """
-    Validator for the manifest scripts list.
-    """
-    def __init__(self) -> None:
-        self.section_name: str = "scripts"
-        self.expected_keys: Iterable = ("name", "path",)
-        super().__init__(self.section_name, self.expected_keys)
-
-
-class OutputsValidator(ListValuesValidator):
-    """
-    Validator for the manifest outputs list.
-    """
-    def __init__(self) -> None:
-        self.section_name: str = "outputs"
-        # self.expected_keys: Iterable = ("path", "imas")
-        self.expected_keys: Iterable = ("uri",)
-        super().__init__(self.section_name, self.expected_keys)
-
-class DescriptionValidator(ManifestValidator):
-    """
-    Validator for simulation description.
-    """
-    def validate(self, value):
-        if not isinstance(value, str):
-            raise InvalidManifest("description must be a string")
-
-class MetaDataValidator(ListValuesValidator):
-    """
-    Validator for the manifest Metadata list.
-    """
-    def __init__(self) -> None:
-        self.section_name: str = "metadata"
-        self.expected_keys: Iterable = ("path", "values")
-        super().__init__(self.section_name, self.expected_keys)
 
 
 class DictValuesValidator(ManifestValidator):
@@ -190,15 +141,68 @@ class DictValuesValidator(ManifestValidator):
                 raise InvalidManifest("required %s key not found in manifest: %s" % (self.section_name, key))
 
 
+class DataObjectValidator(ListValuesValidator):
+    """
+    Validator for the manifest data objects (inputs or outputs).
+    """
+    def __init__(self, section_name: str) -> None:
+        expected_keys = ("uri",)
+        super().__init__(section_name, expected_keys)
+
+    def validate(self, values: Union[list, dict]) -> None:
+        super().validate(values)
+        for (_, value) in values:
+            uri = urilib.URI(value)
+            if uri.scheme not in ('uda', 'file', 'imas'):
+                raise InvalidManifest('unknown uri scheme: %s' % uri.scheme)
+
+
+class InputsValidator(DataObjectValidator):
+    """
+    Validator for the manifest inputs list.
+    """
+    def __init__(self):
+        super().__init__("inputs")
+
+
+class OutputsValidator(ListValuesValidator):
+    """
+    Validator for the manifest outputs list.
+    """
+    def __init__(self):
+        super().__init__("outputs")
+
+
+class AliasValidator(ManifestValidator):
+    """
+    Validator for simulation alias.
+    """
+    def validate(self, value):
+        if not isinstance(value, str):
+            raise InvalidManifest("alias must be a string")
+        if urllib.parse.quote(value) != value:
+            raise InvalidManifest("illegal characters in alias")
+
+
+class MetaDataValidator(ListValuesValidator):
+    """
+    Validator for the manifest Metadata list.
+    """
+    def __init__(self) -> None:
+        section_name = "metadata"
+        expected_keys = ("path", "values")
+        super().__init__(section_name, expected_keys)
+
+
 class WorkflowValidator(DictValuesValidator):
     """
     Validator for the manifest workflow dictionary.
     """
     def __init__(self) -> None:
-        self.section_name: str = "workflow"
-        self.expected_keys: Iterable = ("name", "developer", "date", "repo", "commit", "codes", "branch")
-        self.required_keys: Iterable = ("name", "repo", "commit", "branch")
-        super().__init__(self.section_name, self.expected_keys, self.required_keys)
+        section_name = "workflow"
+        expected_keys = ("name", "developer", "date", "repo", "commit", "codes", "branch")
+        required_keys = ("name", "repo", "commit", "branch")
+        super().__init__(section_name, expected_keys, required_keys)
 
 
 def _update_dict(old: Dict, new: Dict) -> None:
@@ -249,16 +253,10 @@ class Manifest:
         return []
 
     @property
-    def workflow(self) -> Dict:
+    def alias(self) -> Optional[str]:
         if isinstance(self._data, dict):
-            return self._data["workflow"]
-        return {}
-
-    @property
-    def description(self) -> Dict:
-        if isinstance(self._data, dict):
-            return self._data["description"]
-        return {}
+            return self._data.get("alias", None)
+        return None
 
     def _load_metadata(self, root_path: Path, path: Path):
         import yaml
@@ -291,7 +289,10 @@ class Manifest:
         if isinstance(self._data, dict) and "metadata" in self._data:
             for item in self._data["metadata"]:
                 if "path" in item:
-                    self._load_metadata(file_path, item["path"])
+                    path = Path(item["path"])
+                    if not path.exists():
+                        raise InvalidManifest("metadata path %s does not exist" % path)
+                    self._load_metadata(file_path, path)
                 elif "values" in item:
                     _update_dict(self._metadata, item["values"])
 
@@ -324,19 +325,17 @@ class Manifest:
             raise InvalidManifest("badly formatted manifest - top level sections must be keys not a list")
 
         section_validators = {
+            "alias": AliasValidator(),
             "inputs": InputsValidator(),
-            "scripts": ScriptsValidator(),
             "outputs": OutputsValidator(),
-            "workflow": WorkflowValidator(),
             "metadata": MetaDataValidator(),
-            "description": DescriptionValidator()
         }
 
         for section in self._data.keys():
             if section not in section_validators.keys():
                 raise InvalidManifest("unknown manifest section found: " + section)
 
-        required_sections = ("inputs", "outputs", "workflow")
+        required_sections = ("inputs", "outputs", "metadata")
         for section in required_sections:
             if section not in self._data.keys():
                 raise InvalidManifest("required manifest section not found: " + section)

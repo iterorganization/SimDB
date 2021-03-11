@@ -21,8 +21,8 @@ setuptools.setup(
     license="See LICENCE.txt",
     install_requires=[
         "argcomplete (>= 1.9.4)",
-        "numpy (>= 1.15.3)",
-        "python-dateutil (>= 2.7.3)",
+        "numpy (>= 1.14)",
+        "python-dateutil (>= 2.6)",
         "pyyaml (>= 3.13)",
         "requests (>= 2.19.1)",
         "sqlalchemy (>= 1.2.12)",

@@ -21,7 +21,7 @@ class ManifestCommand(Command):
         manifest_file: Path
 
     def run(self, args: ManifestArgs, _: Config) -> None:
-        from .manifest import (Manifest, InvalidManifest)
+        from ..manifest import (Manifest, InvalidManifest)
 
         manifest = Manifest()
 

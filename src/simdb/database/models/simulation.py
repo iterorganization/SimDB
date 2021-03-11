@@ -8,7 +8,7 @@ from dateutil import parser as date_parser
 from sqlalchemy import Column, types as sql_types, Table, ForeignKey
 from sqlalchemy.orm import relationship
 
-from ._base import _flatten_dict
+from ._base import _flatten_dict, _unflatten_dict
 from .types import UUID
 from ._base import Base
 from .file import File
@@ -69,6 +69,9 @@ class Simulation(Base):
         self.datetime = datetime.now()
         self.status = "UNKNOWN"
 
+        if manifest.alias:
+            self.alias = manifest.alias
+
         for input in manifest.inputs:
             self.inputs.append(File(input.type, input.uri))
 
@@ -88,14 +91,14 @@ class Simulation(Base):
                 for key, value in flattened_meta.items():
                     self.meta.append(MetaData(key, str(value)))
 
-        for key, value in manifest.workflow.items():
-            if re.match(r"code[0-9]+", key) and isinstance(value, dict):
-                for code_key in value:
-                    self.meta.append(MetaData("workflow." + key + "." + code_key, str(value[code_key])))
-            else:
-                self.meta.append(MetaData("workflow." + key, str(value)))
+        # for key, value in manifest.workflow.items():
+        #     if re.match(r"code[0-9]+", key) and isinstance(value, dict):
+        #         for code_key in value:
+        #             self.meta.append(MetaData("workflow." + key + "." + code_key, str(value[code_key])))
+        #     else:
+        #         self.meta.append(MetaData("workflow." + key, str(value)))
 
-        self.meta.append(MetaData("description", str(manifest.description)))
+        # self.meta.append(MetaData("description", str(manifest.description)))
 
         flattened_dict: Dict[str, str] = {}
         _flatten_dict(flattened_dict, manifest.metadata)
@@ -132,6 +135,7 @@ class Simulation(Base):
 
     @classmethod
     def from_data(cls, data: Dict[str, Union[str, Dict, List]]) -> "Simulation":
+        from .metadata import MetaData
         simulation = Simulation(None)
         simulation.uuid = uuid.UUID(_checked_get(data, "uuid", str))
         simulation.alias = _checked_get(data, "alias", str)
@@ -163,6 +167,10 @@ class Simulation(Base):
             data["outputs"] = [f.data(recurse=True) for f in self.outputs]
             data["metadata"] = [m.data(recurse=True) for m in self.meta]
         return data
+
+    def meta_dict(self) -> Dict[str, Union[Dict, Any]]:
+        meta = {m.element: m.value for m in self.meta}
+        return _unflatten_dict(meta)
 
     def check_files(self):
         for file in chain(self.inputs, self.outputs):

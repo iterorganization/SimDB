@@ -345,3 +345,10 @@ def list_watchers(sim_id: str):
         return jsonify([watcher.data(recurse=True) for watcher in api.db.list_watchers(sim_id)])
     except DatabaseError as err:
         return error(str(err))
+
+
+@api.route("/validation_schema", methods=["GET"])
+@requires_auth()
+def get_validation_schema():
+    from ..validation.validator import Validator
+    return jsonify(Validator.validation_schema())

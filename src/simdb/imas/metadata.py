@@ -33,18 +33,19 @@ def walk_imas(imas_obj) -> Dict:
     meta = {}
     for name in (i for i in dir(imas_obj) if not i.startswith('_')):
         attr = getattr(imas_obj, name)
-        if str(type(attr)) == 'numpy.ndarray':
+        meta[name] = {}
+        if 'numpy.ndarray' in str(type(attr)):
             if attr.size != 0:
-                meta[name]['value'] = attr
+                meta[name] = attr
         if type(attr) == int:
             if attr != -999999999:
-                meta[name]['value'] = attr
+                meta[name] = attr
         if type(attr) == str:
             if attr:
-                meta[name]['value'] = attr
+                meta[name] = attr
         if type(attr) == float:
             if attr != -9e+40:
-                meta[name]['value'] = attr
+                meta[name] = attr
         elif '__structure' in str(type(attr)):
             meta[name] = walk_imas(attr)
     return meta
@@ -66,14 +67,14 @@ def walk_dict(d: Dict, imas_obj, depth: int, read_values: ReadValues) -> Dict:
                 meta[k] = {}
             for metric in v:
                 meta[k][metric] = fetch_metric(metric, imas_obj)
-        elif v == 'value' or read_values == ReadValues.ALL:
+        elif v == 'value' or (read_values == ReadValues.ALL and k != 'values'):
             if k not in meta:
                 meta[k] = {}
-            meta[k]['value'] = getattr(imas_obj, k)
+            meta[k] = getattr(imas_obj, k)
 
             if read_values == ReadValues.ALL:
-                walk_imas(imas_obj)
-        else:
+                meta[k] = walk_imas(imas_obj)
+        elif k != 'values':
             child = getattr(imas_obj, k)
             if 'structArray' in type(child).__name__:
                 values = []
@@ -83,7 +84,7 @@ def walk_dict(d: Dict, imas_obj, depth: int, read_values: ReadValues) -> Dict:
             else:
                 meta[k] = walk_dict(d[k], child, depth + 1, read_values)
     if read_values == ReadValues.ALL:
-        walk_imas(imas_obj)
+        return walk_imas(imas_obj)
     return meta
 
 
@@ -102,6 +103,6 @@ def list_idss(imas_obj) -> List[str]:
         if '%s.%s' % (name, name) in str(type(getattr(imas_obj, name))):
             ids = getattr(imas_obj, name)
             ids.get()
-            if not is_missing(ids.ids_properties.creation_date):
+            if not is_missing(ids.ids_properties.homogeneous_time):
                 idss.append(name)
     return idss
