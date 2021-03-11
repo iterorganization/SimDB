@@ -115,6 +115,11 @@ class RemoteAPI:
         return bool(self._url)
 
     @try_request
+    def get_validation_schema(self) -> Dict:
+        res = self.get("validation_schema")
+        return res.json()
+
+    @try_request
     def list_simulations(self) -> List[Simulation]:
         res = self.get("simulations")
         return [Simulation.from_data(sim) for sim in res.json()]

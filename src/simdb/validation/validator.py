@@ -91,9 +91,9 @@ class Validator:
             except yaml.YAMLError:
                 raise LoadError("Failed to read validation schema from file %s" % file)
 
-    def __init__(self, path=None):
+    def __init__(self, schema: Dict):
         try:
-            self._validator = CustomValidator(self.validation_schema(path))
+            self._validator = CustomValidator(schema)
             self._validator.allow_unknown = True
         except cerberus.SchemaError:
             raise LoadError("Failed to parse validation schema")

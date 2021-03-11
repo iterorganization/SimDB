@@ -25,11 +25,19 @@ class ValidateCommand(Command):
         from ...database import get_local_db
         from ...validation import ValidationError, Validator
         from ..manifest import DataObject
+        from ..remote_api import RemoteAPI
 
         db = get_local_db(config)
         simulation = db.get_simulation(args.sim_id)
 
-        Validator().validate(simulation)
+        api = RemoteAPI(config)
+
+        print('downloading validation schema ... ', end='', flush=True)
+        schema = api.get_validation_schema()
+        print('done')
+
+        print('validating ... ', end='', flush=True)
+        Validator(schema).validate(simulation)
 
         for file in chain(simulation.inputs, simulation.outputs):
             if file.type == DataObject.Type.UDA:
