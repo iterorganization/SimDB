@@ -78,8 +78,8 @@ class Simulation(Base):
         for output in manifest.outputs:
             self.outputs.append(File(output.type, output.uri))
             if output.type == DataObject.Type.IMAS:
-                from ...imas.utils import open_imas
-                from ...imas.metadata import load_metadata, list_idss
+                from ...imas.utils import open_imas, list_idss
+                from ...imas.metadata import load_metadata
                 imas_obj = open_imas(output.uri)
                 idss = list_idss(imas_obj)
                 self.meta.append(MetaData('ids', '[%s]' % ', '.join(idss)))

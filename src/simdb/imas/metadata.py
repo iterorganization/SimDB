@@ -95,14 +95,3 @@ def load_metadata(imas_obj):
     data = yaml.safe_load(text)
     meta = walk_dict(data, imas_obj, 0, ReadValues.SELECTED)
     return meta
-
-
-def list_idss(imas_obj) -> List[str]:
-    idss = []
-    for name in (i for i in dir(imas_obj) if not i.startswith('_')):
-        if '%s.%s' % (name, name) in str(type(getattr(imas_obj, name))):
-            ids = getattr(imas_obj, name)
-            ids.get()
-            if not is_missing(ids.ids_properties.homogeneous_time):
-                idss.append(name)
-    return idss

@@ -6,6 +6,7 @@ import gzip
 import io
 import urllib3
 import sys
+from uri import URI
 
 from ..database.models import Simulation, File
 from .manifest import DataObject
@@ -162,7 +163,7 @@ class RemoteAPI:
         return [(d["username"], d["email"]) for d in res.json()]
 
     def _push_file(self, file: File, file_type: str, sim_data: Dict, chunk_size: int, out_stream: IO):
-        if file.type in (DataObject.Type.FILE, DataObject.Type.IMAS):
+        if file.type == DataObject.Type.FILE:
             path = file.uri.path
             print('Uploading file {} '.format(path), file=out_stream, end='')
             num_chunks = 0
@@ -184,6 +185,26 @@ class RemoteAPI:
                 'files': [{'chunks': num_chunks, 'file_type': file_type, 'file_uuid': file.uuid.hex}]
             })
             print('Complete', file=out_stream, flush=True)
+        elif file.type == DataObject.Type.IMAS:
+            from ..imas.utils import copy_imas
+            res = self.get("staging_dir/{}".format(sim_data['uuid']))
+            data = res.json()
+            out_uri = URI(file.uri)
+            out_uri.query.remove('user')
+            out_uri['path'] = data['staging_dir']
+            print('Uploading IDS {} to {} ... '.format(file.uri, out_uri), file=out_stream, end='', flush=True)
+            copy_imas(file.uri, out_uri)
+            print('success', file=out_stream, flush=True)
+            files = sim_data['outputs'] if file_type == 'output' else sim_data['inputs']
+            file_data = next((f for f in files if f['uuid'] == file.uuid.hex), None)
+            if file_data:
+                file_data['uri'] = str(out_uri)
+            else:
+                raise Exception('Failed to find file in simulation')
+            self.post("files", data={
+                'simulation': sim_data,
+                'files': [{'file_type': file_type, 'file_uuid': file.uuid.hex}]
+            })
 
     @try_request
     def push_simulation(self, simulation: Simulation, out_stream: IO=sys.stdout) -> None:
@@ -195,7 +216,8 @@ class RemoteAPI:
         :param simulation: Simulation to push to remote server
         :param out_stream: IO stream to write messages to the user (default: stdout)
         """
-        Validator().validate(simulation)
+        schema = self.get_validation_schema()
+        Validator(schema).validate(simulation)
 
         sim_data = simulation.data(recurse=True)
         chunk_size = 10*1024*1024  # 10 MB
@@ -206,9 +228,9 @@ class RemoteAPI:
         for file in simulation.outputs:
             self._push_file(file, 'output', sim_data, chunk_size, out_stream)
 
-        print('Uploading simulation data', file=out_stream)
+        print('Uploading simulation data ... ', file=out_stream, end='', flush=True)
         self.post("simulations", data={'simulation': sim_data})
-        print('Complete', file=out_stream)
+        print('success', file=out_stream, flush=True)
 
     @try_request
     def reset_database(self) -> None:

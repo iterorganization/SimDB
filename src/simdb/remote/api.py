@@ -15,6 +15,7 @@ from .. import __version__
 from ..database import Database, DatabaseError
 from ..database.models import Simulation, File, Watcher
 from ..checksum import sha1_checksum
+from ..cli.manifest import DataObject
 
 api = Blueprint("api", __name__)
 
@@ -192,13 +193,19 @@ def _verify_files(file_uuid: uuid.UUID, sim_uuid: uuid.UUID, sim_files: List[Fil
     sim_file = next((f for f in sim_files if f.uuid == file_uuid), None)
     if sim_file is None:
         raise ValueError("file with uuid %s not found in simulation" % file_uuid)
-    file_name = secure_filename(str(sim_file.uri.path))
-    path = staging_dir / file_name
-    if not path.exists():
-        raise ValueError('file %s does not exist' % path)
-    checksum = sha1_checksum(path)
-    if sim_file.checksum != checksum:
-        raise ValueError("checksum failed for file %s" % repr(sim_file))
+    if sim_file.type == DataObject.Type.FILE:
+        file_name = secure_filename(str(sim_file.uri.path))
+        path = staging_dir / file_name
+        if not path.exists():
+            raise ValueError('file %s does not exist' % path)
+        checksum = sha1_checksum(path)
+        if sim_file.checksum != checksum:
+            raise ValueError("checksum failed for file %s" % repr(sim_file))
+    elif sim_file.type == DataObject.Type.IMAS:
+        from ..imas.checksum import checksum as imas_checksum
+        checksum = imas_checksum(sim_file.uri)
+        if sim_file.checksum != checksum:
+            raise ValueError("checksum failed for IDS %s" % sim_file.uri)
 
 
 @api.route("/files", methods=["POST"])
@@ -274,6 +281,14 @@ def get_simulation(sim_id: str):
         return jsonify(simulation.data(recurse=True))
     except DatabaseError as err:
         return error(str(err))
+
+
+@api.route("/staging_dir/<string:sim_hex>", methods=["GET"])
+@requires_auth()
+def get_staging_dir(sim_hex: str):
+    staging_dir = Path(current_app.config["UPLOAD_FOLDER"]) / sim_hex
+    os.makedirs(staging_dir, exist_ok=True)
+    return jsonify({'staging_dir': str(staging_dir)})
 
 
 @api.route("/simulation/<string:sim_id>", methods=["DELETE"])

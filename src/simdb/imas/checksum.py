@@ -3,8 +3,7 @@ import struct
 from uri import URI
 from typing import cast
 
-from .utils import open_imas
-from .metadata import list_idss
+from .utils import open_imas, list_idss
 
 
 class Hash:

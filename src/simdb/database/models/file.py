@@ -13,33 +13,6 @@ from .types import UUID, URI
 from ...docstrings import inherit_docstrings
 
 
-def _generate_checksum(type: DataObject.Type, uri: urilib.URI) -> str:
-    if type == DataObject.Type.UDA:
-        from ...uda.checksum import checksum as uda_checksum
-        checksum = uda_checksum(uri)
-    elif type == DataObject.Type.IMAS:
-        from ...imas.checksum import checksum as imas_checksum
-        checksum = imas_checksum(uri)
-    elif type == DataObject.Type.FILE:
-        from ...checksum import sha1_checksum
-        checksum = sha1_checksum(uri)
-    else:
-        raise NotImplementedError("Cannot generate checksum for type " + str(type))
-    return checksum
-
-
-def _get_datetime(type: DataObject.Type, uri: urilib.URI) -> datetime:
-    if type == DataObject.Type.UDA:
-        return datetime.now()
-    elif type == DataObject.Type.IMAS:
-        from ...imas.utils import imas_timestamp
-        return imas_timestamp(uri)
-    elif type == DataObject.Type.FILE:
-        return datetime.fromtimestamp(Path(uri.path).stat().st_ctime)
-    else:
-        raise NotImplementedError("Cannot generate checksum for type " + str(type))
-
-
 @inherit_docstrings
 class File(Base):
     """
@@ -58,17 +31,14 @@ class File(Base):
     embargo = Column(sql_types.String(20), nullable=True)
     datetime = Column(sql_types.DateTime, nullable=False)
 
-    def _integrity_check(self) -> None:
-        self.checksum = _generate_checksum(self.type, self.uri)
-
     def __init__(self, type: DataObject.Type, uri: urilib.URI, perform_integrity_check: bool=True) -> None:
         self.uuid = uuid.uuid1()
         self.uri = uri
         self.type = type
-        self.datetime = datetime.now()
+        self.datetime = self.get_creation_date()
 
         if perform_integrity_check:
-            self._integrity_check()
+            self.checksum = self.generate_checksum()
 
     def __str__(self):
         result = ""
@@ -80,6 +50,31 @@ class File(Base):
     def __repr__(self):
         result = "%s (%s)" % (self.uuid, self.file_name)
         return result
+
+    def generate_checksum(self):
+        if self.type == DataObject.Type.UDA:
+            from ...uda.checksum import checksum as uda_checksum
+            checksum = uda_checksum(self.uri)
+        elif self.type == DataObject.Type.IMAS:
+            from ...imas.checksum import checksum as imas_checksum
+            checksum = imas_checksum(self.uri)
+        elif self.type == DataObject.Type.FILE:
+            from ...checksum import sha1_checksum
+            checksum = sha1_checksum(self.uri)
+        else:
+            raise NotImplementedError("Cannot generate checksum for type " + str(self.type))
+        return checksum
+
+    def get_creation_date(self) -> datetime:
+        if self.type == DataObject.Type.UDA:
+            return datetime.now()
+        elif self.type == DataObject.Type.IMAS:
+            from ...imas.utils import imas_timestamp
+            return imas_timestamp(self.uri)
+        elif self.type == DataObject.Type.FILE:
+            return datetime.fromtimestamp(Path(self.uri.path).stat().st_ctime)
+        else:
+            raise NotImplementedError("Cannot generate checksum for type " + str(self.type))
 
     @classmethod
     def from_data(cls, data: Dict) -> "File":
