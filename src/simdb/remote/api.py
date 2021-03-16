@@ -2,7 +2,7 @@ import os
 import json
 import itertools
 from pathlib import Path
-from flask import g, Blueprint, request, jsonify, Response, current_app, _app_ctx_stack
+from flask import Blueprint, request, jsonify, Response, current_app, _app_ctx_stack
 from werkzeug.utils import secure_filename
 from werkzeug.datastructures import FileStorage
 from functools import wraps
@@ -18,6 +18,12 @@ from ..checksum import sha1_checksum
 from ..cli.manifest import DataObject
 
 api = Blueprint("api", __name__)
+
+
+def _secure_path(path: Path, common_root: Path, staging_dir: Path) -> Path:
+    file_name = secure_filename(path.name)
+    directory = staging_dir / path.parent.relative_to(common_root)
+    return directory / file_name
 
 
 def check_auth(username, password, user):
@@ -86,7 +92,7 @@ def setup_db(setup_state):
 
 
 @api.teardown_request
-def remove_db_session(error):
+def remove_db_session(_error):
     if api.db:
         api.db.remove()
 
@@ -141,8 +147,8 @@ def get_file(file_uuid: str):
         return error(str(err))
 
 
-def _save_chunked_file(file: FileStorage, chunk_info: Dict, path: str, compressed: bool=True):
-    with open(path, "r+b" if os.path.exists(path) else "wb") as file_out:
+def _save_chunked_file(file: FileStorage, chunk_info: Dict, path: Path, compressed: bool=True):
+    with open(path, "r+b" if path.exists() else "wb") as file_out:
         file_out.seek(chunk_info['chunk_size'] * chunk_info['chunk'])
         if compressed:
             with gzip.GzipFile(fileobj=file, mode="rb") as gz_file:
@@ -151,20 +157,29 @@ def _save_chunked_file(file: FileStorage, chunk_info: Dict, path: str, compresse
             file_out.write(file.stream.read())
 
 
-def _stage_file_from_chunks(files: Iterable[FileStorage], chunk_info: Dict, sim_uuid: uuid.UUID, sim_files: List[File]) -> None:
+def _stage_file_from_chunks(files: Iterable[FileStorage], chunk_info: Dict, sim_uuid: uuid.UUID,
+                            sim_files: List[File]) -> None:
     staging_dir = Path(current_app.config["UPLOAD_FOLDER"]) / sim_uuid.hex
     os.makedirs(staging_dir, exist_ok=True)
 
+    found_files = []
     for file in files:
         if file.filename:
             file_uuid = uuid.UUID(file.filename)
             sim_file = next((f for f in sim_files if f.uuid == file_uuid), None)
             if sim_file is None:
                 raise ValueError("file with uuid %s not found in simulation" % file_uuid)
-            file_name = secure_filename(str(sim_file.uri.path))
-            path = staging_dir / file_name
-            file_chunk_info = chunk_info.get(sim_file.uuid.hex, {'chunk_size': 0, 'chunk': 0, 'num_chunks': 1})
-            _save_chunked_file(file, file_chunk_info, path)
+            if sim_file.uri.scheme != 'file':
+                raise ValueError("cannot upload non file URI")
+            found_files.append(sim_file)
+
+    common_root = os.path.commonpath([f.uri.path for f in found_files])
+
+    for file in found_files:
+        path = _secure_path(file.uri.path, Path(common_root), staging_dir)
+        os.makedirs(path.parent, exist_ok=True)
+        file_chunk_info = chunk_info.get(file.uuid.hex, {'chunk_size': 0, 'chunk': 0, 'num_chunks': 1})
+        _save_chunked_file(file, file_chunk_info, path)
 
 
 def _set_alias(alias: str):
@@ -175,7 +190,7 @@ def _set_alias(alias: str):
         character = '#'
 
     if not character:
-        return (None, -1)
+        return None, -1
 
     next_id = 1
     aliases = api.db.get_aliases(alias)
@@ -188,14 +203,10 @@ def _set_alias(alias: str):
     return alias, next_id
 
 
-def _verify_files(file_uuid: uuid.UUID, sim_uuid: uuid.UUID, sim_files: List[File]):
+def _verify_file(sim_uuid: uuid.UUID, sim_file: File, common_root: Path):
     staging_dir = Path(current_app.config["UPLOAD_FOLDER"]) / sim_uuid.hex
-    sim_file = next((f for f in sim_files if f.uuid == file_uuid), None)
-    if sim_file is None:
-        raise ValueError("file with uuid %s not found in simulation" % file_uuid)
     if sim_file.type == DataObject.Type.FILE:
-        file_name = secure_filename(str(sim_file.uri.path))
-        path = staging_dir / file_name
+        path = _secure_path(sim_file.uri.path, common_root, staging_dir)
         if not path.exists():
             raise ValueError('file %s does not exist' % path)
         checksum = sha1_checksum(path)
@@ -219,7 +230,11 @@ def upload_file():
                 file_uuid = uuid.UUID(file['file_uuid'])
                 file_type = file['file_type']
                 sim_files = simulation.inputs if file_type == 'input' else simulation.outputs
-                _verify_files(file_uuid, simulation.uuid, sim_files)
+                sim_file = next((f for f in sim_files if f.uuid == file_uuid), None)
+                if sim_file is None:
+                    raise ValueError("file with uuid %s not found in simulation" % file_uuid)
+                common_root = os.path.commonpath([f.uri.path for f in chain(simulation.inputs, simulation.outputs)])
+                _verify_file(simulation.uuid, sim_file, common_root)
             return jsonify({})
 
         data = json.load(request.files["data"])
@@ -259,9 +274,11 @@ def ingest_simulation():
 
         staging_dir = Path(current_app.config["UPLOAD_FOLDER"]) / simulation.uuid.hex
 
-        for sim_file in chain(simulation.inputs, simulation.outputs):
-            file_name = secure_filename(str(sim_file.uri.path))
-            path = staging_dir / file_name
+        files = list(chain(simulation.inputs, simulation.outputs))
+        common_root = os.path.commonpath([f.uri.path for f in files])
+
+        for sim_file in files:
+            path = _secure_path(sim_file.uri.path, common_root, staging_dir)
             if not path.exists():
                 raise ValueError('simulation file %s not uploaded' % sim_file.uuid)
             sim_file.directory = staging_dir

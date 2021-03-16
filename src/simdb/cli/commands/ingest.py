@@ -1,6 +1,7 @@
 import argparse
 from pathlib import Path
 from typing import Optional
+import urllib.parse
 
 from ._base import Command
 from ...config import Config
@@ -40,6 +41,9 @@ class IngestCommand(Command):
             simulation.alias = args.alias
         if args.uuid:
             simulation.uuid = args.uuid
+
+        if urllib.parse.quote(simulation.alias) != simulation.alias:
+            print('warning: alias contains reserved characters')
 
         db = get_local_db(config)
         db.insert_simulation(simulation)

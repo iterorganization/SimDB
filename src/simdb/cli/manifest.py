@@ -5,7 +5,9 @@ import urllib
 from enum import Enum, auto
 from typing import Iterable, Union, Dict, List, Tuple, Optional
 import uri as urilib
+import glob
 from pathlib import Path
+from semantic_version import Version
 
 
 class InvalidManifest(Exception):
@@ -20,7 +22,7 @@ def _expand_path(path: Path, base_path: Path) -> Path:
         if not base_path.is_absolute():
             raise ValueError('base_path must be absolute')
         return base_path / path
-    return path
+    return Path(os.path.expandvars(path))
 
 
 def _to_uri(uri_str: str, base_path: Path) -> Tuple["DataObject.Type", urilib.URI]:
@@ -173,6 +175,19 @@ class OutputsValidator(ListValuesValidator):
         super().__init__("outputs")
 
 
+class VersionValidator(ManifestValidator):
+    """
+    Validator for manifest version.
+    """
+    def validate(self, value):
+        if not isinstance(value, str):
+            raise InvalidManifest("version must be a string")
+        try:
+            Version.coerce(value)
+        except ValueError:
+            raise InvalidManifest('invalid version: %s' % value)
+
+
 class AliasValidator(ManifestValidator):
     """
     Validator for simulation alias.
@@ -181,7 +196,7 @@ class AliasValidator(ManifestValidator):
         if not isinstance(value, str):
             raise InvalidManifest("alias must be a string")
         if urllib.parse.quote(value) != value:
-            raise InvalidManifest("illegal characters in alias")
+            raise InvalidManifest("illegal characters in alias: %s" % value)
 
 
 class MetaDataValidator(ListValuesValidator):
@@ -242,21 +257,43 @@ class Manifest:
 
     @property
     def inputs(self) -> Iterable[Source]:
+        sources = []
         if isinstance(self._data, dict):
-            return [Source(self._path, i["uri"]) for i in self._data["inputs"]]
-        return []
+            for i in self._data["inputs"]:
+                source = Source(self._path, i["uri"])
+                if source.type == DataObject.Type.FILE:
+                    names = glob.glob(source.uri.path)
+                    for name in names:
+                        sources.append(Source(self._path, "file://" + name))
+                else:
+                    sources.append(source)
+        return sources
 
     @property
     def outputs(self) -> Iterable[Sink]:
+        sinks = []
         if isinstance(self._data, dict):
-            return [Sink(self._path, i["uri"]) for i in self._data["outputs"]]
-        return []
+            for i in self._data["inputs"]:
+                sink = Sink(self._path, i["uri"])
+                if sink.type == DataObject.Type.FILE:
+                    names = glob.glob(sink.uri.path)
+                    for name in names:
+                        sinks.append(Sink(self._path, "file://" + name))
+                else:
+                    sinks.append(sink)
+        return sinks
 
     @property
     def alias(self) -> Optional[str]:
         if isinstance(self._data, dict):
             return self._data.get("alias", None)
         return None
+
+    @property
+    def version(self) -> Version:
+        if isinstance(self._data, dict):
+            return Version.coerce(self._data.get("version", '0'))
+        return Version('0.0.0')
 
     def _load_metadata(self, root_path: Path, path: Path):
         import yaml
@@ -325,6 +362,7 @@ class Manifest:
             raise InvalidManifest("badly formatted manifest - top level sections must be keys not a list")
 
         section_validators = {
+            "version": VersionValidator(),
             "alias": AliasValidator(),
             "inputs": InputsValidator(),
             "outputs": OutputsValidator(),
@@ -339,6 +377,9 @@ class Manifest:
         for section in required_sections:
             if section not in self._data.keys():
                 raise InvalidManifest("required manifest section not found: " + section)
+
+        if "version" not in self._data.keys():
+            print("warning: no version given in manifest, assuming version 0.0")
 
         for name, values in self._data.items():
             section_validators[name].validate(values)

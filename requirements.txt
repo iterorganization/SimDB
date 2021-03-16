@@ -16,3 +16,4 @@ pytest-cov~=2.10.1
 uri~=2.0
 email-validator~=1.1
 flask-mail~=0.9.1
+semantic-version>=2.8
