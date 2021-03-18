@@ -273,7 +273,7 @@ class Manifest:
     def outputs(self) -> Iterable[Sink]:
         sinks = []
         if isinstance(self._data, dict):
-            for i in self._data["inputs"]:
+            for i in self._data["outputs"]:
                 sink = Sink(self._path, i["uri"])
                 if sink.type == DataObject.Type.FILE:
                     names = glob.glob(sink.uri.path)
