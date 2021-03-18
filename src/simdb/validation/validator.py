@@ -63,10 +63,10 @@ class CustomValidator(cerberus.Validator):
             return
         if isinstance(value, numpy.ndarray):
             if not getattr(value, comparator)(comparison).all():
-                self._error("Values are not %s %s" % (message, comparison))
+                self._error(field, "Values are not %s %s" % (message, comparison))
         elif isinstance(value, float):
             if not getattr(value, comparator)(comparison):
-                self._error("Value is not %s %s" % (message, comparison))
+                self._error(field, "Value is not %s %s" % (message, comparison))
         else:
             self._error(field, "Value is not a numpy array or a float")
 
