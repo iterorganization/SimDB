@@ -1,4 +1,5 @@
 from uri import URI
+from pathlib import Path
 
 
 def sha1_checksum(uri: URI) -> str:
@@ -9,7 +10,7 @@ def sha1_checksum(uri: URI) -> str:
     """
     if uri.scheme != "file":
         raise ValueError("invalid scheme for file checksum: %s" % uri.scheme)
-    path = uri.path
+    path = Path(uri.path)
 
     import hashlib
 

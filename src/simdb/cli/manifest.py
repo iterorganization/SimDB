@@ -7,7 +7,6 @@ from typing import Iterable, Union, Dict, List, Tuple, Optional
 import uri as urilib
 import glob
 from pathlib import Path
-from semantic_version import Version
 
 
 class InvalidManifest(Exception):
@@ -153,8 +152,8 @@ class DataObjectValidator(ListValuesValidator):
 
     def validate(self, values: Union[list, dict]) -> None:
         super().validate(values)
-        for (_, value) in values:
-            uri = urilib.URI(value)
+        for value in values:
+            uri = urilib.URI(value["uri"])
             if uri.scheme not in ('uda', 'file', 'imas'):
                 raise InvalidManifest('unknown uri scheme: %s' % uri.scheme)
 
@@ -180,12 +179,8 @@ class VersionValidator(ManifestValidator):
     Validator for manifest version.
     """
     def validate(self, value):
-        if not isinstance(value, str):
-            raise InvalidManifest("version must be a string")
-        try:
-            Version.coerce(value)
-        except ValueError:
-            raise InvalidManifest('invalid version: %s' % value)
+        if not isinstance(value, int):
+            raise InvalidManifest("version must be an integer")
 
 
 class AliasValidator(ManifestValidator):
@@ -262,7 +257,7 @@ class Manifest:
             for i in self._data["inputs"]:
                 source = Source(self._path, i["uri"])
                 if source.type == DataObject.Type.FILE:
-                    names = glob.glob(source.uri.path)
+                    names = glob.glob(str(source.uri.path))
                     for name in names:
                         sources.append(Source(self._path, "file://" + name))
                 else:
@@ -276,7 +271,7 @@ class Manifest:
             for i in self._data["outputs"]:
                 sink = Sink(self._path, i["uri"])
                 if sink.type == DataObject.Type.FILE:
-                    names = glob.glob(sink.uri.path)
+                    names = glob.glob(str(sink.uri.path))
                     for name in names:
                         sinks.append(Sink(self._path, "file://" + name))
                 else:
@@ -290,10 +285,10 @@ class Manifest:
         return None
 
     @property
-    def version(self) -> Version:
+    def version(self) -> int:
         if isinstance(self._data, dict):
-            return Version.coerce(self._data.get("version", '0'))
-        return Version('0.0.0')
+            return self._data.get("version", 0)
+        return 0
 
     def _load_metadata(self, root_path: Path, path: Path):
         import yaml

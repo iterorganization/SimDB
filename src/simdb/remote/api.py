@@ -10,6 +10,7 @@ import uuid
 import gzip
 from typing import List, Iterable, Dict
 from itertools import chain
+from uri import URI
 
 from .. import __version__
 from ..database import Database, DatabaseError
@@ -166,7 +167,7 @@ def _save_chunked_file(file: FileStorage, chunk_info: Dict, path: Path, compress
 
 
 def _stage_file_from_chunks(files: Iterable[FileStorage], chunk_info: Dict, sim_uuid: uuid.UUID,
-                            sim_files: List[File]) -> None:
+                            sim_files: List[File], common_root: Path) -> None:
     staging_dir = Path(current_app.config["UPLOAD_FOLDER"]) / sim_uuid.hex
     os.makedirs(staging_dir, exist_ok=True)
 
@@ -179,14 +180,12 @@ def _stage_file_from_chunks(files: Iterable[FileStorage], chunk_info: Dict, sim_
                 raise ValueError("file with uuid %s not found in simulation" % file_uuid)
             if sim_file.uri.scheme != 'file':
                 raise ValueError("cannot upload non file URI")
-            found_files.append(sim_file)
+            found_files.append((file, sim_file))
 
-    common_root = os.path.commonpath([f.uri.path for f in found_files])
-
-    for file in found_files:
-        path = _secure_path(file.uri.path, Path(common_root), staging_dir)
+    for file, sim_file in found_files:
+        path = _secure_path(sim_file.uri.path, common_root, staging_dir)
         os.makedirs(path.parent, exist_ok=True)
-        file_chunk_info = chunk_info.get(file.uuid.hex, {'chunk_size': 0, 'chunk': 0, 'num_chunks': 1})
+        file_chunk_info = chunk_info.get(sim_file.uuid.hex, {'chunk_size': 0, 'chunk': 0, 'num_chunks': 1})
         _save_chunked_file(file, file_chunk_info, path)
 
 
@@ -217,7 +216,7 @@ def _verify_file(sim_uuid: uuid.UUID, sim_file: File, common_root: Path):
         path = _secure_path(sim_file.uri.path, common_root, staging_dir)
         if not path.exists():
             raise ValueError('file %s does not exist' % path)
-        checksum = sha1_checksum(path)
+        checksum = sha1_checksum(URI(scheme='file', path=path))
         if sim_file.checksum != checksum:
             raise ValueError("checksum failed for file %s" % repr(sim_file))
     elif sim_file.type == DataObject.Type.IMAS:
@@ -251,7 +250,6 @@ def upload_file():
             return error("Simulation data not provided")
 
         simulation = Simulation.from_data(data["simulation"])
-        simulation.alias = simulation.uuid.hex[0:8]
 
         chunk_info = data.get("chunk_info", {})
         file_type = data['file_type']
@@ -260,8 +258,11 @@ def upload_file():
         if not files:
             return error("No files given")
 
+        all_sim_files = list(chain(simulation.inputs, simulation.outputs))
+        common_root = Path(os.path.commonpath([f.uri.path for f in all_sim_files]))
+
         sim_files = simulation.inputs if file_type == 'input' else simulation.outputs
-        _stage_file_from_chunks(files, chunk_info, simulation.uuid, sim_files)
+        _stage_file_from_chunks(files, chunk_info, simulation.uuid, sim_files, common_root)
 
         return jsonify({})
     except ValueError as err:
@@ -299,7 +300,7 @@ def ingest_simulation():
             path = _secure_path(sim_file.uri.path, common_root, staging_dir)
             if not path.exists():
                 raise ValueError('simulation file %s not uploaded' % sim_file.uuid)
-            sim_file.directory = staging_dir
+            sim_file.uri = URI(scheme='file', path=path)
 
         api.db.insert_simulation(simulation)
 
