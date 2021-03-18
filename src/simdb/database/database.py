@@ -200,7 +200,8 @@ class Database:
         :return:
         """
         from .models import Simulation, MetaData
-        from sqlalchemy import func
+        from sqlalchemy import func, String
+        from sqlalchemy.sql.expression import cast
 
         queries = []
 
@@ -210,14 +211,28 @@ class Database:
             contains = {}
 
         for name in equals:
-            queries.append(self.session.query(Simulation).join(MetaData, Simulation.meta) \
-                           .filter(MetaData.element == name,
-                                   func.lower(MetaData.value) == equals[name].lower()))
+            if name == 'alias':
+                queries.append(self.session.query(Simulation)
+                               .filter(func.lower(Simulation.alias) == equals[name].lower()))
+            elif name == 'uuid':
+                queries.append(self.session.query(Simulation).filter(Simulation.uuid == uuid.UUID(equals[name])))
+            else:
+                queries.append(self.session.query(Simulation).join(MetaData, Simulation.meta)
+                               .filter(MetaData.element == name,
+                                       func.lower(MetaData.value) == equals[name].lower()))
 
         for name in contains:
-            queries.append(self.session.query(Simulation).join(MetaData, Simulation.meta) \
-                           .filter(MetaData.element == name,
-                                   MetaData.value.ilike("%{}%".format(contains[name]))))
+            if name == 'alias':
+                queries.append(self.session.query(Simulation)
+                               .filter(Simulation.alias.ilike("%{}%".format(contains[name]))))
+            elif name == 'uuid':
+                queries.append(self.session.query(Simulation)
+                               .filter(func.REPLACE(cast(Simulation.uuid, String), '-', '')
+                                       .ilike("%{}%".format(contains[name].replace('-', '')))))
+            else:
+                queries.append(self.session.query(Simulation).join(MetaData, Simulation.meta)
+                               .filter(MetaData.element == name,
+                                       MetaData.value.ilike("%{}%".format(contains[name]))))
 
         query = queries[0]
         for i in range(1, len(queries)):
