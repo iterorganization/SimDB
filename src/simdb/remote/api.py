@@ -13,10 +13,12 @@ from itertools import chain
 
 from .. import __version__
 from ..database import Database, DatabaseError
-from ..database.models import Simulation, File, Watcher
+from ..database.models import Simulation, File, Watcher, MetaData
 from ..checksum import sha1_checksum
 from ..cli.manifest import DataObject
 
+
+API_VERSION = 1
 api = Blueprint("api", __name__)
 
 
@@ -24,6 +26,27 @@ def _secure_path(path: Path, common_root: Path, staging_dir: Path) -> Path:
     file_name = secure_filename(path.name)
     directory = staging_dir / path.parent.relative_to(common_root)
     return directory / file_name
+
+
+def _set_alias(db, alias):
+    character = None
+    if alias.endswith('-'):
+        character = '-'
+    elif alias.endswith('#'):
+        character = '#'
+
+    if not character:
+        return alias, -1
+
+    next_id = 1
+    aliases = db.get_aliases(alias)
+    for existing_alias in aliases:
+        existing_id = int(existing_alias.split(character)[1])
+        if next_id <= existing_id:
+            next_id = existing_id + 1
+    alias = '%s%d' % (alias, next_id)
+
+    return alias, next_id
 
 
 def check_auth(username, password, user):
@@ -100,7 +123,13 @@ def remove_db_session(_error):
 @api.route("/")
 @requires_auth()
 def index():
-    return jsonify({"api": "simdb", "version": __version__})
+    return jsonify(
+        {
+            "api": "simdb",
+            "version": API_VERSION,
+            "server_version": __version__,
+            "endpoints": ["/simulations", "/files", "/validation_schema"]
+        })
 
 
 @api.route("/reset", methods=["POST"])
@@ -270,7 +299,17 @@ def ingest_simulation():
             return error("Simulation data not provided")
 
         simulation = Simulation.from_data(data["simulation"])
-        simulation.alias = simulation.uuid.hex[0:8]
+
+        if "alias" in data["simulations"]:
+            alias = data["simulations"]["alias"]
+            (updated_alias, next_id) = _set_alias(api.db, alias)
+            if updated_alias:
+                simulation.meta.append(MetaData('seqid', next_id))
+                simulation.alias = updated_alias
+            else:
+                simulation.alias = alias
+        else:
+            simulation.alias = simulation.uuid.hex[0:8]
 
         staging_dir = Path(current_app.config["UPLOAD_FOLDER"]) / simulation.uuid.hex
 
