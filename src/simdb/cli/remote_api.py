@@ -11,7 +11,7 @@ from uri import URI
 from ..database.models import Simulation, File
 from .manifest import DataObject
 from ..config import Config
-from ..validation import Validator
+from ..validation import Validator, ValidationError
 
 
 urllib3.disable_warnings()
@@ -218,7 +218,11 @@ class RemoteAPI:
         :param out_stream: IO stream to write messages to the user (default: stdout)
         """
         schema = self.get_validation_schema()
-        Validator(schema).validate(simulation)
+        try:
+            Validator(schema).validate(simulation)
+        except ValidationError as err:
+            print("warning: simulation does not validate")
+            print("validation error: ", err)
 
         sim_data = simulation.data(recurse=True)
         chunk_size = 10*1024*1024  # 10 MB

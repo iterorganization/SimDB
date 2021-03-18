@@ -28,27 +28,6 @@ def _secure_path(path: Path, common_root: Path, staging_dir: Path) -> Path:
     return directory / file_name
 
 
-def _set_alias(db, alias):
-    character = None
-    if alias.endswith('-'):
-        character = '-'
-    elif alias.endswith('#'):
-        character = '#'
-
-    if not character:
-        return alias, -1
-
-    next_id = 1
-    aliases = db.get_aliases(alias)
-    for existing_alias in aliases:
-        existing_id = int(existing_alias.split(character)[1])
-        if next_id <= existing_id:
-            next_id = existing_id + 1
-    alias = '%s%d' % (alias, next_id)
-
-    return alias, next_id
-
-
 def check_auth(username, password, user):
     """This function is called to check if a username / password combination is valid.
     """
@@ -300,9 +279,9 @@ def ingest_simulation():
 
         simulation = Simulation.from_data(data["simulation"])
 
-        if "alias" in data["simulations"]:
-            alias = data["simulations"]["alias"]
-            (updated_alias, next_id) = _set_alias(api.db, alias)
+        if "alias" in data["simulation"]:
+            alias = data["simulation"]["alias"]
+            (updated_alias, next_id) = _set_alias(alias)
             if updated_alias:
                 simulation.meta.append(MetaData('seqid', next_id))
                 simulation.alias = updated_alias
