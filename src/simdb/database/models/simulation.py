@@ -8,18 +8,12 @@ from dateutil import parser as date_parser
 from sqlalchemy import Column, types as sql_types, Table, ForeignKey
 from sqlalchemy.orm import relationship
 
-from ._base import _flatten_dict, _unflatten_dict
+from ._base import _flatten_dict, _unflatten_dict, _checked_get
 from .types import UUID
 from ._base import Base
 from .file import File
 from ...cli.manifest import Manifest, DataObject
 from ...docstrings import inherit_docstrings
-
-
-def _checked_get(data: Dict[str, Any], key, type: Type):
-    if not isinstance(data[key], type):
-        raise ValueError("corrupted %s - expected %s" % (key, str(type)))
-    return data[key]
 
 
 simulation_input_files = Table("simulation_input_files", Base.metadata,

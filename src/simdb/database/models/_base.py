@@ -1,6 +1,6 @@
 import os
 from collections import deque
-from typing import List, Dict, Any, Union, Tuple, Deque
+from typing import List, Dict, Any, Union, Tuple, Deque, Type
 from sqlalchemy.ext.declarative import declarative_base
 
 
@@ -34,6 +34,12 @@ def _unflatten_dict(in_dict: Dict[str, Any]) -> Dict[str, Union[Dict, Any]]:
     for key, value in in_dict.items():
         _unflatten_value(out_dict, deque(key.split(FLATTEN_DICT_DELIM)), value)
     return out_dict
+
+
+def _checked_get(data: Dict[str, Any], key, type: Type):
+    if not isinstance(data[key], type):
+        raise ValueError("corrupted %s - expected %s" % (key, str(type)))
+    return data[key]
 
 
 class BaseModel:
