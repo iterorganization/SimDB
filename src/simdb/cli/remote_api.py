@@ -78,13 +78,14 @@ class RemoteAPI:
     dir_path = os.path.dirname(os.path.realpath(__file__))
     cert_path = os.path.join(dir_path, "../remote/server.crt")
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, name: str, config: Config) -> None:
         self._config: Config = config
-        self._url: str = config.get_option('remote-url')
-        if self._url:
-            self._api_url: str = '%s/api/v%s/' % (self._url, config.api_version)
-        self._user_name: str = config.get_option('user-name', default='test')
-        self._pass_word: str = config.get_option('user-password', default='test')
+        self._url: str = config.get_option('remote.%s.url' % name)
+        if not self._url:
+            raise ValueError("cannot find remote %s" % name)
+        self._api_url: str = '%s/api/v%s/' % (self._url, config.api_version)
+        self._user_name: str = config.get_option('user.name', default='test')
+        self._pass_word: str = config.get_option('user.password', default='test')
 
     def get(self, url: str, params: Dict=None) -> requests.Response:
         if params is None:

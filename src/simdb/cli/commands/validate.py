@@ -18,6 +18,7 @@ class ValidateCommand(Command):
         sim_id: str
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("remote", type=str, help="name of the remote to push to")
         parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
 
     def run(self, args: ValidateArgs, config: Config) -> None:
@@ -30,7 +31,7 @@ class ValidateCommand(Command):
         db = get_local_db(config)
         simulation = db.get_simulation(args.sim_id)
 
-        api = RemoteAPI(config)
+        api = RemoteAPI(args.remote, config)
 
         print('downloading validation schema ... ', end='', flush=True)
         schema = api.get_validation_schema()

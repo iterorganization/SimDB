@@ -537,7 +537,7 @@ class Database:
 
 def get_local_db(config: Config) -> Database:
     import appdirs
-    db_file = config.get_option('db-file', default=os.path.join(appdirs.user_data_dir('simdb'), 'sim.db'))
+    db_file = config.get_option('db.file', default=os.path.join(appdirs.user_data_dir('simdb'), 'sim.db'))
     db_dir = os.path.dirname(db_file)
     os.makedirs(db_dir, exist_ok=True)
     database = Database(Database.DBMS.SQLITE, file=db_file)

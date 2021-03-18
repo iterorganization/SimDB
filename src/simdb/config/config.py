@@ -8,8 +8,10 @@ from .. import __version__
 
 
 def _parser_arg(arg) -> Tuple[str, str]:
-    if '-' in arg:
-        section, option = arg.split('-', 1)
+    if '.' in arg:
+        section, *name, option = arg.split('.')
+        if name:
+            section = '{} "{}"'.format(section, '.'.join(name))
     else:
         section = 'DEFAULT'
         option = arg
@@ -69,12 +71,12 @@ class Config:
         self._load_environmental_vars()
 
         # Import configuration options from files defined by environment variables
-        path = self.get_option('user-config-path', default='')
+        path = self.get_option('user.config-path', default='')
         if path:
             self._user_config_path = Path(path)
             self._user_config_dir = self._user_config_path.parent
 
-        path = self.get_option('site-config-path', default='')
+        path = self.get_option('site.config-path', default='')
         if path:
             self._site_config_path = Path(path)
             self._site_config_dir = self._site_config_path.parent
@@ -112,5 +114,8 @@ class Config:
                 if section == 'DEFAULT':
                     options.append('%s: %s' % (option, value))
                 else:
-                    options.append('%s-%s: %s' % (section, option, value))
+                    section, *name = section.split(" ")
+                    if name:
+                        section = section + '.' + name[0][1:-1]
+                    options.append('%s.%s: %s' % (section, option, value))
         return options

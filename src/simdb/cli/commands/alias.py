@@ -28,6 +28,7 @@ class AliasCommand(Command):
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--action", type=AliasCommand.Actions.from_string, choices=list(AliasCommand.Actions),
                             help="action to perform", dest="alias_action")
+        parser.add_argument("remote", type=str, help="name of the remote to push to")
         parser.add_argument("value", help="search value (only for search action)", nargs='?')
 
     class AliasArgs(argparse.Namespace):
@@ -35,11 +36,11 @@ class AliasCommand(Command):
         value: str
 
     @staticmethod
-    def _search_aliases(config: Config, value: str):
+    def _search_aliases(config: Config, remote: str, value: str):
         from ..remote_api import RemoteAPI
         from ...database import get_local_db
 
-        api = RemoteAPI(config)
+        api = RemoteAPI(remote, config)
         simulations = api.list_simulations()
 
         db = get_local_db(config)
@@ -50,11 +51,11 @@ class AliasCommand(Command):
             print(alias)
 
     @staticmethod
-    def _list_aliases(config: Config):
+    def _list_aliases(remote: str, config: Config):
         from ..remote_api import RemoteAPI
         from ...database import get_local_db
 
-        api = RemoteAPI(config)
+        api = RemoteAPI(remote, config)
         if api.has_url():
             remote_simulations = api.list_simulations()
         else:
@@ -75,6 +76,6 @@ class AliasCommand(Command):
     def run(self, args: AliasArgs, config: Config) -> None:
         if args.alias_action == AliasCommand.Actions.SEARCH:
             _required_argument(args, "search", "value")
-            AliasCommand._search_aliases(config, args.value)
+            AliasCommand._search_aliases(config, args.remote, args.value)
         elif args.alias_action == AliasCommand.Actions.LIST:
-            AliasCommand._list_aliases(config)
+            AliasCommand._list_aliases(args.remote, config)

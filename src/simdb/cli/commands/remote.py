@@ -57,6 +57,7 @@ class RemoteCommand(Command):
                                 help="what event(s) to be notified of for the simulation", default='obsolescence')
             parser.add_argument("--remove", "-r", action="store_true", help="remove the watcher from the simulation")
             parser.add_argument("--list", "-l", action="store_true", help="list existing watchers for the simulation")
+            parser.add_argument("remote", type=str, help="name of the remote to push to")
             parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
 
         def validate_arguments(self, parser: argparse.ArgumentParser, args: Any) -> None:
@@ -73,7 +74,7 @@ class RemoteCommand(Command):
 
         def run(self, args: argparse.Namespace, config: Config) -> None:
             from ..remote_api import RemoteAPI
-            api = RemoteAPI(config)
+            api = RemoteAPI(args.remote, config)
             if args.list:
                 watchers = api.list_watchers(args.sim_id)
                 if watchers:
@@ -94,6 +95,7 @@ class RemoteCommand(Command):
         command_parsers.required = True
 
         parser.add_argument("-v", "--verbose", action="store_true", help="print more verbose output")
+        parser.add_argument("remote", type=str, help="name of the remote")
 
         self._commands = {
             "list": ListCommand(),
@@ -115,6 +117,7 @@ class RemoteCommand(Command):
             command.validate_arguments(self._parsers[name], args)
 
     class RemoteArgs(argparse.Namespace):
+        remote: str
         action: str
         verbose: bool
         sim_id: str
@@ -122,7 +125,7 @@ class RemoteCommand(Command):
     def run(self, args: RemoteArgs, config: Config) -> None:
         from ..remote_api import RemoteAPI
 
-        api = RemoteAPI(config)
+        api = RemoteAPI(args.remote, config)
         if args.action == "list":
             simulations = api.list_simulations()
             _list_simulations(simulations, verbose=args.verbose)
