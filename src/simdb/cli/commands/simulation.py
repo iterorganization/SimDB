@@ -1,100 +1,240 @@
-import argparse
-from typing import Optional
+import click
 
-from ._base import Command
-from .modify import ModifyCommand
-from .delete import DeleteCommand
-from .info import InfoCommand
-from .ingest import IngestCommand
-from .list import ListCommand
-from .push import PushCommand
-from .query import QueryCommand
-from .validate import ValidateCommand
-from ...config import Config
-from ...docstrings import inherit_docstrings
+from . import pass_config
 
 
-@inherit_docstrings
-class SimulationCommand(Command):
-    """Command group for working with simulations including ingesting, querying and listing them.
+@click.group()
+def simulation():
+    """Manage ingested simulations.
     """
-    _help = "manage ingested simulations"
+    pass
 
-    class NewCommand(Command):
-        _help = "create a new blank simulation and return the UUID"
 
-        def add_arguments(self, parser: argparse.ArgumentParser) -> None:
-            parser.add_argument("--alias", "-a", help="alias of to assign to the simulation")
-            parser.add_argument("--uuid-only", "-u", dest="uuid", default=False, action="store_true",
-                                help="return a new UUID but do not insert the new simulation into the database")
+@simulation.command("new")
+@pass_config
+@click.option("-a", "--alias", help="Alias of to assign to the simulation.")
+@click.option("-u", "--uuid-only", "uuid", is_flag=True,
+              help="Return a new UUID but do not insert the new simulation into the database.")
+def simulation_new(config, alias, uuid):
+    """Create an empty simulation in the database which can be updated later.
+    """
+    from ...database import get_local_db
+    from ...database.models import Simulation
+    from ..manifest import Manifest
 
-        class NewArgs(argparse.Namespace):
-            alias: str
+    simulation = Simulation(Manifest())
+    simulation.alias = alias
+    if not uuid:
+        db = get_local_db(config)
+        db.insert_simulation(simulation)
+    click.echo(simulation.uuid)
 
-        def run(self, args: NewArgs, config: Config) -> None:
-            from ...database import get_local_db
-            from ...database.models import Simulation
-            from ..manifest import Manifest
 
-            simulation = Simulation(Manifest())
-            simulation.alias = args.alias
-            if not args.uuid:
-                db = get_local_db(config)
-                db.insert_simulation(simulation)
-            print(simulation.uuid)
+@simulation.command("alias")
+@pass_config
+@click.option("-p", "--prefix", help="Prefix to use for the alias.", default='sim', show_default=True)
+def simulation_alias(config, prefix):
+    """Generate a unique alias with the given PREFIX.
+    """
+    from ...database import get_local_db
 
-    class AliasCommand(Command):
-        _help = "generated a new unique alias"
+    db = get_local_db(config)
+    aliases = db.get_aliases(prefix)
 
-        def add_arguments(self, parser: argparse.ArgumentParser) -> None:
-            parser.add_argument("--prefix", "-p", help="prefix to use for the alias")
+    n = 1
+    alias = f"{prefix}{n:03}"
 
-        class AliasArgs(argparse.Namespace):
-            prefix: Optional[str]
+    while alias in aliases:
+        n += 1
+        alias = f"{prefix}{n:03}"
 
-        def run(self, args: AliasArgs, config: Config) -> None:
-            from ...database import get_local_db
+    click.echo(alias)
 
-            prefix: str = args.prefix or 'sim'
 
-            db = get_local_db(config)
-            aliases = db.get_aliases(prefix)
+@simulation.command("list")
+@pass_config
+@click.option("-m", "--meta-data", "meta", help="Additional meta-data field to print.", multiple=True, default=[])
+def simulation_list(config, meta):
+    """List ingested simulations.
+    """
+    from ...database import get_local_db
+    from .utils import print_simulations
 
-            n = 1
-            alias = prefix + ('%03d' % n)
+    db = get_local_db(config)
+    simulations = db.list_simulations()
+    print_simulations(simulations, verbose=config.verbose, metadata_names=meta)
 
-            print(aliases)
 
-            while alias in aliases:
-                n += 1
-                alias = prefix + ('%03d' % n)
+@simulation.command("modify")
+@pass_config
+@click.argument("sim_id")
+@click.option("-a", "--alias", help="New alias.")
+def simulation_modify(config, sim_id, alias):
+    """Modify the ingested simulation.
+    """
+    from ...database import get_local_db
 
-            print(alias)
+    if alias is not None:
+        db = get_local_db(config)
+        simulation = db.get_simulation(sim_id)
+        simulation.alias = alias
+        db.session.commit()
+    else:
+        click.echo("nothing to do")
 
-    _commands = {
-        "push": PushCommand(),
-        "modify": ModifyCommand(),
-        "list": ListCommand(),
-        "info": InfoCommand(),
-        "delete": DeleteCommand(),
-        "query": QueryCommand(),
-        "ingest": IngestCommand(),
-        "validate": ValidateCommand(),
-        "new": NewCommand(),
-        "alias": AliasCommand(),
-    }
 
-    def add_arguments(self, parser: argparse.ArgumentParser) -> None:
-        command_parsers = parser.add_subparsers(title="action", dest="action")
-        command_parsers.required = True
+@simulation.command("delete")
+@pass_config
+@click.argument("sim_id")
+def simulation_delete(config, sim_id):
+    """Delete the ingested simulation with given SIM_ID (UUID or alias).
+    """
+    from ...database import get_local_db
 
-        for name, command in self._commands.items():
-            sub_parser = command_parsers.add_parser(name, help=command.help)
-            command.add_arguments(sub_parser)
+    db = get_local_db(config)
+    sim = db.delete_simulation(sim_id)
 
-    class SimulationArgs(PushCommand.PushArgs, ModifyCommand.ModifyArgs, ListCommand.ListArgs, DeleteCommand.DeleteArgs,
-                         InfoCommand.InfoArgs, QueryCommand.QueryArgs):
-        action: str
+    click.echo(f"Simulation {sim.uuid.hex} deleted.")
 
-    def run(self, args: SimulationArgs, config: Config) -> None:
-        self._commands[args.action].run(args, config)
+
+@simulation.command("info")
+@pass_config
+@click.argument("sim_id")
+def simulation_info(config, sim_id):
+    """Print information on the simulation with given SIM_ID (UUID or alias).
+    """
+    from ...database import get_local_db
+
+    db = get_local_db(config)
+    simulation = db.get_simulation(sim_id)
+    if simulation is None:
+        raise KeyError(f"Failed to find simulation: {sim_id}.")
+    click.echo(f"{simulation}")
+
+
+@simulation.command("ingest")
+@pass_config
+@click.argument("manifest_file")
+@click.option("-a", "--alias", help="Alias to give to simulation (overwrites any set in manifest).")
+def simulation_ingest(config, manifest_file, alias):
+    """Ingest a MANIFEST_FILE.
+    """
+    import urllib.parse
+    from ...database import get_local_db
+    from ...database.models import Simulation
+    from ..manifest import Manifest
+
+    manifest = Manifest()
+    manifest.load(manifest_file)
+    manifest.validate()
+
+    simulation = Simulation(manifest)
+    if alias:
+        simulation.alias = alias
+
+    if simulation.alias and urllib.parse.quote(simulation.alias) != simulation.alias:
+        click.echo('warning: alias contains reserved characters')
+
+    db = get_local_db(config)
+    db.insert_simulation(simulation)
+    click.echo(simulation.uuid)
+
+
+class CustomCommand(click.Command):
+    def parse_args(self, ctx, args):
+        if len(args) == 1:
+            args.insert(0, '')
+        super().parse_args(ctx, args)
+
+
+@simulation.command("push", cls=CustomCommand)
+@pass_config
+@click.argument("remote", required=False)
+@click.argument("sim_id")
+def simulation_push(config, remote, sim_id):
+    """Push the simulation with the given SIM_ID (UUID or alias) to the REMOTE.
+    """
+    from ...database import get_local_db
+    from ..remote_api import RemoteAPI
+    import sys
+
+    api = RemoteAPI(remote, config)
+    db = get_local_db(config)
+    simulation = db.get_simulation(sim_id)
+    if simulation is None:
+        raise click.ClickException(f"Failed to find simulation: {sim_id}")
+    api.push_simulation(simulation, out_stream=sys.stdout)
+
+    click.echo("success")
+
+
+@simulation.command("query")
+@pass_config
+@click.argument("constraint", nargs=-1)
+def simulation_query(config, constraint):
+    """Query the simulations.
+    """
+    if not constraint:
+        raise click.ClickException("At least one constraint must be provided.")
+
+    from ...database import get_local_db
+    from .utils import print_simulations
+
+    equals = {}
+    contains = {}
+    for item in constraint:
+        if '=' not in item:
+            raise click.ClickException("Invalid constraint.")
+        (key, value) = item.split('=')
+        if '=in:' in item:
+            contains[key] = value.replace('in:', '')
+        else:
+            equals[key] = value
+
+    db = get_local_db(config)
+    simulations = db.query_meta(equals=equals, contains=contains)
+    print_simulations(simulations, verbose=config.verbose)
+
+
+@simulation.command("validate")
+@pass_config
+@click.argument("remote")
+@click.argument("sim_id")
+def simulation_validate(config, remote, sim_id):
+    """Validate the ingested simulation with given SIM_ID (UUID or alias) using validation schema from REMOTE.
+    """
+    from itertools import chain
+    from ...database import get_local_db
+    from ...validation import ValidationError, Validator
+    from ..manifest import DataObject
+    from ..remote_api import RemoteAPI
+
+    db = get_local_db(config)
+    simulation = db.get_simulation(sim_id)
+
+    api = RemoteAPI(remote, config)
+
+    click.echo('downloading validation schema ... ', nl=False)
+    schema = api.get_validation_schema()
+    click.echo('done')
+
+    click.echo('validating ... ', nl=False)
+    Validator(schema).validate(simulation)
+
+    for file in chain(simulation.inputs, simulation.outputs):
+        if file.type == DataObject.Type.UDA:
+            from ...uda.checksum import checksum as uda_checksum
+            checksum = uda_checksum(file.uri)
+        elif file.type == DataObject.Type.IMAS:
+            from ...imas.checksum import checksum as imas_checksum
+            checksum = imas_checksum(file.uri)
+        elif file.type == DataObject.Type.FILE:
+            from ...checksum import sha1_checksum
+            checksum = sha1_checksum(file.uri.path)
+        else:
+            raise ValidationError("invalid checksum for file %s" % file.uri)
+
+        if checksum != file.checksum:
+            raise ValidationError("Checksum doest not match for file " + str(file))
+
+    click.echo("success")

@@ -1,51 +1,50 @@
-import argparse
-from enum import Enum, auto
+import click
 
-from ._base import Command, _required_argument
-from ...config import Config
-from ...docstrings import inherit_docstrings
+from . import pass_config
 
 
-@inherit_docstrings
-class ConfigCommand(Command):
-    """Command for querying/editing the user's application configuration"""
-    _help = "query/update application configuration"
+@click.group()
+def config():
+    """Query/update application configuration.
+    """
+    pass
 
-    class Actions(Enum):
-        GET = auto()
-        SET = auto()
-        LIST = auto()
 
-        def __str__(self) -> str:
-            return self.name.lower()
+@config.command()
+@pass_config
+@click.argument("option")
+def get(config, option):
+    """Get the OPTION.
+    """
+    click.echo(config.get_option(option))
 
-        @staticmethod
-        def from_string(s: str) -> 'ConfigCommand.Actions':
-            try:
-                return ConfigCommand.Actions[s.upper()]
-            except KeyError:
-                raise ValueError()
 
-    def add_arguments(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("action", type=ConfigCommand.Actions.from_string, choices=list(ConfigCommand.Actions),
-                            help="action to perform")
-        parser.add_argument("option", help="configuration option", nargs='?')
-        parser.add_argument("value", help="value to set the option to (only for set action)", nargs='?')
+@config.command()
+@pass_config
+@click.argument("option")
+@click.argument("value")
+def set(config, option, value):
+    """Set the OPTION to the given VALUE.
+    """
+    config.set_option(option, value)
+    config.save()
 
-    class ConfigArgs(argparse.Namespace):
-        action: str
-        option: str
-        value: str
 
-    def run(self, args: ConfigArgs, config: Config) -> None:
-        if args.action == ConfigCommand.Actions.GET:
-            _required_argument(args, "get", "option")
-            print(config.get_option(args.option))
-        elif args.action == ConfigCommand.Actions.SET:
-            _required_argument(args, "set", "option")
-            _required_argument(args, "set", "value")
-            config.set_option(args.option, args.value)
-            config.save()
-        elif args.action == ConfigCommand.Actions.LIST:
-            for i in config.list_options():
-                print(i)
+@config.command()
+@pass_config
+@click.argument("option")
+def delete(config, option):
+    """Delete the OPTION.
+    """
+    config.delete_option(option)
+    config.save()
+    click.echo("Success.")
+
+
+@config.command()
+@pass_config
+def list(config):
+    """List all configurations OPTIONS set.
+    """
+    for i in config.list_options():
+        click.echo(i)

@@ -1,7 +1,7 @@
 import os
 import requests
 import json
-from typing import List, Dict, Callable, Tuple, IO, Iterable
+from typing import List, Dict, Callable, Tuple, IO, Iterable, Optional
 import gzip
 import io
 import urllib3
@@ -25,8 +25,8 @@ def try_request(func: Callable) -> Callable:
     def wrapped_func(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except requests.ConnectionError:
-            raise FailedConnection("Failed to connect to remote API")
+        except requests.ConnectionError as ex:
+            raise FailedConnection(f"Connection failed to {ex.request.url}.")
     return wrapped_func
 
 
@@ -78,14 +78,17 @@ class RemoteAPI:
     dir_path = os.path.dirname(os.path.realpath(__file__))
     cert_path = os.path.join(dir_path, "../remote/server.crt")
 
-    def __init__(self, name: str, config: Config) -> None:
+    def __init__(self, remote: Optional[str], config: Config) -> None:
         self._config: Config = config
-        self._url: str = config.get_option('remote.%s.url' % name)
-        if not self._url:
-            raise ValueError("cannot find remote %s" % name)
-        self._api_url: str = '%s/api/v%s/' % (self._url, config.api_version)
+        if not remote:
+            remote = config.default_remote
+        if not remote:
+            raise KeyError('Remote name not provided and no default remote found in config.')
+        self._url: str = config.get_option(f'remote.{remote}.url')
+        self._api_url: str = f'{self._url}/api/v{config.api_version}/'
         self._user_name: str = config.get_option('user.name', default='test')
         self._pass_word: str = config.get_option('user.password', default='test')
+        self.get_api_version()
 
     def get(self, url: str, params: Dict=None) -> requests.Response:
         if params is None:
@@ -115,6 +118,11 @@ class RemoteAPI:
 
     def has_url(self) -> bool:
         return bool(self._url)
+
+    @try_request
+    def get_api_version(self) -> str:
+        res = self.get("")
+        return "0"
 
     @try_request
     def get_validation_schema(self) -> Dict:
@@ -221,8 +229,8 @@ class RemoteAPI:
         try:
             Validator(schema).validate(simulation)
         except ValidationError as err:
-            print("warning: simulation does not validate")
-            print("validation error: ", err)
+            print("Warning: simulation does not validate.")
+            print(f"Validation error: {err}.")
 
         sim_data = simulation.data(recurse=True)
         chunk_size = 10*1024*1024  # 10 MB
@@ -235,7 +243,7 @@ class RemoteAPI:
 
         print('Uploading simulation data ... ', file=out_stream, end='', flush=True)
         self.post("simulations", data={'simulation': sim_data})
-        print('success', file=out_stream, flush=True)
+        print('Success', file=out_stream, flush=True)
 
     @try_request
     def reset_database(self) -> None:

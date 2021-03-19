@@ -3,7 +3,7 @@ import sys
 import os
 import urllib
 from enum import Enum, auto
-from typing import Iterable, Union, Dict, List, Tuple, Optional
+from typing import Iterable, Union, Dict, List, Tuple, Optional, TextIO
 import uri as urilib
 import glob
 from pathlib import Path
@@ -328,22 +328,15 @@ class Manifest:
                 elif "values" in item:
                     _update_dict(self._metadata, item["values"])
 
-    def save(self, file_path: Optional[Path]) -> None:
+    def save(self, out_file: TextIO) -> None:
         """
         Save the manifest to the given file.
 
-        :param file_path: The path to save the manifest to, or '-' to output to stdout.
+        :param out_file: The output text stream to write the manifest to.
         :return: None
         """
         import yaml
-
-        if file_path is None or str(file_path) == "-":
-            yaml.dump(self._data, sys.stdout, default_flow_style=False)
-        else:
-            if file_path.exists():
-                raise Exception("file already exists")
-            with open(file_path, "w") as out_file:
-                yaml.dump(self._data, out_file, default_flow_style=False)
+        yaml.dump(self._data, out_file, default_flow_style=False)
 
     def validate(self) -> None:
         """

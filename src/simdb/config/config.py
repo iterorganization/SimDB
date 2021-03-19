@@ -7,7 +7,7 @@ from typing import Tuple, List, Optional, TextIO
 from .. import __version__
 
 
-def _parser_arg(arg) -> Tuple[str, str]:
+def _parse_name(arg) -> Tuple[str, str]:
     if '.' in arg:
         section, *name, option = arg.split('.')
         if name:
@@ -28,6 +28,8 @@ class Config:
     _user_config_dir: Path
     _user_config_path: Path
     _api_version: str
+    _debug: bool
+    _verbose: bool
 
     def __init__(self) -> None:
         self._parser = configparser.ConfigParser()
@@ -36,11 +38,13 @@ class Config:
         self._user_config_dir = Path(appdirs.user_config_dir('simdb'))
         self._user_config_path = self._user_config_dir / Config.CONFIG_FILE_NAME
         self._api_version = __version__
+        self._debug = False
+        self._verbose = False
 
     def _load_environmental_vars(self):
         vars = [v for v in os.environ if v.startswith('SIMDB_')]
         for var in vars:
-            name = var.replace('SIMDB_', '').replace('_', '-').lower()
+            name = var.replace('SIMDB_', '').replace('_', '.').lower()
             self.set_option(name, os.environ[var])
 
     def _load_site_config(self):
@@ -86,22 +90,51 @@ class Config:
         if file is not None:
             self._parser.read_file(file)
 
+    @property
+    def debug(self) -> bool:
+        return self._debug
+
+    def set_debug(self, debug: bool) -> None:
+        self._debug = debug
+
+    @property
+    def default_remote(self) -> Optional[str]:
+        remotes = [section for section in self._parser.sections() if section.startswith("remote")]
+        for remote in remotes:
+            if self._parser.getboolean(remote, "default", fallback=False):
+                return remote.split(" ")[1][1:-1]
+        return None
+
+    @property
+    def verbose(self) -> bool:
+        return self._verbose
+
+    def set_verbose(self, verbose: bool) -> None:
+        self._verbose = verbose
+
     def save(self) -> None:
         os.makedirs(self._user_config_dir, exist_ok=True)
         with open(self._user_config_path, 'w') as file:
             self._parser.write(file)
 
     def get_option(self, name: str, default: Optional[str]=None) -> str:
-        section, option = _parser_arg(name)
+        section, option = _parse_name(name)
         try:
             return self._parser.get(section, option)
         except (configparser.NoSectionError, configparser.NoOptionError):
             if default is not None:
                 return default
-            raise ValueError(name + ' not found in configuration')
+            raise KeyError(f'{name} not found in configuration')
+
+    def delete_option(self, name: str) -> None:
+        section, option = _parse_name(name)
+        try:
+            self._parser.remove_option(section, option)
+        except (configparser.NoSectionError, configparser.NoOptionError):
+            raise KeyError(f"{name} not found in configuration")
 
     def set_option(self, name: str, value: str) -> None:
-        section, option = _parser_arg(name)
+        section, option = _parse_name(name)
         if not self._parser.has_section(section) and section != 'DEFAULT':
             self._parser.add_section(section)
         self._parser.set(section, option, value)
@@ -112,10 +145,10 @@ class Config:
             for option in self._parser.options(section):
                 value = self._parser.get(section, option)
                 if section == 'DEFAULT':
-                    options.append('%s: %s' % (option, value))
+                    options.append(f'{option}: {value}')
                 else:
-                    section, *name = section.split(" ")
+                    sec_name, *name = section.split(" ")
                     if name:
-                        section = section + '.' + name[0][1:-1]
-                    options.append('%s.%s: %s' % (section, option, value))
+                        sec_name = sec_name + '.' + name[0][1:-1]
+                    options.append(f'{sec_name}.{option}: {value}')
         return options

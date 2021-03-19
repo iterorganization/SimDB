@@ -39,7 +39,7 @@ class Simulation(Base):
     __tablename__ = "simulations"
     id = Column(sql_types.Integer, primary_key=True)
     uuid = Column(UUID, nullable=False, unique=True)
-    alias = Column(sql_types.String(250), nullable=True, unique=True)
+    alias: str = Column(sql_types.String(250), nullable=True, unique=True)
     datetime = Column(sql_types.DateTime, nullable=False)
     status = Column(sql_types.String(20), nullable=False)
     inputs: List["File"] = relationship("File", secondary=simulation_input_files)

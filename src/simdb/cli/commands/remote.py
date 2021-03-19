@@ -1,151 +1,142 @@
-import argparse
-import os
-from typing import Dict, Any
+import click
 
-from email_validator import validate_email, EmailNotValidError
-
-from ._base import Command, _list_simulations
-from . import InfoCommand, ListCommand, QueryCommand
-from ...config import Config
-from ...docstrings import inherit_docstrings
+from ..remote_api import RemoteAPI
+from . import pass_config
+from .utils import print_simulations
 
 
-@inherit_docstrings
-class RemoteCommand(Command):
-    """Command for interacting with the remote simdb service.
-    """
-    _help = "query remote system"
-    _parser: argparse.ArgumentParser
-    _commands: Dict[str, Command]
-    _parsers: Dict[str, argparse.ArgumentParser] = {}
+pass_api = click.make_pass_decorator(RemoteAPI)
 
-    @inherit_docstrings
-    class RemoteDatabaseCommand(Command):
-        """Command to manage the remote database [for development use only -- to be removed]."""
-        _help = "manage remote simulation database file"
 
-        def add_arguments(self, parser: argparse.ArgumentParser) -> None:
-            parser.add_argument("remote_command", choices=["clear"],
-                                help="clear all ingested simulations from the db")
+class CustomGroup(click.Group):
+    def parse_args(self, ctx, args):
+        if args and args[0] in self.commands:
+            if len(args) == 1 or args[1] not in self.commands:
+                args.insert(0, '')
+        super().parse_args(ctx, args)
 
-        def run(self, args: argparse.Namespace, _: Config) -> None:
-            pass
 
-    @inherit_docstrings
-    class RemoteSimulationCommand(Command):
-        """Placeholder command to set up arguments for remote manipulations of simulations."""
-        def __init__(self, help: str) -> None:
-            super().__init__()
-            self._help = help
+@click.group(cls=CustomGroup)
+@click.pass_context
+@pass_config
+@click.argument("name", required=False)
+def remote(config, ctx, name):
+    """Interact with the remote SimDB service."""
+    ctx.obj = RemoteAPI(name, config)
 
-        def add_arguments(self, parser: argparse.ArgumentParser) -> None:
-            parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
 
-        def run(self, args: Any, _: Config) -> None:
-            pass
+@remote.group()
+def watcher():
+    """Manage simulaiton watchers on REMOTE SimDB server."""
+    pass
 
-    @inherit_docstrings
-    class WatchCommand(Command):
-        """Command to manage watchers for simulations."""
-        _help = "manage remote simulation database file"
 
-        def add_arguments(self, parser: argparse.ArgumentParser) -> None:
-            parser.add_argument("--user", "-u", help="username of the the user to add as a watcher",
-                                default=os.getlogin())
-            parser.add_argument("--email", "-e", help="email address of the user to add as a watcher")
-            parser.add_argument("--notification", "-n", choices=('validation', 'revision', 'obsolescence', 'all'),
-                                help="what event(s) to be notified of for the simulation", default='obsolescence')
-            parser.add_argument("--remove", "-r", action="store_true", help="remove the watcher from the simulation")
-            parser.add_argument("--list", "-l", action="store_true", help="list existing watchers for the simulation")
-            parser.add_argument("remote", type=str, help="name of the remote to push to")
-            parser.add_argument("sim_id", metavar="uuid|alias", help="simulation UUID or alias")
+@watcher.command("list")
+@pass_api
+@click.argument("sim_id")
+def list_watchers(api, sim_id):
+    """List watchers for simulation with given SIM_ID (UUID or alias)."""
+    watchers = api.list_watchers(sim_id)
+    if watchers:
+        click.echo(f"Watchers for simulation {sim_id}:")
+        for watcher in api.list_watchers(sim_id):
+            click.echo(watcher)
+    else:
+        click.echo(f"no watchers found for simulation {sim_id}")
 
-        def validate_arguments(self, parser: argparse.ArgumentParser, args: Any) -> None:
-            if not args.action == 'watch':
-                return
-            if not (args.remove or args.list):
-                if "email" not in args or not args.email:
-                    parser.error("email must be provided to add a watcher")
-            if "email" in args and args.email:
-                try:
-                    validate_email(args.email)
-                except EmailNotValidError:
-                    parser.error("invalid email")
 
-        def run(self, args: argparse.Namespace, config: Config) -> None:
-            from ..remote_api import RemoteAPI
-            api = RemoteAPI(args.remote, config)
-            if args.list:
-                watchers = api.list_watchers(args.sim_id)
-                if watchers:
-                    print("Watchers for simulation %s:" % args.sim_id)
-                    for watcher in api.list_watchers(args.sim_id):
-                        print(watcher)
-                else:
-                    print("no watchers found for simulation " + args.sim_id)
-            elif args.remove:
-                api.remove_watcher(args.sim_id, args.user)
-                print("Watcher successfully removed for simulation " + args.sim_id)
-            else:
-                api.add_watcher(args.sim_id, args.user, args.email, args.notification)
-                print("Watcher successfully added for simulation " + args.sim_id)
+@watcher.command("remove")
+@pass_api
+@pass_config
+@click.argument("sim_id")
+@click.option("-u", "--user", help="Name of the user to remove as a watcher.")
+def remove_watcher(config, api, sim_id, user):
+    """Remove a user from list of watchers on a simulation with given SIM_ID (UUID or alias)."""
+    if not user:
+        user = config.get_option("user.name")
+    if not user:
+        raise click.ClickException("User not provided and user.name not found in config.")
+    api.remove_watcher(sim_id, user)
+    click.echo(f"Watcher successfully removed for simulation {sim_id}")
 
-    def add_arguments(self, parser: argparse.ArgumentParser) -> None:
-        command_parsers = parser.add_subparsers(title="action", dest="action")
-        command_parsers.required = True
 
-        parser.add_argument("-v", "--verbose", action="store_true", help="print more verbose output")
-        parser.add_argument("remote", type=str, help="name of the remote")
+@watcher.command("add")
+@pass_api
+@pass_config
+@click.argument("sim_id")
+@click.option("-u", "--user", help="Name of the user to add as a watcher.")
+@click.option("-e", "--email", help="Email of the user to add as a watcher.")
+@click.option("-n", "--notification",
+              type=click.Choice(["Validation", "Revision", "Obsolescence", "All"], case_sensitive=False),
+              default="All", show_default=True)
+def add_watcher(config, api, sim_id, user, email, notification):
+    """Register a user as a watcher for a simulation with given SIM_ID (UUID or alias)."""
+    if not user:
+        user = config.get_option("user.name")
+    if not user:
+        raise click.ClickException("User not provided and user.name not found in config.")
+    if not email:
+        email = config.get_option("user.email")
+    if not user:
+        raise click.ClickException("Email not provided and user.email not found in config.")
+    api.add_watcher(sim_id, user, email, notification)
+    click.echo(f"Watcher successfully added for simulation {sim_id}")
 
-        self._commands = {
-            "list": ListCommand(),
-            "info": InfoCommand(),
-            "query": QueryCommand(),
-            "watch": RemoteCommand.WatchCommand(),
-            "publish": RemoteCommand.RemoteSimulationCommand("publish staged simulation"),
-            "delete": RemoteCommand.RemoteSimulationCommand("delete staged simulation"),
-            # "database": RemoteCommand.RemoteDatabaseCommand(),
-        }
 
-        for name, command in self._commands.items():
-            sub_parser = command_parsers.add_parser(name, help=command.help)
-            self._parsers[name] = sub_parser
-            command.add_arguments(sub_parser)
+@remote.command("list")
+@pass_api
+@pass_config
+@click.option("-m", "--meta-data", "meta", help="Additional meta-data field to print.", multiple=True, default=[])
+def remote_list(config, api, meta):
+    """List simulation available on remote."""
+    simulations = api.list_simulations()
+    print_simulations(simulations, verbose=config.verbose, metadata_names=meta)
 
-    def validate_arguments(self, parser: argparse.ArgumentParser, args: Any) -> None:
-        for name, command in self._commands.items():
-            command.validate_arguments(self._parsers[name], args)
 
-    class RemoteArgs(argparse.Namespace):
-        remote: str
-        action: str
-        verbose: bool
-        sim_id: str
+@remote.command("info")
+@pass_api
+@click.argument("sim_id")
+def remote_info(api, sim_id):
+    """Print information about simulation with given SIM_ID (UUID or alias) from remote."""
+    simulation = api.get_simulation(sim_id)
+    click.echo(str(simulation))
 
-    def run(self, args: RemoteArgs, config: Config) -> None:
-        from ..remote_api import RemoteAPI
 
-        api = RemoteAPI(args.remote, config)
-        if args.action == "list":
-            simulations = api.list_simulations()
-            _list_simulations(simulations, verbose=args.verbose)
-        elif args.action == "info":
-            simulation = api.get_simulation(args.sim_id)
-            print(str(simulation))
-        elif args.action == "database":
-            api.reset_database()
-            print("success")
-        elif args.action == "publish":
-            api.publish_simulation(args.sim_id)
-            print("success")
-        elif args.action == "delete":
-            result = api.delete_simulation(args.sim_id)
-            print("deleted simulation: " + result["deleted"]["simulation"])
-            if result["deleted"]["files"]:
-                for file in result["deleted"]["files"]:
-                    print("              file: " + file)
-        elif args.action == "query":
-            simulations = api.query_simulations(args.constraint)
-            _list_simulations(simulations, verbose=args.verbose, metadata_names=args.attributes)
-        elif args.action == "watch":
-            self._commands["watch"].run(args, config)
+@remote.command("query")
+@pass_api
+@pass_config
+@click.argument("constraint", nargs=-1)
+@click.option("-m", "--meta-data", "meta", help="Additional meta-data field to print.", multiple=True, default=[])
+def remote_query(config, api, constraint, meta):
+    """Perform a metadata query to find matching simulation from remote."""
+    simulations = api.query_simulations(constraint)
+    print_simulations(simulations, verbose=config.verbose, metadata_names=meta)
+
+
+@remote.command("publish")
+@pass_api
+@click.argument("sim_id")
+def remote_publish(api, sim_id):
+    """Mark remote simulation as published."""
+    api.publish_simulation(sim_id)
+    click.echo("success")
+
+
+@remote.command("delete")
+@pass_api
+@click.argument("sim_id")
+def remote_delete(api, sim_id):
+    """Delete specified remote simulations."""
+    result = api.delete_simulation(sim_id)
+    click.echo("deleted simulation: " + result["deleted"]["simulation"])
+    if result["deleted"]["files"]:
+        for file in result["deleted"]["files"]:
+            click.echo(f"              file: {file}")
+
+
+@remote.command("database")
+@pass_api
+def remote_database(api):
+    """Reset remote database."""
+    api.reset_database()
+    click.echo("success")

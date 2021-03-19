@@ -1,37 +1,38 @@
-import argparse
-from pathlib import Path
-
-from ._base import Command
-from ...config import Config
-from ...docstrings import inherit_docstrings
+import click
 
 
-@inherit_docstrings
-class ManifestCommand(Command):
-    """Command for working with manifest files.
+@click.group()
+def manifest():
+    """Create/check manifest file.
     """
-    _help = "create/check manifest file"
+    pass
 
-    def add_arguments(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("action", choices=["check", "create"])
-        parser.add_argument("manifest_file", help="manifest file location", type=Path)
 
-    class ManifestArgs(argparse.Namespace):
-        action: str
-        manifest_file: Path
+@manifest.command()
+@click.argument("file_name", type=click.Path(exists=True))
+def check(file_name):
+    """Check manifest FILE_NAME.
+    """
+    from ..manifest import (Manifest, InvalidManifest)
 
-    def run(self, args: ManifestArgs, _: Config) -> None:
-        from ..manifest import (Manifest, InvalidManifest)
+    manifest = Manifest()
+    manifest.load(file_name)
+    try:
+        manifest.validate()
+        click.echo("ok")
+    except InvalidManifest as err:
+        click.echo(err, err=True)
 
-        manifest = Manifest()
 
-        if args.action == "check":
-            manifest.load(args.manifest_file)
-            try:
-                manifest.validate()
-                print("ok")
-            except InvalidManifest as err:
-                print(err)
-                return
-        elif args.action == "create":
-            Manifest.from_template().save(args.manifest_file)
+@manifest.command()
+@click.argument("manifest_file", type=click.File("w"))
+def create(manifest_file):
+    """Create a new MANIFEST_FILE.
+    """
+    from ..manifest import Manifest
+    from pathlib import Path
+
+    Manifest.from_template().save(manifest_file)
+    path = Path(manifest_file.name).absolute()
+    click.echo(f"Create manifest file {path}.")
+

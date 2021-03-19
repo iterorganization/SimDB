@@ -1,17 +1,4 @@
-from ._base import Command
-from .alias import AliasCommand
-from .config import ConfigCommand
-from .database import DatabaseCommand
-from .delete import DeleteCommand
-from .info import InfoCommand
-from .ingest import IngestCommand
-from .list import ListCommand
-from .manifest import ManifestCommand
-from .modify import ModifyCommand
-from .provenance import ProvenanceCommand
-from .push import PushCommand
-from .query import QueryCommand
-from .remote import RemoteCommand
-from .simulation import SimulationCommand
-from .summary import SummaryCommand
-from .validate import ValidateCommand
+import click
+from ...config import Config
+
+pass_config = click.make_pass_decorator(Config)

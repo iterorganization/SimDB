@@ -106,6 +106,26 @@ class Database:
             scopefunc = lambda: 0
         self.session: "Session" = cast("Session", scoped_session(sessionmaker(bind=self.engine), scopefunc=scopefunc))
 
+    @classmethod
+    def _is_short_uuid(cls, sim_id: str):
+        return len(sim_id) == 8 and sim_id.isalnum()
+
+    def _find_simulation(self, sim_ref: str) -> "Simulation":
+        from .models import Simulation
+        try:
+            sim_uuid = uuid.UUID(sim_ref)
+            simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
+        except ValueError:
+            simulation = None
+            if self._is_short_uuid(sim_ref):
+                simulation = self.session.query(Simulation).filter(Simulation.uuid.startswith(sim_ref)).one_or_none()
+            if not simulation:
+                sim_alias = sim_ref
+                simulation = self.session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
+            if not simulation:
+                raise DatabaseError(f"Simulation {sim_ref} not found.")
+        return simulation
+
     def remove(self):
         """
         Remove the current session
@@ -147,29 +167,6 @@ class Database:
 
         return self.session.query(File).all()
 
-    def list_validation_parameters(self, device: Optional[str], scenario: Optional[str]) -> List[
-        "ValidationParameters"]:
-        from .models import ValidationParameters
-
-        if device is None and scenario is None:
-            return self.session.query(ValidationParameters) \
-                .group_by(ValidationParameters.device, ValidationParameters.scenario).all()
-        else:
-            return self.session.query(ValidationParameters).filter_by(device=device, scenario=scenario).all()
-
-    def list_summaries(self, sim_ref: str) -> List["Summary"]:
-        from .models import Simulation
-
-        try:
-            sim_uuid = uuid.UUID(sim_ref)
-            simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
-        except ValueError:
-            sim_alias = sim_ref
-            simulation = self.session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
-        if simulation is None:
-            raise DatabaseError("Failed to find simulation: " + sim_ref)
-        return simulation.summary
-
     def delete_simulation(self, sim_ref: str) -> "Simulation":
         """
         Delete the specified simulation from the database.
@@ -177,16 +174,7 @@ class Database:
         :param sim_ref: The simulation UUID or alias.
         :return: None
         """
-        from .models import Simulation
-
-        try:
-            sim_uuid = uuid.UUID(sim_ref)
-            simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
-        except ValueError:
-            sim_alias = sim_ref
-            simulation = self.session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
-        if simulation is None:
-            raise DatabaseError("Failed to find simulation: " + sim_ref)
+        simulation = self._find_simulation(sim_ref)
         for file in simulation.inputs:
             self.session.delete(file)
         self.session.delete(simulation)
@@ -247,15 +235,7 @@ class Database:
         :param sim_ref: The simulation UUID or alias.
         :return: The Simulation.
         """
-        from .models import Simulation
-
-        try:
-            sim_uuid = uuid.UUID(sim_ref)
-            simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
-        except ValueError:
-            simulation = self.session.query(Simulation).filter_by(alias=sim_ref).one_or_none()
-        if simulation is None:
-            raise DatabaseError("Failed to find simulation: " + sim_ref)
+        simulation = self._find_simulation(sim_ref)
         self.session.commit()
         return simulation
 
@@ -272,9 +252,9 @@ class Database:
             file_uuid = uuid.UUID(file_uuid_str)
             file = self.session.query(File).filter_by(uuid=file_uuid).one_or_none()
         except ValueError:
-            raise DatabaseError("Invalid UUID: " + file_uuid_str)
+            raise DatabaseError(f"Invalid UUID {file_uuid_str}.")
         if file is None:
-            raise DatabaseError("Failed to find file: " + file_uuid.hex)
+            raise DatabaseError(f"Failed to find file {file_uuid.hex}.")
         self.session.commit()
         return file
 
@@ -286,124 +266,26 @@ class Database:
         :param name: the metadata key
         :return: The  matching MetaData.
         """
-        from .models import Simulation
-
-        try:
-            sim_uuid = uuid.UUID(sim_ref)
-            simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
-        except ValueError:
-            sim_alias = sim_ref
-            simulation = self.session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
-        if simulation is None:
-            raise DatabaseError("Failed to find simulation: " + sim_ref)
+        simulation = self._find_simulation(sim_ref)
         self.session.commit()
         return [m.value for m in simulation.meta.filter_by(element=name).all()]
 
-    def get_controlled_vocab(self, element) -> List[str]:
-        from .models import ControlledVocabulary
-
-        vocab: ControlledVocabulary = self.session.query(ControlledVocabulary).filter_by(name=element).one()
-        return [i.value for i in vocab.words]
-
-    def get_provenance(self, sim_ref: str) -> "Provenance":
-        """
-        Get all the provenance for the given simulation.
-
-        :param sim_ref: the simulation identifier
-        :return: The  matching MetaData.
-        """
-        from .models import Simulation
-
-        try:
-            sim_uuid = uuid.UUID(sim_ref)
-            simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
-        except ValueError:
-            sim_alias = sim_ref
-            simulation = self.session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
-        if simulation is None:
-            raise DatabaseError("Failed to find simulation: " + sim_ref)
-        self.session.commit()
-        return simulation.provenance
-
     def add_watcher(self, sim_ref: str, watcher: "Watcher"):
-        sim = self.get_simulation(sim_ref)
+        sim = self._find_simulation(sim_ref)
         sim.watchers.append(watcher)
         self.session.commit()
 
     def remove_watcher(self, sim_ref: str, username: str):
-        sim = self.get_simulation(sim_ref)
+        sim = self._find_simulation(sim_ref)
         watchers = sim.watchers.filter_by(username=username).all()
         if not watchers:
-            raise DatabaseError("Watcher not found for simulation: " + sim_ref)
+            raise DatabaseError(f"Watcher not found for simulation {sim_ref}.")
         for watcher in watchers:
             sim.watchers.remove(watcher)
         self.session.commit()
 
     def list_watchers(self, sim_ref: str) -> List["Watcher"]:
-        return self.get_simulation(sim_ref).watchers.all()
-
-    def query_provenance(self, equals=None, contains=None) -> List["Simulation"]:
-        """
-        Query the provenance metadata and return matching simulations.
-
-        :return:
-        """
-        from .models import Simulation, ProvenanceMetaData, Provenance
-        from sqlalchemy import func
-
-        queries = []
-
-        if equals is None:
-            equals = {}
-        if contains is None:
-            contains = {}
-
-        for name in equals:
-            queries.append(self.session.query(Simulation)
-                           .join(Provenance, Simulation.provenance)
-                           .join(ProvenanceMetaData, Provenance.meta)
-                           .filter(ProvenanceMetaData.element == name,
-                                   func.lower(ProvenanceMetaData.value) == equals[name].lower()))
-
-        for name in contains:
-            queries.append(self.session.query(Simulation)
-                           .join(Provenance, Simulation.provenance)
-                           .join(ProvenanceMetaData, Provenance.meta)
-                           .filter(ProvenanceMetaData.element == name,
-                                   ProvenanceMetaData.value.ilike("%{}%".format(contains[name]))))
-
-        query = queries[0]
-        for i in range(1, len(queries)):
-            query = query.intersect(queries[i])
-
-        return query.all()
-
-    def query_summary(self, equals=None, contains=None) -> List["Simulation"]:
-        from .models import Simulation, Summary
-        from sqlalchemy import func
-
-        queries = []
-
-        if equals is None:
-            equals = {}
-        if contains is None:
-            contains = {}
-
-        for name in equals:
-            queries.append(self.session.query(Simulation).join(Summary, Simulation.summary)
-                           .filter(Summary.key == name,
-                                   func.lower(Summary.value) == equals[name].lower()))
-
-        for name in contains:
-            queries.append(self.session.query(Simulation).join(Summary, Simulation.summary)
-                           .filter(Summary.key == name,
-                                   Summary.value.ilike("%{}%".format(contains[name]))))
-
-        query = queries[0]
-        for i in range(1, len(queries)):
-            query = query.intersect(queries[i])
-
-        return query.all()
+        return self._find_simulation(sim_ref).watchers.all()
 
     def insert_simulation(self, simulation: "Simulation") -> None:
         """
@@ -420,110 +302,6 @@ class Database:
         except DBAPIError as err:
             self.session.rollback()
             raise DatabaseError(str(err.orig))
-
-    def insert_provenance(self, sim_ref: str, provenance: dict) -> None:
-        """
-        Insert the given simulation into the database.
-
-        :param sim_ref: The Simulation to insert.
-        :param provenance:
-        :return: None
-        """
-        from .models import Simulation, Provenance
-
-        simulation: Union[Simulation, None] = None
-        try:
-            sim_uuid = uuid.UUID(sim_ref)
-            simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
-        except ValueError:
-            sim_alias = sim_ref
-            simulation = self.session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
-        if simulation is None:
-            raise DatabaseError("Failed to find simulation: " + sim_ref)
-        if not simulation.provenance:
-            simulation.provenance = Provenance(provenance)
-        else:
-            simulation.provenance.add_metadata(provenance)
-        self.session.commit()
-
-    def insert_summary(self, sim_ref: str, summary: List[Tuple[str, str]]) -> None:
-        from .models import Simulation, Summary
-
-        simulation: Union[Simulation, None] = None
-        try:
-            sim_uuid = uuid.UUID(sim_ref)
-            simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
-        except ValueError:
-            sim_alias = sim_ref
-            simulation = self.session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
-        for (k, v) in summary:
-            simulation.summary.append(Summary(k, v))
-        self.session.commit()
-
-    def get_validation_parameters(self, device: str, scenario: str, path: str) -> Optional["ValidationParameters"]:
-        from .models import ValidationParameters
-
-        return self.session.query(ValidationParameters) \
-            .filter_by(device=device, scenario=scenario, path=path) \
-            .one_or_none()
-
-    def insert_validation_parameters(self, params: "ValidationParameters") -> None:
-        try:
-            self.session.add(params)
-            self.session.commit()
-        except DBAPIError as err:
-            self.session.rollback()
-            raise DatabaseError(str(err.orig))
-
-    def put_validation_result(self, uuid, path, test_pass, tests, results, stats):
-        pass
-
-    def new_vocabulary(self, name: str, words: List[str]) -> None:
-        from .models import ControlledVocabulary
-
-        vocab = ControlledVocabulary(name, words)
-        self.session.add(vocab)
-        self.session.commit()
-
-    def clear_vocabulary_words(self, name: str, words: List[str]) -> None:
-        from .models import ControlledVocabulary
-
-        vocab: ControlledVocabulary = self.session.query(ControlledVocabulary).filter_by(name=name).one_or_none()
-        if vocab is None:
-            raise DatabaseError("Failed to find vocabulary: " + name)
-        vocab.add_words(words)
-        self.session.commit()
-
-    def clear_vocabulary(self, name: str) -> None:
-        from .models import ControlledVocabulary
-
-        vocab: ControlledVocabulary = self.session.query(ControlledVocabulary).filter_by(name=name).one_or_none()
-        if vocab is None:
-            raise DatabaseError("Failed to find vocabulary: " + name)
-        vocab.words.clear()
-        self.session.commit()
-
-    def delete_vocabulary(self, name: str) -> None:
-        from .models import ControlledVocabulary
-
-        vocab: ControlledVocabulary = self.session.query(ControlledVocabulary).filter_by(name=name).one_or_none()
-        if vocab is None:
-            raise DatabaseError("Failed to find vocabulary: " + name)
-        self.session.delete(vocab)
-        self.session.commit()
-
-    def get_vocabularies(self) -> List["ControlledVocabulary"]:
-        from .models import ControlledVocabulary
-
-        return self.session.query(ControlledVocabulary).all()
-
-    def get_vocabulary(self, name: str) -> "ControlledVocabulary":
-        from .models import ControlledVocabulary
-
-        vocab: ControlledVocabulary = self.session.query(ControlledVocabulary).filter_by(name=name).one_or_none()
-        if vocab is None:
-            raise DatabaseError("Failed to find vocabulary: " + name)
-        return vocab
 
     def get_aliases(self, prefix: Optional[str]) -> List[str]:
         from .models import Simulation

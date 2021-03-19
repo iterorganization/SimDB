@@ -1,81 +1,59 @@
-import argparse
-from enum import Enum, auto
+import click
 
-from ._base import Command, _required_argument
-from ...config import Config
-from ...docstrings import inherit_docstrings
+from . import pass_config
 
 
-@inherit_docstrings
-class AliasCommand(Command):
-    """Command for querying used aliases"""
-    _help = "query remote and local aliases"
+@click.group()
+def alias():
+    """Query remote and local aliases.
+    """
+    pass
 
-    class Actions(Enum):
-        SEARCH = auto()
-        LIST = auto()
 
-        def __str__(self) -> str:
-            return self.name.lower()
+@alias.command()
+@pass_config
+@click.argument("remote")
+@click.argument("value")
+def search(config, remote, value):
+    """Search the REMOTE for all aliases that contain the given VALUE.
+    """
+    from ..remote_api import RemoteAPI
+    from ...database import get_local_db
 
-        @staticmethod
-        def from_string(s: str) -> 'AliasCommand.Actions':
-            try:
-                return AliasCommand.Actions[s.upper()]
-            except KeyError:
-                raise ValueError()
+    api = RemoteAPI(remote, config)
+    simulations = api.list_simulations()
 
-    def add_arguments(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--action", type=AliasCommand.Actions.from_string, choices=list(AliasCommand.Actions),
-                            help="action to perform", dest="alias_action")
-        parser.add_argument("remote", type=str, help="name of the remote to push to")
-        parser.add_argument("value", help="search value (only for search action)", nargs='?')
+    db = get_local_db(config)
+    simulations += db.list_simulations()
 
-    class AliasArgs(argparse.Namespace):
-        alias_action: str
-        value: str
+    aliases = [sim.alias for sim in simulations if sim.alias.contains(value)]
+    for alias in aliases:
+        click.echo(alias)
 
-    @staticmethod
-    def _search_aliases(config: Config, remote: str, value: str):
-        from ..remote_api import RemoteAPI
-        from ...database import get_local_db
 
-        api = RemoteAPI(remote, config)
-        simulations = api.list_simulations()
+@alias.command()
+@pass_config
+@click.argument("remote", required=False)
+def list(config, remote):
+    """List aliases from the local database and the REMOTE (if specified)."""
+    from ..remote_api import RemoteAPI
+    from ...database import get_local_db
 
-        db = get_local_db(config)
-        simulations += db.list_simulations()
-
-        aliases = [sim.alias for sim in simulations if sim.alias.contains(value)]
-        for alias in aliases:
-            print(alias)
-
-    @staticmethod
-    def _list_aliases(remote: str, config: Config):
-        from ..remote_api import RemoteAPI
-        from ...database import get_local_db
-
+    if remote:
+        remote_simulations = []
         api = RemoteAPI(remote, config)
         if api.has_url():
             remote_simulations = api.list_simulations()
         else:
-            remote_simulations = []
-            print('The Remote Server has not been specified in the configuration file. Please set remote-url')
+            click.echo('The Remote Server has not been specified in the configuration file. Please set remote-url')
 
-        db = get_local_db(config)
-        local_simulations = db.list_simulations()
-
-        print("Remote:")
+        click.echo("Remote:")
         for sim in remote_simulations:
-            print(" ", sim.alias)
+            click.echo(f"  {sim.alias}")
 
-        print("Local:")
-        for sim in local_simulations:
-            print(" ", sim.alias)
+    db = get_local_db(config)
+    local_simulations = db.list_simulations()
 
-    def run(self, args: AliasArgs, config: Config) -> None:
-        if args.alias_action == AliasCommand.Actions.SEARCH:
-            _required_argument(args, "search", "value")
-            AliasCommand._search_aliases(config, args.remote, args.value)
-        elif args.alias_action == AliasCommand.Actions.LIST:
-            AliasCommand._list_aliases(args.remote, config)
+    click.echo("Local:")
+    for sim in local_simulations:
+        click.echo(f"  {sim.alias}")

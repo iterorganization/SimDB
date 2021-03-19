@@ -32,7 +32,10 @@ class UUID(sql_types.TypeDecorator):
             return str(value)
         else:
             if not isinstance(value, uuid.UUID):
-                return uuid.UUID(value).hex
+                try:
+                    return uuid.UUID(value).hex
+                except ValueError:
+                    return value
             else:
                 return value.hex
 

@@ -1,73 +1,49 @@
-import argparse
-import argcomplete
-from typing import List
+import click
 
-from .commands import (Command, AliasCommand, ProvenanceCommand, ConfigCommand, DatabaseCommand, ManifestCommand,
-                       RemoteCommand, SummaryCommand, SimulationCommand)
+from .commands.manifest import manifest
+from .commands.alias import alias
+from .commands.simulation import simulation
+from .commands.config import config
+from .commands.database import database
+from .commands.remote import remote
 from ..config import Config
+from .. import __version__
 
 
-class SimCLI:
-    """
-    Class to provide the simulation management tool command line interface.
-    """
-
-    commands: [str, Command] = {
-        "simulation": SimulationCommand(),
-        "manifest": ManifestCommand(),
-        "database": DatabaseCommand(),
-        "remote": RemoteCommand(),
-        "provenance": ProvenanceCommand(),
-        "summary": SummaryCommand(),
-        "config": ConfigCommand(),
-        "alias": AliasCommand(),
-    }
-
-    def run(self, args: List[str]) -> None:
-        """
-        Parse the command line arguments and run the command specified.
-
-        :param args: The command line arguments
-        :return: None
-        """
-        parser = argparse.ArgumentParser(prog="simdb")
-        parser.add_argument("-d", "--debug", action="store_true", help="run in debug mode")
-
-        command_parsers = parser.add_subparsers(title="commands", dest="command")
-        command_parsers.required = True
-
-        for name, command in self.commands.items():
-            sub_parser = command_parsers.add_parser(name, help=command.help)
-            command.add_arguments(sub_parser)
-
-        argcomplete.autocomplete(parser)
-        parsed_args = parser.parse_args(args)
-
-        for _, command in self.commands.items():
-            command.validate_arguments(parser, parsed_args)
-
-        config = Config()
-        config.load()
-
-        try:
-            self.commands[parsed_args.command].run(parsed_args, config)
-        except Exception as ex:
-            if parsed_args.debug:
-                raise ex
-            else:
-                print("error: " + (str(ex) if str(ex) else type(ex).__name__))
+g_debug = False
 
 
-def main(args: List[str]) -> None:
+@click.group("simdb")
+@click.version_option(__version__)
+@click.option("-d", "--debug", is_flag=True, help="Run in debug mode.")
+@click.option("-v", "--verbose", is_flag=True, help="Run with verbose output.")
+@click.pass_context
+def cli(ctx, debug, verbose):
+    ctx.obj = Config()
+    ctx.obj.load()
+    ctx.obj.set_debug(debug)
+    ctx.obj.set_verbose(verbose)
+    global g_debug
+    g_debug = debug
+
+
+cli.add_command(manifest)
+cli.add_command(alias)
+cli.add_command(simulation)
+cli.add_command(config)
+cli.add_command(database)
+cli.add_command(remote)
+
+
+def main() -> None:
     """
     Main CLI entry function
 
-    :param args: command line arguments
     :return: None
     """
-    cli = SimCLI()
-    cli.run(args)
-
-    # Perform a "dirty" exit to speed up CLI execution time
-    # import os
-    # os._exit(0)
+    try:
+        cli()
+    except Exception as ex:
+        click.echo(f"Error: {ex}", err=True)
+        if g_debug:
+            raise ex
