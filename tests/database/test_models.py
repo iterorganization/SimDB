@@ -1,5 +1,8 @@
 from unittest import mock
-from simdb.database.models import Simulation, DataObject
+from uri import URI
+from simdb.database.models import Simulation
+from simdb.cli.manifest import DataObject
+from pathlib import Path
 
 
 def test_create_simulation_without_manifest_creates_empty_sim():
@@ -12,30 +15,28 @@ def test_create_simulation_without_manifest_creates_empty_sim():
     assert sim.inputs == []
     assert sim.outputs == []
     assert sim.meta == []
-    assert sim.provenance is None
-    assert sim.summary == []
 
 
-@mock.patch('simdb.database.models.DataObject')
+@mock.patch('simdb.cli.manifest.DataObject')
 @mock.patch('simdb.cli.manifest.Manifest')
 def test_create_simulation_with_manifest(manifest_cls, data_object_cls):
+    path = Path(__file__).absolute()
     manifest = manifest_cls()
     data_object = data_object_cls()
-    data_object.type = data_object_cls.Type.FILE
-    data_object.path = '/test/file/path.txt'
+    data_object.type = DataObject.Type.FILE
+    data_object.uri = URI(f'file://{path}')
     manifest.inputs = [data_object]
     manifest.outputs = [data_object]
-    manifest.workflow = {}
-    manifest.description = 'test description'
+    manifest.metadata = {
+        'description': 'test description'
+    }
     sim = Simulation(manifest=manifest)
     assert len(sim.inputs) == 1
-    assert sim.inputs[0].type == data_object_cls.Type.FILE
-    assert sim.inputs[0].directory == '/test/file'
-    assert sim.inputs[0].file_name == 'path.txt'
+    assert sim.inputs[0].type == DataObject.Type.FILE
+    assert sim.inputs[0].uri == URI(f'file://{path}')
     assert len(sim.outputs) == 1
-    assert sim.outputs[0].type == data_object_cls.Type.FILE
-    assert sim.outputs[0].directory == '/test/file'
-    assert sim.outputs[0].file_name == 'path.txt'
+    assert sim.outputs[0].type == DataObject.Type.FILE
+    assert sim.outputs[0].uri == URI(f'file://{path}')
     assert len(sim.meta) == 1
     assert sim.meta[0].element == 'description'
     assert sim.meta[0].value == 'test description'

@@ -1,5 +1,5 @@
 import uuid
-from typing import Dict
+from typing import Dict, Any
 
 from sqlalchemy import Column, types as sql_types, ForeignKey
 
@@ -19,9 +19,10 @@ class MetaData(Base):
     sim_id = Column(sql_types.Integer, ForeignKey(Simulation.id))
     # uuid = Column(UUID, nullable=False)
     element = Column(sql_types.String(250), nullable=False)
-    value = Column(sql_types.Text, nullable=True)
+    # value = Column(sql_types.Text, nullable=True)
+    value = Column(sql_types.PickleType, nullable=True)
 
-    def __init__(self, key: str, value: str) -> None:
+    def __init__(self, key: str, value: Any) -> None:
         self.uuid = uuid.uuid1()
         self.element = key
         self.value = value

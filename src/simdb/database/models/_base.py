@@ -15,7 +15,7 @@ def _flatten_dict(out_dict: Dict[str, Any], in_dict: Dict[str, Union[Dict, List,
             for el in value:
                 _flatten_dict(out_dict, {key: el}, prefix)
         else:
-            out_dict[FLATTEN_DICT_DELIM.join(prefix + (key,))] = str(value)
+            out_dict[FLATTEN_DICT_DELIM.join(prefix + (key,))] = value
 
 
 def _unflatten_value(out_dict: Dict[str, Union[Dict, Any]], key: Deque[str], value: Any) -> None:

@@ -1,6 +1,10 @@
 import click
+from pathlib import Path
+from typing import Optional, List, Tuple
 
 from . import pass_config
+from ...config.config import Config
+from ...query import QueryType, parse_query_arg
 
 
 @click.group()
@@ -15,7 +19,7 @@ def simulation():
 @click.option("-a", "--alias", help="Alias of to assign to the simulation.")
 @click.option("-u", "--uuid-only", "uuid", is_flag=True,
               help="Return a new UUID but do not insert the new simulation into the database.")
-def simulation_new(config, alias, uuid):
+def simulation_new(config: Config, alias: str, uuid: str):
     """Create an empty simulation in the database which can be updated later.
     """
     from ...database import get_local_db
@@ -33,7 +37,7 @@ def simulation_new(config, alias, uuid):
 @simulation.command("alias")
 @pass_config
 @click.option("-p", "--prefix", help="Prefix to use for the alias.", default='sim', show_default=True)
-def simulation_alias(config, prefix):
+def simulation_alias(config: Config, prefix: str):
     """Generate a unique alias with the given PREFIX.
     """
     from ...database import get_local_db
@@ -54,7 +58,7 @@ def simulation_alias(config, prefix):
 @simulation.command("list")
 @pass_config
 @click.option("-m", "--meta-data", "meta", help="Additional meta-data field to print.", multiple=True, default=[])
-def simulation_list(config, meta):
+def simulation_list(config: Config, meta: list):
     """List ingested simulations.
     """
     from ...database import get_local_db
@@ -69,7 +73,7 @@ def simulation_list(config, meta):
 @pass_config
 @click.argument("sim_id")
 @click.option("-a", "--alias", help="New alias.")
-def simulation_modify(config, sim_id, alias):
+def simulation_modify(config: Config, sim_id: str, alias: str):
     """Modify the ingested simulation.
     """
     from ...database import get_local_db
@@ -86,7 +90,7 @@ def simulation_modify(config, sim_id, alias):
 @simulation.command("delete")
 @pass_config
 @click.argument("sim_id")
-def simulation_delete(config, sim_id):
+def simulation_delete(config: Config, sim_id: str):
     """Delete the ingested simulation with given SIM_ID (UUID or alias).
     """
     from ...database import get_local_db
@@ -100,7 +104,7 @@ def simulation_delete(config, sim_id):
 @simulation.command("info")
 @pass_config
 @click.argument("sim_id")
-def simulation_info(config, sim_id):
+def simulation_info(config: Config, sim_id: str):
     """Print information on the simulation with given SIM_ID (UUID or alias).
     """
     from ...database import get_local_db
@@ -116,7 +120,7 @@ def simulation_info(config, sim_id):
 @pass_config
 @click.argument("manifest_file")
 @click.option("-a", "--alias", help="Alias to give to simulation (overwrites any set in manifest).")
-def simulation_ingest(config, manifest_file, alias):
+def simulation_ingest(config: Config, manifest_file: Path, alias: str):
     """Ingest a MANIFEST_FILE.
     """
     import urllib.parse
@@ -151,7 +155,7 @@ class CustomCommand(click.Command):
 @pass_config
 @click.argument("remote", required=False)
 @click.argument("sim_id")
-def simulation_push(config, remote, sim_id):
+def simulation_push(config: Config, remote: Optional[str], sim_id: str):
     """Push the simulation with the given SIM_ID (UUID or alias) to the REMOTE.
     """
     from ...database import get_local_db
@@ -171,7 +175,7 @@ def simulation_push(config, remote, sim_id):
 @simulation.command("query")
 @pass_config
 @click.argument("constraint", nargs=-1)
-def simulation_query(config, constraint):
+def simulation_query(config: Config, constraint: str):
     """Query the simulations.
     """
     if not constraint:
@@ -180,19 +184,15 @@ def simulation_query(config, constraint):
     from ...database import get_local_db
     from .utils import print_simulations
 
-    equals = {}
-    contains = {}
+    constraints: List[Tuple[str, str, QueryType]] = []
     for item in constraint:
         if '=' not in item:
             raise click.ClickException("Invalid constraint.")
-        (key, value) = item.split('=')
-        if '=in:' in item:
-            contains[key] = value.replace('in:', '')
-        else:
-            equals[key] = value
+        key, value = item.split('=')
+        constraints.append((key,) + parse_query_arg(value))
 
     db = get_local_db(config)
-    simulations = db.query_meta(equals=equals, contains=contains)
+    simulations = db.query_meta(constraints)
     print_simulations(simulations, verbose=config.verbose)
 
 
@@ -200,7 +200,7 @@ def simulation_query(config, constraint):
 @pass_config
 @click.argument("remote")
 @click.argument("sim_id")
-def simulation_validate(config, remote, sim_id):
+def simulation_validate(config: Config, remote: Optional[str], sim_id: str):
     """Validate the ingested simulation with given SIM_ID (UUID or alias) using validation schema from REMOTE.
     """
     from itertools import chain

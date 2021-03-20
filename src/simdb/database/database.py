@@ -4,6 +4,7 @@ import sys
 import contextlib
 from typing import Optional, List, Tuple, Union, TYPE_CHECKING, cast, Any
 from enum import Enum, auto
+
 from ..config import Config
 
 
@@ -17,8 +18,8 @@ if TYPE_CHECKING or 'sphinx' in sys.modules:
     from sqlalchemy import create_engine, func
     from sqlalchemy.orm import scoped_session, sessionmaker
     import sqlalchemy
-    from .models import (Base, Simulation, File, MetaData, ValidationParameters, Provenance, ProvenanceMetaData,
-                         ControlledVocabulary, Summary, Watcher)
+    from .models import Base, Simulation, File, MetaData, Watcher
+    from ..query import QueryType
 
     class Session(scoped_session):
         def query(self, obj: Base) -> Any:
@@ -181,52 +182,60 @@ class Database:
         self.session.commit()
         return simulation
 
-    def query_meta(self, equals=None, contains=None) -> List["Simulation"]:
-        """
-        Query the metadata and return matching simulations.
-
-        :return:
-        """
-        from .models import Simulation, MetaData
+    def _get_metadata(self, constraints: List[Tuple[str, str, "QueryType"]]) -> List["MetaData"]:
         from sqlalchemy import func, String
-        from sqlalchemy.sql.expression import cast
+        from ..query import QueryType
+        from .models import Simulation, MetaData
 
         queries = []
-
-        if equals is None:
-            equals = {}
-        if contains is None:
-            contains = {}
-
-        for name in equals:
-            if name == 'alias':
-                queries.append(self.session.query(Simulation)
-                               .filter(func.lower(Simulation.alias) == equals[name].lower()))
-            elif name == 'uuid':
-                queries.append(self.session.query(Simulation).filter(Simulation.uuid == uuid.UUID(equals[name])))
+        for name, value, query_type in constraints:
+            if query_type == QueryType.EQ:
+                if name == 'alias':
+                    queries.append(self.session.query(MetaData).join(Simulation)
+                                   .filter(func.lower(Simulation.alias) == value.lower()))
+                elif name == 'uuid':
+                    queries.append(self.session.query(MetaData).join(Simulation)
+                                   .filter(Simulation.uuid == uuid.UUID(value)))
+            elif query_type == QueryType.IN:
+                if name == 'alias':
+                    queries.append(self.session.query(MetaData).join(Simulation)
+                                   .filter(Simulation.alias.ilike("%{}%".format(value))))
+                elif name == 'uuid':
+                    queries.append(self.session.query(MetaData).join(Simulation)
+                                   .filter(func.REPLACE(cast(Simulation.uuid, String), '-', '')
+                                           .ilike("%{}%".format(value.replace('-', '')))))
             else:
-                queries.append(self.session.query(Simulation).join(MetaData, Simulation.meta)
-                               .filter(MetaData.element == name,
-                                       func.lower(MetaData.value) == equals[name].lower()))
-
-        for name in contains:
-            if name == 'alias':
-                queries.append(self.session.query(Simulation)
-                               .filter(Simulation.alias.ilike("%{}%".format(contains[name]))))
-            elif name == 'uuid':
-                queries.append(self.session.query(Simulation)
-                               .filter(func.REPLACE(cast(Simulation.uuid, String), '-', '')
-                                       .ilike("%{}%".format(contains[name].replace('-', '')))))
-            else:
-                queries.append(self.session.query(Simulation).join(MetaData, Simulation.meta)
-                               .filter(MetaData.element == name,
-                                       MetaData.value.ilike("%{}%".format(contains[name]))))
+                raise ValueError(f"Unknown query type {query_type}.")
 
         query = queries[0]
         for i in range(1, len(queries)):
             query = query.intersect(queries[i])
 
         return query.all()
+
+    def query_meta(self, constraints: List[Tuple[str, str, "QueryType"]]) -> List["Simulation"]:
+        """
+        Query the metadata and return matching simulations.
+
+        :return:
+        """
+        from .models import Simulation
+        from ..query import query_compare
+
+        metadata = self._get_metadata(constraints)
+
+        for name, value, query_type in constraints:
+            if name in ('alias', 'uuid'):
+                continue
+            new_metadata = []
+            for meta in metadata:
+                if meta.element == name and query_compare(query_type, name, meta.value, value):
+                    new_metadata.append(meta)
+            metadata = new_metadata
+
+        sim_ids = [meta.sim_id for meta in metadata]
+
+        return self.session.query(Simulation).filter(Simulation.id.in_(sim_ids)).all()
 
     def get_simulation(self, sim_ref: str) -> "Simulation":
         """

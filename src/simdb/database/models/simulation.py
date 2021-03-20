@@ -45,8 +45,6 @@ class Simulation(Base):
     inputs: List["File"] = relationship("File", secondary=simulation_input_files)
     outputs: List["File"] = relationship("File", secondary=simulation_output_files)
     meta = relationship("MetaData")
-    provenance = relationship("Provenance", uselist=False)
-    summary = relationship("Summary")
     watchers = relationship("Watcher", secondary=simulation_watchers, lazy='dynamic')
 
     def __init__(self, manifest: Union[Manifest, None]) -> None:
@@ -83,22 +81,13 @@ class Simulation(Base):
                 _flatten_dict(flattened_meta, meta)
 
                 for key, value in flattened_meta.items():
-                    self.meta.append(MetaData(key, str(value)))
-
-        # for key, value in manifest.workflow.items():
-        #     if re.match(r"code[0-9]+", key) and isinstance(value, dict):
-        #         for code_key in value:
-        #             self.meta.append(MetaData("workflow." + key + "." + code_key, str(value[code_key])))
-        #     else:
-        #         self.meta.append(MetaData("workflow." + key, str(value)))
-
-        # self.meta.append(MetaData("description", str(manifest.description)))
+                    self.meta.append(MetaData(key, value))
 
         flattened_dict: Dict[str, str] = {}
         _flatten_dict(flattened_dict, manifest.metadata)
 
         for key, value in flattened_dict.items():
-            self.meta.append(MetaData(key, str(value)))
+            self.meta.append(MetaData(key, value))
 
     def __str__(self):
         result = ""

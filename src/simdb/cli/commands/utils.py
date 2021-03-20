@@ -4,8 +4,7 @@ from typing import List, Dict, Tuple, TYPE_CHECKING, TypeVar, TextIO
 
 if TYPE_CHECKING or 'sphinx' in sys.modules:
     # Only importing these for type checking and documentation generation in order to speed up runtime startup.
-    from simdb.database.models import Simulation, ValidationParameters, Summary
-    from simdb.config import Config
+    from simdb.database.models import Simulation
 else:
     Config = TypeVar('Config')
 
@@ -24,7 +23,7 @@ def flatten_dict(values: Dict) -> List[Tuple[str, str]]:
     return items
 
 
-def print_simulations(simulations: List["Simulation"], verbose: bool=False, metadata_names: str=None,
+def print_simulations(simulations: List["Simulation"], verbose: bool=False, metadata_names: list=None,
                       out_stream: TextIO=sys.stdout) -> None:
     if len(simulations) == 0:
         print("No simulations found", file=out_stream)
@@ -66,27 +65,3 @@ def print_simulations(simulations: List["Simulation"], verbose: bool=False, meta
         if not line_written:
             print("-" * (sum(column_widths) + len(column_widths) - 1), file=out_stream)
             line_written = True
-        
-
-def print_validation_parameters(parameters: List["ValidationParameters"], out_stream=sys.stdout) -> None:
-    if len(parameters) == 0:
-        print("No validation parameters found", file=out_stream)
-        return
-
-    max_device = max(len(str(param.device)) for param in parameters)
-    max_device = max(max_device, 6)
-    device_spaces = (6 - max_device)
-    print("Device%s Scenario" % (" " * device_spaces), file=out_stream)
-    print("-" * (15 + device_spaces), file=out_stream)
-
-    for param in parameters:
-        print("%s%s %s" % (param.device, " " * (max_device - len(param.device)), param.scenario), file=out_stream)
-
-
-def list_summaries(summaries: List["Summary"]) -> None:
-    if len(summaries) == 0:
-        print("No summaries found")
-        return
-
-    for summary in summaries:
-        print("{} = {}".format(summary.key, summary.value))
