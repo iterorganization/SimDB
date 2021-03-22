@@ -31,12 +31,14 @@ class Config:
     _debug: bool
     _verbose: bool
 
-    def __init__(self) -> None:
+    def __init__(self, file_name=None) -> None:
+        if file_name is None:
+            file_name = Config.CONFIG_FILE_NAME
         self._parser = configparser.ConfigParser()
         self._site_config_dir = Path(appdirs.site_config_dir('simdb'))
-        self._site_config_path = self._site_config_dir / Config.CONFIG_FILE_NAME
+        self._site_config_path = self._site_config_dir / file_name
         self._user_config_dir = Path(appdirs.user_config_dir('simdb'))
-        self._user_config_path = self._user_config_dir / Config.CONFIG_FILE_NAME
+        self._user_config_path = self._user_config_dir / file_name
         self._api_version = __version__
         self._debug = False
         self._verbose = False
@@ -116,6 +118,14 @@ class Config:
         os.makedirs(self._user_config_dir, exist_ok=True)
         with open(self._user_config_path, 'w') as file:
             self._parser.write(file)
+
+    def get_section(self, name: str, default: Optional[List[Tuple[str, str]]]=None) -> List[Tuple[str, str]]:
+        try:
+            return self._parser.items(name)
+        except (configparser.NoSectionError,):
+            if default is not None:
+                return default
+            raise KeyError(f'Section {name} not found in configuration')
 
     def get_option(self, name: str, default: Optional[str]=None) -> str:
         section, option = _parse_name(name)

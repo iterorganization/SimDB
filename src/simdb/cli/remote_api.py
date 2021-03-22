@@ -169,7 +169,7 @@ class RemoteAPI:
     @try_request
     def list_watchers(self, sim_id: str) -> List[Tuple]:
         res = self.get("watchers/" + sim_id)
-        return [(d["username"], d["email"]) for d in res.json()]
+        return [(d["username"], d["email"], d["notification"]) for d in res.json()]
 
     def _push_file(self, file: File, file_type: str, sim_data: Dict, chunk_size: int, out_stream: IO):
         if file.type == DataObject.Type.FILE:

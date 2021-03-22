@@ -11,8 +11,7 @@ pass_api = click.make_pass_decorator(RemoteAPI)
 class CustomGroup(click.Group):
     def parse_args(self, ctx, args):
         if args and args[0] in self.commands:
-            if len(args) == 1 or args[1] not in self.commands:
-                args.insert(0, '')
+            args.insert(0, '')
         super().parse_args(ctx, args)
 
 

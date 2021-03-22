@@ -9,7 +9,7 @@ from sqlalchemy import Column, types as sql_types, Table, ForeignKey
 from sqlalchemy.orm import relationship
 
 from .utils import flatten_dict, unflatten_dict, checked_get
-from .types import UUID
+from .types import UUID, ChoiceType
 from .base import Base
 from .file import File
 from ...cli.manifest import Manifest, DataObject
@@ -36,16 +36,26 @@ class Simulation(Base):
     """
     Class to represent simulations in the database ORM.
     """
+    STATUS_CHOICES = {
+        'Unvalidated':          'U',
+        'Accepted':             'A',
+        'Failed Validation':    'F',
+        'Passed Validation':    'P',
+        'Deprecated':           'D',
+    }
+
     __tablename__ = "simulations"
     id = Column(sql_types.Integer, primary_key=True)
     uuid = Column(UUID, nullable=False, unique=True)
     alias: str = Column(sql_types.String(250), nullable=True, unique=True)
     datetime = Column(sql_types.DateTime, nullable=False)
-    status = Column(sql_types.String(20), nullable=False)
+    status = Column(ChoiceType(choices=STATUS_CHOICES, length=1), nullable=False)
     inputs: List["File"] = relationship("File", secondary=simulation_input_files)
     outputs: List["File"] = relationship("File", secondary=simulation_output_files)
     meta = relationship("MetaData")
     watchers = relationship("Watcher", secondary=simulation_watchers, lazy='dynamic')
+    replaces_id = Column(sql_types.Integer, ForeignKey('simulations.id'), nullable=True)
+    replaces = relationship("Simulation", remote_side=[id], backref='replaced_by')
 
     def __init__(self, manifest: Union[Manifest, None]) -> None:
         """
@@ -59,7 +69,7 @@ class Simulation(Base):
             return
         self.uuid = uuid.uuid1()
         self.datetime = datetime.now()
-        self.status = "UNKNOWN"
+        self.status = "Unvalidated"
 
         if manifest.alias:
             self.alias = manifest.alias
@@ -115,6 +125,20 @@ class Simulation(Base):
 
     def find_meta(self, name: str):
         return [m for m in self.meta if m.element == name]
+
+    def notify_watchers(self, msg: str):
+        from ...email.server import EmailServer
+        pass
+
+    def update_status(self, status):
+        if status not in Simulation.STATUS_CHOICES.keys():
+            raise ValueError(f'Invalid status {status}.')
+        if status != self.status:
+            old_status = self.status
+            self.status = status
+            msg = f"""Simulation status changed from {old_status} to {status}.
+            """
+            self.notify_watchers(msg)
 
     @classmethod
     def from_data(cls, data: Dict[str, Union[str, Dict, List]]) -> "Simulation":

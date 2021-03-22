@@ -38,7 +38,7 @@ def check_auth(username, password, user):
     if username == "test" and password == "test":
         return True
 
-    if username == "admin" and password == current_app.config["ADMIN_PASSWORD"]:
+    if username == "admin" and password == current_app.simdb_config.get_option("server.admin_password"):
         return True
 
     return False
@@ -77,21 +77,22 @@ def error(message: str) -> Response:
 
 @api.record
 def setup_db(setup_state):
-    app = setup_state.app
+    config = setup_state.app.simdb_config
+    db_type = config.get_option("database.type")
 
-    if app.config["DB_TYPE"] == "pgsql":
-        api.db = Database(Database.DBMS.POSTGRESQL,
-                          scopefunc=_app_ctx_stack.__ident_func__,
-                          host=app.config["DB_HOST"], port=app.config["DB_PORT"])
-    elif app.config["DB_TYPE"] == "sqlite":
+    if db_type == "postgres":
+        host = config.get_option("database.host")
+        port = config.get_option("database.port")
+        api.db = Database(Database.DBMS.POSTGRESQL, scopefunc=_app_ctx_stack.__ident_func__, host=host, port=port)
+    elif db_type == "sqlite":
         import appdirs
         db_dir = appdirs.user_data_dir('simdb')
-        os.makedirs(db_dir, exist_ok=True)
-        api.db = Database(Database.DBMS.SQLITE,
-                          scopefunc=_app_ctx_stack.__ident_func__,
-                          file=os.path.join(db_dir, "remote.db"))
+        db_file = os.path.join(db_dir, "remote.db")
+        file = Path(config.get_option("database.file", default=db_file))
+        os.makedirs(file.parent, exist_ok=True)
+        api.db = Database(Database.DBMS.SQLITE, scopefunc=_app_ctx_stack.__ident_func__, file=file)
     else:
-        raise RuntimeError("Unknown DB_TYPE in app.cfg: " + app.config["DB_TYPE"])
+        raise RuntimeError(f"Unknown database type in configuration: {db_type}.")
 
 
 @api.teardown_request
@@ -106,7 +107,7 @@ def index():
     return jsonify(
         {
             "api": "simdb",
-            "version": API_VERSION,
+            "version": current_app.simdb_config.api_version,
             "server_version": __version__,
             "endpoints": ["/simulations", "/files", "/validation_schema"]
         })
@@ -168,7 +169,7 @@ def _save_chunked_file(file: FileStorage, chunk_info: Dict, path: Path, compress
 
 def _stage_file_from_chunks(files: Iterable[FileStorage], chunk_info: Dict, sim_uuid: uuid.UUID,
                             sim_files: List[File], common_root: Path) -> None:
-    staging_dir = Path(current_app.config["UPLOAD_FOLDER"]) / sim_uuid.hex
+    staging_dir = Path(current_app.simdb_config.get_option("server.upload_folder")) / sim_uuid.hex
     os.makedirs(staging_dir, exist_ok=True)
 
     found_files = []
@@ -211,7 +212,7 @@ def _set_alias(alias: str):
 
 
 def _verify_file(sim_uuid: uuid.UUID, sim_file: File, common_root: Path):
-    staging_dir = Path(current_app.config["UPLOAD_FOLDER"]) / sim_uuid.hex
+    staging_dir = Path(current_app.simdb_config.get_option("server.upload_folder")) / sim_uuid.hex
     if sim_file.type == DataObject.Type.FILE:
         path = _secure_path(sim_file.uri.path, common_root, staging_dir)
         if not path.exists():
@@ -291,7 +292,7 @@ def ingest_simulation():
         else:
             simulation.alias = simulation.uuid.hex[0:8]
 
-        staging_dir = Path(current_app.config["UPLOAD_FOLDER"]) / simulation.uuid.hex
+        staging_dir = Path(current_app.simdb_config.get_option("server.upload_folder")) / simulation.uuid.hex
 
         files = list(chain(simulation.inputs, simulation.outputs))
         common_root = os.path.commonpath([f.uri.path for f in files])
@@ -319,10 +320,36 @@ def get_simulation(sim_id: str):
         return error(str(err))
 
 
+@api.route("/simulation/<string:sim_id>", methods=["PATCH"])
+@requires_auth("admin")
+def update_simulation(sim_id: str):
+    from ..email.server import EmailServer
+    try:
+        data = request.get_json()
+        if "status" not in data:
+            return error("Status not provided")
+        simulation = api.db.get_simulation(sim_id)
+        status = data["status"]
+        old_status = simulation.status
+        simulation.status = status
+        if status != old_status:
+            server = EmailServer(current_app.simdb_config)
+            msg = f"""\
+Simulation status changed from {old_status} to {status}.
+"""
+            to_addresses = [w.email for w in simulation.watchers]
+            if to_addresses:
+                server.send_message(f"Simulation {simulation.uuid.hex}", msg, to_addresses)
+        api.db.insert_simulation(simulation)
+        return {}
+    except DatabaseError as err:
+        return error(str(err))
+
+
 @api.route("/staging_dir/<string:sim_hex>", methods=["GET"])
 @requires_auth()
 def get_staging_dir(sim_hex: str):
-    staging_dir = Path(current_app.config["UPLOAD_FOLDER"]) / sim_hex
+    staging_dir = Path(current_app.simdb_config.get_option("server.upload_folder")) / sim_hex
     os.makedirs(staging_dir, exist_ok=True)
     return jsonify({'staging_dir': str(staging_dir)})
 

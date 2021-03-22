@@ -1,5 +1,5 @@
 import uuid
-from typing import Optional
+from typing import Optional, Dict
 
 import uri as urilib
 from sqlalchemy import types as sql_types
@@ -83,9 +83,9 @@ class ChoiceType(sql_types.TypeDecorator):
     def python_type(self):
         return str
 
-    def __init__(self, choices, **kw):
-        self.choices = dict(choices)
-        self.choices_inverse = {v: k for k, v in self.choices.items()}
+    def __init__(self, choices: Dict[str, str], **kw):
+        self.choices_inverse = dict(choices)
+        self.choices = {v: k for k, v in self.choices_inverse.items()}
         if len(self.choices) != len(self.choices_inverse):
             raise TypeError('Values in choices dict must be unique')
         super().__init__(**kw)
