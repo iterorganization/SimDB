@@ -13,6 +13,15 @@ from .. import __version__
 g_debug = False
 
 
+def recursive_help(cmd, parent=None):
+    ctx = click.core.Context(cmd, info_name=cmd.name, parent=parent)
+    click.echo(cmd.get_help(ctx))
+    click.echo()
+    commands = getattr(cmd, 'commands', {})
+    for sub in commands.values():
+        recursive_help(sub, ctx)
+
+
 @click.group("simdb")
 @click.version_option(__version__)
 @click.option("-d", "--debug", is_flag=True, help="Run in debug mode.")
@@ -25,6 +34,11 @@ def cli(ctx, debug, verbose):
     ctx.obj.set_verbose(verbose)
     global g_debug
     g_debug = debug
+
+
+@cli.command()
+def dump_help():
+    recursive_help(cli)
 
 
 cli.add_command(manifest)
