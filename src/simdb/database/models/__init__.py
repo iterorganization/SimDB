@@ -1,4 +1,4 @@
-from ._base import Base
+from .base import Base
 from .file import File
 from .metadata import MetaData
 from .simulation import Simulation

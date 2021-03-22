@@ -8,7 +8,7 @@ from dateutil import parser as date_parser
 from sqlalchemy import Column, types as sql_types
 
 from ...cli.manifest import DataObject
-from ._base import Base
+from .base import Base
 from .types import UUID, URI
 from ...docstrings import inherit_docstrings
 

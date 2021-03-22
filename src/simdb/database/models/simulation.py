@@ -8,9 +8,9 @@ from dateutil import parser as date_parser
 from sqlalchemy import Column, types as sql_types, Table, ForeignKey
 from sqlalchemy.orm import relationship
 
-from ._base import _flatten_dict, _unflatten_dict, _checked_get
+from .utils import flatten_dict, unflatten_dict, checked_get
 from .types import UUID
-from ._base import Base
+from .base import Base
 from .file import File
 from ...cli.manifest import Manifest, DataObject
 from ...docstrings import inherit_docstrings
@@ -78,13 +78,13 @@ class Simulation(Base):
 
                 meta = load_metadata(imas_obj)
                 flattened_meta: Dict[str, str] = {}
-                _flatten_dict(flattened_meta, meta)
+                flatten_dict(flattened_meta, meta)
 
                 for key, value in flattened_meta.items():
                     self.meta.append(MetaData(key, value))
 
         flattened_dict: Dict[str, str] = {}
-        _flatten_dict(flattened_dict, manifest.metadata)
+        flatten_dict(flattened_dict, manifest.metadata)
 
         for key, value in flattened_dict.items():
             self.meta.append(MetaData(key, value))
@@ -120,18 +120,18 @@ class Simulation(Base):
     def from_data(cls, data: Dict[str, Union[str, Dict, List]]) -> "Simulation":
         from .metadata import MetaData
         simulation = Simulation(None)
-        simulation.uuid = uuid.UUID(_checked_get(data, "uuid", str))
-        simulation.alias = _checked_get(data, "alias", str)
-        simulation.datetime = date_parser.parse(_checked_get(data, "datetime", str))
-        simulation.status = _checked_get(data, "status", str)
+        simulation.uuid = uuid.UUID(checked_get(data, "uuid", str))
+        simulation.alias = checked_get(data, "alias", str)
+        simulation.datetime = date_parser.parse(checked_get(data, "datetime", str))
+        simulation.status = checked_get(data, "status", str)
         if "inputs" in data:
-            inputs = _checked_get(data, "inputs", list)
+            inputs = checked_get(data, "inputs", list)
             simulation.inputs = [File.from_data(el) for el in inputs]
         if "outputs" in data:
-            outputs = _checked_get(data, "outputs", list)
+            outputs = checked_get(data, "outputs", list)
             simulation.outputs = [File.from_data(el) for el in outputs]
         if "metadata" in data:
-            metadata = _checked_get(data, "metadata", list)
+            metadata = checked_get(data, "metadata", list)
             for el in metadata:
                 if not isinstance(el, dict):
                     raise Exception("corrupted metadata element - expected dictionary")
@@ -153,7 +153,7 @@ class Simulation(Base):
 
     def meta_dict(self) -> Dict[str, Union[Dict, Any]]:
         meta = {m.element: m.value for m in self.meta}
-        return _unflatten_dict(meta)
+        return unflatten_dict(meta)
 
     def check_files(self):
         for file in chain(self.inputs, self.outputs):

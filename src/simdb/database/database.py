@@ -207,9 +207,12 @@ class Database:
             else:
                 raise ValueError(f"Unknown query type {query_type}.")
 
-        query = queries[0]
-        for i in range(1, len(queries)):
-            query = query.intersect(queries[i])
+        if queries:
+            query = queries[0]
+            for i in range(1, len(queries)):
+                query = query.intersect(queries[i])
+        else:
+            query = self.session.query(MetaData)
 
         return query.all()
 
