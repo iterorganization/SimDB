@@ -196,9 +196,9 @@ def simulation_query(config: Config, constraint: str):
     print_simulations(simulations, verbose=config.verbose)
 
 
-@simulation.command("validate")
+@simulation.command("validate", cls=CustomCommand)
 @pass_config
-@click.argument("remote")
+@click.argument("remote", required=False)
 @click.argument("sim_id")
 def simulation_validate(config: Config, remote: Optional[str], sim_id: str):
     """Validate the ingested simulation with given SIM_ID (UUID or alias) using validation schema from REMOTE.
@@ -230,7 +230,7 @@ def simulation_validate(config: Config, remote: Optional[str], sim_id: str):
             checksum = imas_checksum(file.uri)
         elif file.type == DataObject.Type.FILE:
             from ...checksum import sha1_checksum
-            checksum = sha1_checksum(file.uri.path)
+            checksum = sha1_checksum(file.uri)
         else:
             raise ValidationError("invalid checksum for file %s" % file.uri)
 
