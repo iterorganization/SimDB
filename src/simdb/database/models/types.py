@@ -55,7 +55,7 @@ class URI(sql_types.TypeDecorator):
     """
     UUID type for reading/writing to the ORM.
     """
-    impl = sql_types.CHAR
+    impl = sql_types.VARCHAR
 
     @property
     def python_type(self):

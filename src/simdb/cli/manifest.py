@@ -367,7 +367,7 @@ class Manifest:
                 raise InvalidManifest("required manifest section not found: " + section)
 
         if "version" not in self._data.keys():
-            print("warning: no version given in manifest, assuming version 0.0")
+            print("warning: no version given in manifest, assuming version 0")
 
         for name, values in self._data.items():
             section_validators[name].validate(values)

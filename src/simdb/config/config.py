@@ -2,12 +2,12 @@ import configparser
 import appdirs
 import os
 from pathlib import Path
-from typing import Tuple, List, Optional, TextIO
+from typing import Tuple, List, Optional, TextIO, Union
 
 from .. import __version__
 
 
-def _parse_name(arg) -> Tuple[str, str]:
+def _parse_name(arg: str) -> Tuple[str, str]:
     if '.' in arg:
         section, *name, option = arg.split('.')
         if name:
@@ -16,6 +16,26 @@ def _parse_name(arg) -> Tuple[str, str]:
         section = 'DEFAULT'
         option = arg
     return section, option
+
+
+def _isdecimal(v: str):
+    return len(v) == 0 or v.isdecimal()
+
+
+def _isfloat(value: str) -> bool:
+    l, *r = value.split('.')
+    return _isdecimal(l) and (len(r) == 0 or (len(r) == 1 and _isdecimal(r[0])))
+
+
+def _convert(value: str) -> Union[int, float, str, bool]:
+    if value.isdecimal():
+        return int(value)
+    elif _isfloat(value):
+        return float(value)
+    elif value.lower() in configparser.ConfigParser.BOOLEAN_STATES:
+        return configparser.ConfigParser.BOOLEAN_STATES[value.lower()]
+    else:
+        return value
 
 
 class Config:
@@ -119,18 +139,20 @@ class Config:
         with open(self._user_config_path, 'w') as file:
             self._parser.write(file)
 
-    def get_section(self, name: str, default: Optional[List[Tuple[str, str]]]=None) -> List[Tuple[str, str]]:
+    def get_section(self, name: str, default: Optional[List[Tuple[str, str]]]=None)\
+            -> List[Tuple[str, Union[int, float, bool, str]]]:
         try:
-            return self._parser.items(name)
+            items = self._parser.items(name)
+            return [(k, _convert(v)) for (k, v) in items]
         except (configparser.NoSectionError,):
             if default is not None:
                 return default
             raise KeyError(f'Section {name} not found in configuration')
 
-    def get_option(self, name: str, default: Optional[str]=None) -> str:
+    def get_option(self, name: str, default: Optional[str]=None) -> Union[int, float, bool, str]:
         section, option = _parse_name(name)
         try:
-            return self._parser.get(section, option)
+            return _convert(self._parser.get(section, option))
         except (configparser.NoSectionError, configparser.NoOptionError):
             if default is not None:
                 return default
