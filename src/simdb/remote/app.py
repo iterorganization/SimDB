@@ -3,7 +3,6 @@ import ssl
 
 from .api import api
 from ..config import Config
-from .. import __version__
 
 config = Config('app.cfg')
 config.load()
@@ -16,10 +15,10 @@ app.simdb_config = config
 
 @app.route("/")
 def index():
-    return jsonify({"urls": [request.url + "api/v" + __version__]})
+    return jsonify({"urls": [request.url + f"api/v{config.api_version}"]})
 
 
-app.register_blueprint(api, url_prefix="/api/v" + __version__)
+app.register_blueprint(api, url_prefix=f"/api/v{config.api_version}")
 
 
 def run():

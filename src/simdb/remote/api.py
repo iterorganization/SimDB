@@ -109,7 +109,11 @@ def index():
             "api": "simdb",
             "version": current_app.simdb_config.api_version,
             "server_version": __version__,
-            "endpoints": ["/simulations", "/files", "/validation_schema"]
+            "endpoints": [
+                request.url + "/simulations",
+                request.url + "/files",
+                request.url + "/validation_schema"
+            ]
         })
 
 
