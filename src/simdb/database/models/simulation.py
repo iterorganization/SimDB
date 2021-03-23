@@ -1,4 +1,4 @@
-import re
+from enum import Enum
 import uuid
 from datetime import datetime
 from itertools import chain
@@ -36,12 +36,19 @@ class Simulation(Base):
     """
     Class to represent simulations in the database ORM.
     """
+    class Status(Enum):
+        UNVALIDATED = 'Unvalidated'
+        ACCEPTED = 'Accepted'
+        FAILED = 'Failed Validation'
+        PASSED = 'Passed Validation'
+        DEPRECATED = 'Deprecated'
+
     STATUS_CHOICES = {
-        'Unvalidated':          'U',
-        'Accepted':             'A',
-        'Failed Validation':    'F',
-        'Passed Validation':    'P',
-        'Deprecated':           'D',
+        Status.UNVALIDATED.value:   'U',
+        Status.ACCEPTED.value:      'A',
+        Status.FAILED.value:        'F',
+        Status.PASSED.value:        'P',
+        Status.DEPRECATED.value:    'D',
     }
 
     __tablename__ = "simulations"

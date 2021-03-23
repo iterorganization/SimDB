@@ -307,9 +307,36 @@ def ingest_simulation():
                 raise ValueError('simulation file %s not uploaded' % sim_file.uuid)
             sim_file.uri = URI(scheme='file', path=path)
 
+        result = {
+            'ingested': simulation.uuid.hex,
+        }
+
+        if current_app.simdb_config.get_option("validation.auto_validate", default=False):
+            from ..validation import ValidationError, Validator
+            schema = Validator.validation_schema()
+            try:
+                Validator(schema).validate(simulation)
+                result['validation'] = {'passed': True}
+                simulation.status = Simulation.Status.PASSED.value
+            except ValidationError as err:
+                result['validation'] = {
+                    'passed': False,
+                    'error': str(err)
+                }
+                simulation.status = Simulation.Status.FAILED.value
+
+        if current_app.simdb_config.get_option("validation.error_on_fail", default=False):
+            if simulation.status == Simulation.Status.UNVALIDATED.value:
+                raise Exception('Validation config option error_on_fail=True without auto_validate=True.')
+            elif simulation.status == Simulation.Status.FAILED.value:
+                result["error"] = 'Simulation validation failed and server has error_on_fail=True.'
+                response = jsonify(result)
+                response.status_code = 400
+                return response
+
         api.db.insert_simulation(simulation)
 
-        return jsonify({})
+        return jsonify(result)
     except (DatabaseError, ValueError) as err:
         return error(str(err))
 
