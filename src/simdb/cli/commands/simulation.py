@@ -118,9 +118,9 @@ def simulation_info(config: Config, sim_id: str):
 
 @simulation.command("ingest")
 @pass_config
-@click.argument("manifest_file")
+@click.argument("manifest_file", type=click.Path(exists=True))
 @click.option("-a", "--alias", help="Alias to give to simulation (overwrites any set in manifest).")
-def simulation_ingest(config: Config, manifest_file: Path, alias: str):
+def simulation_ingest(config: Config, manifest_file: str, alias: str):
     """Ingest a MANIFEST_FILE.
     """
     import urllib.parse
@@ -129,7 +129,7 @@ def simulation_ingest(config: Config, manifest_file: Path, alias: str):
     from ..manifest import Manifest
 
     manifest = Manifest()
-    manifest.load(manifest_file)
+    manifest.load(Path(manifest_file))
     manifest.validate()
 
     simulation = Simulation(manifest)

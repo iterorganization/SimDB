@@ -17,11 +17,12 @@ class InvalidManifest(Exception):
 
 
 def _expand_path(path: Path, base_path: Path) -> Path:
+    path = Path(os.path.expandvars(path))
     if not path.is_absolute():
         if not base_path.is_absolute():
             raise ValueError('base_path must be absolute')
         return base_path / path
-    return Path(os.path.expandvars(path))
+    return path
 
 
 def _to_uri(uri_str: str, base_path: Path) -> Tuple["DataObject.Type", urilib.URI]:
