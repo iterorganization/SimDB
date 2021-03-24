@@ -87,6 +87,11 @@ class ManifestValidator:
     """
     Base class for validation of manifests.
     """
+    version: int
+
+    def __init__(self, version: int):
+        self.version = version
+
     def validate(self, values: Union[List, Dict]) -> None:
         pass
 
@@ -95,11 +100,12 @@ class ListValuesValidator(ManifestValidator):
     """
     Class for the validation of list items in the manifest.
     """
-    def __init__(self, section_name: str = NotImplemented, expected_keys: Iterable = NotImplemented,
+    def __init__(self, version: int, section_name: str = NotImplemented, expected_keys: Iterable = NotImplemented,
                  required_keys: Iterable = NotImplemented) -> None:
         self.section_name: str = section_name
         self.expected_keys: Iterable = expected_keys
         self.required_keys: Iterable = required_keys
+        super().__init__(version)
 
     def validate(self, values: Union[list, dict]) -> None:
         if isinstance(values, dict):
@@ -118,11 +124,12 @@ class DictValuesValidator(ManifestValidator):
     """
     Class for the validation of dictionary items in the manifest.
     """
-    def __init__(self, section_name: str = NotImplemented, expected_keys: Iterable = NotImplemented,
+    def __init__(self, version: int, section_name: str = NotImplemented, expected_keys: Iterable = NotImplemented,
                  required_keys: Iterable = NotImplemented) -> None:
         self.section_name: str = section_name
         self.expected_keys: Iterable = expected_keys
         self.required_keys: Iterable = required_keys
+        super().__init__(version)
 
     def validate(self, values: Union[list, dict]) -> None:
         if isinstance(values, list):
@@ -146,38 +153,47 @@ class DataObjectValidator(ListValuesValidator):
     """
     Validator for the manifest data objects (inputs or outputs).
     """
-    def __init__(self, section_name: str) -> None:
-        expected_keys = ("uri",)
-        super().__init__(section_name, expected_keys)
+    def __init__(self, version: int, section_name: str) -> None:
+        if version == 0:
+            expected_keys = ("uuid", "path", "imas", "uda")
+        elif version > 0:
+            expected_keys = ("uri",)
+        else:
+            raise KeyError("Invalid version.")
+        super().__init__(version, section_name, expected_keys)
 
     def validate(self, values: Union[list, dict]) -> None:
         super().validate(values)
         for value in values:
-            uri = urilib.URI(value["uri"])
-            if uri.scheme not in ('uda', 'file', 'imas'):
-                raise InvalidManifest('unknown uri scheme: %s' % uri.scheme)
+            if self.version > 0:
+                uri = urilib.URI(value["uri"])
+                if uri.scheme not in ('uda', 'file', 'imas'):
+                    raise InvalidManifest('unknown uri scheme: %s' % uri.scheme)
 
 
 class InputsValidator(DataObjectValidator):
     """
     Validator for the manifest inputs list.
     """
-    def __init__(self):
-        super().__init__("inputs")
+    def __init__(self, version):
+        super().__init__(version, "inputs")
 
 
 class OutputsValidator(ListValuesValidator):
     """
     Validator for the manifest outputs list.
     """
-    def __init__(self):
-        super().__init__("outputs")
+    def __init__(self, version):
+        super().__init__(version, "outputs")
 
 
 class VersionValidator(ManifestValidator):
     """
     Validator for manifest version.
     """
+    def __init__(self, version: int):
+        super().__init__(version)
+
     def validate(self, value):
         if not isinstance(value, int):
             raise InvalidManifest("version must be an integer")
@@ -187,6 +203,9 @@ class AliasValidator(ManifestValidator):
     """
     Validator for simulation alias.
     """
+    def __init__(self, version: int):
+        super().__init__(version)
+
     def validate(self, value):
         if not isinstance(value, str):
             raise InvalidManifest("alias must be a string")
@@ -198,21 +217,27 @@ class MetaDataValidator(ListValuesValidator):
     """
     Validator for the manifest Metadata list.
     """
-    def __init__(self) -> None:
+    def __init__(self, version: int) -> None:
         section_name = "metadata"
         expected_keys = ("path", "values")
-        super().__init__(section_name, expected_keys)
+        super().__init__(version, section_name, expected_keys)
 
 
 class WorkflowValidator(DictValuesValidator):
     """
     Validator for the manifest workflow dictionary.
     """
-    def __init__(self) -> None:
+    def __init__(self, version: int) -> None:
         section_name = "workflow"
-        expected_keys = ("name", "developer", "date", "repo", "commit", "codes", "branch")
-        required_keys = ("name", "repo", "commit", "branch")
-        super().__init__(section_name, expected_keys, required_keys)
+        if version == 0:
+            expected_keys = ("name", "git", "commit", "codes")
+            required_keys = ("name", "git", "commit", "codes")
+        elif version > 0:
+            expected_keys = ("name", "developer", "date", "repo", "commit", "codes", "branch")
+            required_keys = ("name", "repo", "commit", "branch")
+        else:
+            raise KeyError("Invalid version.")
+        super().__init__(version, section_name, expected_keys, required_keys)
 
 
 def _update_dict(old: Dict, new: Dict) -> None:
@@ -302,6 +327,51 @@ class Manifest:
         except yaml.YAMLError as err:
             raise InvalidManifest("failed to read metadata file %s - %s" % (path, err))
 
+    def _convert_version(self):
+        if self.version == 0:
+            self._convert_metadata()
+            self._data["inputs"] = self._convert_files(self._data["inputs"])
+            self._data["outputs"] = self._convert_files(self._data["outputs"])
+        self._data["version"] = 1
+
+    def _convert_metadata(self) -> None:
+        if 'metadata' not in self._data:
+            return
+
+        for item in ('description', 'workflow'):
+            if item in self._data:
+                self._data['metadata'][0]['values'][item] = self._data[item]
+                del self._data[item]
+
+        for item in self._data['metadata']:
+            if 'values' in item:
+                if 'workflow' in item['values']:
+                    if 'git' in item['values']['workflow']:
+                        item['values']['workflow']['repo'] = item['values']['workflow']['git']
+                        del item['values']['workflow']['git']
+                    if 'codes' in item['values']['workflow']:
+                        codes = item['values']['workflow']['codes']
+                        new_codes = []
+                        for code in codes:
+                            for _, v in code.items():
+                                new_codes.append(v)
+                        item['values']['workflow']['codes'] = new_codes
+
+    @classmethod
+    def _convert_files(cls, files: List[Dict[str, str]]) -> List[Dict[str, urilib.URI]]:
+        scheme_map = {
+            'uuid': 'simdb',
+            'path': 'file',
+            'imas': 'imas',
+            'uda': 'uda',
+        }
+
+        new_files = []
+        for file in files:
+            for k, v in file.items():
+                new_files.append({'uri': urilib.URI(scheme=scheme_map[k], path=v)})
+        return new_files
+
     def load(self, file_path: Path) -> None:
         """
         Load a manifest from the given file.
@@ -349,25 +419,38 @@ class Manifest:
         if isinstance(self._data, list):
             raise InvalidManifest("badly formatted manifest - top level sections must be keys not a list")
 
-        section_validators = {
-            "version": VersionValidator(),
-            "alias": AliasValidator(),
-            "inputs": InputsValidator(),
-            "outputs": OutputsValidator(),
-            "metadata": MetaDataValidator(),
-        }
+        version = self.version
+
+        if version == 0:
+            section_validators = {
+                "inputs": InputsValidator(version),
+                "outputs": OutputsValidator(version),
+                "metadata": MetaDataValidator(version),
+            }
+        elif version == 1:
+            section_validators = {
+                "version": VersionValidator(version),
+                "alias": AliasValidator(version),
+                "inputs": InputsValidator(version),
+                "outputs": OutputsValidator(version),
+                "metadata": MetaDataValidator(version),
+            }
+        else:
+            raise InvalidManifest(f"Unknown manifest version {version}.")
 
         for section in self._data.keys():
             if section not in section_validators.keys():
-                raise InvalidManifest("unknown manifest section found: " + section)
+                raise InvalidManifest(f"Unknown manifest section found {section}.")
 
         required_sections = ("inputs", "outputs", "metadata")
         for section in required_sections:
             if section not in self._data.keys():
-                raise InvalidManifest("required manifest section not found: " + section)
+                raise InvalidManifest(f"Required manifest section not found {section}.")
 
         if "version" not in self._data.keys():
-            print("warning: no version given in manifest, assuming version 0")
+            print("warning: no version given in manifest, assuming version 0.")
 
         for name, values in self._data.items():
             section_validators[name].validate(values)
+
+        self._convert_version()

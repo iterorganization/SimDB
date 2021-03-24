@@ -48,7 +48,7 @@ class File(Base):
         return result
 
     def __repr__(self):
-        result = "%s (%s)" % (self.uuid, self.file_name)
+        result = f"{self.uuid} ({self.uri})"
         return result
 
     def generate_checksum(self):
@@ -62,7 +62,7 @@ class File(Base):
             from ...checksum import sha1_checksum
             checksum = sha1_checksum(self.uri)
         else:
-            raise NotImplementedError("Cannot generate checksum for type " + str(self.type))
+            raise NotImplementedError(f"Cannot generate checksum for type {self.type}.")
         return checksum
 
     def get_creation_date(self) -> datetime:
@@ -74,7 +74,7 @@ class File(Base):
         elif self.type == DataObject.Type.FILE:
             return datetime.fromtimestamp(Path(self.uri.path).stat().st_ctime)
         else:
-            raise NotImplementedError("Cannot generate checksum for type " + str(self.type))
+            raise NotImplementedError(f"Cannot generate checksum for type {self.type}.")
 
     @classmethod
     def from_data(cls, data: Dict) -> "File":
@@ -89,7 +89,7 @@ class File(Base):
         file.datetime = date_parser.parse(data["datetime"])
         return file
 
-    def data(self, recurse: bool=False) -> Dict[str, str]:
+    def data(self, _recurse: bool=False) -> Dict[str, str]:
         data = dict(
             uuid=self.uuid.hex,
             usage=self.usage,
