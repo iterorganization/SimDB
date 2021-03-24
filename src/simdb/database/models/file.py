@@ -89,7 +89,7 @@ class File(Base):
         file.datetime = date_parser.parse(data["datetime"])
         return file
 
-    def data(self, _recurse: bool=False) -> Dict[str, str]:
+    def data(self, recurse: bool=False) -> Dict[str, str]:
         data = dict(
             uuid=self.uuid.hex,
             usage=self.usage,

@@ -213,6 +213,13 @@ class AliasValidator(ManifestValidator):
             raise InvalidManifest("illegal characters in alias: %s" % value)
 
 
+class DescriptionValidator(ManifestValidator):
+    """
+    Validator for simulation description.
+    """
+    pass
+
+
 class MetaDataValidator(ListValuesValidator):
     """
     Validator for the manifest Metadata list.
@@ -230,8 +237,8 @@ class WorkflowValidator(DictValuesValidator):
     def __init__(self, version: int) -> None:
         section_name = "workflow"
         if version == 0:
-            expected_keys = ("name", "git", "commit", "codes")
-            required_keys = ("name", "git", "commit", "codes")
+            expected_keys = ("name", "git", "repo", "commit", "codes")
+            required_keys = ("name", "commit", "codes")
         elif version > 0:
             expected_keys = ("name", "developer", "date", "repo", "commit", "codes", "branch")
             required_keys = ("name", "repo", "commit", "branch")
@@ -335,27 +342,23 @@ class Manifest:
         self._data["version"] = 1
 
     def _convert_metadata(self) -> None:
-        if 'metadata' not in self._data:
-            return
-
         for item in ('description', 'workflow'):
             if item in self._data:
-                self._data['metadata'][0]['values'][item] = self._data[item]
+                self._metadata[item] = self._data[item]
                 del self._data[item]
 
-        for item in self._data['metadata']:
-            if 'values' in item:
-                if 'workflow' in item['values']:
-                    if 'git' in item['values']['workflow']:
-                        item['values']['workflow']['repo'] = item['values']['workflow']['git']
-                        del item['values']['workflow']['git']
-                    if 'codes' in item['values']['workflow']:
-                        codes = item['values']['workflow']['codes']
-                        new_codes = []
-                        for code in codes:
-                            for _, v in code.items():
-                                new_codes.append(v)
-                        item['values']['workflow']['codes'] = new_codes
+        for key, value in self._metadata.items():
+            if key == 'workflow':
+                if 'git' in value:
+                    value['repo'] = value['git']
+                    del value['git']
+                if 'codes' in value:
+                    codes = value['codes']
+                    new_codes = []
+                    for code in codes:
+                        for _, v in code.items():
+                            new_codes.append(v)
+                    value['codes'] = new_codes
 
     @classmethod
     def _convert_files(cls, files: List[Dict[str, str]]) -> List[Dict[str, urilib.URI]]:
@@ -419,6 +422,9 @@ class Manifest:
         if isinstance(self._data, list):
             raise InvalidManifest("badly formatted manifest - top level sections must be keys not a list")
 
+        if "version" not in self._data.keys():
+            print("warning: no version given in manifest, assuming version 0.")
+
         version = self.version
 
         if version == 0:
@@ -426,6 +432,8 @@ class Manifest:
                 "inputs": InputsValidator(version),
                 "outputs": OutputsValidator(version),
                 "metadata": MetaDataValidator(version),
+                "workflow": WorkflowValidator(version),
+                "description": DescriptionValidator(version),
             }
         elif version == 1:
             section_validators = {
@@ -446,9 +454,6 @@ class Manifest:
         for section in required_sections:
             if section not in self._data.keys():
                 raise InvalidManifest(f"Required manifest section not found {section}.")
-
-        if "version" not in self._data.keys():
-            print("warning: no version given in manifest, assuming version 0.")
 
         for name, values in self._data.items():
             section_validators[name].validate(values)
