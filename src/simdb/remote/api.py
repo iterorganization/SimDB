@@ -8,7 +8,7 @@ from werkzeug.datastructures import FileStorage
 from functools import wraps
 import uuid
 import gzip
-from typing import List, Iterable, Dict
+from typing import List, Iterable, Dict, Tuple
 from itertools import chain
 from uri import URI
 
@@ -17,7 +17,7 @@ from ..database import Database, DatabaseError
 from ..database.models import Simulation, File, Watcher, MetaData
 from ..checksum import sha1_checksum
 from ..cli.manifest import DataObject
-
+from ..query import QueryType, parse_query_arg
 
 API_VERSION = 1
 api = Blueprint("api", __name__)
@@ -130,16 +130,12 @@ def list_simulations():
     if not request.args:
         simulations = api.db.list_simulations()
     else:
-        equals = {}
-        contains = {}
+        constraints: List[Tuple[str, str, QueryType]] = []
         for name in request.args:
             value = request.args[name]
-            if value.startswith('in:'):
-                contains[name] = value.replace('in:', '')
-            else:
-                equals[name] = value
+            constraints.append((name,) + parse_query_arg(value))
 
-        simulations = api.db.query_meta(equals, contains)
+        simulations = api.db.query_meta(constraints)
 
     return jsonify([sim.data(recurse=True) for sim in simulations])
 
