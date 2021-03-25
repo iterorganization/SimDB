@@ -38,6 +38,18 @@ if TYPE_CHECKING or 'sphinx' in sys.modules:
             pass
 
 
+def _is_hex_string(string: str) -> bool:
+    try:
+        int(string, 16)
+        return True
+    except ValueError:
+        return False
+
+
+def _is_short_uuid(sim_id: str):
+    return len(sim_id) == 8 and _is_hex_string(sim_id)
+
+
 class Database:
     """
     Class to wrap the database access.
@@ -107,10 +119,6 @@ class Database:
             scopefunc = lambda: 0
         self.session: "Session" = cast("Session", scoped_session(sessionmaker(bind=self.engine), scopefunc=scopefunc))
 
-    @classmethod
-    def _is_short_uuid(cls, sim_id: str):
-        return len(sim_id) == 8 and sim_id.isalnum()
-
     def _find_simulation(self, sim_ref: str) -> "Simulation":
         from .models import Simulation
         try:
@@ -118,8 +126,11 @@ class Database:
             simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
         except ValueError:
             simulation = None
-            if self._is_short_uuid(sim_ref):
-                simulation = self.session.query(Simulation).filter(Simulation.uuid.startswith(sim_ref)).one_or_none()
+            if _is_short_uuid(sim_ref):
+                try:
+                    simulation = self.session.query(Simulation).filter(Simulation.uuid.startswith(sim_ref)).one_or_none()
+                except sqlalchemy.exc.StatementError:
+                    simulation = None
             if not simulation:
                 sim_alias = sim_ref
                 simulation = self.session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
