@@ -6,6 +6,7 @@ from .commands.simulation import simulation
 from .commands.config import config
 from .commands.database import database
 from .commands.remote import remote
+from .commands.provenance import provenance
 from ..config import Config
 from .. import __version__
 
@@ -47,6 +48,7 @@ cli.add_command(simulation)
 cli.add_command(config)
 cli.add_command(database)
 cli.add_command(remote)
+cli.add_command(provenance)
 
 
 def main() -> None:

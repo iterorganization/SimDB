@@ -49,7 +49,7 @@ For example on Linux this would be:
 ```
 
 
-On MacOS this would be:
+On macOS this would be:
 
 
 ```

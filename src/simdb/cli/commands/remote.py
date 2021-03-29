@@ -8,25 +8,41 @@ from .utils import print_simulations
 pass_api = click.make_pass_decorator(RemoteAPI)
 
 
-class CustomGroup(click.Group):
+class RemoteGroup(click.Group):
     def parse_args(self, ctx, args):
         if args and args[0] in self.commands:
             args.insert(0, '')
         super().parse_args(ctx, args)
 
 
-@click.group(cls=CustomGroup)
+class RemoteSubGroup(click.Group):
+    def format_usage(self, ctx, formatter):
+        pieces = self.collect_usage_pieces(ctx)
+        formatter.write_usage(ctx.command_path.replace('remote', 'remote [NAME]'), " ".join(pieces))
+
+
+class RemoteSubCommand(click.Command):
+    def format_usage(self, ctx, formatter):
+        pieces = self.collect_usage_pieces(ctx)
+        formatter.write_usage(ctx.command_path.replace('remote', 'remote [NAME]'), " ".join(pieces))
+
+
+@click.group(cls=RemoteGroup)
 @click.pass_context
 @pass_config
 @click.argument("name", required=False)
 def remote(config, ctx, name):
-    """Interact with the remote SimDB service."""
-    ctx.obj = RemoteAPI(name, config)
+    """Interact with the remote SimDB service.
+
+    If NAME is provided this determines which remote server to communicate with, otherwise the server in the config file
+    with default=True is used."""
+    if '--help' not in click.get_os_args():
+        ctx.obj = RemoteAPI(name, config)
 
 
-@remote.group()
+@remote.group(cls=RemoteSubGroup)
 def watcher():
-    """Manage simulaiton watchers on REMOTE SimDB server."""
+    """Manage simulation watchers on REMOTE SimDB server."""
     pass
 
 
@@ -82,17 +98,17 @@ def add_watcher(config, api, sim_id, user, email, notification):
     click.echo(f"Watcher successfully added for simulation {sim_id}")
 
 
-@remote.command("list")
+@remote.command("list", cls=RemoteSubCommand)
 @pass_api
 @pass_config
 @click.option("-m", "--meta-data", "meta", help="Additional meta-data field to print.", multiple=True, default=[])
 def remote_list(config, api, meta):
-    """List simulation available on remote."""
+    """List simulations available on remote."""
     simulations = api.list_simulations()
     print_simulations(simulations, verbose=config.verbose, metadata_names=meta)
 
 
-@remote.command("info")
+@remote.command("info", cls=RemoteSubCommand)
 @pass_api
 @click.argument("sim_id")
 def remote_info(api, sim_id):
@@ -101,7 +117,7 @@ def remote_info(api, sim_id):
     click.echo(str(simulation))
 
 
-@remote.command("query")
+@remote.command("query", cls=RemoteSubCommand)
 @pass_api
 @pass_config
 @click.argument("constraint", nargs=-1)
@@ -112,30 +128,29 @@ def remote_query(config, api, constraint, meta):
     print_simulations(simulations, verbose=config.verbose, metadata_names=meta)
 
 
-@remote.command("publish")
+@remote.command("update", cls=RemoteSubCommand)
 @pass_api
 @click.argument("sim_id")
-def remote_publish(api, sim_id):
+@click.argument("update_type", type=click.Choice(['validate', 'accept'], case_sensitive=False))
+def remote_publish(api, sim_id, update_type):
     """Mark remote simulation as published."""
+    from ...database.models import Simulation
+    if update_type == "accept":
+        # Check if simulation is validated.
+        # Error if not validated.
+        # Send status updated.
+        status = Simulation.Status.ACCEPTED
+        api.update_simulation(sim_id, status)
+    elif update_type == "validate":
+        pass
+    elif update_type == "deprecate":
+        api.update_simulation(sim_id, Simulation.Status.DEPRECATED)
+        click.echo("Simulation deprecated.")
+    elif update_type == "delete":
+        result = api.delete_simulation(sim_id)
+        click.echo(f"deleted simulation: {result['deleted']['simulation']}")
+        if result["deleted"]["files"]:
+            for file in result["deleted"]["files"]:
+                click.echo(f"              file: {file}")
     api.publish_simulation(sim_id)
-    click.echo("success")
-
-
-@remote.command("delete")
-@pass_api
-@click.argument("sim_id")
-def remote_delete(api, sim_id):
-    """Delete specified remote simulations."""
-    result = api.delete_simulation(sim_id)
-    click.echo("deleted simulation: " + result["deleted"]["simulation"])
-    if result["deleted"]["files"]:
-        for file in result["deleted"]["files"]:
-            click.echo(f"              file: {file}")
-
-
-@remote.command("database")
-@pass_api
-def remote_database(api):
-    """Reset remote database."""
-    api.reset_database()
     click.echo("success")

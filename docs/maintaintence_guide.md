@@ -1,4 +1,4 @@
-# SimDB server maintaintence guide
+# SimDB server maintenance guide
 
 This guide describes the steps needed to set up and maintain a SimDB server as a production service. The first section details the general steps required to do this, followed by details on how this is done at ITER.
 
@@ -55,17 +55,33 @@ This uses the Flask debug server so should not be used in production. Note that 
 
 ### SimDB Configuration File
 
+#### Server configuration options
+
 | Section | Option | Description |
 | --- | --- | --- |
-| db | type | [sqlite, postgres] |
-| db | file | database file (for sqlite) |
-| db | host | database host (for postgres) |
-| db | port | database port (for postgres) |
-| db | name | database name (for postgres) |
-| db | port | database port (for postgres) |
-| server | upload-folder | |
 | DEFAULT | debug | |
+| database | type | database type [sqlite, postgres] |
+| database | file | database file (for sqlite) |
+| database | host | database host (for postgres) |
+| database | port | database port (for postgres) |
+| database | name | database name (for postgres) |
+| database | port | database port (for postgres) |
+| server | upload_folder | |
+| server | ssl_enabled | |
 | server | ssl-enabled | |
+| flask | flask_env | |
+| flask | debug | |
+| flask | testing | |
+| flask | secret_key | | 
+| validation | auto_validate | |
+| validation | error_on_fail | |
+
+#### Client configuration options
+
+| Section | Option | Description |
+| --- | --- | --- |
+| remote | url | |
+| remote | default | |
 
 ### Configuring nginx
 

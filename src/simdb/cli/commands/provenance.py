@@ -55,7 +55,7 @@ def _get_provenance() -> Dict[str, Union[PlatformDetails, EnvironmentDetails]]:
     return prov
 
 
-@click.command()
+@click.command('provenance')
 @click.argument("provenance_file")
 def provenance(provenance_file):
     """Create the PROVENANCE_FILE from the current system."""

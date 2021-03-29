@@ -12,7 +12,7 @@ This document summarises the design of the IMAS simulation management system
 
 ## Supported Platforms
 
-The following platforms are support for SimDB: Linux, MacOS, Windows.
+The following platforms are support for SimDB: Linux, macOS, Windows.
 
 ## High level description
 
@@ -54,7 +54,7 @@ been pushed to the remote system.
 run and where the simulation files will be retrieved from when they are
 pushed to the remote system.
 4. The Remote REST API: The remote API which processes requests from
-the user CLI tool to receive pushed simulations and store them ready for
+the user CLI to receive pushed simulations and store them ready for
 validation and publishing.
 5. The Staging Directory: The location the pushed simulation files are
 transferred to while waiting for validation.
@@ -94,13 +94,6 @@ The following functionality will be provided by the CLI tool.
 1. CLI request with context
     1. context=[alias]
 2. Output written to command line
-
-### List a Controlled Vocabulary
-1. CLI request with context
-    1. context=subject
-2. CLI SQLite database is updated to the user’s local database from the
-master (Remote Central database)
-3. Text Output written to command line
 
 ### File Manifest
 1. Simulation Data Files
@@ -181,11 +174,11 @@ transport object
 
 ### Register the simulation locally using the imasdb CLI
 
-### Depost the simulation remotely using the imasdb CLI
+### Deposit the simulation remotely using the imasdb CLI
 
-## Contents of the metadata file pro-forma
+## Contents of the metadata file proforma
 
-The pro-forma file contains the value descriptions. Text lines beginning # are
+The proforma file contains the value descriptions. Text lines beginning # are
 ignored. Names without values are not ingested.
 
 | Name | Value description |
@@ -204,7 +197,7 @@ ignored. Names without values are not ingested.
 | Date | A date associated with an event in the life cycle of the resource. Typically, Date will be associated with the creation or availability of the resource. Recommended best practice for encoding the date value is defined in ISO 8601 and follows the YYYY-MM-DD format.<br /><br /> If the full date is unknown, month and year (YYYY-MM) or just year (YYYY) may be used. |
 | Format | The physical or digital manifestation of the resource. Typically, Format may include the media-type.<br /><br /> Recommended best practice is to select a value from a controlled vocabulary.<br /><br /> Repeat for each class of category. |
 | Identifier | An unambiguous reference to the resource within a given context.<br /><br /> Recommended best practice is to identify the resource by means of a string or number conforming to a formal identification system. Examples of formal identification systems include the Uniform Resource Identifier (URI) (including the Uniform Resource Locator (URL), the Digital Object Identifier (DOI) and the International Standard Book Number (ISBN).<br /><br /> This element can also be used for local identifiers (e.g. ID numbers) assigned by the Creator of the resource to apply to a particular item. It should not be used for identification of the metadata record itself. |
-| Language | A language of the intellectual content of the resource.<br /><br /> Recommended best practice for the values of the Language element is defined by RFC 3066 which, in conjunction with ISO 639, defines two- and three-letter primary language tags with optional subtags. Examples include "en" or "eng" for English, "akk" for Akkadian, and "en-GB" for English used in the United Kingdom. |
+| Language | A language of the intellectual content of the resource.<br /><br /> Recommended best practice for the values of the Language element is defined by RFC 3066 which, in conjunction with ISO 639, defines two- and three-letter primary language tags with optional sub-tags. Examples include "en" or "eng" for English, "akk" for Akkadian, and "en-GB" for English used in the United Kingdom. |
 | Audience | A class of entity for whom the resource is intended or useful. A class of entity may be determined by the creator or the publisher or by a third party.<br /><br /> Audience terms are best utilized in the context of formal or informal controlled vocabularies.<br /><br />Element of Qualified Dublin Core |
 | Provenance | A statement of any changes in ownership and custody of the resource since its creation that are significant for its authenticity, integrity and interpretation. The statement may include a description of any changes successive custodians made to the resource.<br /><br />Element of Qualified Dublin Core |
 | RightsHolder | A person or organization owning or managing rights over the resource. Recommended best practice is to use the URI or name of the Rights Holder to indicate the entity.<br /><br /> Element of Qualified Dublin Core |
@@ -251,7 +244,7 @@ Testing cannot verify the accuracy of simulation results. It can however test th
 
 If an IDS has been populated with data, there are several data quantities that must be assigned values: the ids_properties and code structures. Additionally, if ids_properties/homogeneous_time is set to the value 1, the array time must be  filled with values other than the missing value.
 
-Data that originates from pre-existing IDS files and are used as inputs to the workflow model needs not be tested as they are not the results of the workflow. However, these need to be identified (whole IDS objects and specific individual IDS data entities) to the validation testing routines so they can be skipped over. It is simpler to identify only the specific IDS objects that need be tested.
+Data that originates from pre-existing IDS files and are used as inputs to the workflow model needs not be tested as they are not the results of the workflow. However, these need to be identified (whole IDS objects and specific individual IDS data entities) to the validation testing routines, so they can be skipped over. It is simpler to identify only the specific IDS objects that need be tested.
 
 ### Initialisation
 

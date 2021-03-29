@@ -1,91 +1,102 @@
 # simdb usage
 
-Before running the simulation management tool you need to set up the environment.
-This can be done with the following:
+Before running the simulation management tool you need to set up the environment. This can be done with the following:
 
 ```bash
 module load imas
-imasdb <DB_NAME>
 ```
 
 The simulation management tool has in-built help for all commands:
 
-```bash
-./simdb.sh --help
+```text
+simdb --help
+Usage: simdb [OPTIONS] COMMAND [ARGS]...
 
-usage: simdb [-h] [--debug]
-             {simulation,manifest,database,remote,provenance,summary} ...
+Options:
+  --version      Show the version and exit.
+  -d, --debug    Run in debug mode.
+  -v, --verbose  Run with verbose output.
+  --help         Show this message and exit.
 
-optional arguments:
-  -h, --help            show this help message and exit
-  --debug, -d           run in debug mode
-
-commands:
-  {simulation,manifest,database,remote,provenance,summary}
-    simulation          manage ingested simulations
-    manifest            create/check manifest file
-    database            manage local simulation database file
-    remote              query remote system
-    provenance          provenance tools
-    summary             create and ingest IMAS summaries
+Commands:
+  alias       Query remote and local aliases.
+  config      Query/update application configuration.
+  database    Manage local simulation database.
+  dump-help
+  manifest    Create/check manifest file.
+  provenance  Create the PROVENANCE_FILE from the current system.
+  remote      Interact with the remote SimDB service.
+  simulation  Manage ingested simulations.
 ```
 
 Each subcommand is described in more detail in later sections.
 
 Each subcommand has it's own help documentation, e.g.:
 
-```bash
-./simdb.sh simulation --help
+```text
+simdb simulation --help
+Usage: simdb simulation [OPTIONS] COMMAND [ARGS]...
 
-usage: simdb simulation [-h]
-                        {push,modify,list,info,delete,query,ingest,validate,new}
-                        ...
+  Manage ingested simulations.
 
-optional arguments:
-  -h, --help            show this help message and exit
+Options:
+  --help  Show this message and exit.
 
-action:
-  {push,modify,list,info,delete,query,ingest,validate,new}
-    push                push the simulation to the remote management system
-    modify              modify the ingested simulation
-    list                list ingested manifests
-    info                print information on ingested manifest
-    delete              delete an ingested manifest
-    query               query the simulations
-    ingest              ingest a manifest file
-    validate            validate the ingested simulation
-    new                 create a new blank simulation and return the UUID
+Commands:
+  alias     Generate a unique alias with the given PREFIX.
+  delete    Delete the ingested simulation with given SIM_ID (UUID or...
+  info      Print information on the simulation with given SIM_ID (UUID or...
+  ingest    Ingest a MANIFEST_FILE.
+  list      List ingested simulations.
+  modify    Modify the ingested simulation.
+  new       Create an empty simulation in the database which can be updated...
+  push      Push the simulation with the given SIM_ID (UUID or alias) to
+            the...
+
+  query     Query the simulations.
+  validate  Validate the ingested simulation with given SIM_ID (UUID or...
 ```
 
 ## Manifest
 
 Simulation manifest files describe the input, output and metadata for a simulation. The `manifest` subcommand is used to create and check the manifest files.
 
-```bash
-./simdb.sh manifest --help
+```text
+Usage: simdb manifest [OPTIONS] COMMAND [ARGS]...
 
-usage: simdb manifest [-h] {check,create} manifest_file
+  Create/check manifest file.
 
-positional arguments:
-  {check,create}
-  manifest_file   manifest file location
+Options:
+  --help  Show this message and exit.
 
-optional arguments:
-  -h, --help      show this help message and exit
+Commands:
+  check   Check manifest FILE_NAME.
+  create  Create a new MANIFEST_FILE.
+
 ```
 
 **Create**:
 
 Creating a new template manifest file:
-```bash
-./simdb.sh manifest create temp.yaml
+```text
+Usage: simdb manifest create [OPTIONS] MANIFEST_FILE
+
+  Create a new MANIFEST_FILE.
+
+Options:
+  --help  Show this message and exit.
 ```
 
 **Check**:
 
 Checking a manifest for errors:
-```bash
-./simdb.sh manifest check locust.yaml
+```text
+Usage: simdb manifest check [OPTIONS] FILE_NAME
+
+  Check manifest FILE_NAME.
+
+Options:
+  --help  Show this message and exit.
 ```
 
 ## Simulations
@@ -94,34 +105,42 @@ The `simulation` subcommand is used to ingest manifest files and manage ingested
 are stored in a local database which can be queried and validated, and when a simulation is ready to publish it can
 be pushed to the remote simulation store.
 
-```bash
-./simdb.sh simulation --help
+```text
+Usage: simdb simulation [OPTIONS] COMMAND [ARGS]...
 
-usage: simdb simulation [-h]
-                        {push,modify,list,info,delete,query,ingest,validate,new}
-                        ...
+  Manage ingested simulations.
 
-optional arguments:
-  -h, --help            show this help message and exit
+Options:
+  --help  Show this message and exit.
 
-action:
-  {push,modify,list,info,delete,query,ingest,validate,new}
-    push                push the simulation to the remote management system
-    modify              modify the ingested simulation
-    list                list ingested manifests
-    info                print information on ingested manifest
-    delete              delete an ingested manifest
-    query               query the simulations
-    ingest              ingest a manifest file
-    validate            validate the ingested simulation
-    new                 create a new blank simulation and return the UUID
+Commands:
+  alias     Generate a unique alias with the given PREFIX.
+  delete    Delete the ingested simulation with given SIM_ID (UUID or...
+  info      Print information on the simulation with given SIM_ID (UUID or...
+  ingest    Ingest a MANIFEST_FILE.
+  list      List ingested simulations.
+  modify    Modify the ingested simulation.
+  new       Create an empty simulation in the database which can be updated...
+  push      Push the simulation with the given SIM_ID (UUID or alias) to
+            the...
+
+  query     Query the simulations.
+  validate  Validate the ingested simulation with given SIM_ID (UUID or...
 ```
 
 **Ingest**:
 
 You store a simulation into the local database using:
-```bash
-./simdb.sh simulation ingest [-a|--alias ALIAS] manifest.yaml
+```text
+Usage: simdb simulation ingest [OPTIONS] MANIFEST_FILE
+
+  Ingest a MANIFEST_FILE.
+
+Options:
+  -a, --alias TEXT  Alias to give to simulation (overwrites any set in
+                    manifest).
+
+  --help            Show this message and exit.
 ```
 
 The `alias` is optional but allows for easier referencing of the ingested simulation in other commands.
@@ -129,31 +148,44 @@ The `alias` is optional but allows for easier referencing of the ingested simula
 **List**:
 
 The simulations stored in the local database can be seen using:
-```bash
-./simdb.sh simulation list [-v|--verbose]
-```
+```text
+Usage: simdb simulation list [OPTIONS]
 
-The `verbose` argument is an optional switch which causes more information about each simulation to be printed.
+  List ingested simulations.
+
+Options:
+  -m, --meta-data TEXT  Additional meta-data field to print.
+  --help                Show this message and exit.
+```
 
 **Info**:
 
 You can view an ingested simulation using:
-```bash
-./simdb.sh simulation info <UUID|ALIAS>
+```text
+Usage: simdb simulation info [OPTIONS] SIM_ID
+
+  Print information on the simulation with given SIM_ID (UUID or alias).
+
+Options:
+  --help  Show this message and exit.
 ```
 
-The `UUID` is the generated unique identifer for the simulation, or you can reference the simulation using a
-user given alias (either via the `ingest` or `modify` subcommands).
+The `UUID` is the generated unique identifer for the simulation, or you can reference the simulation using a user given alias (either via the `ingest` or `modify` subcommands).
 
 **Modify**:
 
 If you want to modify an ingested simulation you can use:
-```bash
-./simdb.sh simulation modify [--alias ALIAS] <UUID|ALIAS>
+```text
+Usage: simdb simulation modify [OPTIONS] SIM_ID
+
+  Modify the ingested simulation.
+
+Options:
+  -a, --alias TEXT  New alias.
+  --help            Show this message and exit.
 ```
 
-The `UUID` is the generated unique identifer for the simulation, or you can reference the simulation using a
-user given alias (either via the `ingest` or `modify` subcommands).
+The `UUID` is the generated unique identifer for the simulation, or you can reference the simulation using a user given alias (either via the `ingest` or `modify` subcommands).
 
 Currently the only thing you can modify on the simulation is the simulations alias but additional fields will be added
 later such as the data quality flag, etc.
@@ -161,8 +193,14 @@ later such as the data quality flag, etc.
 **Validate**:
 
 To validate an ingested simulation use:
-```bash
-./simdb.sh simulation validate <UUID|ALIAS>
+```text
+Usage: simdb simulation validate [OPTIONS] [REMOTE] SIM_ID
+
+  Validate the ingested simulation with given SIM_ID (UUID or alias) using
+  validation schema from REMOTE.
+
+Options:
+  --help  Show this message and exit.
 ```
 
 The `UUID` is the generated unique identifer for the simulation, or you can reference the simulation using a
@@ -171,163 +209,67 @@ user given alias (either via the `ingest` or `modify` subcommands).
 **Query**:
 
 You can query the simulations in the local database using:
-```bash
-./simdb.sh simulation query <KEY> --contains <VALUE>
-./simdb.sh simulation query <KEY> --equals <VALUE>
+```text
+Usage: simdb simulation query [OPTIONS] [CONSTRAINT]...
+
+  Query the simulations.
+
+Options:
+  --help  Show this message and exit.
 ```
 
 This query returns all simulations where the value of `KEY` in the simulations metadata matches the given query condition.
 E.g.
 
-```bash
-./simdb.sh simulation query publisher --equals ITER
+```text
+simdb simulation query publisher=ITER
 ```
 
 ## Provenance
 
-The simulation provenance file is used to specify the machine and environment in which the simulation along with any
-other provenance information required to re-run the simulation. This data is stored in the simulation database as
-key-value pairs.
+This runs some commands to dump the current environment and platform information so can be run as part of the simulation scripts to generate the provenance file for the particular simulation run.
 
-```bash
-./simdb.sh provenance --help
+```text
+Usage: simdb provenance [OPTIONS] PROVENANCE_FILE
 
-usage: simdb provenance [-h] {create,ingest,print,query} ...
+  Create the PROVENANCE_FILE from the current system.
 
-optional arguments:
-  -h, --help            show this help message and exit
-
-action:
-  {create,ingest,print,query}
-    create              create the provenance file from the current system
-    ingest              ingest the provenance file
-    print               print the provenance for a simulation
-    query               query the simulations
-```
-
-**Create**:
-
-To create a provenance file with values from the current system use:
-
-```bash
-./simdb.sh provenance create <FILE>
-```
-
-This runs some commands to dump the current environment and platform information so can be run as part of the simulation
-scripts to generate the provenance file for the particular simulation run.
-
-**Ingest**:
-
-To ingest the file and store the provenance against an ingested simulation use:
-
-```bash
-./simdb.sh provenance ingest <UUID|ALIAS> <FILE>
-```
-
-This reads all the values in the provenance file and stores it with the specified simulation.
-
-**Print**:
-
-To print the provenance information for an ingested simulation use:
-
-```bash
-./simdb.sh provenance print <UUID|ALIAS>
-```
-
-**Query**:
-
-To query the simulation providence use:
-```bash
-./simdb.sh provenance query <KEY> --contains <VALUE>
-./simdb.sh provenance query <KEY> --equals <VALUE>
-```
-
-E.g.
-
-```bash
-./simdb.sh provenance query platform.architecture --contains 64
-```
-
-## Summary
-
-The `summary` command is used to generate a summary file from a summary IDS. This summary file can then be ingested
-and stored with a simulation, and ingested summaries can be listed and queried.
-
-```bash
-./simdb.sh summary --help
-
-usage: simdb summary [-h] {create,ingest,query,list} ...
-
-optional arguments:
-  -h, --help            show this help message and exit
-
-action:
-  {create,ingest,query,list}
-    create              create the summary file
-    ingest              ingest the summary file
-    query               query the simulations
-    list                list the ingested summaries
-```
-
-**Create**:
-
-Creating a summary yaml file using `create_db_summary` tool:
-
-```bash
-./simdb.sh summary create <FILE> <IDS_SHOT> <IDS_RUN>
-```
-
-The IMAS database used is the one set via the `imasdb` tool.
-
-**Ingest**:
-
-Ingest a summary file and store with an ingested simulation:
-```bash
-./simdb.sh summary ingest <UUID> <FILE>
-```
-
-**List**:
-
-List summary information for a simulation:
-```bash
-./simdb.sh summary list <UUID>
-```
-
-**Query**:
-
-Query summary data:
-```bash
-./simdb.sh summary query <KEY> --contains <VALUE>
-./simdb.sh summary query <KEY> --equals <VALUE>
+Options:
+  --help  Show this message and exit.
 ```
 
 ## Remote
 
-Once a simulation is complete, all metadata and provenance data have been stored with it, and it is ready to publish
-then the remote command is used to upload the simulation to the remote repository. The command can also be used to query
-for simulation available in the remote repository.
+Once a simulation is complete, all metadata and provenance data have been stored with it, and it is ready to publish then the remote command is used to upload the simulation to the remote repository. The command can also be used to query for simulation available in the remote repository.
 
-```bash
-./simdb.sh remote --help
+```text
+Usage: simdb remote [OPTIONS] [NAME] COMMAND [ARGS]...
 
-usage: simdb remote [-h] [-v] {list,info,publish,delete,database} ...
+  Interact with the remote SimDB service.
 
-optional arguments:
-  -h, --help            show this help message and exit
-  -v, --verbose         print more verbose output
+Options:
+  --help  Show this message and exit.
 
-action:
-  {list,info,publish,delete,database}
-    list                list ingested manifests
-    info                print information on ingested manifest
-    publish             publish staged simulation
+Commands:
+  database  Reset remote database.
+  delete    Delete specified remote simulations.
+  info      Print information about simulation with given SIM_ID (UUID or...
+  list      List simulation available on remote.
+  publish   Mark remote simulation as published.
+  query     Perform a metadata query to find matching simulation from...
+  watcher   Manage simulaiton watchers on REMOTE SimDB server.
 ```
 
 **Publish**:
 
 To move a local simulation the remote staging are use:
-```bash
-./simdb.sh simulation publish <UUID|ALIAS>
+```text
+Usage: simdb remote publish [OPTIONS] SIM_ID
+
+  Mark remote simulation as published.
+
+Options:
+  --help  Show this message and exit.
 ```
 
 The `UUID` is the generated unique identifer for the simulation, or you can reference the simulation using a
@@ -336,15 +278,27 @@ user given alias (either via the `simulation` `ingest` or `modify` subcommands).
 **List**:
 
 To see the simulations remotely staged use:
-```bash
-./simdb.sh remote list
+```text
+Usage: simdb remote list [OPTIONS]
+
+  List simulation available on remote.
+
+Options:
+  -m, --meta-data TEXT  Additional meta-data field to print.
+  --help                Show this message and exit.
 ```
 
 **Info**:
 
 To print information about a remotely staged simulation use:
-```bash
-./simdb.sh remote info <UUID>
+```text
+Usage: simdb remote info [OPTIONS] SIM_ID
+
+  Print information about simulation with given SIM_ID (UUID or alias) from
+  remote.
+
+Options:
+  --help  Show this message and exit.
 ```
 
 The `UUID` is the generated unique identifer for the simulation, or you can reference the simulation using a
@@ -354,88 +308,26 @@ user given alias (either via the `simulation` `ingest` or `modify` subcommands).
 
 ***Note***: The following commands are for development only -- they will be removed as the functionality they provide are automated.
 
-```bash
-./simdb.sh database --help
+```text
+Usage: simdb database [OPTIONS] COMMAND [ARGS]...
 
-usage: simdb database [-h] {clear,cv,reference} ...
+  Manage local simulation database.
 
-optional arguments:
-  -h, --help            show this help message and exit
+Options:
+  --help  Show this message and exit.
 
-action:
-  {clear,cv,reference}
-    clear               clear the database
-    cv                  manage controlled vocabulary
-    reference           manage reference scenarios
+Commands:
+  clear  Clear the database.
 ```
 
 **Clear**:
 
 You clear the local database using:
-```bash
-./simdb.sh database clear
+```text
+Usage: simdb database clear [OPTIONS]
+
+  Clear the database.
+
+Options:
+  --help  Show this message and exit.
 ```
-
-**CV**:
-
-You can see which controlled vocabularies are in the local database using:
-```bash
-./simdb.sh database cv list
-```
-
-You can display the words in a particular vocabulary using:
-```bash
-./simdb.sh database cv print <VOCAB>
-```
-
-To create a new controlled vocabularies use:
-```bash
-./simdb.sh database cv new <VOCAB> <WORD> <WORD> ...
-```
-
-To add a new word/s to an existing controlled vocabulary use:
-```bash
-./simdb.sh database cv update <VOCAB> <NEW_WORD> <NEW_WORD> ...
-```
-
-You can clear a vocabulary using:
-```bash
-./simdb.sh database cv clear <VOCAB>
-```
-
-You can delete a vocabulary using:
-```bash
-./simdb.sh database cv delete <VOCAB>
-```
-
-**Reference**:
-
-The reference validation parameters are used when validating IDS data. When you set an IDS as the reference IDS for a particular device and scenario then each field in that IDS will be read and statistics about that field will be saved in the database. When you come to validate an IDS with that same device and scenario the fields in that IDS will be compared to these statistics read from the database.
-
-To set an IDS reference IDS use:
-
-```bash
-./simdb.sh database reference load --shot=<SHOT> --run=<RUN> --device=<DEVICE> --scenario=<SCENARIO> --ids=<IDS>
-```
-
-You can use the command to use the same IMAS files for multiple IDSs:
-```bash
-./simdb.sh database reference load --shot=<SHOT> --run=<RUN> --device=<DEVICE> --scenario=<SCENARIO> --ids=<IDS1> --ids=<IDS2> --ids=<IDS3> ...
-```
-TODO: Validation parameters not being loaded
-
-You can list the reference IDSs stored using:
-```bash
-./simdb.sh database reference list
-```
-
-You can print the stored reference statistics for a device and scenario using:
-```bash
-./simdb.sh database reference print --device=<DEVICE> --scenario=<SCENARIO>
-```
-
-You can delete all the reference statistics for a device and scenario using:
-```bash
-./simdb.sh database reference delete --device=<DEVICE> --scenario=<SCENARIO>
-```
-

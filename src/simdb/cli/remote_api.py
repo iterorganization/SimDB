@@ -155,8 +155,8 @@ class RemoteAPI:
         return res.json()
 
     @try_request
-    def publish_simulation(self, sim_id: str) -> None:
-        self.post("publish/" + sim_id, {})
+    def update_simulation(self, sim_id: str) -> None:
+        res = self.post("update/" + sim_id, {})
 
     @try_request
     def add_watcher(self, sim_id: str, user: str, email: str, notification: str) -> None:
