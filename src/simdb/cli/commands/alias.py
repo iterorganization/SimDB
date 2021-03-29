@@ -3,6 +3,13 @@ import click
 from . import pass_config
 
 
+class AliasCommand(click.Command):
+    def parse_args(self, ctx, args):
+        if len(args) < len(self.params):
+            args.insert(0, '')
+        super().parse_args(ctx, args)
+
+
 @click.group()
 def alias():
     """Query remote and local aliases.
@@ -10,9 +17,9 @@ def alias():
     pass
 
 
-@alias.command()
+@alias.command(cls=AliasCommand)
 @pass_config
-@click.argument("remote")
+@click.argument("remote", required=False)
 @click.argument("value")
 def search(config, remote, value):
     """Search the REMOTE for all aliases that contain the given VALUE.
@@ -26,12 +33,12 @@ def search(config, remote, value):
     db = get_local_db(config)
     simulations += db.list_simulations()
 
-    aliases = [sim.alias for sim in simulations if sim.alias.contains(value)]
+    aliases = [sim.alias for sim in simulations if value in sim.alias]
     for alias in aliases:
         click.echo(alias)
 
 
-@alias.command()
+@alias.command(cls=AliasCommand)
 @pass_config
 @click.argument("remote", required=False)
 def list(config, remote):

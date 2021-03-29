@@ -19,3 +19,4 @@ test_manifest.yml
 /temp
 /htmlcov
 /test-reports/
+/tests/cli/test.cfg

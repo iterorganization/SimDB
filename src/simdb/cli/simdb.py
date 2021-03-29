@@ -27,10 +27,11 @@ def recursive_help(cmd, parent=None):
 @click.version_option(__version__)
 @click.option("-d", "--debug", is_flag=True, help="Run in debug mode.")
 @click.option("-v", "--verbose", is_flag=True, help="Run with verbose output.")
+@click.option("-c", "--config-file", type=click.File('r'), help="Config file to load.")
 @click.pass_context
-def cli(ctx, debug, verbose):
+def cli(ctx, debug, verbose, config_file):
     ctx.obj = Config()
-    ctx.obj.load()
+    ctx.obj.load(config_file)
     ctx.obj.set_debug(debug)
     ctx.obj.set_verbose(verbose)
     global g_debug
