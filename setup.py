@@ -33,6 +33,7 @@ setuptools.setup(
         "email-validator (>=1.1)",
         "semantic-version (>=2.8)",
         "click (>=7.0)",
+        "Cerberus (>=1.3.2)",
     ],
     scripts=[
         "scripts/simdb",
