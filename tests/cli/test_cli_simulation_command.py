@@ -1,7 +1,7 @@
 from unittest import mock
 from click.testing import CliRunner
 from simdb.cli.simdb import cli
-from config_utils import config_test_file
+from utils import config_test_file
 
 
 @mock.patch('simdb.database.get_local_db')

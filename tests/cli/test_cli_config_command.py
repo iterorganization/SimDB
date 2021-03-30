@@ -1,40 +1,26 @@
 from unittest import mock
 from click.testing import CliRunner
 from simdb.cli.simdb import cli
-from config_utils import config_test_file
+from utils import config_test_file
 
 
-@mock.patch('simdb.database.get_local_db')
-@mock.patch('simdb.cli.remote_api.RemoteAPI')
-def test_config_delete(remote_api, get_local_db):
+@mock.patch('simdb.config.config.Config.get_option')
+def test_config_get(get_option):
+    config_file = config_test_file()
+    get_option.return_value = 'bar'
+    runner = CliRunner()
+    result = runner.invoke(cli, [f'--config-file={config_file}', 'config', 'get', 'foo'])
+    assert result.exception is None
+    assert 'bar' in result.output
+    assert get_option.call_args.args == ('foo',)
+
+
+@mock.patch('simdb.config.config.Config.save')
+@mock.patch('simdb.config.config.Config.set_option')
+def test_config_set(set_option, save):
     config_file = config_test_file()
     runner = CliRunner()
-    result = runner.invoke(cli, [f'--config-file={config_file}', 'config'])
+    result = runner.invoke(cli, [f'--config-file={config_file}', 'config', 'set', 'foo', 'bar'])
     assert result.exception is None
-
-
-@mock.patch('simdb.database.get_local_db')
-@mock.patch('simdb.cli.remote_api.RemoteAPI')
-def test_config_get(remote_api, get_local_db):
-    config_file = config_test_file()
-    runner = CliRunner()
-    result = runner.invoke(cli, [f'--config-file={config_file}', 'config'])
-    assert result.exception is None
-
-
-@mock.patch('simdb.database.get_local_db')
-@mock.patch('simdb.cli.remote_api.RemoteAPI')
-def test_config_get(remote_api, get_local_db):
-    config_file = config_test_file()
-    runner = CliRunner()
-    result = runner.invoke(cli, [f'--config-file={config_file}', 'config'])
-    assert result.exception is None
-
-
-@mock.patch('simdb.database.get_local_db')
-@mock.patch('simdb.cli.remote_api.RemoteAPI')
-def test_config_get(remote_api, get_local_db):
-    config_file = config_test_file()
-    runner = CliRunner()
-    result = runner.invoke(cli, [f'--config-file={config_file}', 'config'])
-    assert result.exception is None
+    assert set_option.call_args.args == ('foo', 'bar')
+    assert save.called

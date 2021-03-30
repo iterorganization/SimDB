@@ -20,3 +20,4 @@ test_manifest.yml
 /htmlcov
 /test-reports/
 /tests/cli/test.cfg
+/tests/cli/*.yaml

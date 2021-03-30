@@ -63,3 +63,5 @@ def provenance(provenance_file):
 
     with open(provenance_file, 'w') as file:
         yaml.dump(_get_provenance(), file, default_flow_style=False)
+
+    click.echo(f"Create provenance file {provenance_file}.")

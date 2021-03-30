@@ -30,10 +30,11 @@ def recursive_help(cmd, parent=None):
 @click.option("-c", "--config-file", type=click.File('r'), help="Config file to load.")
 @click.pass_context
 def cli(ctx, debug, verbose, config_file):
-    ctx.obj = Config()
-    ctx.obj.load(config_file)
-    ctx.obj.set_debug(debug)
-    ctx.obj.set_verbose(verbose)
+    if not ctx.obj:
+        ctx.obj = Config()
+        ctx.obj.load(config_file)
+        ctx.obj.set_debug(debug)
+        ctx.obj.set_verbose(verbose)
     global g_debug
     g_debug = debug
 

@@ -1,5 +1,6 @@
 import sys
 from typing import List, Dict, Tuple, TYPE_CHECKING, TypeVar, TextIO
+import click
 
 
 if TYPE_CHECKING or 'sphinx' in sys.modules:
@@ -23,10 +24,9 @@ def flatten_dict(values: Dict) -> List[Tuple[str, str]]:
     return items
 
 
-def print_simulations(simulations: List["Simulation"], verbose: bool=False, metadata_names: list=None,
-                      out_stream: TextIO=sys.stdout) -> None:
+def print_simulations(simulations: List["Simulation"], verbose: bool=False, metadata_names: list=None) -> None:
     if len(simulations) == 0:
-        print("No simulations found", file=out_stream)
+        click.echo("No simulations found")
         return
 
     lines = []
@@ -60,8 +60,8 @@ def print_simulations(simulations: List["Simulation"], verbose: bool=False, meta
     line_written = False
     for line in lines:
         for col in range(len(line)):
-            print("%s" % str(line[col]).ljust(column_widths[col] + 1), end="", file=out_stream)
-        print(file=out_stream)
+            click.echo("%s" % str(line[col]).ljust(column_widths[col] + 1), nl=False)
+        click.echo()
         if not line_written:
-            print("-" * (sum(column_widths) + len(column_widths) - 1), file=out_stream)
+            click.echo("-" * (sum(column_widths) + len(column_widths) - 1))
             line_written = True

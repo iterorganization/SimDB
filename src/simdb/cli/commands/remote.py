@@ -54,7 +54,7 @@ def list_watchers(api, sim_id):
     watchers = api.list_watchers(sim_id)
     if watchers:
         click.echo(f"Watchers for simulation {sim_id}:")
-        for watcher in api.list_watchers(sim_id):
+        for watcher in watchers:
             click.echo(watcher)
     else:
         click.echo(f"no watchers found for simulation {sim_id}")
@@ -131,26 +131,25 @@ def remote_query(config, api, constraint, meta):
 @remote.command("update", cls=RemoteSubCommand)
 @pass_api
 @click.argument("sim_id")
-@click.argument("update_type", type=click.Choice(['validate', 'accept'], case_sensitive=False))
-def remote_publish(api, sim_id, update_type):
+@click.argument("update_type", type=click.Choice(['validate', 'accept', 'deprecate'], case_sensitive=False))
+def remote_update(api, sim_id, update_type):
     """Mark remote simulation as published."""
     from ...database.models import Simulation
     if update_type == "accept":
-        # Check if simulation is validated.
-        # Error if not validated.
-        # Send status updated.
-        status = Simulation.Status.ACCEPTED
-        api.update_simulation(sim_id, status)
+        # TODO: Check if simulation is validated.
+        # TODO: Error if not validated.
+        api.validate_simulation(sim_id)
+        api.update_simulation(sim_id, Simulation.Status.ACCEPTED)
+        click.echo(f"Simulation {sim_id} marked as accepted.")
     elif update_type == "validate":
+        # TODO: Validate simulation.
         pass
     elif update_type == "deprecate":
         api.update_simulation(sim_id, Simulation.Status.DEPRECATED)
-        click.echo("Simulation deprecated.")
+        click.echo(f"Simulation {sim_id} marked as deprecated.")
     elif update_type == "delete":
         result = api.delete_simulation(sim_id)
         click.echo(f"deleted simulation: {result['deleted']['simulation']}")
         if result["deleted"]["files"]:
             for file in result["deleted"]["files"]:
                 click.echo(f"              file: {file}")
-    api.publish_simulation(sim_id)
-    click.echo("success")
