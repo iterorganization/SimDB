@@ -34,6 +34,7 @@ setuptools.setup(
         "semantic-version (>=2.8)",
         "click (>=7.0)",
         "Cerberus (>=1.3.2)",
+        "distro (>=1.5.0)",
     ],
     scripts=[
         "scripts/simdb",
