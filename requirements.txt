@@ -19,3 +19,4 @@ flask-mail~=0.9.1
 semantic-version>=2.8
 click>=7.0
 PyJWT>=1.4.0
+easyad>=1.0

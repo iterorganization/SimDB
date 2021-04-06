@@ -12,6 +12,7 @@ git_update
 runtests
 sdb
 src/simdb/cli/runtests
+src/simdb.egg-info
 test.yml
 test4_manifest.yml
 test7_manifest.yml

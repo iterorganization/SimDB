@@ -13,6 +13,7 @@ from itertools import chain
 from uri import URI
 import jwt
 import datetime
+from easyad import EasyAD
 
 from .. import __version__
 from ..database import Database, DatabaseError
@@ -31,19 +32,26 @@ def _secure_path(path: Path, common_root: Path, staging_dir: Path) -> Path:
     return directory / file_name
 
 
-def check_auth(username, password, user):
+def check_auth(username, password, role) -> bool:
     """This function is called to check if a username / password combination is valid.
     """
-    if user and username != user:
+    config = current_app.simdb_config
+
+    if username == "admin" and password == config.get_option("server.admin_password"):
+        return True
+
+    ad_config = {
+        'AD_SERVER': config.get_option('server.ad_server'),
+        'AD_DOMAIN': config.get_option('server.ad_domain'),
+    }
+    ad = EasyAD(ad_config)
+
+    user = ad.authenticate_user(username, password, json_safe=True)
+    if role:
+        # TODO: add checking for AD role
         return False
 
-    if username == "test" and password == "test":
-        return True
-
-    if username == "admin" and password == current_app.simdb_config.get_option("server.admin_password"):
-        return True
-
-    return False
+    return bool(user)
 
 
 def authenticate():

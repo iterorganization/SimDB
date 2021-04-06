@@ -21,13 +21,15 @@ def alias():
 @pass_config
 @click.argument("remote", required=False)
 @click.argument("value")
-def search(config, remote, value):
+@click.option("--username", help="Username used to authenticate with the remote.")
+@click.option("--password", help="Password used to authenitcate with the remote.")
+def search(config, remote, value, username, password):
     """Search the REMOTE for all aliases that contain the given VALUE.
     """
     from ..remote_api import RemoteAPI
     from ...database import get_local_db
 
-    api = RemoteAPI(remote, config)
+    api = RemoteAPI(remote, username, password, config)
     simulations = api.list_simulations()
 
     db = get_local_db(config)
@@ -41,14 +43,16 @@ def search(config, remote, value):
 @alias.command(cls=AliasCommand)
 @pass_config
 @click.argument("remote", required=False)
-def list(config, remote):
+@click.option("--username", help="Username used to authenticate with the remote.")
+@click.option("--password", help="Password used to authenitcate with the remote.")
+def list(config, remote, username, password):
     """List aliases from the local database and the REMOTE (if specified)."""
     from ..remote_api import RemoteAPI
     from ...database import get_local_db
 
     if remote:
         remote_simulations = []
-        api = RemoteAPI(remote, config)
+        api = RemoteAPI(remote, username, password, config)
         if api.has_url():
             remote_simulations = api.list_simulations()
         else:

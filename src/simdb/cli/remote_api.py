@@ -1,12 +1,14 @@
 import os
 import requests
 import json
-from typing import List, Dict, Callable, Tuple, IO, Iterable, Optional
+from typing import List, Dict, Callable, Tuple, IO, Iterable, Optional, Union
 import gzip
 import io
 import urllib3
 import sys
+import click
 from uri import URI
+from requests.auth import AuthBase
 
 from ..database.models import Simulation, File
 from .manifest import DataObject
@@ -19,6 +21,15 @@ urllib3.disable_warnings()
 
 class FailedConnection(RuntimeError):
     pass
+
+
+class JWTAuth(AuthBase):
+    def __init__(self, token):
+        self._token = token
+
+    def __call__(self, request: requests.Request):
+        request.headers['Authorization'] = f'JWT-Token {self._token}'
+        return request
 
 
 def try_request(func: Callable) -> Callable:
@@ -80,7 +91,7 @@ class RemoteAPI:
 
     _remote: str
 
-    def __init__(self, remote: Optional[str], config: Config) -> None:
+    def __init__(self, remote: Optional[str], username: Optional[str], password: Optional[str], config: Config) -> None:
         self._config: Config = config
         if not remote:
             remote = config.default_remote
@@ -89,38 +100,54 @@ class RemoteAPI:
         self._remote = remote
         self._url: str = config.get_option(f'remote.{remote}.url')
         self._api_url: str = f'{self._url}/api/v{config.api_version}/'
-        self._user_name: str = config.get_option('user.name', default='test')
-        self._pass_word: str = config.get_option('user.password', default='test')
+
+        self._token = config.get_option(f'remote.{remote}.token', default='')
+        if not self._token:
+            if not username:
+                username = config.get_option(f'remote.{remote}.username', default='')
+                if not username:
+                    username = click.prompt('Username', default=os.environ.get('USER', ''))
+            if not password:
+                password = click.prompt(f'Password for user {username}', hide_input=True)
+        self._username = username
+        self._password = password
+
         self.get_api_version()
 
     @property
     def remote(self) -> str:
         return self._remote
 
+    def _get_auth(self) -> Union[JWTAuth, Tuple]:
+        if self._token:
+            return JWTAuth(self._token)
+        else:
+            return self._username, self._password
+
     def get(self, url: str, params: Dict=None) -> requests.Response:
         if params is None:
             params = {}
-        res = requests.get(self._api_url + url, params=params, auth=(self._user_name, self._pass_word))
+        res = requests.get(self._api_url + url, params=params, auth=self._get_auth())
         check_return(res)
         return res
 
     def put(self, url: str, data: Dict, **kwargs) -> requests.Response:
-        res = requests.put(self._api_url + url, json=data, auth=(self._user_name, self._pass_word), **kwargs)
+        res = requests.put(self._api_url + url, json=data, auth=self._get_auth(), **kwargs)
         check_return(res)
         return res
 
     def post(self, url: str, data: Dict, **kwargs) -> requests.Response:
-        res = requests.post(self._api_url + url, json=data, auth=(self._user_name, self._pass_word), **kwargs)
+        res = requests.post(self._api_url + url, json=data, auth=self._get_auth(), **kwargs)
         check_return(res)
         return res
 
     def patch(self, url: str, data: Dict, **kwargs) -> requests.Response:
-        res = requests.patch(self._api_url + url, json=data, auth=(self._user_name, self._pass_word), **kwargs)
+        res = requests.patch(self._api_url + url, json=data, auth=self._get_auth(), **kwargs)
         check_return(res)
         return res
 
     def delete(self, url: str, data: Dict) -> requests.Response:
-        res = requests.delete(self._api_url + url, json=data, auth=(self._user_name, self._pass_word))
+        res = requests.delete(self._api_url + url, json=data, auth=self._get_auth())
         check_return(res)
         return res
 

@@ -155,14 +155,16 @@ class CustomCommand(click.Command):
 @pass_config
 @click.argument("remote", required=False)
 @click.argument("sim_id")
-def simulation_push(config: Config, remote: Optional[str], sim_id: str):
+@click.option("--username", help="Username used to authenticate with the remote.")
+@click.option("--password", help="Password used to authenitcate with the remote.")
+def simulation_push(config: Config, remote: Optional[str], sim_id: str, username, password: str):
     """Push the simulation with the given SIM_ID (UUID or alias) to the REMOTE.
     """
     from ...database import get_local_db
     from ..remote_api import RemoteAPI
     import sys
 
-    api = RemoteAPI(remote, config)
+    api = RemoteAPI(remote, username, password, config)
     db = get_local_db(config)
     simulation = db.get_simulation(sim_id)
     if simulation is None:
@@ -200,7 +202,9 @@ def simulation_query(config: Config, constraint: str):
 @pass_config
 @click.argument("remote", required=False)
 @click.argument("sim_id")
-def simulation_validate(config: Config, remote: Optional[str], sim_id: str):
+@click.option("--username", help="Username used to authenticate with the remote.")
+@click.option("--password", help="Password used to authenitcate with the remote.")
+def simulation_validate(config: Config, remote: Optional[str], sim_id: str, username: str, password: str):
     """Validate the ingested simulation with given SIM_ID (UUID or alias) using validation schema from REMOTE.
     """
     from itertools import chain
@@ -212,7 +216,7 @@ def simulation_validate(config: Config, remote: Optional[str], sim_id: str):
     db = get_local_db(config)
     simulation = db.get_simulation(sim_id)
 
-    api = RemoteAPI(remote, config)
+    api = RemoteAPI(remote, username, password, config)
 
     click.echo('downloading validation schema ... ', nl=False)
     schema = api.get_validation_schema()

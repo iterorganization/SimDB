@@ -39,14 +39,16 @@ class RemoteSubCommand(click.Command):
 @click.group(cls=RemoteGroup)
 @click.pass_context
 @pass_config
+@click.option("--username", help="Username used to authenticate with the remote.")
+@click.option("--password", help="Password used to authenitcate with the remote.")
 @click.argument("name", required=False)
-def remote(config: "Config", ctx: "Context", name: str):
+def remote(config: "Config", ctx: "Context", username: str, password: str, name: str):
     """Interact with the remote SimDB service.
 
     If NAME is provided this determines which remote server to communicate with, otherwise the server in the config file
     with default=True is used."""
     if '--help' not in click.get_os_args():
-        ctx.obj = RemoteAPI(name, config)
+        ctx.obj = RemoteAPI(name, username, password, config)
 
 
 @remote.group(cls=RemoteSubGroup)
@@ -176,10 +178,8 @@ def token():
 @pass_config
 def token_new(config: "Config", api: RemoteAPI):
     token = api.get_token()
-    token_file = config.get_option(f"remote.{api.remote}.token_file", default=None)
-    path = Path(token_file) if token_file else config.config_directory / f'token.{api.remote}.txt'
-    path.write_text(token)
-    path.chmod(0o600)
+    config.set_option(f'remote.{api.remote}.token', token)
+    config.save()
     click.echo(f"Token added for remote {api.remote}.")
 
 
@@ -187,10 +187,10 @@ def token_new(config: "Config", api: RemoteAPI):
 @pass_api
 @pass_config
 def token_delete(config: "Config", api: RemoteAPI):
-    token_file = config.get_option(f"remote.{api.remote}.token_file", default=None)
-    path = Path(token_file) if token_file else config.config_directory / f'token.{api.remote}.txt'
-    if path.exists():
-        os.remove(path)
+    try:
+        config.delete_option(f'remote.{api.remote}.token')
+        config.save()
         click.echo(f"Token for remote {api.remote} deleted.")
-    else:
+    except KeyError:
         click.echo(f"No token for remote {api.remote} found.")
+
