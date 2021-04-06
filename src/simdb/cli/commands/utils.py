@@ -1,5 +1,5 @@
 import sys
-from typing import List, Dict, Tuple, TYPE_CHECKING, TypeVar, TextIO
+from typing import List, Dict, Tuple, TYPE_CHECKING, TypeVar
 import click
 
 
@@ -24,7 +24,7 @@ def flatten_dict(values: Dict) -> List[Tuple[str, str]]:
     return items
 
 
-def print_simulations(simulations: List["Simulation"], verbose: bool=False, metadata_names: list=None) -> None:
+def print_simulations(simulations: List["Simulation"], verbose: bool=False, metadata_names: List[str]=None) -> None:
     if len(simulations) == 0:
         click.echo("No simulations found")
         return

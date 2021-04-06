@@ -4,8 +4,6 @@ import os
 from pathlib import Path
 from typing import Tuple, List, Optional, TextIO, Union
 
-from .. import __version__
-
 
 def _parse_name(arg: str) -> Tuple[str, str]:
     if '.' in arg:
@@ -39,7 +37,10 @@ def _convert(value: str) -> Union[int, float, str, bool]:
 
 
 class Config:
+    class Nothing:
+        pass
 
+    NOTHING = Nothing()
     CONFIG_FILE_NAME: str = 'simdb.cfg'
 
     _parser: configparser.ConfigParser
@@ -128,6 +129,10 @@ class Config:
         return None
 
     @property
+    def config_directory(self) -> Path:
+        return self._user_config_dir
+
+    @property
     def verbose(self) -> bool:
         return self._verbose
 
@@ -149,12 +154,12 @@ class Config:
                 return default
             raise KeyError(f'Section {name} not found in configuration')
 
-    def get_option(self, name: str, default: Optional[str]=None) -> Union[int, float, bool, str]:
+    def get_option(self, name: str, default: Optional[str]=NOTHING) -> Union[int, float, bool, str]:
         section, option = _parse_name(name)
         try:
             return _convert(self._parser.get(section, option))
         except (configparser.NoSectionError, configparser.NoOptionError):
-            if default is not None:
+            if default is not Config.NOTHING:
                 return default
             raise KeyError(f'{name} not found in configuration')
 

@@ -189,6 +189,7 @@ def test_remote_update_command_with_accept(validate_simulation, update_simulatio
     assert result.exception is None
     assert sim_id in result.output
     assert validate_simulation.called
+    assert validate_simulation.call_args.args == (sim_id,)
     assert update_simulation.called
     assert update_simulation.call_args.args == (sim_id, Simulation.Status.ACCEPTED)
     assert get_api_version.called

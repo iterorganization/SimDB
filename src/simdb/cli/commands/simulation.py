@@ -169,7 +169,7 @@ def simulation_push(config: Config, remote: Optional[str], sim_id: str):
         raise click.ClickException(f"Failed to find simulation: {sim_id}")
     api.push_simulation(simulation, out_stream=sys.stdout)
 
-    click.echo("success")
+    click.echo(f"Successfully pushed simulation {simulation.uuid}")
 
 
 @simulation.command("query")

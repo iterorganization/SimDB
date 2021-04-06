@@ -1,4 +1,8 @@
+import os
+import sys
 import click
+from typing import List, TYPE_CHECKING, Optional
+from pathlib import Path
 
 from ..remote_api import RemoteAPI
 from . import pass_config
@@ -6,6 +10,11 @@ from .utils import print_simulations
 
 
 pass_api = click.make_pass_decorator(RemoteAPI)
+
+
+if TYPE_CHECKING or 'sphinx' in sys.modules:
+    from ...config import Config
+    from click import Context
 
 
 class RemoteGroup(click.Group):
@@ -31,7 +40,7 @@ class RemoteSubCommand(click.Command):
 @click.pass_context
 @pass_config
 @click.argument("name", required=False)
-def remote(config, ctx, name):
+def remote(config: "Config", ctx: "Context", name: str):
     """Interact with the remote SimDB service.
 
     If NAME is provided this determines which remote server to communicate with, otherwise the server in the config file
@@ -49,7 +58,7 @@ def watcher():
 @watcher.command("list")
 @pass_api
 @click.argument("sim_id")
-def list_watchers(api, sim_id):
+def list_watchers(api: RemoteAPI, sim_id: str):
     """List watchers for simulation with given SIM_ID (UUID or alias)."""
     watchers = api.list_watchers(sim_id)
     if watchers:
@@ -65,7 +74,7 @@ def list_watchers(api, sim_id):
 @pass_config
 @click.argument("sim_id")
 @click.option("-u", "--user", help="Name of the user to remove as a watcher.")
-def remove_watcher(config, api, sim_id, user):
+def remove_watcher(config: "Config", api: RemoteAPI, sim_id: str, user: str):
     """Remove a user from list of watchers on a simulation with given SIM_ID (UUID or alias)."""
     if not user:
         user = config.get_option("user.name")
@@ -84,7 +93,8 @@ def remove_watcher(config, api, sim_id, user):
 @click.option("-n", "--notification",
               type=click.Choice(["Validation", "Revision", "Obsolescence", "All"], case_sensitive=False),
               default="All", show_default=True)
-def add_watcher(config, api, sim_id, user, email, notification):
+def add_watcher(config: "Config", api: RemoteAPI, sim_id: str, user: Optional[str], email: Optional[str],
+                notification: Optional[str]):
     """Register a user as a watcher for a simulation with given SIM_ID (UUID or alias)."""
     if not user:
         user = config.get_option("user.name")
@@ -102,7 +112,7 @@ def add_watcher(config, api, sim_id, user, email, notification):
 @pass_api
 @pass_config
 @click.option("-m", "--meta-data", "meta", help="Additional meta-data field to print.", multiple=True, default=[])
-def remote_list(config, api, meta):
+def remote_list(config: "Config", api: RemoteAPI, meta: List[str]):
     """List simulations available on remote."""
     simulations = api.list_simulations()
     print_simulations(simulations, verbose=config.verbose, metadata_names=meta)
@@ -111,7 +121,7 @@ def remote_list(config, api, meta):
 @remote.command("info", cls=RemoteSubCommand)
 @pass_api
 @click.argument("sim_id")
-def remote_info(api, sim_id):
+def remote_info(api: RemoteAPI, sim_id: str):
     """Print information about simulation with given SIM_ID (UUID or alias) from remote."""
     simulation = api.get_simulation(sim_id)
     click.echo(str(simulation))
@@ -120,11 +130,11 @@ def remote_info(api, sim_id):
 @remote.command("query", cls=RemoteSubCommand)
 @pass_api
 @pass_config
-@click.argument("constraint", nargs=-1)
+@click.argument("constraints", nargs=-1)
 @click.option("-m", "--meta-data", "meta", help="Additional meta-data field to print.", multiple=True, default=[])
-def remote_query(config, api, constraint, meta):
+def remote_query(config: "Config", api: RemoteAPI, constraints: List[str], meta: List[str]):
     """Perform a metadata query to find matching simulation from remote."""
-    simulations = api.query_simulations(constraint)
+    simulations = api.query_simulations(constraints)
     print_simulations(simulations, verbose=config.verbose, metadata_names=meta)
 
 
@@ -132,7 +142,7 @@ def remote_query(config, api, constraint, meta):
 @pass_api
 @click.argument("sim_id")
 @click.argument("update_type", type=click.Choice(['validate', 'accept', 'deprecate'], case_sensitive=False))
-def remote_update(api, sim_id, update_type):
+def remote_update(api: RemoteAPI, sim_id: str, update_type: str):
     """Mark remote simulation as published."""
     from ...database.models import Simulation
     if update_type == "accept":
@@ -153,3 +163,34 @@ def remote_update(api, sim_id, update_type):
         if result["deleted"]["files"]:
             for file in result["deleted"]["files"]:
                 click.echo(f"              file: {file}")
+
+
+@remote.group(cls=RemoteSubGroup)
+def token():
+    """Manage user authentication tokens."""
+    pass
+
+
+@token.command("new")
+@pass_api
+@pass_config
+def token_new(config: "Config", api: RemoteAPI):
+    token = api.get_token()
+    token_file = config.get_option(f"remote.{api.remote}.token_file", default=None)
+    path = Path(token_file) if token_file else config.config_directory / f'token.{api.remote}.txt'
+    path.write_text(token)
+    path.chmod(0o600)
+    click.echo(f"Token added for remote {api.remote}.")
+
+
+@token.command("delete")
+@pass_api
+@pass_config
+def token_delete(config: "Config", api: RemoteAPI):
+    token_file = config.get_option(f"remote.{api.remote}.token_file", default=None)
+    path = Path(token_file) if token_file else config.config_directory / f'token.{api.remote}.txt'
+    if path.exists():
+        os.remove(path)
+        click.echo(f"Token for remote {api.remote} deleted.")
+    else:
+        click.echo(f"No token for remote {api.remote} found.")

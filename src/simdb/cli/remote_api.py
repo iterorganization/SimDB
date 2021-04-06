@@ -75,8 +75,10 @@ def check_return(res: requests.Response) -> None:
 
 
 class RemoteAPI:
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    cert_path = os.path.join(dir_path, "../remote/server.crt")
+    # dir_path = os.path.dirname(os.path.realpath(__file__))
+    # cert_path = os.path.join(dir_path, "../remote/server.crt")
+
+    _remote: str
 
     def __init__(self, remote: Optional[str], config: Config) -> None:
         self._config: Config = config
@@ -84,34 +86,40 @@ class RemoteAPI:
             remote = config.default_remote
         if not remote:
             raise KeyError('Remote name not provided and no default remote found in config.')
+        self._remote = remote
         self._url: str = config.get_option(f'remote.{remote}.url')
         self._api_url: str = f'{self._url}/api/v{config.api_version}/'
         self._user_name: str = config.get_option('user.name', default='test')
         self._pass_word: str = config.get_option('user.password', default='test')
         self.get_api_version()
 
+    @property
+    def remote(self) -> str:
+        return self._remote
+
     def get(self, url: str, params: Dict=None) -> requests.Response:
         if params is None:
             params = {}
         res = requests.get(self._api_url + url, params=params, auth=(self._user_name, self._pass_word))
-        # res = requests.get(self.url + url, auth=(self.user_name, self.pass_word), verify=self.cert_path)
         check_return(res)
         return res
 
     def put(self, url: str, data: Dict, **kwargs) -> requests.Response:
-        # res = requests.put(self.url + url, json=data, auth=(self.user_name, self.pass_word), verify=self.cert_path, **kwargs)
         res = requests.put(self._api_url + url, json=data, auth=(self._user_name, self._pass_word), **kwargs)
         check_return(res)
         return res
 
     def post(self, url: str, data: Dict, **kwargs) -> requests.Response:
-        # res = requests.post(self.url + url, json=data, auth=(self.user_name, self.pass_word), verify=self.cert_path)
         res = requests.post(self._api_url + url, json=data, auth=(self._user_name, self._pass_word), **kwargs)
         check_return(res)
         return res
 
+    def patch(self, url: str, data: Dict, **kwargs) -> requests.Response:
+        res = requests.patch(self._api_url + url, json=data, auth=(self._user_name, self._pass_word), **kwargs)
+        check_return(res)
+        return res
+
     def delete(self, url: str, data: Dict) -> requests.Response:
-        # res = requests.delete(self.url + url, auth=(self.user_name, self.pass_word), verify=self.cert_path)
         res = requests.delete(self._api_url + url, json=data, auth=(self._user_name, self._pass_word))
         check_return(res)
         return res
@@ -120,9 +128,16 @@ class RemoteAPI:
         return bool(self._url)
 
     @try_request
-    def get_api_version(self) -> str:
+    def get_token(self) -> str:
+        res = self.get("token")
+        data = res.json()
+        return data["token"]
+
+    @try_request
+    def get_api_version(self) -> int:
         res = self.get("")
-        return "0"
+        data = res.json()
+        return data["version"]
 
     @try_request
     def get_validation_schema(self) -> Dict:
@@ -155,13 +170,17 @@ class RemoteAPI:
         return res.json()
 
     @try_request
-    def update_simulation(self, sim_id: str) -> None:
-        res = self.post("update/" + sim_id, {})
+    def update_simulation(self, sim_id: str, update_type: Simulation.Status) -> None:
+        self.patch("simulation/" + sim_id, {'status': update_type.value})
 
     @try_request
-    def validate_simulation(self, sim_id: str) -> None:
-        # res = self.post("validate/" + sim_id, {})
-        pass
+    def validate_simulation(self, sim_id: str) -> Tuple[bool, str]:
+        res = self.post("validate/" + sim_id, {})
+        data = res.json()
+        if data['passed']:
+            return True, ''
+        else:
+            return False, data['error']
 
     @try_request
     def add_watcher(self, sim_id: str, user: str, email: str, notification: str) -> None:

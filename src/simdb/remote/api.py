@@ -11,6 +11,8 @@ import gzip
 from typing import List, Iterable, Dict, Tuple
 from itertools import chain
 from uri import URI
+import jwt
+import datetime
 
 from .. import __version__
 from ..database import Database, DatabaseError
@@ -53,13 +55,22 @@ def authenticate():
 class RequiresAuth:
 
     def __init__(self, user=None):
-        self.user = user
+        self._user = user
 
     def __call__(self, f):
         @wraps(f)
         def decorated(*args, **kwargs):
             auth = request.authorization
-            if not auth or not check_auth(auth.username, auth.password, self.user):
+            if not auth:
+                if 'JWT-Token' in request.headers.get('Authorization', ''):
+                    try:
+                        token = request.headers['Authorization'].split('JWT-Token')[1]
+                        jwt.decode(token.strip(), current_app.config.get('SECRET_KEY'), algorithms=['HS256'])
+                    except (IndexError, jwt.exceptions.PyJWTError):
+                        return authenticate()
+                else:
+                    return authenticate()
+            elif not check_auth(auth.username, auth.password, self._user):
                 return authenticate()
             return f(*args, **kwargs)
         return decorated
@@ -110,11 +121,27 @@ def index():
             "version": current_app.simdb_config.api_version,
             "server_version": __version__,
             "endpoints": [
-                request.url + "/simulations",
-                request.url + "/files",
-                request.url + "/validation_schema"
+                request.url + "simulations",
+                request.url + "files",
+                request.url + "validation_schema"
             ]
         })
+
+
+@api.route("/token", methods=["GET"])
+@requires_auth()
+def token():
+    auth = request.authorization
+    payload = {
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(days=30),
+        'iat': datetime.datetime.utcnow(),
+        'sub': auth.username,
+    }
+    ret = {
+        'status': 'success',
+        'token': jwt.encode(payload, current_app.config.get("SECRET_KEY"), algorithm='HS256')
+    }
+    return jsonify(ret)
 
 
 @api.route("/reset", methods=["POST"])
@@ -308,18 +335,7 @@ def ingest_simulation():
         }
 
         if current_app.simdb_config.get_option("validation.auto_validate", default=False):
-            from ..validation import ValidationError, Validator
-            schema = Validator.validation_schema()
-            try:
-                Validator(schema).validate(simulation)
-                result['validation'] = {'passed': True}
-                simulation.status = Simulation.Status.PASSED.value
-            except ValidationError as err:
-                result['validation'] = {
-                    'passed': False,
-                    'error': str(err)
-                }
-                simulation.status = Simulation.Status.FAILED.value
+            result['validation'] = _validate(simulation)
 
         if current_app.simdb_config.get_option("validation.error_on_fail", default=False):
             if simulation.status == Simulation.Status.UNVALIDATED.value:
@@ -334,6 +350,33 @@ def ingest_simulation():
 
         return jsonify(result)
     except (DatabaseError, ValueError) as err:
+        return error(str(err))
+
+
+def _validate(simulation) -> Dict:
+    from ..validation import ValidationError, Validator
+    schema = Validator.validation_schema()
+    try:
+        Validator(schema).validate(simulation)
+        simulation.status = Simulation.Status.PASSED.value
+        return {
+            'passed': True,
+        }
+    except ValidationError as err:
+        simulation.status = Simulation.Status.FAILED.value
+        return {
+            'passed': False,
+            'error': str(err),
+        }
+
+
+@api.route("/validate/<string:sim_id>", methods=["POST"])
+@requires_auth()
+def validate(sim_id):
+    try:
+        simulation = api.db.get_simulation(sim_id)
+        return jsonify(_validate(simulation))
+    except DatabaseError as err:
         return error(str(err))
 
 

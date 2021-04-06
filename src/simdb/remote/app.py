@@ -15,7 +15,7 @@ app.simdb_config = config
 
 @app.route("/")
 def index():
-    return jsonify({"urls": [request.url + f"api/v{config.api_version}"]})
+    return jsonify({"endpoints": [request.url + f"api/v{config.api_version}"]})
 
 
 app.register_blueprint(api, url_prefix=f"/api/v{config.api_version}")
