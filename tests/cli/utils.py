@@ -6,6 +6,7 @@ def config_test_file() -> Path:
 [remote "test"]
 url = http://0.0.0.0:5000/
 default = True
+token = 123ABC
 """
     config_file = Path(__file__).parent / 'test.cfg'
     config_file.write_text(config)

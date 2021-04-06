@@ -40,7 +40,7 @@ class RemoteSubCommand(click.Command):
 @click.pass_context
 @pass_config
 @click.option("--username", help="Username used to authenticate with the remote.")
-@click.option("--password", help="Password used to authenitcate with the remote.")
+@click.option("--password", help="Password used to authenticate with the remote.")
 @click.argument("name", required=False)
 def remote(config: "Config", ctx: "Context", username: str, password: str, name: str):
     """Interact with the remote SimDB service.

@@ -5,7 +5,7 @@ from . import pass_config
 
 class AliasCommand(click.Command):
     def parse_args(self, ctx, args):
-        if len(args) < len(self.params):
+        if len(args) < sum(1 for i in self.params if isinstance(i, click.Argument)):
             args.insert(0, '')
         super().parse_args(ctx, args)
 
@@ -22,7 +22,7 @@ def alias():
 @click.argument("remote", required=False)
 @click.argument("value")
 @click.option("--username", help="Username used to authenticate with the remote.")
-@click.option("--password", help="Password used to authenitcate with the remote.")
+@click.option("--password", help="Password used to authenticate with the remote.")
 def search(config, remote, value, username, password):
     """Search the REMOTE for all aliases that contain the given VALUE.
     """
@@ -44,7 +44,7 @@ def search(config, remote, value, username, password):
 @pass_config
 @click.argument("remote", required=False)
 @click.option("--username", help="Username used to authenticate with the remote.")
-@click.option("--password", help="Password used to authenitcate with the remote.")
+@click.option("--password", help="Password used to authenticate with the remote.")
 def list(config, remote, username, password):
     """List aliases from the local database and the REMOTE (if specified)."""
     from ..remote_api import RemoteAPI

@@ -108,10 +108,11 @@ class Config:
             self._site_config_path = Path(path)
             self._site_config_dir = self._site_config_path.parent
 
-        self._load_site_config()
-        self._load_user_config()
         if file is not None:
             self._parser.read_file(file)
+        else:
+            self._load_site_config()
+            self._load_user_config()
 
     @property
     def debug(self) -> bool:
