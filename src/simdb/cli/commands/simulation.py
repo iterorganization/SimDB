@@ -156,7 +156,7 @@ class CustomCommand(click.Command):
 @click.argument("remote", required=False)
 @click.argument("sim_id")
 @click.option("--username", help="Username used to authenticate with the remote.")
-@click.option("--password", help="Password used to authenitcate with the remote.")
+@click.option("--password", help="Password used to authenticate with the remote.")
 def simulation_push(config: Config, remote: Optional[str], sim_id: str, username, password: str):
     """Push the simulation with the given SIM_ID (UUID or alias) to the REMOTE.
     """
@@ -203,7 +203,7 @@ def simulation_query(config: Config, constraint: str):
 @click.argument("remote", required=False)
 @click.argument("sim_id")
 @click.option("--username", help="Username used to authenticate with the remote.")
-@click.option("--password", help="Password used to authenitcate with the remote.")
+@click.option("--password", help="Password used to authenticate with the remote.")
 def simulation_validate(config: Config, remote: Optional[str], sim_id: str, username: str, password: str):
     """Validate the ingested simulation with given SIM_ID (UUID or alias) using validation schema from REMOTE.
     """

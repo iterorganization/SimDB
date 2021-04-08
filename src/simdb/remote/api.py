@@ -14,7 +14,6 @@ from uri import URI
 import jwt
 import datetime
 import csv
-from easyad import EasyAD
 
 from .. import __version__
 from ..database import Database, DatabaseError
@@ -48,6 +47,8 @@ def check_role(username, role) -> bool:
 def check_auth(username, password) -> bool:
     """This function is called to check if a username / password combination is valid.
     """
+    from easyad import EasyAD
+
     config = current_app.simdb_config
 
     if username == "admin" and password == config.get_option("server.admin_password"):
