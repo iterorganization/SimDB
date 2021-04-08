@@ -13,6 +13,7 @@ from itertools import chain
 from uri import URI
 import jwt
 import datetime
+import csv
 from easyad import EasyAD
 
 from .. import __version__
@@ -32,7 +33,19 @@ def _secure_path(path: Path, common_root: Path, staging_dir: Path) -> Path:
     return directory / file_name
 
 
-def check_auth(username, password, role) -> bool:
+def check_role(username, role) -> bool:
+    if role:
+        users = config.get_option(f'role.{role}.users', default='')
+        reader = csv.reader([users])
+        for row in reader:
+            if user in row:
+                return True
+        return False
+
+    return True
+
+
+def check_auth(username, password) -> bool:
     """This function is called to check if a username / password combination is valid.
     """
     config = current_app.simdb_config
@@ -47,10 +60,6 @@ def check_auth(username, password, role) -> bool:
     ad = EasyAD(ad_config)
 
     user = ad.authenticate_user(username, password, json_safe=True)
-    if role:
-        # TODO: add checking for AD role
-        return False
-
     return bool(user)
 
 
@@ -62,24 +71,29 @@ def authenticate():
 
 class RequiresAuth:
 
-    def __init__(self, user=None):
-        self._user = user
+    def __init__(self, role=None):
+        self._role = role
 
     def __call__(self, f):
         @wraps(f)
         def decorated(*args, **kwargs):
             auth = request.authorization
+            user = None
             if not auth:
                 if 'JWT-Token' in request.headers.get('Authorization', ''):
                     try:
                         token = request.headers['Authorization'].split('JWT-Token')[1]
-                        jwt.decode(token.strip(), current_app.config.get('SECRET_KEY'), algorithms=['HS256'])
+                        payload = jwt.decode(token.strip(), current_app.config.get('SECRET_KEY'), algorithms=['HS256'])
+                        user = payload['sub']
                     except (IndexError, jwt.exceptions.PyJWTError):
-                        return authenticate()
-                else:
-                    return authenticate()
-            elif not check_auth(auth.username, auth.password, self._user):
+                        pass
+            elif check_auth(auth.username, auth.password):
+                user = auth.username
+            if not user:
                 return authenticate()
+            if not check_role(user, self._role):
+                return authenticate()
+            kwargs['user'] = user
             return f(*args, **kwargs)
         return decorated
 
@@ -122,7 +136,7 @@ def remove_db_session(_error):
 
 @api.route("/")
 @requires_auth()
-def index():
+def index(user=None):
     return jsonify(
         {
             "api": "simdb",
@@ -138,7 +152,7 @@ def index():
 
 @api.route("/token", methods=["GET"])
 @requires_auth()
-def token():
+def token(user=None):
     auth = request.authorization
     payload = {
         'exp': datetime.datetime.utcnow() + datetime.timedelta(days=30),
@@ -154,14 +168,14 @@ def token():
 
 @api.route("/reset", methods=["POST"])
 @requires_auth("admin")
-def reset_db():
+def reset_db(user=None):
     api.db.reset()
     return jsonify({})
 
 
 @api.route("/simulations", methods=["GET"])
 @requires_auth()
-def list_simulations():
+def list_simulations(user=None):
     if not request.args:
         simulations = api.db.list_simulations()
     else:
@@ -177,14 +191,14 @@ def list_simulations():
 
 @api.route("/files", methods=["GET"])
 @requires_auth()
-def list_files():
+def list_files(user=None):
     files = api.db.list_files()
     return jsonify([file.data() for file in files])
 
 
 @api.route("/file/<string:file_uuid>", methods=["GET"])
 @requires_auth()
-def get_file(file_uuid: str):
+def get_file(file_uuid: str, user=None):
     try:
         file = api.db.get_file(file_uuid)
         return jsonify(file.data(recurse=True))
@@ -264,7 +278,7 @@ def _verify_file(sim_uuid: uuid.UUID, sim_file: File, common_root: Path):
 
 @api.route("/files", methods=["POST"])
 @requires_auth()
-def upload_file():
+def upload_file(user=None):
     try:
         data = request.get_json()
         if data:
@@ -307,7 +321,7 @@ def upload_file():
 
 @api.route("/simulations", methods=["POST"])
 @requires_auth()
-def ingest_simulation():
+def ingest_simulation(user=None):
     try:
         data = request.get_json()
 
@@ -380,7 +394,7 @@ def _validate(simulation) -> Dict:
 
 @api.route("/validate/<string:sim_id>", methods=["POST"])
 @requires_auth()
-def validate(sim_id):
+def validate(sim_id, user=None):
     try:
         simulation = api.db.get_simulation(sim_id)
         return jsonify(_validate(simulation))
@@ -390,7 +404,7 @@ def validate(sim_id):
 
 @api.route("/simulation/<string:sim_id>", methods=["GET"])
 @requires_auth()
-def get_simulation(sim_id: str):
+def get_simulation(sim_id: str, user=None):
     try:
         simulation = api.db.get_simulation(sim_id)
         return jsonify(simulation.data(recurse=True))
@@ -400,7 +414,7 @@ def get_simulation(sim_id: str):
 
 @api.route("/simulation/<string:sim_id>", methods=["PATCH"])
 @requires_auth("admin")
-def update_simulation(sim_id: str):
+def update_simulation(sim_id: str, user=None):
     from ..email.server import EmailServer
     try:
         data = request.get_json()
@@ -414,6 +428,8 @@ def update_simulation(sim_id: str):
             server = EmailServer(current_app.simdb_config)
             msg = f"""\
 Simulation status changed from {old_status} to {status}.
+
+Updated by {user}.
 """
             to_addresses = [w.email for w in simulation.watchers]
             if to_addresses:
@@ -426,7 +442,7 @@ Simulation status changed from {old_status} to {status}.
 
 @api.route("/staging_dir/<string:sim_hex>", methods=["GET"])
 @requires_auth()
-def get_staging_dir(sim_hex: str):
+def get_staging_dir(sim_hex: str, user=None):
     staging_dir = Path(current_app.simdb_config.get_option("server.upload_folder")) / sim_hex
     os.makedirs(staging_dir, exist_ok=True)
     return jsonify({'staging_dir': str(staging_dir)})
@@ -434,7 +450,7 @@ def get_staging_dir(sim_hex: str):
 
 @api.route("/simulation/<string:sim_id>", methods=["DELETE"])
 @requires_auth("admin")
-def delete_simulation(sim_id: str):
+def delete_simulation(sim_id: str, user=None):
     try:
         simulation = api.db.delete_simulation(sim_id)
         files = []
@@ -451,7 +467,7 @@ def delete_simulation(sim_id: str):
 
 @api.route("/publish/<string:sim_id>", methods=["POST"])
 @requires_auth()
-def publish_simulation(sim_id: str):
+def publish_simulation(sim_id: str, user=None):
     try:
         simulation = api.db.get_simulation(sim_id)
         return error("not yet implemented")
@@ -461,7 +477,7 @@ def publish_simulation(sim_id: str):
 
 @api.route("/watchers/<string:sim_id>", methods=["POST"])
 @requires_auth()
-def add_watcher(sim_id: str):
+def add_watcher(sim_id: str, user=None):
     try:
         data = request.get_json()
 
@@ -481,7 +497,7 @@ def add_watcher(sim_id: str):
 
 @api.route("/watchers/<string:sim_id>", methods=["DELETE"])
 @requires_auth()
-def remove_watcher(sim_id: str):
+def remove_watcher(sim_id: str, user=None):
     try:
         data = request.get_json()
 
@@ -496,7 +512,7 @@ def remove_watcher(sim_id: str):
 
 @api.route("/watchers/<string:sim_id>", methods=["GET"])
 @requires_auth()
-def list_watchers(sim_id: str):
+def list_watchers(sim_id: str, user=None):
     try:
         return jsonify([watcher.data(recurse=True) for watcher in api.db.list_watchers(sim_id)])
     except DatabaseError as err:
@@ -505,6 +521,7 @@ def list_watchers(sim_id: str):
 
 @api.route("/validation_schema", methods=["GET"])
 @requires_auth()
-def get_validation_schema():
+def get_validation_schema(user=None):
     from ..validation.validator import Validator
     return jsonify(Validator.validation_schema())
+

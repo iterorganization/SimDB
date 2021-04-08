@@ -17,8 +17,8 @@ class EmailServer:
         self._password = config.get_option("email.password")
 
     def send_message(self, subject: str, body: str, to_addresses: List[str]):
-        server = smtplib.SMTP_SSL(self._server, self._port)
-        server.ehlo()
+        server = smtplib.SMTP(self._server, self._port)
+        server.starttls()
         server.login(self._user, self._password)
         sent_to = [validate_email(i).email for i in to_addresses]
         sent_to_list = ",".join(sent_to)
