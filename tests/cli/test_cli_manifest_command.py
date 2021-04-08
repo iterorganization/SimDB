@@ -13,7 +13,9 @@ def test_manifest_check_command(manifest):
     assert result.exception is None
     assert "ok" in result.output
     assert manifest().load.called
-    assert manifest().load.call_args.args == (str(file_name),)
+    (args, kwargs) = manifest().load.call_args
+    assert args == (str(file_name),)
+    assert kwargs == {}
     assert manifest().validate.called
 
 
@@ -27,4 +29,6 @@ def test_manifest_create_command(manifest):
     assert str(file_name) in result.output
     assert manifest.from_template.called
     assert manifest.from_template().save.called
-    assert manifest.from_template().save.call_args.args[0].name == str(file_name)
+    (args, kwargs) = manifest.from_template().save.call_args
+    assert args[0].name == str(file_name)
+    assert kwargs == {}

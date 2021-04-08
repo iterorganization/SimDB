@@ -12,7 +12,9 @@ def test_config_get(get_option):
     result = runner.invoke(cli, [f'--config-file={config_file}', 'config', 'get', 'foo'])
     assert result.exception is None
     assert 'bar' in result.output
-    assert get_option.call_args.args == ('foo',)
+    (args, kwargs) = get_option.call_args
+    assert args == ('foo',)
+    assert kwargs == {}
 
 
 @mock.patch('simdb.config.config.Config.save')
@@ -22,5 +24,7 @@ def test_config_set(set_option, save):
     runner = CliRunner()
     result = runner.invoke(cli, [f'--config-file={config_file}', 'config', 'set', 'foo', 'bar'])
     assert result.exception is None
-    assert set_option.call_args.args == ('foo', 'bar')
+    (args, kwargs) = set_option.call_args
+    assert args == ('foo', 'bar')
+    assert kwargs == {}
     assert save.called

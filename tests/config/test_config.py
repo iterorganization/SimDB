@@ -11,6 +11,8 @@ def test_create_config():
 @mock.patch('appdirs.site_config_dir')
 @mock.patch('appdirs.user_config_dir')
 def test_load_config(user_config_dir, site_config_dir):
+    user_config_dir.return_value = ''
+    site_config_dir.return_value = ''
     config = Config()
     config.load()
     user_config_dir.assert_called_once_with('simdb')
@@ -22,6 +24,8 @@ def test_load_config(user_config_dir, site_config_dir):
 @mock.patch('appdirs.site_config_dir')
 @mock.patch('appdirs.user_config_dir')
 def test_load_config_from_specified_file(user_config_dir, site_config_dir):
+    user_config_dir.return_value = ''
+    site_config_dir.return_value = ''
     config = Config()
     stream = StringIO()
     stream.write("""

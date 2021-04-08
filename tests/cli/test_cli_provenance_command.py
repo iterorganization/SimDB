@@ -13,4 +13,6 @@ def test_provenance_command(dump):
     assert result.exception is None
     assert str(file_name) in result.output
     assert dump.called
-    assert dump.call_args.args[1].name == str(file_name)
+    (args, kwargs) = dump.call_args
+    assert args[1].name == str(file_name)
+    assert kwargs == {'default_flow_style': False}

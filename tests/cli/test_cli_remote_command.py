@@ -32,7 +32,9 @@ def test_remote_watcher_remove_command(remove_watcher, get_api_version):
     assert result.exception is None
     assert sim_id in result.output
     assert remove_watcher.called
-    assert remove_watcher.call_args.args == (sim_id, user)
+    (args, kwargs) = remove_watcher.call_args
+    assert args == (sim_id, user)
+    assert kwargs == {}
     assert get_api_version.called
 
 
@@ -49,7 +51,9 @@ def test_remote_watcher_add_command(add_watcher, get_api_version):
     assert result.exception is None
     assert sim_id in result.output
     assert add_watcher.called
-    assert add_watcher.call_args.args == (sim_id, user, email, 'All')
+    (args, kwargs) = add_watcher.call_args
+    assert args == (sim_id, user, email, 'All')
+    assert kwargs == {}
     assert get_api_version.called
 
 
@@ -119,13 +123,15 @@ def test_remote_info_command(get_simulation, get_api_version):
     assert result.exception is None
     assert str(sim) in result.output
     assert get_simulation.called
-    assert get_simulation.call_args.args == (sim_id,)
+    (args, kwargs) = get_simulation.call_args
+    assert args == (sim_id,)
+    assert kwargs == {}
     assert get_api_version.called
 
 
 @mock.patch('simdb.cli.remote_api.RemoteAPI.get_api_version')
 @mock.patch('simdb.cli.remote_api.RemoteAPI.query_simulations')
-def test_remote_info_command(query_simulations, get_api_version):
+def test_remote_query_command(query_simulations, get_api_version):
     data = [
         ('abcd1234', '123'),
     ]
@@ -145,13 +151,15 @@ def test_remote_info_command(query_simulations, get_api_version):
         for i in el:
             assert i in result.output
     assert query_simulations.called
-    assert query_simulations.call_args.args == (constraints,)
+    (args, kwargs) = query_simulations.call_args
+    assert args == (constraints,)
+    assert kwargs == {}
     assert get_api_version.called
 
 
 @mock.patch('simdb.cli.remote_api.RemoteAPI.get_api_version')
 @mock.patch('simdb.cli.remote_api.RemoteAPI.query_simulations')
-def test_remote_info_command_with_verbose(query_simulations, get_api_version):
+def test_remote_query_command_with_verbose(query_simulations, get_api_version):
     data = [
         ('abcd1234', '123', '2000-01-01-01', 'Validated'),
     ]
@@ -173,7 +181,9 @@ def test_remote_info_command_with_verbose(query_simulations, get_api_version):
         for i in el:
             assert i in result.output
     assert query_simulations.called
-    assert query_simulations.call_args.args == (constraints,)
+    (args, kwargs) = query_simulations.call_args
+    assert args == (constraints,)
+    assert kwargs == {}
     assert get_api_version.called
 
 
@@ -189,7 +199,11 @@ def test_remote_update_command_with_accept(validate_simulation, update_simulatio
     assert result.exception is None
     assert sim_id in result.output
     assert validate_simulation.called
-    assert validate_simulation.call_args.args == (sim_id,)
+    (args, kwargs) = validate_simulation.call_args
+    assert args == (sim_id,)
+    assert kwargs == {}
     assert update_simulation.called
-    assert update_simulation.call_args.args == (sim_id, Simulation.Status.ACCEPTED)
+    (args, kwargs) = update_simulation.call_args
+    assert args == (sim_id, Simulation.Status.ACCEPTED)
+    assert kwargs == {}
     assert get_api_version.called
