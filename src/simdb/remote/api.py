@@ -8,12 +8,12 @@ from werkzeug.datastructures import FileStorage
 from functools import wraps
 import uuid
 import gzip
-from typing import List, Iterable, Dict, Tuple
+from typing import List, Iterable, Dict, Tuple, Optional
 from itertools import chain
 from uri import URI
 import jwt
 import datetime
-import csv
+from collections import namedtuple
 
 from .. import __version__
 from ..database import Database, DatabaseError
@@ -25,6 +25,8 @@ from ..query import QueryType, parse_query_arg
 API_VERSION = 1
 api = Blueprint("api", __name__)
 
+User = namedtuple("User", ("name", "email"))
+
 
 def _secure_path(path: Path, common_root: Path, staging_dir: Path) -> Path:
     file_name = secure_filename(path.name)
@@ -32,27 +34,27 @@ def _secure_path(path: Path, common_root: Path, staging_dir: Path) -> Path:
     return directory / file_name
 
 
-def check_role(username, role) -> bool:
+def check_role(config, user: User, role: Optional[str]) -> bool:
     if role:
+        import csv
+
         users = config.get_option(f'role.{role}.users', default='')
         reader = csv.reader([users])
         for row in reader:
-            if user in row:
+            if user.name in row:
                 return True
         return False
 
     return True
 
 
-def check_auth(username, password) -> bool:
+def check_auth(config, username, password) -> Optional[User]:
     """This function is called to check if a username / password combination is valid.
     """
     from easyad import EasyAD
 
-    config = current_app.simdb_config
-
     if username == "admin" and password == config.get_option("server.admin_password"):
-        return True
+        return User("admin", None)
 
     ad_config = {
         'AD_SERVER': config.get_option('server.ad_server'),
@@ -61,7 +63,10 @@ def check_auth(username, password) -> bool:
     ad = EasyAD(ad_config)
 
     user = ad.authenticate_user(username, password, json_safe=True)
-    return bool(user)
+    if user:
+        return User(user["dn"], user["email"])
+    else:
+        return None
 
 
 def authenticate():
@@ -78,21 +83,26 @@ class RequiresAuth:
     def __call__(self, f):
         @wraps(f)
         def decorated(*args, **kwargs):
+            config = current_app.simdb_config
             auth = request.authorization
-            user = None
+            user: Optional[User] = None
             if not auth:
                 if 'JWT-Token' in request.headers.get('Authorization', ''):
                     try:
                         token = request.headers['Authorization'].split('JWT-Token')[1]
                         payload = jwt.decode(token.strip(), current_app.config.get('SECRET_KEY'), algorithms=['HS256'])
-                        user = payload['sub']
-                    except (IndexError, jwt.exceptions.PyJWTError):
-                        pass
-            elif check_auth(auth.username, auth.password):
-                user = auth.username
+                        expires = payload['exp']
+                        if datetime.datetime.utcnow() < expires:
+                            user = User(payload['sub'], payload['email'])
+                        else:
+                            raise Exception("Token expired")
+                    except (IndexError, KeyError, jwt.exceptions.PyJWTError):
+                        raise Exception("Invalid token")
+            else:
+                user = check_auth(config, auth.username, auth.password)
             if not user:
                 return authenticate()
-            if not check_role(user, self._role):
+            if not check_role(config, user, self._role):
                 return authenticate()
             kwargs['user'] = user
             return f(*args, **kwargs)
@@ -137,7 +147,7 @@ def remove_db_session(_error):
 
 @api.route("/")
 @requires_auth()
-def index(user=None):
+def index(user: User=Optional[None]):
     return jsonify(
         {
             "api": "simdb",
@@ -153,7 +163,7 @@ def index(user=None):
 
 @api.route("/token", methods=["GET"])
 @requires_auth()
-def token(user=None):
+def token(user: User=Optional[None]):
     auth = request.authorization
     payload = {
         'exp': datetime.datetime.utcnow() + datetime.timedelta(days=30),
@@ -169,14 +179,14 @@ def token(user=None):
 
 @api.route("/reset", methods=["POST"])
 @requires_auth("admin")
-def reset_db(user=None):
+def reset_db(user: User=Optional[None]):
     api.db.reset()
     return jsonify({})
 
 
 @api.route("/simulations", methods=["GET"])
 @requires_auth()
-def list_simulations(user=None):
+def list_simulations(user: User=Optional[None]):
     if not request.args:
         simulations = api.db.list_simulations()
     else:
@@ -192,14 +202,14 @@ def list_simulations(user=None):
 
 @api.route("/files", methods=["GET"])
 @requires_auth()
-def list_files(user=None):
+def list_files(user: User=Optional[None]):
     files = api.db.list_files()
     return jsonify([file.data() for file in files])
 
 
 @api.route("/file/<string:file_uuid>", methods=["GET"])
 @requires_auth()
-def get_file(file_uuid: str, user=None):
+def get_file(file_uuid: str, user: User=Optional[None]):
     try:
         file = api.db.get_file(file_uuid)
         return jsonify(file.data(recurse=True))
@@ -279,7 +289,7 @@ def _verify_file(sim_uuid: uuid.UUID, sim_file: File, common_root: Path):
 
 @api.route("/files", methods=["POST"])
 @requires_auth()
-def upload_file(user=None):
+def upload_file(user: User=Optional[None]):
     try:
         data = request.get_json()
         if data:
@@ -322,7 +332,7 @@ def upload_file(user=None):
 
 @api.route("/simulations", methods=["POST"])
 @requires_auth()
-def ingest_simulation(user=None):
+def ingest_simulation(user: User=Optional[None]):
     try:
         data = request.get_json()
 
@@ -330,6 +340,7 @@ def ingest_simulation(user=None):
             return error("Simulation data not provided")
 
         simulation = Simulation.from_data(data["simulation"])
+        simulation.user = user.name
 
         if "alias" in data["simulation"]:
             alias = data["simulation"]["alias"]
@@ -361,13 +372,23 @@ def ingest_simulation(user=None):
             result['validation'] = _validate(simulation)
 
         if current_app.simdb_config.get_option("validation.error_on_fail", default=False):
-            if simulation.status == Simulation.Status.UNVALIDATED.value:
+            if simulation.status == Simulation.Status.UNVALIDATED:
                 raise Exception('Validation config option error_on_fail=True without auto_validate=True.')
-            elif simulation.status == Simulation.Status.FAILED.value:
+            elif simulation.status == Simulation.Status.FAILED:
                 result["error"] = 'Simulation validation failed and server has error_on_fail=True.'
                 response = jsonify(result)
                 response.status_code = 400
                 return response
+
+        replaces = simulation.find_meta("replaces")
+        if replaces:
+            sim_id = replaces[0]
+            replaces_sim = api.db.get_simulation(sim_id)
+            if replaces_sim is None:
+                raise ValueError(f'Simulation replaces:{sim_id} is not a valid simulation identifier.')
+            _update_simulation_status(replaces_sim, Simulation.status.DEPRECATED, user)
+            replaces_sim.set_meta('replaced_by', simulation.uuid)
+            api.db.insert_simulation(replaces_sim)
 
         api.db.insert_simulation(simulation)
 
@@ -381,12 +402,12 @@ def _validate(simulation) -> Dict:
     schema = Validator.validation_schema()
     try:
         Validator(schema).validate(simulation)
-        simulation.status = Simulation.Status.PASSED.value
+        simulation.status = Simulation.Status.PASSED
         return {
             'passed': True,
         }
     except ValidationError as err:
-        simulation.status = Simulation.Status.FAILED.value
+        simulation.status = Simulation.Status.FAILED
         return {
             'passed': False,
             'error': str(err),
@@ -395,7 +416,7 @@ def _validate(simulation) -> Dict:
 
 @api.route("/validate/<string:sim_id>", methods=["POST"])
 @requires_auth()
-def validate(sim_id, user=None):
+def validate(sim_id, user: User=Optional[None]):
     try:
         simulation = api.db.get_simulation(sim_id)
         return jsonify(_validate(simulation))
@@ -405,7 +426,7 @@ def validate(sim_id, user=None):
 
 @api.route("/simulation/<string:sim_id>", methods=["GET"])
 @requires_auth()
-def get_simulation(sim_id: str, user=None):
+def get_simulation(sim_id: str, user: User=Optional[None]):
     try:
         simulation = api.db.get_simulation(sim_id)
         return jsonify(simulation.data(recurse=True))
@@ -415,35 +436,43 @@ def get_simulation(sim_id: str, user=None):
 
 @api.route("/simulation/<string:sim_id>", methods=["PATCH"])
 @requires_auth("admin")
-def update_simulation(sim_id: str, user=None):
-    from ..email.server import EmailServer
+def update_simulation(sim_id: str, user: User=Optional[None]):
     try:
         data = request.get_json()
         if "status" not in data:
             return error("Status not provided")
         simulation = api.db.get_simulation(sim_id)
+        if simulation is None:
+            raise ValueError(f"Simulation {sim_id} not found.")
         status = data["status"]
-        old_status = simulation.status
-        simulation.status = status
-        if status != old_status:
-            server = EmailServer(current_app.simdb_config)
-            msg = f"""\
-Simulation status changed from {old_status} to {status}.
-
-Updated by {user}.
-"""
-            to_addresses = [w.email for w in simulation.watchers]
-            if to_addresses:
-                server.send_message(f"Simulation {simulation.uuid.hex}", msg, to_addresses)
+        _update_simulation_status(simulation, status, user)
         api.db.insert_simulation(simulation)
         return {}
     except DatabaseError as err:
         return error(str(err))
 
 
+def _update_simulation_status(simulation, status: Simulation.Status, user) -> None:
+    from ..email.server import EmailServer
+
+    old_status = simulation.status
+    simulation.status = status
+    simulation.set_meta(status.lower().replace(' ', '_') + '_on', datetime.datetime.now().isoformat())
+    if status != old_status:
+        server = EmailServer(current_app.simdb_config)
+        msg = f"""\
+Simulation status changed from {old_status} to {status}.
+
+Updated by {user}.
+"""
+        to_addresses = [w.email for w in simulation.watchers]
+        if to_addresses:
+            server.send_message(f"Simulation {simulation.uuid.hex}", msg, to_addresses)
+
+
 @api.route("/staging_dir/<string:sim_hex>", methods=["GET"])
 @requires_auth()
-def get_staging_dir(sim_hex: str, user=None):
+def get_staging_dir(sim_hex: str, user: User=Optional[None]):
     staging_dir = Path(current_app.simdb_config.get_option("server.upload_folder")) / sim_hex
     os.makedirs(staging_dir, exist_ok=True)
     return jsonify({'staging_dir': str(staging_dir)})
@@ -451,7 +480,7 @@ def get_staging_dir(sim_hex: str, user=None):
 
 @api.route("/simulation/<string:sim_id>", methods=["DELETE"])
 @requires_auth("admin")
-def delete_simulation(sim_id: str, user=None):
+def delete_simulation(sim_id: str, user: User=Optional[None]):
     try:
         simulation = api.db.delete_simulation(sim_id)
         files = []
@@ -459,38 +488,33 @@ def delete_simulation(sim_id: str, user=None):
             files.append("%s (%s)" % (file.uuid, file.file_name))
             os.remove(os.path.join(file.directory, file.file_name))
         if simulation.inputs or simulation.outputs:
-            dir = simulation.inputs[0].directory if simulation.inputs else simulation.outputs[0].directory
-            os.rmdir(simulation.inputs[0].directory)
+            directory = simulation.inputs[0].directory if simulation.inputs else simulation.outputs[0].directory
+            os.rmdir(directory)
         return jsonify({"deleted": {"simulation": simulation.uuid, "files": files}})
-    except DatabaseError as err:
-        return error(str(err))
-
-
-@api.route("/publish/<string:sim_id>", methods=["POST"])
-@requires_auth()
-def publish_simulation(sim_id: str, user=None):
-    try:
-        simulation = api.db.get_simulation(sim_id)
-        return error("not yet implemented")
     except DatabaseError as err:
         return error(str(err))
 
 
 @api.route("/watchers/<string:sim_id>", methods=["POST"])
 @requires_auth()
-def add_watcher(sim_id: str, user=None):
+def add_watcher(sim_id: str, user: User=Optional[None]):
     try:
         data = request.get_json()
 
-        if "user" not in data:
-            return error("Watcher username not provided")
-        if "email" not in data:
-            return error("Watcher email not provided")
+        username = data["user"] if "user" in data else user.name
+        email = data["email"] if "email" in data else user.email
+
         if "notification" not in data:
             return error("Watcher notification not provided")
+        notification = getattr(Watcher.Notification, data["notification"])
 
-        watcher = Watcher(data["user"], data["email"], data["notification"])
+        watcher = Watcher(username, email, notification)
         api.db.add_watcher(sim_id, watcher)
+
+        if username != user.name:
+            # TODO: send email notify user that they have been added as a watcher
+            pass
+
         return jsonify({"added": {"simulation": sim_id, "watcher": data["user"]}})
     except DatabaseError as err:
         return error(str(err))
@@ -498,14 +522,13 @@ def add_watcher(sim_id: str, user=None):
 
 @api.route("/watchers/<string:sim_id>", methods=["DELETE"])
 @requires_auth()
-def remove_watcher(sim_id: str, user=None):
+def remove_watcher(sim_id: str, user: User=Optional[None]):
     try:
         data = request.get_json()
 
-        if "user" not in data:
-            return error("Watcher username not provided")
+        username = data["user"] if "user" in data else user.name
 
-        api.db.remove_watcher(sim_id, data["user"])
+        api.db.remove_watcher(sim_id, username)
         return jsonify({"removed": {"simulation": sim_id, "watcher": data["user"]}})
     except DatabaseError as err:
         return error(str(err))
@@ -513,7 +536,7 @@ def remove_watcher(sim_id: str, user=None):
 
 @api.route("/watchers/<string:sim_id>", methods=["GET"])
 @requires_auth()
-def list_watchers(sim_id: str, user=None):
+def list_watchers(sim_id: str, user: User=Optional[None]):
     try:
         return jsonify([watcher.data(recurse=True) for watcher in api.db.list_watchers(sim_id)])
     except DatabaseError as err:
@@ -522,7 +545,6 @@ def list_watchers(sim_id: str, user=None):
 
 @api.route("/validation_schema", methods=["GET"])
 @requires_auth()
-def get_validation_schema(user=None):
+def get_validation_schema(user: User=Optional[None]):
     from ..validation.validator import Validator
     return jsonify(Validator.validation_schema())
-

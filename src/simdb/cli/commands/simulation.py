@@ -157,7 +157,9 @@ class CustomCommand(click.Command):
 @click.argument("sim_id")
 @click.option("--username", help="Username used to authenticate with the remote.")
 @click.option("--password", help="Password used to authenticate with the remote.")
-def simulation_push(config: Config, remote: Optional[str], sim_id: str, username, password: str):
+@click.option("--replaces", help="SIM_ID of simulation to deprecate and replace.")
+def simulation_push(config: Config, remote: Optional[str], sim_id: str, username: Optional[str],
+                    password: Optional[str], replaces: Optional[str]):
     """Push the simulation with the given SIM_ID (UUID or alias) to the REMOTE.
     """
     from ...database import get_local_db
@@ -169,6 +171,8 @@ def simulation_push(config: Config, remote: Optional[str], sim_id: str, username
     simulation = db.get_simulation(sim_id)
     if simulation is None:
         raise click.ClickException(f"Failed to find simulation: {sim_id}")
+    if replaces:
+        simulation.set_meta("replaces", replaces)
     api.push_simulation(simulation, out_stream=sys.stdout)
 
     click.echo(f"Successfully pushed simulation {simulation.uuid}")

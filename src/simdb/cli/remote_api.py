@@ -10,7 +10,7 @@ import click
 from uri import URI
 from requests.auth import AuthBase
 
-from ..database.models import Simulation, File
+from ..database.models import Simulation, File, Watcher
 from .manifest import DataObject
 from ..config import Config
 from ..validation import Validator, ValidationError
@@ -210,8 +210,8 @@ class RemoteAPI:
             return False, data['error']
 
     @try_request
-    def add_watcher(self, sim_id: str, user: str, email: str, notification: str) -> None:
-        self.post("watchers/" + sim_id, {'user': user, 'email': email, 'notification': notification})
+    def add_watcher(self, sim_id: str, user: str, email: str, notification: Watcher.Notification) -> None:
+        self.post("watchers/" + sim_id, {'user': user, 'email': email, 'notification': notification.name})
 
     @try_request
     def remove_watcher(self, sim_id: str, user: str) -> None:
