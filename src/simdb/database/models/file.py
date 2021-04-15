@@ -35,9 +35,9 @@ class File(Base):
         self.uuid = uuid.uuid1()
         self.uri = uri
         self.type = type
-        self.datetime = self.get_creation_date()
 
         if perform_integrity_check:
+            self.datetime = self.get_creation_date()
             self.checksum = self.generate_checksum()
 
     def __str__(self):
