@@ -17,9 +17,7 @@ class MetaData(Base):
     __tablename__ = "metadata"
     id = Column(sql_types.Integer, primary_key=True)
     sim_id = Column(sql_types.Integer, ForeignKey(Simulation.id))
-    # uuid = Column(UUID, nullable=False)
     element = Column(sql_types.String(250), nullable=False)
-    # value = Column(sql_types.Text, nullable=True)
     value = Column(sql_types.PickleType, nullable=True)
 
     def __init__(self, key: str, value: Any) -> None:

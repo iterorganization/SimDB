@@ -1,8 +1,10 @@
 from enum import Enum
 import uuid
+import sys
 from datetime import datetime
 from itertools import chain
-from typing import List, Union, Dict, Any, Type
+from typing import List, Union, Dict, Any, Type, TYPE_CHECKING
+from getpass import getuser
 
 from dateutil import parser as date_parser
 from sqlalchemy import Column, types as sql_types, Table, ForeignKey
@@ -14,6 +16,11 @@ from .base import Base
 from .file import File
 from ...cli.manifest import Manifest, DataObject
 from ...docstrings import inherit_docstrings
+
+
+if TYPE_CHECKING or 'sphinx' in sys.modules:
+    # Only importing these for type checking and documentation generation in order to speed up runtime startup.
+    from .metadata import MetaData
 
 
 simulation_input_files = Table("simulation_input_files", Base.metadata,
@@ -44,22 +51,23 @@ class Simulation(Base):
         DEPRECATED = 'Deprecated'
 
     STATUS_CHOICES = {
-        Status.UNVALIDATED.value:   'U',
-        Status.ACCEPTED.value:      'A',
-        Status.FAILED.value:        'F',
-        Status.PASSED.value:        'P',
-        Status.DEPRECATED.value:    'D',
+        Status.UNVALIDATED:   'U',
+        Status.ACCEPTED:      'A',
+        Status.FAILED:        'F',
+        Status.PASSED:        'P',
+        Status.DEPRECATED:    'D',
     }
 
     __tablename__ = "simulations"
     id = Column(sql_types.Integer, primary_key=True)
     uuid = Column(UUID, nullable=False, unique=True)
     alias: str = Column(sql_types.String(250), nullable=True, unique=True)
+    user: str = Column(sql_types.String(250), nullable=False, unique=False)
     datetime = Column(sql_types.DateTime, nullable=False)
-    status = Column(ChoiceType(choices=STATUS_CHOICES, length=1), nullable=False)
+    status = Column(ChoiceType(choices=STATUS_CHOICES, length=1, enum_type=Status), nullable=False)
     inputs: List["File"] = relationship("File", secondary=simulation_input_files)
     outputs: List["File"] = relationship("File", secondary=simulation_output_files)
-    meta = relationship("MetaData")
+    meta: List["MetaData"] = relationship("MetaData")
     watchers = relationship("Watcher", secondary=simulation_watchers, lazy='dynamic')
     replaces_id = Column(sql_types.Integer, ForeignKey('simulations.id'), nullable=True)
     replaces = relationship("Simulation", remote_side=[id], backref='replaced_by')
@@ -76,7 +84,8 @@ class Simulation(Base):
             return
         self.uuid = uuid.uuid1()
         self.datetime = datetime.now()
-        self.status = "Unvalidated"
+        self.status = Simulation.Status.UNVALIDATED
+        self.user = getuser()
 
         if manifest.alias:
             self.alias = manifest.alias
@@ -130,22 +139,18 @@ class Simulation(Base):
             result += "%s\n" % file
         return result
 
-    def find_meta(self, name: str):
+    def find_meta(self, name: str) -> List["MetaData"]:
         return [m for m in self.meta if m.element == name]
 
-    def notify_watchers(self, msg: str):
-        from ...email.server import EmailServer
-        pass
+    def set_meta(self, name: str, value: str) -> None:
+        from .metadata import MetaData
 
-    def update_status(self, status):
-        if status not in Simulation.STATUS_CHOICES.keys():
-            raise ValueError(f'Invalid status {status}.')
-        if status != self.status:
-            old_status = self.status
-            self.status = status
-            msg = f"""Simulation status changed from {old_status} to {status}.
-            """
-            self.notify_watchers(msg)
+        for m in self.meta:
+            if m.element == name:
+                m.value = value
+                break
+        else:
+            self.meta.append(MetaData(name, value))
 
     @classmethod
     def from_data(cls, data: Dict[str, Union[str, Dict, List]]) -> "Simulation":
@@ -153,6 +158,7 @@ class Simulation(Base):
         simulation = Simulation(None)
         simulation.uuid = uuid.UUID(checked_get(data, "uuid", str))
         simulation.alias = checked_get(data, "alias", str)
+        simulation.user = checked_get(data, "user", str)
         simulation.datetime = date_parser.parse(checked_get(data, "datetime", str))
         simulation.status = checked_get(data, "status", str)
         if "inputs" in data:
@@ -173,8 +179,9 @@ class Simulation(Base):
         data = dict(
             uuid=self.uuid.hex,
             alias=self.alias,
+            user=self.user,
             datetime=self.datetime.isoformat(),
-            status=self.status
+            status=self.status,
         )
         if recurse:
             data["inputs"] = [f.data(recurse=True) for f in self.inputs]

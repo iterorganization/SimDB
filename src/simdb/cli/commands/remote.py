@@ -1,12 +1,11 @@
-import os
 import sys
 import click
 from typing import List, TYPE_CHECKING, Optional
-from pathlib import Path
 
 from ..remote_api import RemoteAPI
 from . import pass_config
 from .utils import print_simulations
+from ...database.models.watcher import Watcher
 
 
 pass_api = click.make_pass_decorator(RemoteAPI)
@@ -93,8 +92,8 @@ def remove_watcher(config: "Config", api: RemoteAPI, sim_id: str, user: str):
 @click.option("-u", "--user", help="Name of the user to add as a watcher.")
 @click.option("-e", "--email", help="Email of the user to add as a watcher.")
 @click.option("-n", "--notification",
-              type=click.Choice(["Validation", "Revision", "Obsolescence", "All"], case_sensitive=False),
-              default="All", show_default=True)
+              type=click.Choice(list(i.name for i in Watcher.Notification), case_sensitive=False),
+              default=Watcher.Notification.ALL.name, show_default=True)
 def add_watcher(config: "Config", api: RemoteAPI, sim_id: str, user: Optional[str], email: Optional[str],
                 notification: Optional[str]):
     """Register a user as a watcher for a simulation with given SIM_ID (UUID or alias)."""
@@ -106,7 +105,7 @@ def add_watcher(config: "Config", api: RemoteAPI, sim_id: str, user: Optional[st
         email = config.get_option("user.email")
     if not user:
         raise click.ClickException("Email not provided and user.email not found in config.")
-    api.add_watcher(sim_id, user, email, notification)
+    api.add_watcher(sim_id, user, email, getattr(Watcher.Notification, notification))
     click.echo(f"Watcher successfully added for simulation {sim_id}")
 
 

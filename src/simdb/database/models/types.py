@@ -1,4 +1,6 @@
+import enum
 import uuid
+from enum import Enum
 from typing import Optional, Dict
 
 import uri as urilib
@@ -83,18 +85,21 @@ class ChoiceType(sql_types.TypeDecorator):
     def python_type(self):
         return str
 
-    def __init__(self, choices: Dict[str, str], **kw):
-        self.choices_inverse = dict(choices)
-        self.choices = {v: k for k, v in self.choices_inverse.items()}
-        if len(self.choices) != len(self.choices_inverse):
+    def __init__(self, choices: Dict[Enum, str], enum_type: type, **kw):
+        if type(enum_type) is not enum.EnumMeta:
+            raise ValueError('enum_type must be a class inheriting from enum.Enum.')
+        self._enum_type = enum_type
+        self._choices_inverse = dict(choices)
+        self._choices = {v: k for k, v in self._choices_inverse.items()}
+        if len(self._choices) != len(self._choices_inverse):
             raise TypeError('Values in choices dict must be unique')
         super().__init__(**kw)
 
-    def process_bind_param(self, value, dialect):
-        return self.choices_inverse[value]
+    def process_bind_param(self, value: str, dialect):
+        return self._choices_inverse[self._enum_type(value)]
 
-    def process_result_value(self, value, dialect):
-        return self.choices[value]
+    def process_result_value(self, value: str, dialect):
+        return self._choices[value]
 
     def process_literal_param(self, value, dialect):
         return self.process_result_value(value, dialect)
