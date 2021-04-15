@@ -33,11 +33,13 @@ def _secure_path(path: Path, common_root: Path, staging_dir: Path) -> Path:
 
 
 def check_role(username, role) -> bool:
+    config = current_app.simdb_config
+
     if role:
         users = config.get_option(f'role.{role}.users', default='')
         reader = csv.reader([users])
         for row in reader:
-            if user in row:
+            if username in row:
                 return True
         return False
 

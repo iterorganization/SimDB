@@ -22,7 +22,7 @@ app.register_blueprint(api, url_prefix=f"/api/v{config.api_version}")
 
 
 def run():
-    if config.get_option("server.ssl_enabled") == "True":
+    if config.get_option("server.ssl_enabled"):
         context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
         context.load_cert_chain(certfile=config.get_option("server.ssl_cert_file"),
                                 keyfile=config.get_option("server.ssl_key_file"))
