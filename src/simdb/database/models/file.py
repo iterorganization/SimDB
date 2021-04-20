@@ -51,20 +51,6 @@ class File(Base):
         result = f"{self.uuid} ({self.uri})"
         return result
 
-    def generate_checksum(self):
-        if self.type == DataObject.Type.UDA:
-            from ...uda.checksum import checksum as uda_checksum
-            checksum = uda_checksum(self.uri)
-        elif self.type == DataObject.Type.IMAS:
-            from ...imas.checksum import checksum as imas_checksum
-            checksum = imas_checksum(self.uri)
-        elif self.type == DataObject.Type.FILE:
-            from ...checksum import sha1_checksum
-            checksum = sha1_checksum(self.uri)
-        else:
-            raise NotImplementedError(f"Cannot generate checksum for type {self.type}.")
-        return checksum
-
     def get_creation_date(self) -> datetime:
         if self.type == DataObject.Type.UDA:
             return datetime.now()
@@ -75,6 +61,10 @@ class File(Base):
             return datetime.fromtimestamp(Path(self.uri.path).stat().st_ctime)
         else:
             raise NotImplementedError(f"Cannot generate checksum for type {self.type}.")
+
+    def validate_checksum(self) -> bool:
+        checksum = self.get_creation_date()
+        return checksum == self.checksum
 
     @classmethod
     def from_data(cls, data: Dict) -> "File":

@@ -28,7 +28,6 @@ setuptools.setup(
         "sqlalchemy (>= 1.2.12)",
         "urllib3 (>= 1.23)",
         "appdirs (>=1.4.0)",
-        "Flask (>= 1.0.0)",
         "uri (>=2.0)",
         "email-validator (>=1.1)",
         "semantic-version (>=2.8)",

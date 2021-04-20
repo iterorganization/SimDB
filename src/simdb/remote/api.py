@@ -43,7 +43,7 @@ def check_role(config, user: User, role: Optional[str]) -> bool:
         users = config.get_option(f'role.{role}.users', default='')
         reader = csv.reader([users])
         for row in reader:
-            if username in row:
+            if user in row:
                 return True
         return False
 
@@ -374,7 +374,7 @@ def ingest_simulation(user: User=Optional[None]):
             result['validation'] = _validate(simulation)
 
         if current_app.simdb_config.get_option("validation.error_on_fail", default=False):
-            if simulation.status == Simulation.Status.UNVALIDATED:
+            if simulation.status == Simulation.Status.INVALIDATED:
                 raise Exception('Validation config option error_on_fail=True without auto_validate=True.')
             elif simulation.status == Simulation.Status.FAILED:
                 result["error"] = 'Simulation validation failed and server has error_on_fail=True.'

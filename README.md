@@ -1,19 +1,21 @@
-# ITER Simulation Management Tool
+# SimDB simulation management tool
+
+SimDB is a tool designed to track, manage, upload and query simulations. The simulation data can be tagged with metadata, managed locally or transferred to remote SimDB services. Uploaded simulations can then be queried based on metadata.
+
+SimDB consists of a command line interface (CLI) tool which interacts with one or more remote services.
+
+For details on how to install the CLI see [here](docs/install_guide.md) and for information on how to use the CLI see [here](docs/user_guide.md).
+
+For information on setting and maintaining a remote CLI server see [here](docs/maintaintence_guide.md).
 
 ## CLI
 
-### Dependencies
 
-* Python >= 3.6
-* PyYAML >= 3.12
-* SqlAlchemy >= 1.2.2
-* argcomplete >= 1.11.1
-* appdirs >= 1.4.3
 
 ### Installing the CLI
 
 ```bash
-pip install --user git+ssh://git@git.iter.org/imex/simdb.git
+pip install git+ssh://git@git.iter.org/imex/simdb.git
 ```
 
 ## Remote API
@@ -26,7 +28,7 @@ pip install --user git+ssh://git@git.iter.org/imex/simdb.git
 
 ## User Guide
 
-The user guide is available at [User Guide](./docs/user_guide.md)
+The user guide is available at [here](./docs/user_guide.md).
 
 ## Server Setup Guide
 

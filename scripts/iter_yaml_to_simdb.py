@@ -1,12 +1,19 @@
 import yaml
 
 
+def map_status(status):
+    return {
+        'activate': 'accepted',
+        'obsolete': 'deprecated',
+    }[status]
+
+
 def get_meta(data):
     meta = {
         'device': 'ITER',
         'workflow': {'name': data['characteristics']['workflow']},
         'description': Literal(data['free_description']),
-        'status': data['status'],
+        'status': map_status(data['status']),
         'reference_name': data['reference_name'],
         'responsible_name': data['responsible_name'],
         'scenario_key_parameters': data['scenario_key_parameters'],
@@ -15,7 +22,7 @@ def get_meta(data):
     }
     if 'database_relations' in data:
         meta['replaces'] = data['database_relations']['replaces']
-        meta['replaced_by'] = data['database_relations']['replaces']
+        meta['replaced_by'] = data['database_relations']['replaced_by']
     return meta
 
 
