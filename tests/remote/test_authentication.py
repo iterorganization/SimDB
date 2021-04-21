@@ -1,6 +1,5 @@
 import pytest
 from unittest import mock
-from simdb.remote import api
 from simdb.config import Config
 try:
     import easyad
@@ -17,6 +16,7 @@ except ImportError:
 @mock.patch('simdb.config.Config.get_option')
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_check_role(get_option):
+    from simdb.remote import api
     from flask import Flask
     app = Flask('test')
     config = Config()
@@ -34,7 +34,9 @@ def test_check_role(get_option):
 
 @mock.patch('simdb.config.Config.get_option')
 @pytest.mark.skipif(not has_easyad, reason="requires easyad library")
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_check_auth(get_option):
+    from simdb.remote import api
     patcher = mock.patch('easyad.EasyAD')
     easy_ad = patcher.start()
 
