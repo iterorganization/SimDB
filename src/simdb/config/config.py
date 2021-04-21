@@ -16,6 +16,16 @@ def _parse_name(arg: str) -> Tuple[str, str]:
     return section, option
 
 
+def _parse_section(arg: str) -> str:
+    if '.' in arg:
+        section, *name = arg.split('.')
+        if name:
+            section = '{} "{}"'.format(section, '.'.join(name))
+    else:
+        section = arg
+    return section
+
+
 def _isdecimal(v: str):
     return len(v) == 0 or v.isdecimal()
 
@@ -63,6 +73,10 @@ class Config:
         self._api_version = 1
         self._debug = False
         self._verbose = False
+
+    @property
+    def user_config_path(self) -> Path:
+        return self._user_config_path
 
     def _load_environmental_vars(self):
         vars = [v for v in os.environ if v.startswith('SIMDB_')]
@@ -131,6 +145,18 @@ class Config:
                 return remote.split(" ")[1][1:-1]
         return None
 
+    @default_remote.setter
+    def default_remote(self, default: str):
+        remotes = [section for section in self._parser.sections() if section.startswith("remote")]
+        found = False
+        for remote in remotes:
+            name = remote.split(" ")[1][1:-1]
+            self._parser.set(remote, "default", str(name == default))
+            if name == default:
+                found = True
+        if not found:
+            raise KeyError(f"remote {default} not found in configuration.")
+
     @property
     def config_directory(self) -> Path:
         return self._user_config_dir
@@ -165,14 +191,21 @@ class Config:
         except (configparser.NoSectionError, configparser.NoOptionError):
             if default is not Config.NOTHING:
                 return default
-            raise KeyError(f'{name} not found in configuration')
+            raise KeyError(f'Option {name} not found in configuration')
 
     def delete_option(self, name: str) -> None:
         section, option = _parse_name(name)
         try:
             self._parser.remove_option(section, option)
         except (configparser.NoSectionError, configparser.NoOptionError):
-            raise KeyError(f"{name} not found in configuration")
+            raise KeyError(f"Option {name} not found in configuration")
+
+    def delete_section(self, name: str) -> None:
+        section = _parse_section(name)
+        try:
+            self._parser.remove_section(section)
+        except configparser.NoSectionError:
+            raise KeyError(f"Section {name} not found in configuration")
 
     def set_option(self, name: str, value: str) -> None:
         section, option = _parse_name(name)

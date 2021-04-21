@@ -1,6 +1,9 @@
+import re
 import sys
 import click
-from typing import List, TYPE_CHECKING, Optional
+from collections.abc import Iterable
+from click_option_group import optgroup, MutuallyExclusiveOptionGroup
+from typing import List, TYPE_CHECKING, Optional, Tuple
 
 from ..remote_api import RemoteAPI
 from . import pass_config
@@ -35,19 +38,50 @@ class RemoteSubCommand(click.Command):
         formatter.write_usage(ctx.command_path.replace('remote', 'remote [NAME]'), " ".join(pieces))
 
 
-@click.group(cls=RemoteGroup)
+def is_empty(value) -> bool:
+    return any(value) if isinstance(value, Iterable) else bool(value)
+
+
+@click.group(cls=RemoteGroup, invoke_without_command=True)
 @click.pass_context
 @pass_config
 @click.option("--username", help="Username used to authenticate with the remote.")
 @click.option("--password", help="Password used to authenticate with the remote.")
+@optgroup.group("Remote options", cls=MutuallyExclusiveOptionGroup, help="Commands for managing remotes")
+@optgroup.option("--set-default", help="Set the remote as the default.")
+@optgroup.option("--get-default", is_flag=True, help="Print the currently set default remote.")
+@optgroup.option("--new", type=(str, str), default=('', ''), help="Create a new default.")
+@optgroup.option("--delete", is_flag=True, help="Delete a registered remote.")
+@optgroup.option("--list", is_flag=True, help="List all registered remotes.")
 @click.argument("name", required=False)
-def remote(config: "Config", ctx: "Context", username: str, password: str, name: str):
+def remote(config: "Config", ctx: "Context", username: str, password: str, name: str, set_default: str,
+           get_default: bool, new: Tuple[str, str], delete: bool, list: bool):
     """Interact with the remote SimDB service.
 
     If NAME is provided this determines which remote server to communicate with, otherwise the server in the config file
     with default=True is used."""
-    if '--help' not in click.get_os_args():
-        ctx.obj = RemoteAPI(name, username, password, config)
+    if not ctx.args and not any(is_empty(i) for i in ctx.params.values()):
+        click.echo(ctx.get_help())
+    elif '--help' not in click.get_os_args():
+        if get_default:
+            click.echo(config.default_remote)
+        elif set_default:
+            config.default_remote = set_default
+            config.save()
+        elif new[0] or new[1]:
+            config.set_option(f"remote.{new[0]}.url", new[1])
+            config.save()
+        elif list:
+            r = re.compile(r'remote\.(.*)\.url: (.*)')
+            for option in config.list_options():
+                m = r.match(option)
+                if m:
+                    click.echo(f"{m[1]}: {m[2]}")
+        elif delete:
+            config.delete_section(f'remote.{name}')
+            config.save()
+        elif ctx.args:
+            ctx.obj = RemoteAPI(name, username, password, config)
 
 
 @remote.group(cls=RemoteSubGroup)

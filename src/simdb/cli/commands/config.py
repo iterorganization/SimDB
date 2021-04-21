@@ -47,9 +47,17 @@ def delete(config, option):
 def list(config):
     """List all configurations OPTIONS set.
     """
-    r = re.compile('(remote\..*\.token: )(.*)')
+    r = re.compile(r'(remote\..*\.token: )(.*)')
     for i in config.list_options():
         m = r.match(i)
         if m:
             i = f'{m[1]}********'
         click.echo(i)
+
+
+@config.command()
+@pass_config
+def path(config):
+    """Print the location of the user configuration file.
+    """
+    click.echo(config.user_config_path)

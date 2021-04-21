@@ -35,6 +35,7 @@ setuptools.setup(
         "Cerberus (>=1.3.2)",
         "distro (>=1.5.0)",
         "PyJWT (>=1.4.0)",
+        "click_option_group (>=0.5)",
     ],
     scripts=[
         "scripts/simdb",
