@@ -74,6 +74,8 @@ class Config:
         self._parser.read(self._site_config_path)
 
     def _load_user_config(self):
+        if self._user_config_path.exists() and self._user_config_path.stat().st_mode != 0o100600:
+            raise Exception(f'User configuration file {self._user_config_path} has incorrect permissions.')
         self._parser.read(self._user_config_path)
 
     @property
@@ -144,6 +146,7 @@ class Config:
         os.makedirs(self._user_config_dir, exist_ok=True)
         with open(self._user_config_path, 'w') as file:
             self._parser.write(file)
+        self._user_config_path.chmod(0o600)
 
     def get_section(self, name: str, default: Optional[List[Tuple[str, str]]]=None)\
             -> List[Tuple[str, Union[int, float, bool, str]]]:
