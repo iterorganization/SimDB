@@ -1,4 +1,5 @@
 import click
+import re
 
 from . import pass_config
 
@@ -46,5 +47,9 @@ def delete(config, option):
 def list(config):
     """List all configurations OPTIONS set.
     """
+    r = re.compile('(remote\..*\.token: )(.*)')
     for i in config.list_options():
+        m = r.match(i)
+        if m:
+            i = f'{m[1]}********'
         click.echo(i)
