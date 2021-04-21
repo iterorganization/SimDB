@@ -3,7 +3,7 @@ import yaml
 
 def map_status(status):
     return {
-        'activate': 'accepted',
+        'active': 'accepted',
         'obsolete': 'deprecated',
     }[status]
 
@@ -54,7 +54,8 @@ def main(args):
     in_data = yaml.safe_load(text)
 
     out_data = {
-        'alias': in_data['reference_name'],
+        'version': 1,
+        'alias': in_data['reference_name'].replace(' ', '-'),
         'outputs': [{'uri': to_uri(**in_data['characteristics'])}],
         'inputs': [],
         'metadata': [{'values': get_meta(in_data)}],

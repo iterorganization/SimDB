@@ -1,11 +1,13 @@
 from enum import Enum
 import uuid
 import sys
+from collections.abc import Iterable
 from datetime import datetime
 from itertools import chain
 from typing import List, Union, Dict, Any, Type, TYPE_CHECKING
 from getpass import getuser
 
+import numpy as np
 from dateutil import parser as date_parser
 from sqlalchemy import Column, types as sql_types, Table, ForeignKey
 from sqlalchemy.orm import relationship
@@ -124,7 +126,7 @@ class Simulation(Base):
             result += "%s:%s%s\n" % (name, ((10 - len(name)) * " "), getattr(self, name))
         result += "metadata:\n"
         for meta in self.meta:
-            if '\n' in meta.value:
+            if isinstance(meta.value, Iterable) and '\n' in meta.value:
                 first_line = True
                 for line in meta.value.split('\n'):
                     if first_line:
@@ -133,6 +135,9 @@ class Simulation(Base):
                         indent = ' ' * (len(meta.element) + 2)
                         result += f"  {indent}{line}"
                     first_line = False
+            elif isinstance(meta.value, np.ndarray):
+                string = np.array2string(meta.value, threshold=10)
+                result += f"  {meta.element}: {string}\n"
             else:
                 result += f"  {meta.element}: {meta.value}\n"
         result += "inputs:\n"

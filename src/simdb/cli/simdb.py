@@ -1,3 +1,4 @@
+import sys
 import click
 
 from .commands.manifest import manifest
@@ -65,3 +66,4 @@ def main() -> None:
         click.echo(f"Error: {ex}", err=True)
         if g_debug:
             raise ex
+        sys.exit(1)

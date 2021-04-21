@@ -89,11 +89,11 @@ def open_imas(uri: URI, create=False) -> Any:
     path = uri.query.get('path')
     machine = uri.query.get('machine')
     version = uri.query.get('version', '3')
-    if not shot:
+    if shot is None:
         raise KeyError('IDS shot not provided in URI ' + str(uri))
-    if not run:
+    if run is None:
         raise KeyError('IDS run not provided in URI ' + str(uri))
-    if not machine:
+    if machine is None:
         raise KeyError('IDS machine not provided in URI ' + str(uri))
     imas_obj = imas.ids(shot, run)
     if create:
@@ -114,7 +114,10 @@ def imas_timestamp(uri: URI) -> datetime:
     imas_obj.summary.get()
     creation = imas_obj.summary.ids_properties.creation_date
     if creation:
-        creation = datetime.strptime(creation, '%Y-%m-%d %H:%M:%S.%f')
+        try:
+            creation = datetime.strptime(creation, '%Y-%m-%d %H:%M:%S.%f')
+        except ValueError:
+            creation = datetime.strptime(creation, '%d/%m/%Y %H:%M')
     else:
         creation = datetime.now()
     return creation
