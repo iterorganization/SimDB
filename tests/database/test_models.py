@@ -10,8 +10,6 @@ def test_create_simulation_without_manifest_creates_empty_sim():
     assert sim.id is None
     assert sim.uuid is None
     assert sim.alias is None
-    assert sim.datetime is None
-    assert sim.status is None
     assert sim.inputs == []
     assert sim.outputs == []
     assert sim.meta == []
@@ -37,6 +35,6 @@ def test_create_simulation_with_manifest(manifest_cls, data_object_cls):
     assert len(sim.outputs) == 1
     assert sim.outputs[0].type == DataObject.Type.FILE
     assert sim.outputs[0].uri == URI(f'file://{path}')
-    assert len(sim.meta) == 1
+    assert len(sim.meta) == 2
     assert sim.meta[0].element == 'description'
     assert sim.meta[0].value == 'test description'

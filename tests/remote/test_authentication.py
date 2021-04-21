@@ -2,24 +2,42 @@ import pytest
 from unittest import mock
 from simdb.remote import api
 from simdb.config import Config
+try:
+    import easyad
+    has_easyad = True
+except ImportError:
+    has_easyad = False
+try:
+    import flask
+    has_flask = True
+except ImportError:
+    has_flask = False
 
 
 @mock.patch('simdb.config.Config.get_option')
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_check_role(get_option):
-    get_option.return_value = 'user1,"user2", user3'
+    from flask import Flask
+    app = Flask('test')
     config = Config()
-    ok = api.check_role(config, 'user1', 'test_role')
-    assert ok
-    get_option.assert_called_once_with('role.test_role.users', default='')
-    ok = api.check_role(config, 'user4', None)
-    assert ok
-    ok = api.check_role(config, 'user4', 'test_role')
-    assert not ok
+    app.simdb_config = config
+    with app.app_context():
+        get_option.return_value = 'user1,"user2", user3'
+        ok = api.check_role(config, 'user1', 'test_role')
+        assert ok
+        get_option.assert_called_once_with('role.test_role.users', default='')
+        ok = api.check_role(config, 'user4', None)
+        assert ok
+        ok = api.check_role(config, 'user4', 'test_role')
+        assert not ok
 
 
-@mock.patch('easyad.EasyAD')
 @mock.patch('simdb.config.Config.get_option')
-def test_check_auth(get_option, easy_ad):
+@pytest.mark.skipif(not has_easyad, reason="requires easyad library")
+def test_check_auth(get_option):
+    patcher = mock.patch('easyad.EasyAD')
+    easy_ad = patcher.start()
+
     config = Config()
     get_option.side_effect = lambda a: {
         'server.admin_password': 'abc123',
