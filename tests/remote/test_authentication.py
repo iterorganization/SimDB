@@ -50,7 +50,11 @@ def test_check_auth(get_option):
     assert ok
     get_option.assert_called_once_with('server.admin_password')
 
-    easy_ad().authenticate_user.side_effect = lambda u, p, **k: u == "user" and p == "password"
+    def auth(user, password, **kwargs):
+        if user == "user" and password == "password":
+            return {'dn': 'user', 'email': 'user@email.com'}
+        return None
+    easy_ad().authenticate_user.side_effect = auth
 
     ok = api.check_auth(config, "user", "password")
     assert ok
