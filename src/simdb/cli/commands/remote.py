@@ -76,7 +76,7 @@ def remote(config: "Config", ctx: "Context", username: str, password: str, name:
             for option in config.list_options():
                 m = r.match(option)
                 if m:
-                    click.echo(f"{m[1]}: {m[2]}")
+                    click.echo(f"{m[1]}: {m[2]}" + (" (default)" if m[1] == config.default_remote else ""))
         elif delete:
             config.delete_section(f'remote.{name}')
             config.save()
