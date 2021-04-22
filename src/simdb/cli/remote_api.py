@@ -1,7 +1,7 @@
 import os
 import requests
 import json
-from typing import List, Dict, Callable, Tuple, IO, Iterable, Optional, Union
+from typing import List, Dict, Callable, Tuple, IO, Iterable, Optional, Union, Any
 import gzip
 import io
 import urllib3
@@ -9,6 +9,8 @@ import sys
 import click
 from uri import URI
 from requests.auth import AuthBase
+import numpy as np
+import base64
 
 from ..database.models import Simulation, File, Watcher
 from .manifest import DataObject
@@ -17,6 +19,14 @@ from ..validation import Validator, ValidationError
 
 
 urllib3.disable_warnings()
+
+
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj: Any) -> Any:
+        if isinstance(obj, np.ndarray):
+            bytes = base64.b64encode(obj).decode()
+            return {'type': 'numpy.ndarray', 'dtype': obj.dtype.name, 'bytes': bytes}
+        return json.JSONEncoder.default(self, obj)
 
 
 class FailedConnection(RuntimeError):
@@ -132,22 +142,30 @@ class RemoteAPI:
         return res
 
     def put(self, url: str, data: Dict, **kwargs) -> requests.Response:
-        res = requests.put(self._api_url + url, json=data, auth=self._get_auth(), **kwargs)
+        headers = {'Content-type': 'application/json'}
+        res = requests.put(self._api_url + url, data=json.dumps(data, cls=NumpyEncoder), headers=headers,
+                           auth=self._get_auth(), **kwargs)
         check_return(res)
         return res
 
     def post(self, url: str, data: Dict, **kwargs) -> requests.Response:
-        res = requests.post(self._api_url + url, json=data, auth=self._get_auth(), **kwargs)
+        headers = {'Content-type': 'application/json'}
+        res = requests.post(self._api_url + url, data=json.dumps(data, cls=NumpyEncoder), headers=headers,
+                            auth=self._get_auth(), **kwargs)
         check_return(res)
         return res
 
     def patch(self, url: str, data: Dict, **kwargs) -> requests.Response:
-        res = requests.patch(self._api_url + url, json=data, auth=self._get_auth(), **kwargs)
+        headers = {'Content-type': 'application/json'}
+        res = requests.patch(self._api_url + url, data=json.dumps(data, cls=NumpyEncoder), headers=headers,
+                             auth=self._get_auth(), **kwargs)
         check_return(res)
         return res
 
-    def delete(self, url: str, data: Dict) -> requests.Response:
-        res = requests.delete(self._api_url + url, json=data, auth=self._get_auth())
+    def delete(self, url: str, data: Dict, **kwargs) -> requests.Response:
+        headers = {'Content-type': 'application/json'}
+        res = requests.delete(self._api_url + url, data=json.dumps(data, cls=NumpyEncoder), headers=headers,
+                              auth=self._get_auth(), **kwargs)
         check_return(res)
         return res
 
