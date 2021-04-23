@@ -26,7 +26,16 @@ class NumpyDecoder(json.JSONDecoder):
         super().__init__(*args, **kwargs)
 
 
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj: Any) -> Any:
+        if isinstance(obj, np.ndarray):
+            bytes = base64.b64encode(obj).decode()
+            return {'type': 'numpy.ndarray', 'dtype': obj.dtype.name, 'bytes': bytes}
+        return json.JSONEncoder.default(self, obj)
+
+
 app = Flask(__name__)
+app.json_encoder = NumpyEncoder
 app.json_decoder = NumpyDecoder
 app.config.from_mapping(flask_options)
 app.simdb_config = config

@@ -66,7 +66,7 @@ def check_auth(config, username, password) -> Optional[User]:
 
     user = ad.authenticate_user(username, password, json_safe=True)
     if user:
-        return User(user["dn"], user["email"])
+        return User(user["sAMAccountName"], user["mail"])
     else:
         return None
 
@@ -93,7 +93,7 @@ class RequiresAuth:
                     try:
                         token = request.headers['Authorization'].split('JWT-Token')[1]
                         payload = jwt.decode(token.strip(), current_app.config.get('SECRET_KEY'), algorithms=['HS256'])
-                        expires = payload['exp']
+                        expires = datetime.datetime.fromtimestamp(payload['exp'])
                         if datetime.datetime.utcnow() < expires:
                             user = User(payload['sub'], payload['email'])
                         else:
@@ -171,6 +171,7 @@ def token(user: User=Optional[None]):
         'exp': datetime.datetime.utcnow() + datetime.timedelta(days=30),
         'iat': datetime.datetime.utcnow(),
         'sub': auth.username,
+        'email': user.email,
     }
     ret = {
         'status': 'success',
@@ -284,9 +285,15 @@ def _verify_file(sim_uuid: uuid.UUID, sim_file: File, common_root: Path):
             raise ValueError("checksum failed for file %s" % repr(sim_file))
     elif sim_file.type == DataObject.Type.IMAS:
         from ..imas.checksum import checksum as imas_checksum
-        checksum = imas_checksum(sim_file.uri)
+        config = current_app.simdb_config
+        user_folder = current_app.simdb_config.get_option("server.user_upload_folder", default=None)
+        uri = sim_file.uri
+        if user_folder is not None:
+            server_folder = current_app.simdb_config.get_option("server.upload_folder")
+            uri.query['path'] = uri.query['path'].replace(str(user_folder), str(server_folder))
+        checksum = imas_checksum(uri)
         if sim_file.checksum != checksum:
-            raise ValueError("checksum failed for IDS %s" % sim_file.uri)
+            raise ValueError("checksum failed for IDS %s" % uri)
 
 
 @api.route("/files", methods=["POST"])
@@ -383,8 +390,8 @@ def ingest_simulation(user: User=Optional[None]):
                 return response
 
         replaces = simulation.find_meta("replaces")
-        if replaces:
-            sim_id = replaces[0]
+        if replaces and replaces[0].value:
+            sim_id = replaces[0].value
             replaces_sim = api.db.get_simulation(sim_id)
             if replaces_sim is None:
                 raise ValueError(f'Simulation replaces:{sim_id} is not a valid simulation identifier.')
@@ -475,9 +482,12 @@ Updated by {user}.
 @api.route("/staging_dir/<string:sim_hex>", methods=["GET"])
 @requires_auth()
 def get_staging_dir(sim_hex: str, user: User=Optional[None]):
+    upload_dir = current_app.simdb_config.get_option("server.user_upload_folder", default=None)
+    if upload_dir is None:
+        upload_dir = current_app.simdb_config.get_option("server.upload_folder")
     staging_dir = Path(current_app.simdb_config.get_option("server.upload_folder")) / sim_hex
     os.makedirs(staging_dir, exist_ok=True)
-    return jsonify({'staging_dir': str(staging_dir)})
+    return jsonify({'staging_dir': str(Path(upload_dir) / sim_hex)})
 
 
 @api.route("/simulation/<string:sim_id>", methods=["DELETE"])

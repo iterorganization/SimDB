@@ -1,5 +1,6 @@
 import hashlib
 import struct
+import multiprocessing as mp
 from uri import URI
 from typing import cast
 
@@ -39,12 +40,24 @@ def ids_checksum(ids) -> Hash:
     return check
 
 
-def checksum(uri: URI) -> str:
-    if uri.scheme != "imas":
-        raise ValueError("invalid scheme for imas checksum: %s" % uri.scheme)
+def _checksum(q: mp.Queue, uri: URI) -> str:
     imas_obj = open_imas(uri)
     idss = list_idss(imas_obj)
     check = hashlib.sha256()
     for ids in idss:
+        print(f'checksumming {ids}')
         check.update(ids_checksum(ids).digest())
-    return check.hexdigest()
+    imas_obj.close()
+    q.put(check.hexdigest())
+    # return check.hexdigest()
+
+
+def checksum(uri: URI) -> str:
+    if uri.scheme != "imas":
+        raise ValueError("invalid scheme for imas checksum: %s" % uri.scheme)
+    q = mp.Queue()
+    p = mp.Process(target=_checksum, args=(q, uri))
+    p.start()
+    check = q.get()
+    p.join()
+    return check

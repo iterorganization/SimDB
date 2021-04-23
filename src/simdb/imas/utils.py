@@ -63,6 +63,7 @@ def list_idss(imas_obj) -> List[str]:
     for name in (i for i in dir(imas_obj) if not i.startswith('_')):
         if '%s.%s' % (name, name) in str(type(getattr(imas_obj, name))):
             ids = getattr(imas_obj, name)
+            print(f'getting {name}')
             ids.get()
             if not is_missing(ids.ids_properties.homogeneous_time):
                 idss.append(name)
