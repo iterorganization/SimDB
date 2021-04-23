@@ -71,8 +71,10 @@ def list_idss(entry) -> List[str]:
 
 def check_time(entry, ids) -> None:
     homo_time = entry.partial_get(ids, 'ids_properties/homogeneous_time')
-    if homo_time and not entry.partial_get(ids, 'time'):
-        raise ValueError(f'IDS {ids} has homogeneous_time flag set but invalid time entry.')
+    if homo_time:
+        time = entry.partial_get(ids, 'time')
+        if time is None or time.size == 0:
+            raise ValueError(f'IDS {ids} has homogeneous_time flag set but invalid time entry.')
 
 
 def remove_methods(obj) -> List[str]:
@@ -104,7 +106,7 @@ def open_imas(uri: URI, create=False) -> Any:
         raise KeyError('IDS run not provided in URI ' + str(uri))
     if machine is None:
         raise KeyError('IDS machine not provided in URI ' + str(uri))
-    entry = imas.DBEntry(imasdef.MDSPLUS_BACKEND, machine, shot, run, user=(path if path else user),
+    entry = imas.DBEntry(imasdef.MDSPLUS_BACKEND, machine, shot, run, user_name=(path if path else user),
                          data_version=version)
     if create:
         if Path(path).exists():
@@ -129,7 +131,7 @@ def imas_timestamp(uri: URI) -> datetime:
             creation = datetime.strptime(creation, '%d/%m/%Y %H:%M')
     else:
         creation = datetime.now()
-    imas_obj.close()
+    entry.close()
     return creation
 
 
@@ -140,3 +142,6 @@ def copy_imas(from_uri, to_uri):
     for ids in idss:
         ids = from_entry.get(ids)
         to_entry.put(ids)
+    from_entry.close()
+    to_entry.close()
+

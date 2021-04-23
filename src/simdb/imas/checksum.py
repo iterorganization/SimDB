@@ -32,6 +32,9 @@ def walk_imas(imas_obj, check: Hash) -> None:
                 check.update(struct.pack("f", attr))
         elif '__structure' in str(type(attr)):
             walk_imas(attr, check)
+        elif '__structArray' in str(type(attr)):
+            for el in attr:
+                walk_imas(el, check)
 
 
 def ids_checksum(ids) -> Hash:
@@ -41,15 +44,15 @@ def ids_checksum(ids) -> Hash:
 
 
 def _checksum(q: mp.Queue, uri: URI) -> str:
-    imas_obj = open_imas(uri)
-    idss = list_idss(imas_obj)
+    entry = open_imas(uri)
+    idss = list_idss(entry)
     check = hashlib.sha256()
-    for ids in idss:
-        print(f'checksumming {ids}')
+    for name in idss:
+        print(f'checksumming {name}')
+        ids = entry.get(name)
         check.update(ids_checksum(ids).digest())
-    imas_obj.close()
+    entry.close()
     q.put(check.hexdigest())
-    # return check.hexdigest()
 
 
 def checksum(uri: URI) -> str:

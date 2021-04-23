@@ -55,12 +55,14 @@ def walk_imas(ids_node) -> Dict:
     return meta
 
 
-def walk_dict(d: Dict, entry, depth: int, read_values: ReadValues) -> Dict:
+def walk_dict(d: Dict, node, depth: int, read_values: ReadValues) -> Dict:
     meta = {}
-    ids = None
     for (k, v) in d.items():
         if depth == 0:
-            ids = entry.get(k)
+            ids = node.get(k)
+            meta[k] = walk_dict(d[k], ids, depth + 1, read_values)
+            return meta
+
         if k == 'values':
             try:
                 read_values = ReadValues[v.upper()]
@@ -71,17 +73,17 @@ def walk_dict(d: Dict, entry, depth: int, read_values: ReadValues) -> Dict:
             if k not in meta:
                 meta[k] = {}
             for metric in v:
-                meta[k][metric] = fetch_metric(metric, ids)
+                meta[k][metric] = fetch_metric(metric, node)
         elif v == 'value' or (read_values == ReadValues.ALL and k != 'values'):
             if k not in meta:
                 meta[k] = {}
-            meta[k] = getattr(ids, k)
+            meta[k] = getattr(node, k)
 
             if read_values == ReadValues.ALL:
-                meta[k] = walk_imas(ids)
+                meta[k] = walk_imas(node)
         elif k != 'values':
-            child = getattr(ids, k)
-            if 'structArray' in type(child).__name__:
+            child = getattr(node, k)
+            if 'structArray' in str(type(child)):
                 values = []
                 for (i, el) in enumerate(child):
                     values.append(walk_dict(d[k], el, depth + 1, read_values))
@@ -89,7 +91,7 @@ def walk_dict(d: Dict, entry, depth: int, read_values: ReadValues) -> Dict:
             else:
                 meta[k] = walk_dict(d[k], child, depth + 1, read_values)
     if read_values == ReadValues.ALL:
-        return walk_imas(ids)
+        return walk_imas(node)
     return meta
 
 
