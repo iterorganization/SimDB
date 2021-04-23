@@ -58,16 +58,21 @@ def is_missing(value):
     return False
 
 
-def list_idss(imas_obj) -> List[str]:
+def list_idss(entry) -> List[str]:
+    import imas
+    from imas import imasdef
     idss = []
-    for name in (i for i in dir(imas_obj) if not i.startswith('_')):
-        if '%s.%s' % (name, name) in str(type(getattr(imas_obj, name))):
-            ids = getattr(imas_obj, name)
-            print(f'getting {name}')
-            ids.get()
-            if not is_missing(ids.ids_properties.homogeneous_time):
-                idss.append(name)
+    for name in imas.IDSName:
+        value = entry.partial_get(name.value, "ids_properties/homogeneous_time")
+        if value != imasdef.EMPTY_INT:
+            idss.append(name.value)
     return idss
+
+
+def check_time(entry, ids) -> None:
+    homo_time = entry.partial_get(ids, 'ids_properties/homogeneous_time')
+    if homo_time and not entry.partial_get(ids, 'time'):
+        raise ValueError(f'IDS {ids} has homogeneous_time flag set but invalid time entry.')
 
 
 def remove_methods(obj) -> List[str]:
@@ -82,8 +87,11 @@ def remove_methods(obj) -> List[str]:
 def open_imas(uri: URI, create=False) -> Any:
     import os
     import imas
+    from imas import imasdef
+
     if uri.scheme != "imas":
         raise ValueError("invalid imas URI scheme: %s" % uri.scheme)
+
     shot = int(uri.query.get('shot'))
     run = int(uri.query.get('run'))
     user = uri.query.get('user', os.environ['USER'])
@@ -96,24 +104,24 @@ def open_imas(uri: URI, create=False) -> Any:
         raise KeyError('IDS run not provided in URI ' + str(uri))
     if machine is None:
         raise KeyError('IDS machine not provided in URI ' + str(uri))
-    imas_obj = imas.ids(shot, run)
+    entry = imas.DBEntry(imasdef.MDSPLUS_BACKEND, machine, shot, run, user=(path if path else user),
+                         data_version=version)
     if create:
         if Path(path).exists():
             (Path(path) / machine / '3' / '0').mkdir(parents=True)
-        (status, _) = imas_obj.create_env(path if path else user, machine, version)
+        (status, _) = entry.create()
         if status != 0:
             raise ImasError("failed to create IMAS data with URI {}".format(uri))
     else:
-        (status, _) = imas_obj.open_env(path if path else user, machine, version)
+        (status, _) = entry.open()
         if status != 0:
             raise ImasError("failed to open IMAS data with URI {}".format(uri))
-    return imas_obj
+    return entry
 
 
 def imas_timestamp(uri: URI) -> datetime:
-    imas_obj = open_imas(uri)
-    imas_obj.summary.get()
-    creation = imas_obj.summary.ids_properties.creation_date
+    entry = open_imas(uri)
+    creation = entry.partial_get('summary', 'ids_properties/creation_date')
     if creation:
         try:
             creation = datetime.strptime(creation, '%Y-%m-%d %H:%M:%S.%f')
@@ -126,14 +134,9 @@ def imas_timestamp(uri: URI) -> datetime:
 
 
 def copy_imas(from_uri, to_uri):
-    from_obj = open_imas(from_uri)
-    to_obj = open_imas(to_uri, create=True)
-    idss = list_idss(from_obj)
+    from_entry = open_imas(from_uri)
+    to_entry = open_imas(to_uri, create=True)
+    idss = list_idss(from_entry)
     for ids in idss:
-        print(f'Copying IDS {ids}')
-        # getattr(from_obj, ids).get()
-        getattr(to_obj, ids).copyValues(getattr(from_obj, ids))
-        getattr(to_obj, ids).put()
-    from_obj.close()
-    to_obj.close()
-
+        ids = from_entry.get(ids)
+        to_entry.put(ids)

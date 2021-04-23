@@ -3,17 +3,15 @@ import uuid
 import sys
 from collections.abc import Iterable
 from datetime import datetime
-from itertools import chain
-from typing import List, Union, Dict, Any, Type, TYPE_CHECKING
+from typing import List, Union, Dict, Any, TYPE_CHECKING
 from getpass import getuser
 
 import numpy as np
-from dateutil import parser as date_parser
 from sqlalchemy import Column, types as sql_types, Table, ForeignKey
 from sqlalchemy.orm import relationship
 
 from .utils import flatten_dict, unflatten_dict, checked_get
-from .types import UUID, ChoiceType
+from .types import UUID
 from .base import Base
 from .file import File
 from ...cli.manifest import Manifest, DataObject
@@ -52,27 +50,14 @@ class Simulation(Base):
         PASSED = 'passed'
         DEPRECATED = 'deprecated'
 
-    # STATUS_CHOICES = {
-    #     Status.INVALIDATED:   'I',
-    #     Status.ACCEPTED:      'A',
-    #     Status.FAILED:        'F',
-    #     Status.PASSED:        'P',
-    #     Status.DEPRECATED:    'D',
-    # }
-
     __tablename__ = "simulations"
     id = Column(sql_types.Integer, primary_key=True)
     uuid = Column(UUID, nullable=False, unique=True)
     alias: str = Column(sql_types.String(250), nullable=True, unique=True)
-    # user: str = Column(sql_types.String(250), nullable=False, unique=False)
-    # datetime = Column(sql_types.DateTime, nullable=False)
-    # status = Column(ChoiceType(choices=STATUS_CHOICES, length=1, enum_type=Status), nullable=False)
     inputs: List["File"] = relationship("File", secondary=simulation_input_files)
     outputs: List["File"] = relationship("File", secondary=simulation_output_files)
     meta: List["MetaData"] = relationship("MetaData")
     watchers = relationship("Watcher", secondary=simulation_watchers, lazy='dynamic')
-    # replaces_id = Column(sql_types.Integer, ForeignKey('simulations.id'), nullable=True)
-    # replaces = relationship("Simulation", remote_side=[id], backref='replaced_by')
 
     def __init__(self, manifest: Union[Manifest, None]) -> None:
         """
@@ -98,13 +83,16 @@ class Simulation(Base):
         for output in manifest.outputs:
             self.outputs.append(File(output.type, output.uri))
             if output.type == DataObject.Type.IMAS:
-                from ...imas.utils import open_imas, list_idss
+                from ...imas.utils import open_imas, list_idss, check_time
                 from ...imas.metadata import load_metadata
-                imas_obj = open_imas(output.uri)
-                idss = list_idss(imas_obj)
+                entry = open_imas(output.uri)
+                idss = list_idss(entry)
+                for ids in idss:
+                    check_time(entry, ids)
+
                 self.meta.append(MetaData('ids', '[%s]' % ', '.join(idss)))
 
-                meta = load_metadata(imas_obj)
+                meta = load_metadata(entry)
                 flattened_meta: Dict[str, str] = {}
                 flatten_dict(flattened_meta, meta)
 
@@ -164,13 +152,9 @@ class Simulation(Base):
     @classmethod
     def from_data(cls, data: Dict[str, Union[str, Dict, List]]) -> "Simulation":
         from .metadata import MetaData
-        from .watcher import Watcher
         simulation = Simulation(None)
         simulation.uuid = uuid.UUID(checked_get(data, "uuid", str))
         simulation.alias = checked_get(data, "alias", str)
-        # simulation.user = checked_get(data, "user", str)
-        # simulation.datetime = date_parser.parse(checked_get(data, "datetime", str))
-        # simulation.status = checked_get(data, "status", str)
         if "inputs" in data:
             inputs = checked_get(data, "inputs", list)
             simulation.inputs = [File.from_data(el) for el in inputs]
@@ -189,9 +173,6 @@ class Simulation(Base):
         data = dict(
             uuid=self.uuid.hex,
             alias=self.alias,
-            # user=self.user,
-            # datetime=self.datetime.isoformat(),
-            # status=self.status,
         )
         if recurse:
             data["inputs"] = [f.data(recurse=True) for f in self.inputs]

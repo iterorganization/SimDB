@@ -4,8 +4,6 @@ from typing import Dict, Any, List
 from pathlib import Path
 from enum import Enum
 
-from .utils import is_missing
-
 
 class MetricException(Exception):
     pass
@@ -29,33 +27,40 @@ class ReadValues(Enum):
     SELECTED = 2
 
 
-def walk_imas(imas_obj) -> Dict:
+def walk_imas(ids_node) -> Dict:
+    import imasdef
     meta = {}
-    for name in (i for i in dir(imas_obj) if not i.startswith('_')):
-        attr = getattr(imas_obj, name)
+    for name in (i for i in dir(ids_node) if not i.startswith('_')):
+        attr = getattr(ids_node, name)
         meta[name] = {}
         if 'numpy.ndarray' in str(type(attr)):
             if attr.size != 0:
                 meta[name] = attr
-        if type(attr) == int:
-            if attr != -999999999:
+        elif type(attr) == int:
+            if attr != imasdef.EMPTY_INT:
                 meta[name] = attr
-        if type(attr) == str:
+        elif type(attr) == str:
             if attr:
                 meta[name] = attr
-        if type(attr) == float:
-            if attr != -9e+40:
+        elif type(attr) == float:
+            if attr != imasdef.EMPTY_FLOAT:
                 meta[name] = attr
         elif '__structure' in str(type(attr)):
             meta[name] = walk_imas(attr)
+        elif '__structArray' in str(type(attr)):
+            values = []
+            for el in attr:
+                values.append(walk_imas(el))
+            meta[name] = values
     return meta
 
 
-def walk_dict(d: Dict, imas_obj, depth: int, read_values: ReadValues) -> Dict:
+def walk_dict(d: Dict, entry, depth: int, read_values: ReadValues) -> Dict:
     meta = {}
+    ids = None
     for (k, v) in d.items():
         if depth == 0:
-            getattr(imas_obj, k).get()
+            ids = entry.get(k)
         if k == 'values':
             try:
                 read_values = ReadValues[v.upper()]
@@ -66,16 +71,16 @@ def walk_dict(d: Dict, imas_obj, depth: int, read_values: ReadValues) -> Dict:
             if k not in meta:
                 meta[k] = {}
             for metric in v:
-                meta[k][metric] = fetch_metric(metric, imas_obj)
+                meta[k][metric] = fetch_metric(metric, ids)
         elif v == 'value' or (read_values == ReadValues.ALL and k != 'values'):
             if k not in meta:
                 meta[k] = {}
-            meta[k] = getattr(imas_obj, k)
+            meta[k] = getattr(ids, k)
 
             if read_values == ReadValues.ALL:
-                meta[k] = walk_imas(imas_obj)
+                meta[k] = walk_imas(ids)
         elif k != 'values':
-            child = getattr(imas_obj, k)
+            child = getattr(ids, k)
             if 'structArray' in type(child).__name__:
                 values = []
                 for (i, el) in enumerate(child):
@@ -84,14 +89,14 @@ def walk_dict(d: Dict, imas_obj, depth: int, read_values: ReadValues) -> Dict:
             else:
                 meta[k] = walk_dict(d[k], child, depth + 1, read_values)
     if read_values == ReadValues.ALL:
-        return walk_imas(imas_obj)
+        return walk_imas(ids)
     return meta
 
 
-def load_metadata(imas_obj):
+def load_metadata(entry):
     with open(Path(__file__).absolute().parent / 'imas_metadata.yaml') as f:
         text = f.read()
 
     data = yaml.safe_load(text)
-    meta = walk_dict(data, imas_obj, 0, ReadValues.SELECTED)
+    meta = walk_dict(data, entry, 0, ReadValues.SELECTED)
     return meta
