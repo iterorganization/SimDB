@@ -120,6 +120,7 @@ def imas_timestamp(uri: URI) -> datetime:
             creation = datetime.strptime(creation, '%d/%m/%Y %H:%M')
     else:
         creation = datetime.now()
+    imas_obj.close()
     return creation
 
 
@@ -128,6 +129,10 @@ def copy_imas(from_uri, to_uri):
     to_obj = open_imas(to_uri, create=True)
     idss = list_idss(from_obj)
     for ids in idss:
-        getattr(from_obj, ids).get()
+        print(f'Copying IDS {ids}')
+        # getattr(from_obj, ids).get()
         getattr(to_obj, ids).copyValues(getattr(from_obj, ids))
         getattr(to_obj, ids).put()
+    from_obj.close()
+    to_obj.close()
+

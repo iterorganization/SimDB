@@ -21,12 +21,26 @@ from ..validation import Validator, ValidationError
 urllib3.disable_warnings()
 
 
+def numpy_hook(obj: Dict) -> Any:
+    if 'type' in obj and obj['type'] == 'numpy.ndarray':
+        bytes = base64.decodebytes(obj['bytes'].encode())
+        return np.frombuffer(bytes, dtype=obj['dtype'])
+    return obj
+
+
+class NumpyDecoder(json.JSONDecoder):
+    def __init__(self, *args, **kwargs):
+        kwargs['object_hook'] = numpy_hook
+        super().__init__(*args, **kwargs)
+
+
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj: Any) -> Any:
         if isinstance(obj, np.ndarray):
             bytes = base64.b64encode(obj).decode()
             return {'type': 'numpy.ndarray', 'dtype': obj.dtype.name, 'bytes': bytes}
         return json.JSONEncoder.default(self, obj)
+
 
 
 class FailedConnection(RuntimeError):
@@ -192,12 +206,12 @@ class RemoteAPI:
     @try_request
     def list_simulations(self) -> List[Simulation]:
         res = self.get("simulations")
-        return [Simulation.from_data(sim) for sim in res.json()]
+        return [Simulation.from_data(sim) for sim in res.json(cls=NumpyDecoder)]
 
     @try_request
     def get_simulation(self, sim_id: str) -> Simulation:
         res = self.get("simulation/" + sim_id)
-        return Simulation.from_data(res.json())
+        return Simulation.from_data(res.json(cls=NumpyDecoder))
 
     @try_request
     def query_simulations(self, constraints: List[str]) -> List[Simulation]:
@@ -207,7 +221,7 @@ class RemoteAPI:
             params[key] = value
 
         res = self.get("simulations", params)
-        return [Simulation.from_data(sim) for sim in res.json()]
+        return [Simulation.from_data(sim) for sim in res.json(cls=NumpyDecoder)]
 
     @try_request
     def delete_simulation(self, sim_id: str) -> Dict:

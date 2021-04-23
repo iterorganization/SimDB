@@ -60,7 +60,7 @@ def remote(config: "Config", ctx: "Context", username: str, password: str, name:
 
     If NAME is provided this determines which remote server to communicate with, otherwise the server in the config file
     with default=True is used."""
-    if not ctx.args and not any(is_empty(i) for i in ctx.params.values()):
+    if not ctx.invoked_subcommand and not any(is_empty(i) for i in ctx.params.values()):
         click.echo(ctx.get_help())
     elif '--help' not in click.get_os_args():
         if get_default:
@@ -80,7 +80,7 @@ def remote(config: "Config", ctx: "Context", username: str, password: str, name:
         elif delete:
             config.delete_section(f'remote.{name}')
             config.save()
-        elif ctx.args:
+        elif ctx.invoked_subcommand:
             ctx.obj = RemoteAPI(name, username, password, config)
 
 
