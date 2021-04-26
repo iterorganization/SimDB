@@ -62,10 +62,9 @@ def _checksum(q: mp.Queue, uri: URI) -> str:
     idss = list_idss(entry)
     check = hashlib.sha256()
     for name in idss:
+        print(f'Checksumming {name}')
         ids = entry.get(name)
-        ids_sum = ids_checksum(ids).digest()
-        print(f'Checksumming {name} = {ids_sum}')
-        check.update(ids_sum)
+        check.update(ids_checksum(ids).digest())
     entry.close()
     q.put(check.hexdigest())
 
