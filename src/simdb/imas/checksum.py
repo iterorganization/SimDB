@@ -7,6 +7,9 @@ from typing import cast
 from .utils import open_imas, list_idss
 
 
+IGNORED_FIELDS = ('data_dictionary', 'access_layer', 'access_layer_language')
+
+
 class Hash:
     def digest(self) -> bytes:
         pass
@@ -16,18 +19,29 @@ class Hash:
 
 
 def walk_imas(imas_obj, check: Hash) -> None:
+    from imas import imasdef
+    import numpy as np
+
     for name in (i for i in dir(imas_obj) if not i.startswith('_')):
+        if name in IGNORED_FIELDS:
+            continue
         attr = getattr(imas_obj, name)
         if 'numpy.ndarray' in str(type(attr)):
             if attr.size != 0:
+                if attr.dtype == np.int32:
+                    attr[np.isnan(attr)] = imasdef.EMPTY_INT
+                elif attr.dtype == np.float32:
+                    attr[np.isnan(attr)] = imasdef.EMPTY_FLOAT
+                elif attr.dtype == np.float64:
+                    attr[np.isnan(attr)] = imasdef.EMPTY_DOUBLE
                 check.update(attr.tobytes())
-        if type(attr) == int:
+        elif type(attr) == int:
             if attr != -999999999:
                 check.update(struct.pack("<l", attr))
-        if type(attr) == str:
+        elif type(attr) == str:
             if attr:
                 check.update(attr.encode())
-        if type(attr) == float:
+        elif type(attr) == float:
             if attr != -9e+40:
                 check.update(struct.pack("f", attr))
         elif '__structure' in str(type(attr)):
@@ -48,9 +62,10 @@ def _checksum(q: mp.Queue, uri: URI) -> str:
     idss = list_idss(entry)
     check = hashlib.sha256()
     for name in idss:
-        print(f'checksumming {name}')
         ids = entry.get(name)
-        check.update(ids_checksum(ids).digest())
+        ids_sum = ids_checksum(ids).digest()
+        print(f'Checksumming {name} = {ids_sum}')
+        check.update(ids_sum)
     entry.close()
     q.put(check.hexdigest())
 
