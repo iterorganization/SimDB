@@ -33,7 +33,7 @@ pip3 install ./simdb
 Installing directly from git:
 
 ```
-pip3 install git+ssh://git@git.iter.org/imex/simdb.git@develop
+pip3 install git+ssh://git@git.iter.org/imex/simdb.git@master
 ```
 
 You should then be able to run the command:

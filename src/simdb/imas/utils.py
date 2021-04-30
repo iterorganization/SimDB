@@ -94,20 +94,24 @@ def open_imas(uri: URI, create=False) -> Any:
     if uri.scheme != "imas":
         raise ValueError("invalid imas URI scheme: %s" % uri.scheme)
 
-    shot = int(uri.query.get('shot'))
-    run = int(uri.query.get('run'))
+    shot = uri.query.get('shot') or uri.query.get('pulse')
+    run = uri.query.get('run')
     user = uri.query.get('user', os.environ['USER'])
     path = uri.query.get('path')
-    machine = uri.query.get('machine')
+    machine = uri.query.get('database') or uri.query.get('machine')
     version = uri.query.get('version', '3')
+
     if shot is None:
-        raise KeyError('IDS shot not provided in URI ' + str(uri))
+        raise KeyError('IDS pulse or shot not provided in URI ' + str(uri))
     if run is None:
         raise KeyError('IDS run not provided in URI ' + str(uri))
     if machine is None:
-        raise KeyError('IDS machine not provided in URI ' + str(uri))
-    entry = imas.DBEntry(imasdef.MDSPLUS_BACKEND, machine, shot, run, user_name=(path if path else user),
-                         data_version=version)
+        raise KeyError('IDS database or machine not provided in URI ' + str(uri))
+
+    shot = int(shot)
+    run = int(run)
+
+    entry = imas.DBEntry(imasdef.MDSPLUS_BACKEND, machine, shot, run, user_name=(path or user), data_version=version)
     if create:
         if Path(path).exists():
             (Path(path) / machine / '3' / '0').mkdir(parents=True)
