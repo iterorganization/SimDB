@@ -48,9 +48,9 @@ def is_empty(value) -> bool:
 @click.option("--username", help="Username used to authenticate with the remote.")
 @click.option("--password", help="Password used to authenticate with the remote.")
 @optgroup.group("Remote options", cls=MutuallyExclusiveOptionGroup, help="Commands for managing remotes")
-@optgroup.option("--set-default", help="Set the remote as the default.")
+@optgroup.option("--set-default", help="Set the remote as the default.", metavar='NAME')
 @optgroup.option("--get-default", is_flag=True, help="Print the currently set default remote.")
-@optgroup.option("--new", type=(str, str), default=('', ''), help="Create a new default.")
+@optgroup.option("--new", type=(str, str), default=('', ''), help="Create a new default.", metavar='NAME URL')
 @optgroup.option("--delete", is_flag=True, help="Delete a registered remote.")
 @optgroup.option("--list", is_flag=True, help="List all registered remotes.")
 @click.argument("name", required=False)
@@ -146,7 +146,8 @@ def add_watcher(config: "Config", api: RemoteAPI, sim_id: str, user: Optional[st
 @remote.command("list", cls=RemoteSubCommand)
 @pass_api
 @pass_config
-@click.option("-m", "--meta-data", "meta", help="Additional meta-data field to print.", multiple=True, default=[])
+@click.option("-m", "--meta-data", "meta", help="Additional meta-data field to print.", multiple=True, default=[],
+              metavar='NAME')
 def remote_list(config: "Config", api: RemoteAPI, meta: List[str]):
     """List simulations available on remote."""
     simulations = api.list_simulations()
