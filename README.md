@@ -8,6 +8,10 @@ SimDB consists of a command line interface (CLI) tool which interacts with one o
 
 For details on how to install the CLI see [here](docs/install_guide.md) and for information on how to use the CLI see [here](docs/user_guide.md).
 
+### Installing ITER certificate
+
+To work with the ITER remote you'll need to install the ITER SSL certificate. Details for how to do this canbe found [here](docs/iter_certificate.md).
+
 ## Server setup
 
 For information on setting and maintaining a remote CLI server see [here](docs/maintenance_guide.md).
