@@ -182,7 +182,20 @@ def simulation_push(config: Config, remote: Optional[str], sim_id: str, username
 @pass_config
 @click.argument("constraint", nargs=-1)
 def simulation_query(config: Config, constraint: str):
-    """Query the simulations.
+    """Perform a metadata query to find matching local simulations.
+
+    \b
+    Each constraint must be in the form:
+        NAME=[mod]VALUE
+
+    \b
+    Where [mod] is 0 or more query modifiers. Available query modifiers are:
+        in: - This searches inside the value instead of looking for exact matches.
+
+    \b
+    Examples:
+        responsible_name=foo        performs exact match
+        responsible_name=in:foo     matches all names containing foo
     """
     if not constraint:
         raise click.ClickException("At least one constraint must be provided.")
