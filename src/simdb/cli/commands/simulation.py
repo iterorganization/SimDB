@@ -126,13 +126,17 @@ def simulation_ingest(config: Config, manifest_file: str, alias: str):
     import urllib.parse
     from ...database import get_local_db
     from ...database.models import Simulation
-    from ..manifest import Manifest
+    from ..manifest import Manifest, InvalidAlias
 
     manifest = Manifest()
     manifest.load(Path(manifest_file))
-    manifest.validate()
+    try:
+        manifest.validate()
+    except InvalidAlias:
+        if not alias:
+            raise 
 
-    simulation = Simulation(manifest)
+    simulation = Simulation(manifest, config)
     if alias:
         simulation.alias = alias
 

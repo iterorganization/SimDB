@@ -31,14 +31,14 @@ class File(Base):
     embargo = Column(sql_types.String(20), nullable=True)
     datetime = Column(sql_types.DateTime, nullable=False)
 
-    def __init__(self, type: DataObject.Type, uri: urilib.URI, perform_integrity_check: bool=True) -> None:
+    def __init__(self, type: DataObject.Type, uri: urilib.URI, perform_integrity_check: bool=True, config=None) -> None:
         self.uuid = uuid.uuid1()
         self.uri = uri
         self.type = type
 
         if perform_integrity_check:
             self.datetime = self.get_creation_date()
-            self.checksum = self.generate_checksum()
+            self.checksum = self.generate_checksum(config)
 
     def __str__(self):
         result = ""
@@ -51,7 +51,9 @@ class File(Base):
         result = f"{self.uuid} ({self.uri})"
         return result
 
-    def generate_checksum(self):
+    def generate_checksum(self, config):
+        if config and config.get_option('development.disable_checksum', default=False):
+            return ''
         if self.type == DataObject.Type.UDA:
             from ...uda.checksum import checksum as uda_checksum
             checksum = uda_checksum(self.uri)

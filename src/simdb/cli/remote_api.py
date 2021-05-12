@@ -293,10 +293,15 @@ class RemoteAPI:
                 file_data['uri'] = str(out_uri)
             else:
                 raise Exception('Failed to find file in simulation')
-            self.post("files", data={
-                'simulation': sim_data,
-                'files': [{'file_type': file_type, 'file_uuid': file.uuid.hex}]
-            })
+            try:
+                self.post("files", data={
+                    'simulation': sim_data,
+                    'files': [{'file_type': file_type, 'file_uuid': file.uuid.hex}]
+                })
+            except:
+                # While IMAS requires a local file copy we need to remove it if the remote validation fails.
+                shutil.rmtree(data['staging_dir']) 
+                raise
 
     @try_request
     def push_simulation(self, simulation: Simulation, out_stream: IO=sys.stdout) -> None:

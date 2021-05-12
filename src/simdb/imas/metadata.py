@@ -10,7 +10,6 @@ class MetricException(Exception):
 
 
 def fetch_metric(metric: str, imas_obj) -> Any:
-    print(type(imas_obj))
     metrics = {
         'len': lambda x: len(x),
         'max': lambda x: max(x),

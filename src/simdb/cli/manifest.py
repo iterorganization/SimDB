@@ -10,8 +10,13 @@ from pathlib import Path
 
 
 class InvalidManifest(Exception):
+    """Exception to throw when a manifest fails to validate.
     """
-    Exception to throw when a manifest fails to validate.
+    pass
+
+
+class InvalidAlias(InvalidManifest):
+    """Exception to throw when the alias specified in the manifest is invalid.
     """
     pass
 
@@ -211,7 +216,7 @@ class AliasValidator(ManifestValidator):
         if not isinstance(value, str):
             raise InvalidManifest("alias must be a string")
         if urllib.parse.quote(value) != value:
-            raise InvalidManifest("illegal characters in alias: %s" % value)
+            raise InvalidAlias("illegal characters in alias: %s" % value)
 
 
 class DescriptionValidator(ManifestValidator):

@@ -20,6 +20,37 @@ def alias():
 @alias.command(cls=AliasCommand)
 @pass_config
 @click.argument("remote", required=False)
+@click.argument("alias")
+@click.option("--username", help="Username used to authenticate with the remote.")
+@click.option("--password", help="Password used to authenticate with the remote.")
+def make_unique(config, remote, alias, username, password):
+    """Make the given alias unique, checking locally stored simulations and the remote.
+    """
+    from ..remote_api import RemoteAPI
+    from ...database import get_local_db
+    
+    trans = str.maketrans("#/()=,*%", "________")
+    alias = alias.translate(trans)
+
+    api = RemoteAPI(remote, username, password, config)
+    simulations = api.list_simulations()
+
+    db = get_local_db(config)
+    simulations += db.list_simulations()
+
+    aliases = [sim.alias for sim in simulations]
+    n = 1
+    base = alias
+    while alias in aliases:
+        alias = f'{base}-{n}'
+        n += 1
+
+    click.echo(alias)
+
+
+@alias.command(cls=AliasCommand)
+@pass_config
+@click.argument("remote", required=False)
 @click.argument("value")
 @click.option("--username", help="Username used to authenticate with the remote.")
 @click.option("--password", help="Password used to authenticate with the remote.")

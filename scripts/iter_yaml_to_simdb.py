@@ -3,6 +3,7 @@ import yaml
 
 def map_status(status):
     return {
+        'draft': 'invalidated',
         'active': 'accepted',
         'obsolete': 'deprecated',
     }[status]
@@ -11,7 +12,7 @@ def map_status(status):
 def get_meta(data):
     meta = {
         'device': 'ITER',
-        'workflow': {'name': data['characteristics']['workflow']},
+        'workflow': {'name': data['characteristics']['workflow'], 'type': data['characteristics']['type']},
         'description': Literal(data['free_description']),
         'status': map_status(data['status']),
         'reference_name': data['reference_name'],
@@ -19,6 +20,9 @@ def get_meta(data):
         'scenario_key_parameters': data['scenario_key_parameters'],
         'hcd': data['hcd'],
         'plasma_composition': data['plasma_composition'],
+        'shot': data['characteristics']['shot'],
+        'run': data['characteristics']['run'],
+        'database': data['characteristics']['machine'],
     }
     if 'database_relations' in data:
         meta['replaces'] = data['database_relations']['replaces']
@@ -38,7 +42,7 @@ yaml.add_representer(Literal, literal_presenter)
 
 
 def to_uri(**kwargs):
-    return 'imas:?machine={machine}&user=public&shot={shot}&run={run}'.format(**kwargs)
+    return 'imas:?database={machine}&user=public&shot={shot}&run={run}'.format(**kwargs)
 
 
 def main(args):

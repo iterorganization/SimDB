@@ -16,6 +16,7 @@ from .base import Base
 from .file import File
 from ...cli.manifest import Manifest, DataObject
 from ...docstrings import inherit_docstrings
+from ...config.config import Config
 
 
 if TYPE_CHECKING or 'sphinx' in sys.modules:
@@ -59,7 +60,7 @@ class Simulation(Base):
     meta: List["MetaData"] = relationship("MetaData")
     watchers = relationship("Watcher", secondary=simulation_watchers, lazy='dynamic')
 
-    def __init__(self, manifest: Union[Manifest, None]) -> None:
+    def __init__(self, manifest: Union[Manifest, None], config: Config) -> None:
         """
         Initialise a new Simulation object using the provided Manifest.
 
@@ -78,10 +79,10 @@ class Simulation(Base):
             self.alias = manifest.alias
 
         for input in manifest.inputs:
-            self.inputs.append(File(input.type, input.uri))
+            self.inputs.append(File(input.type, input.uri, config=config))
 
         for output in manifest.outputs:
-            self.outputs.append(File(output.type, output.uri))
+            self.outputs.append(File(output.type, output.uri, config=config))
             if output.type == DataObject.Type.IMAS:
                 from ...imas.utils import open_imas, list_idss, check_time
                 from ...imas.metadata import load_metadata
