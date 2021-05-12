@@ -3,7 +3,7 @@ import uuid
 import sys
 from collections.abc import Iterable
 from datetime import datetime
-from typing import List, Union, Dict, Any, TYPE_CHECKING
+from typing import List, Union, Dict, Any, TYPE_CHECKING, Optional
 from getpass import getuser
 
 import numpy as np
@@ -60,7 +60,7 @@ class Simulation(Base):
     meta: List["MetaData"] = relationship("MetaData")
     watchers = relationship("Watcher", secondary=simulation_watchers, lazy='dynamic')
 
-    def __init__(self, manifest: Union[Manifest, None], config: Config) -> None:
+    def __init__(self, manifest: Union[Manifest, None], config: Optional[Config]=None) -> None:
         """
         Initialise a new Simulation object using the provided Manifest.
 

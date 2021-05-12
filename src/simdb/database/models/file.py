@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Dict
+from typing import Dict, Optional
 from pathlib import Path
 
 import uri as urilib
@@ -11,6 +11,7 @@ from ...cli.manifest import DataObject
 from .base import Base
 from .types import UUID, URI
 from ...docstrings import inherit_docstrings
+from ...config.config import Config
 
 
 @inherit_docstrings
@@ -31,7 +32,8 @@ class File(Base):
     embargo = Column(sql_types.String(20), nullable=True)
     datetime = Column(sql_types.DateTime, nullable=False)
 
-    def __init__(self, type: DataObject.Type, uri: urilib.URI, perform_integrity_check: bool=True, config=None) -> None:
+    def __init__(self, type: DataObject.Type, uri: urilib.URI, perform_integrity_check: bool=True,
+                 config: Optional[Config]=None) -> None:
         self.uuid = uuid.uuid1()
         self.uri = uri
         self.type = type

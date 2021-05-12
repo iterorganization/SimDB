@@ -52,7 +52,7 @@ def test_check_auth(get_option):
 
     def auth(user, password, **kwargs):
         if user == "user" and password == "password":
-            return {'dn': 'user', 'email': 'user@email.com'}
+            return {'sAMAccountName': 'user', 'mail': 'user@email.com'}
         return None
     easy_ad().authenticate_user.side_effect = auth
 
