@@ -23,7 +23,7 @@ class File(Base):
     uuid = Column(UUID, nullable=False, unique=True)
     usage = Column(sql_types.String(250), nullable=True)
     uri: urilib.URI = Column(URI(1024), nullable=True)
-    checksum = Column(sql_types.String(40), nullable=True)
+    checksum = Column(sql_types.String(64), nullable=True)
     type: DataObject.Type = Column(sql_types.Enum(DataObject.Type), nullable=True)
     purpose = Column(sql_types.String(250), nullable=True)
     sensitivity = Column(sql_types.String(20), nullable=True)

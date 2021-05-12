@@ -96,7 +96,7 @@ def open_imas(uri: URI, create=False) -> Any:
 
     shot = uri.query.get('shot') or uri.query.get('pulse')
     run = uri.query.get('run')
-    user = uri.query.get('user', os.environ['USER'])
+    user = uri.query.get('user', os.environ.get('USER', None))
     path = uri.query.get('path')
     machine = uri.query.get('database') or uri.query.get('machine')
     version = uri.query.get('version', '3')

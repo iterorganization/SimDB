@@ -275,6 +275,8 @@ def _set_alias(alias: str):
 
 
 def _verify_file(sim_uuid: uuid.UUID, sim_file: File, common_root: Path):
+    if current_app.simdb_config.get_option("development.disable_checksum", default=False):
+        return
     staging_dir = Path(current_app.simdb_config.get_option("server.upload_folder")) / sim_uuid.hex
     if sim_file.type == DataObject.Type.FILE:
         path = _secure_path(sim_file.uri.path, common_root, staging_dir)
@@ -390,14 +392,15 @@ def ingest_simulation(user: User=Optional[None]):
                 return response
 
         replaces = simulation.find_meta("replaces")
-        if replaces and replaces[0].value:
-            sim_id = replaces[0].value
-            replaces_sim = api.db.get_simulation(sim_id)
-            if replaces_sim is None:
-                raise ValueError(f'Simulation replaces:{sim_id} is not a valid simulation identifier.')
-            _update_simulation_status(replaces_sim, Simulation.status.DEPRECATED, user)
-            replaces_sim.set_meta('replaced_by', simulation.uuid)
-            api.db.insert_simulation(replaces_sim)
+        if not current_app.simdb_config.get_option("development.disable_replaces", default=False):
+            if replaces and replaces[0].value:
+                sim_id = replaces[0].value
+                replaces_sim = api.db.get_simulation(sim_id)
+                if replaces_sim is None:
+                    raise ValueError(f'Simulation replaces:{sim_id} is not a valid simulation identifier.')
+                _update_simulation_status(replaces_sim, Simulation.status.DEPRECATED, user)
+                replaces_sim.set_meta('replaced_by', simulation.uuid)
+                api.db.insert_simulation(replaces_sim)
 
         api.db.insert_simulation(simulation)
 
@@ -483,10 +486,16 @@ Updated by {user}.
 @requires_auth()
 def get_staging_dir(sim_hex: str, user: User=Optional[None]):
     upload_dir = current_app.simdb_config.get_option("server.user_upload_folder", default=None)
+    user_folder = True
     if upload_dir is None:
         upload_dir = current_app.simdb_config.get_option("server.upload_folder")
+        user_folder = False
     staging_dir = Path(current_app.simdb_config.get_option("server.upload_folder")) / sim_hex
     os.makedirs(staging_dir, exist_ok=True)
+    # This needs to be done for ITER at the moment but should be removed once we can actually push IMAS data rather
+    # than having to do a local copy onto the server directory.
+    if user_folder:
+        os.chmod(staging_dir, 0o777)
     return jsonify({'staging_dir': str(Path(upload_dir) / sim_hex)})
 
 
