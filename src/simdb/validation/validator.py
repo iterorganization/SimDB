@@ -1,7 +1,6 @@
 import cerberus
 import yaml
 import appdirs
-import numpy
 from pathlib import Path
 from ..database.models import Simulation
 from typing import Dict
@@ -19,12 +18,11 @@ class ValidationError(Exception):
     pass
 
 
-numpy_type = cerberus.TypeDefinition('numpy', (numpy.ndarray,), ())
-
-
 class CustomValidator(cerberus.Validator):
+    import numpy as np
+
     types_mapping = cerberus.Validator.types_mapping.copy()
-    types_mapping['numpy'] = numpy_type
+    types_mapping['numpy'] = cerberus.TypeDefinition('numpy', (np.ndarray,), ())
 
     def _validate_exists(self, check_exists, field, value):
         """ The rule's arguments are validated against this schema:
@@ -44,7 +42,8 @@ class CustomValidator(cerberus.Validator):
         """The rule's arguments are validated against this schema:
         {'type': 'float'}
         """
-        if not isinstance(value, numpy.ndarray):
+        import numpy as np
+        if not isinstance(value, np.ndarray):
             self._error(field, "Value is not a numpy array")
         if min_value is not None and value.min() < min_value:
             self._error(field, "Minimum %s less than %s" % (value.min(), min_value))
@@ -53,15 +52,17 @@ class CustomValidator(cerberus.Validator):
         """The rule's arguments are validated against this schema:
         {'type': 'float'}
         """
-        if not isinstance(value, numpy.ndarray):
+        import numpy as np
+        if not isinstance(value, np.ndarray):
             self._error(field, "Value is not a numpy array")
         if max_value is not None and value.max() > max_value:
             self._error(field, "Maximum %s greater than %s" % (value.max(), max_value))
 
     def _compare(self, comparison, field, value, comparator: str, message: str):
+        import numpy as np
         if comparison is None:
             return
-        if isinstance(value, numpy.ndarray):
+        if isinstance(value, np.ndarray):
             if not getattr(value, comparator)(comparison).all():
                 self._error(field, "Values are not %s %s" % (message, comparison))
         elif isinstance(value, float):
@@ -104,7 +105,8 @@ class CustomValidator(cerberus.Validator):
 
     @classmethod
     def _normalize_coerce_numpy(cls, value):
-        return numpy.fromstring(value[1:-1], sep=' ')
+        import numpy as np
+        return np.fromstring(value[1:-1], sep=' ')
 
 
 class Validator:

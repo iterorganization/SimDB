@@ -1,5 +1,4 @@
 import sys
-import numpy as np
 from typing import Tuple, Dict, List, Any, Optional, IO
 from collections import defaultdict
 from enum import Enum, auto
@@ -125,6 +124,7 @@ def float_scalar_save_validation_parameters(device: str, scenario: str, path: st
 
 
 def float_array_validation_tests(device: str, scenario: str, path: str, obj: Any, test_report: TestReport) -> None:
+    import numpy as np
     db = get_local_db()
 
     params = db.get_validation_parameters(device, scenario, path)
@@ -176,6 +176,7 @@ def float_array_validation_tests(device: str, scenario: str, path: str, obj: Any
 
 
 def float_array_save_validation_parameters(device: str, scenario: str, path: str, obj: Any) -> None:
+    import numpy as np
     db = get_local_db()
 
     test_params = TestParameters(False, (0, 0), (0, 0), (0, 0), (0, 0), [])
@@ -258,6 +259,7 @@ class RunMode(Enum):
 
 def drilldown(device: str, scenario: str, parent_path: str, obj_name: str, obj: Any, test_report: TestReport,
               mode: RunMode, out: IO):
+    import numpy as np
     if ignore_entity(obj_name):
         return
 

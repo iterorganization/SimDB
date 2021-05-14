@@ -6,7 +6,6 @@ from datetime import datetime
 from typing import List, Union, Dict, Any, TYPE_CHECKING, Optional
 from getpass import getuser
 
-import numpy as np
 from sqlalchemy import Column, types as sql_types, Table, ForeignKey
 from sqlalchemy.orm import relationship
 
@@ -110,6 +109,7 @@ class Simulation(Base):
             self.set_meta("status", Simulation.Status.INVALIDATED.value)
 
     def __str__(self):
+        import numpy as np
         result = ""
         for name in ("uuid", "alias"):
             result += "%s:%s%s\n" % (name, ((10 - len(name)) * " "), getattr(self, name))

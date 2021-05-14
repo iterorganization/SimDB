@@ -1,6 +1,5 @@
 from enum import Enum, auto
 from typing import Any
-import numpy as np
 
 
 class QueryType(Enum):
@@ -16,6 +15,7 @@ def parse_query_arg(value: str) -> (str, str):
 
 
 def query_compare(query_type: QueryType, name: str, value: Any, compare: str):
+    import numpy as np
     if query_type == QueryType.EQ:
         if isinstance(value, np.ndarray):
             raise ValueError(f"Cannot compare value to array element {name}.")

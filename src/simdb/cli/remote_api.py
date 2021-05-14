@@ -1,27 +1,24 @@
 import os
-import requests
 import json
-from typing import List, Dict, Callable, Tuple, IO, Iterable, Optional, Union, Any
+from typing import List, Dict, Callable, Tuple, IO, Iterable, Optional, Union, Any, TYPE_CHECKING
 import gzip
 import io
-import urllib3
 import sys
 import click
-from uri import URI
-from requests.auth import AuthBase
-import numpy as np
 import base64
 
-from ..database.models import Simulation, File, Watcher
 from .manifest import DataObject
 from ..config import Config
-from ..validation import Validator, ValidationError
 
-
-urllib3.disable_warnings()
+if TYPE_CHECKING or 'sphinx' in sys.modules:
+    # Only importing these for type checking and documentation generation in order to speed up runtime startup.
+    from simdb.database.models import Simulation, Watcher, File
+    import requests
+    from requests.auth import AuthBase
 
 
 def numpy_hook(obj: Dict) -> Any:
+    import numpy as np
     if 'type' in obj and obj['type'] == 'numpy.ndarray':
         bytes = base64.decodebytes(obj['bytes'].encode())
         return np.frombuffer(bytes, dtype=obj['dtype'])
@@ -36,28 +33,20 @@ class NumpyDecoder(json.JSONDecoder):
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj: Any) -> Any:
+        import numpy as np
         if isinstance(obj, np.ndarray):
             bytes = base64.b64encode(obj).decode()
             return {'type': 'numpy.ndarray', 'dtype': obj.dtype.name, 'bytes': bytes}
         return json.JSONEncoder.default(self, obj)
 
 
-
 class FailedConnection(RuntimeError):
     pass
 
 
-class JWTAuth(AuthBase):
-    def __init__(self, token):
-        self._token = token
-
-    def __call__(self, request: requests.Request):
-        request.headers['Authorization'] = f'JWT-Token {self._token}'
-        return request
-
-
 def try_request(func: Callable) -> Callable:
     def wrapped_func(*args, **kwargs):
+        import requests
         try:
             return func(*args, **kwargs)
         except requests.ConnectionError as ex:
@@ -97,7 +86,7 @@ def read_bytes_in_chunks(path: str, compressed: bool=True, chunk_size: int=1024)
                 yield data
 
 
-def check_return(res: requests.Response) -> None:
+def check_return(res: "requests.Response") -> None:
     if res.status_code != 200:
         try:
             data = res.json()
@@ -142,41 +131,56 @@ class RemoteAPI:
     def remote(self) -> str:
         return self._remote
 
-    def _get_auth(self) -> Union[JWTAuth, Tuple]:
+    def _get_auth(self) -> Union["AuthBase", Tuple]:
+        from requests.auth import AuthBase
+
+        class JWTAuth(AuthBase):
+            def __init__(self, token):
+                self._token = token
+
+            def __call__(self, request: "requests.Request"):
+                request.headers['Authorization'] = f'JWT-Token {self._token}'
+                return request
+
         if self._token:
             return JWTAuth(self._token)
         else:
             return self._username, self._password
 
-    def get(self, url: str, params: Dict=None) -> requests.Response:
+    def get(self, url: str, params: Dict=None) -> "requests.Response":
+        import requests
         if params is None:
             params = {}
         res = requests.get(self._api_url + url, params=params, auth=self._get_auth())
         check_return(res)
         return res
 
-    def put(self, url: str, data: Dict, **kwargs) -> requests.Response:
+    def put(self, url: str, data: Dict, **kwargs) -> "requests.Response":
+        import requests
         headers = {'Content-type': 'application/json'}
         res = requests.put(self._api_url + url, data=json.dumps(data, cls=NumpyEncoder), headers=headers,
                            auth=self._get_auth(), **kwargs)
         check_return(res)
         return res
 
-    def post(self, url: str, data: Dict, **kwargs) -> requests.Response:
+    def post(self, url: str, data: Dict, **kwargs) -> "requests.Response":
+        import requests
         headers = {'Content-type': 'application/json'}
         res = requests.post(self._api_url + url, data=json.dumps(data, cls=NumpyEncoder), headers=headers,
                             auth=self._get_auth(), **kwargs)
         check_return(res)
         return res
 
-    def patch(self, url: str, data: Dict, **kwargs) -> requests.Response:
+    def patch(self, url: str, data: Dict, **kwargs) -> "requests.Response":
+        import requests
         headers = {'Content-type': 'application/json'}
         res = requests.patch(self._api_url + url, data=json.dumps(data, cls=NumpyEncoder), headers=headers,
                              auth=self._get_auth(), **kwargs)
         check_return(res)
         return res
 
-    def delete(self, url: str, data: Dict, **kwargs) -> requests.Response:
+    def delete(self, url: str, data: Dict, **kwargs) -> "requests.Response":
+        import requests
         headers = {'Content-type': 'application/json'}
         res = requests.delete(self._api_url + url, data=json.dumps(data, cls=NumpyEncoder), headers=headers,
                               auth=self._get_auth(), **kwargs)
@@ -204,17 +208,20 @@ class RemoteAPI:
         return res.json()
 
     @try_request
-    def list_simulations(self) -> List[Simulation]:
+    def list_simulations(self) -> List["Simulation"]:
+        from ..database.models import Simulation
         res = self.get("simulations")
         return [Simulation.from_data(sim) for sim in res.json(cls=NumpyDecoder)]
 
     @try_request
-    def get_simulation(self, sim_id: str) -> Simulation:
+    def get_simulation(self, sim_id: str) -> "Simulation":
+        from ..database.models import Simulation
         res = self.get("simulation/" + sim_id)
         return Simulation.from_data(res.json(cls=NumpyDecoder))
 
     @try_request
-    def query_simulations(self, constraints: List[str]) -> List[Simulation]:
+    def query_simulations(self, constraints: List[str]) -> List["Simulation"]:
+        from ..database.models import Simulation
         params = {}
         for item in constraints:
             (key, value) = item.split('=')
@@ -229,7 +236,7 @@ class RemoteAPI:
         return res.json()
 
     @try_request
-    def update_simulation(self, sim_id: str, update_type: Simulation.Status) -> None:
+    def update_simulation(self, sim_id: str, update_type: "Simulation.Status") -> None:
         self.patch("simulation/" + sim_id, {'status': update_type.value})
 
     @try_request
@@ -242,7 +249,7 @@ class RemoteAPI:
             return False, data['error']
 
     @try_request
-    def add_watcher(self, sim_id: str, user: str, email: str, notification: Watcher.Notification) -> None:
+    def add_watcher(self, sim_id: str, user: str, email: str, notification: "Watcher.Notification") -> None:
         self.post("watchers/" + sim_id, {'user': user, 'email': email, 'notification': notification.name})
 
     @try_request
@@ -254,7 +261,7 @@ class RemoteAPI:
         res = self.get("watchers/" + sim_id)
         return [(d["username"], d["email"], d["notification"]) for d in res.json()]
 
-    def _push_file(self, file: File, file_type: str, sim_data: Dict, chunk_size: int, out_stream: IO):
+    def _push_file(self, file: "File", file_type: str, sim_data: Dict, chunk_size: int, out_stream: IO):
         if file.type == DataObject.Type.FILE:
             path = file.uri.path
             print('Uploading file {} '.format(path), file=out_stream, end='')
@@ -278,6 +285,7 @@ class RemoteAPI:
             })
             print('Complete', file=out_stream, flush=True)
         elif file.type == DataObject.Type.IMAS:
+            from uri import URI
             from ..imas.utils import copy_imas
             res = self.get("staging_dir/{}".format(sim_data['uuid']))
             data = res.json()
@@ -304,7 +312,7 @@ class RemoteAPI:
                 raise
 
     @try_request
-    def push_simulation(self, simulation: Simulation, out_stream: IO=sys.stdout) -> None:
+    def push_simulation(self, simulation: "Simulation", out_stream: IO=sys.stdout) -> None:
         """
         Push the local simulation to the remote server.
 
@@ -313,6 +321,8 @@ class RemoteAPI:
         :param simulation: Simulation to push to remote server
         :param out_stream: IO stream to write messages to the user (default: stdout)
         """
+        from ..validation import Validator, ValidationError
+
         schema = self.get_validation_schema()
         try:
             Validator(schema).validate(simulation)

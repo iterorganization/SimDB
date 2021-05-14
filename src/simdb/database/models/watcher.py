@@ -1,11 +1,10 @@
 from typing import Dict
-from enum import Enum
-from email_validator import validate_email
 from sqlalchemy import Column, types as sql_types
 from sqlalchemy.orm import validates
 
 from .base import Base
 from .types import ChoiceType
+from ...notifications import Notification
 from ...docstrings import inherit_docstrings
 
 
@@ -14,12 +13,6 @@ class Watcher(Base):
     """
     Class to represent people watching simulations for updates.
     """
-    class Notification(Enum):
-        VALIDATION = 'validation'
-        REVISION = 'revision'
-        OBSOLESCENCE = 'obsolescence'
-        ALL = 'all'
-
     NOTIFICATION_CHOICES = {
         Notification.VALIDATION:   'V',
         Notification.REVISION:     'R',
@@ -35,6 +28,8 @@ class Watcher(Base):
 
     @validates('email')
     def validate_email(self, key, address):
+        from email_validator import validate_email
+
         validate_email(address)
         return address
 

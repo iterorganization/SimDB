@@ -1,8 +1,8 @@
 from unittest import mock
 from click.testing import CliRunner
 from simdb.cli.simdb import cli
-from simdb.database.models import Watcher
 from utils import config_test_file
+from simdb.notifications import Notification
 
 
 @mock.patch('simdb.cli.remote_api.RemoteAPI.get_api_version')
@@ -53,7 +53,7 @@ def test_remote_watcher_add_command(add_watcher, get_api_version):
     assert sim_id in result.output
     assert add_watcher.called
     (args, kwargs) = add_watcher.call_args
-    assert args == (sim_id, user, email, Watcher.Notification.ALL)
+    assert args == (sim_id, user, email, Notification.ALL)
     assert kwargs == {}
     assert get_api_version.called
 

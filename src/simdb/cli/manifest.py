@@ -1,12 +1,14 @@
-import re
 import sys
+import re
 import os
 import urllib
 from enum import Enum, auto
-from typing import Iterable, Union, Dict, List, Tuple, Optional, TextIO
-import uri as urilib
+from typing import Iterable, Union, Dict, List, Tuple, Optional, TextIO, TYPE_CHECKING
 import glob
 from pathlib import Path
+
+if TYPE_CHECKING or 'sphinx' in sys.modules:
+    from uri import URI
 
 
 class InvalidManifest(Exception):
@@ -30,12 +32,14 @@ def _expand_path(path: Path, base_path: Path) -> Path:
     return path
 
 
-def _to_uri(uri_str: str, base_path: Path) -> Tuple["DataObject.Type", urilib.URI]:
-    uri = urilib.URI(uri_str)
+def _to_uri(uri_str: str, base_path: Path) -> Tuple["DataObject.Type", "URI"]:
+    from uri import URI
+
+    uri = URI(uri_str)
     if uri.scheme is None:
         raise ValueError("invalid uri: %s" % uri_str)
     if uri.scheme.name == 'file':
-        uri = urilib.URI(uri, path=_expand_path(uri.path, base_path))
+        uri = URI(uri, path=_expand_path(uri.path, base_path))
         return DataObject.Type.FILE, uri
     if uri.scheme.name == "imas":
         return DataObject.Type.IMAS, uri
@@ -63,7 +67,7 @@ class DataObject:
         UDA = auto()
 
     type: Type = Type.UNKNOWN
-    uri: urilib.URI = urilib.URI()
+    uri: "URI" = None
 
     def __init__(self, base_path: Path, uri: str) -> None:
         (self.type, self.uri) = _to_uri(uri, base_path)
@@ -169,10 +173,11 @@ class DataObjectValidator(ListValuesValidator):
         super().__init__(version, section_name, expected_keys)
 
     def validate(self, values: Union[list, dict]) -> None:
+        from uri import URI
         super().validate(values)
         for value in values:
             if self.version > 0:
-                uri = urilib.URI(value["uri"])
+                uri = URI(value["uri"])
                 if uri.scheme not in ('uda', 'file', 'imas'):
                     raise InvalidManifest('unknown uri scheme: %s' % uri.scheme)
 
@@ -367,7 +372,9 @@ class Manifest:
                     value['codes'] = new_codes
 
     @classmethod
-    def _convert_files(cls, files: List[Dict[str, str]]) -> List[Dict[str, urilib.URI]]:
+    def _convert_files(cls, files: List[Dict[str, str]]) -> List[Dict[str, "URI"]]:
+        from uri import URI
+
         scheme_map = {
             'uuid': 'simdb',
             'path': 'file',
@@ -378,7 +385,7 @@ class Manifest:
         new_files = []
         for file in files:
             for k, v in file.items():
-                new_files.append({'uri': urilib.URI(scheme=scheme_map[k], path=v)})
+                new_files.append({'uri': URI(scheme=scheme_map[k], path=v)})
         return new_files
 
     def load(self, file_path: Path) -> None:
