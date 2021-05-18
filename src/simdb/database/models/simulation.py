@@ -170,7 +170,7 @@ class Simulation(Base):
                 simulation.meta.append(MetaData.from_data(el))
         return simulation
 
-    def data(self, recurse: bool=False) -> Dict[str, Union[str, List]]:
+    def data(self, recurse: bool=False, meta_keys: List[str]=None) -> Dict[str, Union[str, List]]:
         data = dict(
             uuid=self.uuid.hex,
             alias=self.alias,
@@ -178,7 +178,7 @@ class Simulation(Base):
         if recurse:
             data["inputs"] = [f.data(recurse=True) for f in self.inputs]
             data["outputs"] = [f.data(recurse=True) for f in self.outputs]
-            data["metadata"] = [m.data(recurse=True) for m in self.meta]
+            data["metadata"] = [m.data(recurse=True) for m in self.meta if m.value in meta_keys]
         return data
 
     def meta_dict(self) -> Dict[str, Union[Dict, Any]]:

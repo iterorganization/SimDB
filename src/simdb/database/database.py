@@ -239,6 +239,8 @@ class Database:
         metadata = self._get_metadata(constraints)
 
         for name, value, query_type in constraints:
+            if not value:
+                continue
             if name in ('alias', 'uuid'):
                 continue
             new_metadata = []

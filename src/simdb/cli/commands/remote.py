@@ -156,7 +156,7 @@ def add_watcher(config: "Config", api: RemoteAPI, sim_id: str, user: Optional[st
 def remote_list(config: "Config", api: RemoteAPI, meta: List[str]):
     """List simulations available on remote.
     """
-    simulations = api.list_simulations()
+    simulations = api.list_simulations(meta)
     print_simulations(simulations, verbose=config.verbose, metadata_names=meta)
 
 

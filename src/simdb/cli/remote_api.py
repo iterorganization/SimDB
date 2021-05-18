@@ -208,9 +208,10 @@ class RemoteAPI:
         return res.json()
 
     @try_request
-    def list_simulations(self) -> List["Simulation"]:
+    def list_simulations(self, meta: List[str]=None) -> List["Simulation"]:
         from ..database.models import Simulation
-        res = self.get("simulations")
+        args = '?' + '&'.join(meta) if meta else ''
+        res = self.get("simulations" + args)
         return [Simulation.from_data(sim) for sim in res.json(cls=NumpyDecoder)]
 
     @try_request

@@ -190,17 +190,19 @@ def reset_db(user: User=Optional[None]):
 @api.route("/simulations", methods=["GET"])
 @requires_auth()
 def list_simulations(user: User=Optional[None]):
+    names = []
     if not request.args:
         simulations = api.db.list_simulations()
     else:
         constraints: List[Tuple[str, str, QueryType]] = []
         for name in request.args:
+            names.append(name)
             value = request.args[name]
             constraints.append((name,) + parse_query_arg(value))
 
         simulations = api.db.query_meta(constraints)
 
-    return jsonify([sim.data(recurse=True) for sim in simulations])
+    return jsonify([sim.data(recurse=True, meta_keys=names) for sim in simulations])
 
 
 @api.route("/files", methods=["GET"])
