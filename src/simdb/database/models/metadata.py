@@ -1,7 +1,7 @@
 import uuid
 from typing import Dict, Any
 
-from sqlalchemy import Column, types as sql_types, ForeignKey
+from sqlalchemy import Column, types as sql_types, ForeignKey, Index
 
 # from .types import UUID
 from .base import Base
@@ -41,3 +41,6 @@ class MetaData(Base):
             value=self.value,
         )
         return data
+
+
+Index('metadata_index', MetaData.sim_id, MetaData.element, unique=True)

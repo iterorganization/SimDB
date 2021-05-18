@@ -202,7 +202,7 @@ def list_simulations(user: User=Optional[None]):
 
         simulations = api.db.query_meta(constraints)
 
-    return jsonify([sim.data(recurse=True, meta_keys=names) for sim in simulations])
+    return jsonify([sim.data(recurse=False, meta_keys=names) for sim in simulations])
 
 
 @api.route("/files", methods=["GET"])

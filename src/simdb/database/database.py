@@ -235,6 +235,7 @@ class Database:
         """
         from .models import Simulation
         from ..query import query_compare
+        from sqlalchemy.orm import joinedload
 
         metadata = self._get_metadata(constraints)
 
@@ -251,7 +252,8 @@ class Database:
 
         sim_ids = [meta.sim_id for meta in metadata]
 
-        return self.session.query(Simulation).filter(Simulation.id.in_(sim_ids)).all()
+        query = self.session.query(Simulation).options(joinedload(Simulation.meta)).filter(Simulation.id.in_(sim_ids))
+        return query.all()
 
     def get_simulation(self, sim_ref: str) -> "Simulation":
         """
