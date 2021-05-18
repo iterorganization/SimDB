@@ -178,7 +178,10 @@ class Simulation(Base):
         if recurse:
             data["inputs"] = [f.data(recurse=True) for f in self.inputs]
             data["outputs"] = [f.data(recurse=True) for f in self.outputs]
-            data["metadata"] = [m.data(recurse=True) for m in self.meta if m.value in meta_keys]
+            if meta_keys is None:
+                data["metadata"] = [m.data(recurse=True) for m in self.meta]
+            else:
+                data["metadata"] = [m.data(recurse=True) for m in self.meta if m.element in meta_keys]
         return data
 
     def meta_dict(self) -> Dict[str, Union[Dict, Any]]:
