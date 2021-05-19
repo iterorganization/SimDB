@@ -65,7 +65,7 @@ def simulation_list(config: Config, meta: list):
     from .utils import print_simulations
 
     db = get_local_db(config)
-    simulations = db.list_simulations(meta)
+    simulations = db.list_simulations(fetch_meta=bool(meta))
     print_simulations(simulations, verbose=config.verbose, metadata_names=meta)
 
 

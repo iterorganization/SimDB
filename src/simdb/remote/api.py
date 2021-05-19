@@ -192,7 +192,7 @@ def reset_db(user: User=Optional[None]):
 def list_simulations(user: User=Optional[None]):
     names = []
     if not request.args:
-        simulations = api.db.list_simulations()
+        simulations = api.db.list_simulations(fetch_meta=False)
     else:
         constraints: List[Tuple[str, str, QueryType]] = []
         for name in request.args:

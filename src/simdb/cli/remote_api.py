@@ -165,9 +165,14 @@ class RemoteAPI:
 
     def post(self, url: str, data: Dict, **kwargs) -> "requests.Response":
         import requests
-        headers = {'Content-type': 'application/json'}
-        res = requests.post(self._api_url + url, data=json.dumps(data, cls=NumpyEncoder), headers=headers,
-                            auth=self._get_auth(), **kwargs)
+        if "files" in kwargs:
+            if data:
+                raise Exception('Cannot send JSON data at the same time as files.')
+            headers = {}
+        else:
+            headers = {'Content-type': 'application/json'}
+        post_data = json.dumps(data, cls=NumpyEncoder) if data else {}
+        res = requests.post(self._api_url + url, data=post_data, headers=headers, auth=self._get_auth(), **kwargs)
         check_return(res)
         return res
 

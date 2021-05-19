@@ -159,15 +159,19 @@ class Database:
                 con.execute(table.delete())
             trans.commit()
 
-    def list_simulations(self) -> List["Simulation"]:
+    def list_simulations(self, fetch_meta: bool=False) -> List["Simulation"]:
         """
         Return a list of all the simulations stored in the database.
 
         :return: A list of Simulations.
         """
         from .models import Simulation
+        from sqlalchemy.orm import joinedload
 
-        return self.session.query(Simulation).all()
+        if fetch_meta:
+            return self.session.query(Simulation).options(joinedload(Simulation.meta)).all()
+        else:
+            return self.session.query(Simulation).all()
 
     def list_files(self) -> List["File"]:
         """
