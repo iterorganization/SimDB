@@ -50,6 +50,10 @@ app.register_blueprint(api, url_prefix=f"/api/v{config.api_version}")
 
 
 def run():
+    # from werkzeug.middleware.profiler import ProfilerMiddleware
+    # app.config['PROFILE'] = True
+    # app.wsgi_app = ProfilerMiddleware(app.wsgi_app, restrictions=[50], sort_by=("cumtime",))
+
     if config.get_option("server.ssl_enabled"):
         context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
         context.load_cert_chain(certfile=config.get_option("server.ssl_cert_file"),

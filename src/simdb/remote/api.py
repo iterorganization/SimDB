@@ -191,18 +191,22 @@ def reset_db(user: User=Optional[None]):
 @requires_auth()
 def list_simulations(user: User=Optional[None]):
     names = []
-    if not request.args:
-        simulations = api.db.list_simulations(fetch_meta=False)
-    else:
+    constraints = []
+    if request.args:
         constraints: List[Tuple[str, str, QueryType]] = []
         for name in request.args:
             names.append(name)
             value = request.args[name]
-            constraints.append((name,) + parse_query_arg(value))
+            constraint = parse_query_arg(value)
+            if constraint[0]:
+                constraints.append((name,) + constraint)
 
-        simulations = api.db.query_meta(constraints)
+    if constraints:
+        data = api.db.query_meta_data(constraints, names)
+    else:
+        data = api.db.list_simulation_data(fetch_meta=False, meta_keys=names)
 
-    return jsonify([sim.data(recurse=False, meta_keys=names) for sim in simulations])
+    return jsonify(data)
 
 
 @api.route("/files", methods=["GET"])
@@ -369,7 +373,10 @@ def ingest_simulation(user: User=Optional[None]):
         staging_dir = Path(current_app.simdb_config.get_option("server.upload_folder")) / simulation.uuid.hex
 
         files = list(chain(simulation.inputs, simulation.outputs))
-        common_root = os.path.commonpath([f.uri.path for f in files])
+        if files:
+            common_root = os.path.commonpath([f.uri.path for f in files])
+        else:
+            common_root = ''
 
         for sim_file in files:
             path = _secure_path(sim_file.uri.path, common_root, staging_dir)

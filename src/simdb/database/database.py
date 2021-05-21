@@ -2,7 +2,7 @@ import uuid
 import os
 import sys
 import contextlib
-from typing import Optional, List, Tuple, Union, TYPE_CHECKING, cast, Any
+from typing import Optional, List, Tuple, Union, TYPE_CHECKING, cast, Any, Iterable
 from enum import Enum, auto
 
 from ..config import Config
@@ -159,19 +159,47 @@ class Database:
                 con.execute(table.delete())
             trans.commit()
 
-    def list_simulations(self, fetch_meta: bool=False) -> List["Simulation"]:
+    def list_simulations(self, fetch_meta: bool=False, meta_keys: List[str]=None) -> List[dict]:
         """
         Return a list of all the simulations stored in the database.
 
         :return: A list of Simulations.
         """
-        from .models import Simulation
-        from sqlalchemy.orm import joinedload
+        from .models import Simulation, MetaData
 
-        if fetch_meta:
-            return self.session.query(Simulation).options(joinedload(Simulation.meta)).all()
+        if meta_keys or fetch_meta:
+            query = self.session.query(Simulation).outerjoin(Simulation.meta)
+            if meta_keys:
+                query = query.filter(MetaData.element.in_(meta_keys))
+            return query.all()
         else:
-            return self.session.query(Simulation).all()
+            query = self.session.query(Simulation)
+            return query.all()
+
+    def list_simulation_data(self, fetch_meta: bool=False, meta_keys: List[str]=None) -> List[dict]:
+        """
+        Return a list of all the simulations stored in the database.
+
+        :return: A list of Simulations.
+        """
+        from .models import Simulation, MetaData
+        from sqlalchemy.orm import joinedload, Bundle
+
+        if meta_keys or fetch_meta:
+            s_b = Bundle('simulation', Simulation.alias, Simulation.uuid)
+            m_b = Bundle('metadata', MetaData.element, MetaData.value)
+            query = self.session.query(s_b, m_b).outerjoin(Simulation.meta)
+            if meta_keys:
+                query = query.filter(m_b.c.element.in_(meta_keys))
+            data = {}
+            for row in query:
+                data.setdefault(row.simulation.uuid,
+                                {'alias': row.simulation.alias, 'uuid': row.simulation.uuid.hex, 'meta': []})
+                data[row.simulation.uuid]['meta'].append({'element': row.metadata.element, 'value': row.metadata.value})
+            return list(data.values())
+        else:
+            query = self.session.query(Simulation.alias, Simulation.uuid)
+            return [{'alias': alias, 'uuid': uuid.hex} for alias, uuid in query]
 
     def list_files(self) -> List["File"]:
         """
@@ -197,39 +225,46 @@ class Database:
         self.session.commit()
         return simulation
 
-    def _get_metadata(self, constraints: List[Tuple[str, str, "QueryType"]]) -> List["MetaData"]:
+    def _get_metadata(self, constraints: List[Tuple[str, str, "QueryType"]]) -> Iterable:
         from sqlalchemy import func, String
+        from sqlalchemy.orm import Bundle
         from ..query import QueryType
         from .models import Simulation, MetaData
 
-        queries = []
+        m_b = Bundle('metadata', MetaData.element, MetaData.value)
+        s_b = Bundle('simulation', Simulation.id, Simulation.alias, Simulation.uuid)
+        query = self.session.query(m_b, s_b).join(Simulation)
         for name, value, query_type in constraints:
             if query_type == QueryType.EQ:
                 if name == 'alias':
-                    queries.append(self.session.query(MetaData).join(Simulation)
-                                   .filter(func.lower(Simulation.alias) == value.lower()))
+                    query = query.filter(func.lower(Simulation.alias) == value.lower())
                 elif name == 'uuid':
-                    queries.append(self.session.query(MetaData).join(Simulation)
-                                   .filter(Simulation.uuid == uuid.UUID(value)))
+                    query = query.filter(Simulation.uuid == uuid.UUID(value))
             elif query_type == QueryType.IN:
                 if name == 'alias':
-                    queries.append(self.session.query(MetaData).join(Simulation)
-                                   .filter(Simulation.alias.ilike("%{}%".format(value))))
+                    query = query.filter(Simulation.alias.ilike("%{}%".format(value)))
                 elif name == 'uuid':
-                    queries.append(self.session.query(MetaData).join(Simulation)
-                                   .filter(func.REPLACE(cast(Simulation.uuid, String), '-', '')
-                                           .ilike("%{}%".format(value.replace('-', '')))))
+                    query = query.filter(func.REPLACE(cast(Simulation.uuid, String), '-', '')
+                                         .ilike("%{}%".format(value.replace('-', ''))))
             else:
                 raise ValueError(f"Unknown query type {query_type}.")
 
-        if queries:
-            query = queries[0]
-            for i in range(1, len(queries)):
-                query = query.intersect(queries[i])
-        else:
-            query = self.session.query(MetaData)
+        return query
 
-        return query.all()
+    def _get_sim_ids(self, constraints: List[Tuple[str, str, "QueryType"]]) -> Iterable[int]:
+        from ..query import query_compare
+
+        rows = self._get_metadata(constraints)
+
+        sim_ids = []
+        for row in rows:
+            for name, value, query_type in constraints:
+                if name in ('alias', 'uuid'):
+                    continue
+                if row.metadata.element == name and query_compare(query_type, name, row.metadata.value, value):
+                    sim_ids.append(row.simulation.id)
+
+        return sim_ids
 
     def query_meta(self, constraints: List[Tuple[str, str, "QueryType"]]) -> List["Simulation"]:
         """
@@ -238,26 +273,39 @@ class Database:
         :return:
         """
         from .models import Simulation
-        from ..query import query_compare
         from sqlalchemy.orm import joinedload
 
-        metadata = self._get_metadata(constraints)
+        sim_ids = self._get_sim_ids(constraints)
+        if not sim_ids:
+            return []
 
-        for name, value, query_type in constraints:
-            if not value:
-                continue
-            if name in ('alias', 'uuid'):
-                continue
-            new_metadata = []
-            for meta in metadata:
-                if meta.element == name and query_compare(query_type, name, meta.value, value):
-                    new_metadata.append(meta)
-            metadata = new_metadata
-
-        sim_ids = [meta.sim_id for meta in metadata]
-
-        query = self.session.query(Simulation).options(joinedload(Simulation.meta)).filter(Simulation.id.in_(sim_ids))
+        query = self.session.query(Simulation).options(joinedload(Simulation.meta))\
+            .filter(Simulation.id.in_(sim_ids))
         return query.all()
+
+    def query_meta_data(self, constraints: List[Tuple[str, str, "QueryType"]], meta_keys: List[str]) -> List[dict]:
+        """
+        Query the metadata and return matching simulations.
+
+        :return:
+        """
+        from .models import Simulation, MetaData
+        from sqlalchemy.orm import Bundle
+
+        sim_ids = self._get_sim_ids(constraints)
+        if not sim_ids:
+            return []
+
+        s_b = Bundle('simulation', Simulation.id, Simulation.alias, Simulation.uuid)
+        m_b = Bundle('metadata', MetaData.element, MetaData.value)
+        query = self.session.query(s_b, m_b).outerjoin(Simulation.meta).filter(s_b.c.id.in_(sim_ids))\
+            .filter(m_b.c.element.in_(meta_keys))
+        data = {}
+        for row in query:
+            data.setdefault(row.simulation.uuid,
+                            {'alias': row.simulation.alias, 'uuid': row.simulation.uuid.hex, 'meta': []})
+            data[row.simulation.uuid]['meta'].append({'element': row.metadata.element, 'value': row.metadata.value})
+        return list(data.values())
 
     def get_simulation(self, sim_ref: str) -> "Simulation":
         """

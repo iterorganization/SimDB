@@ -56,7 +56,7 @@ class Simulation(Base):
     alias: str = Column(sql_types.String(250), nullable=True, unique=True)
     inputs: List["File"] = relationship("File", secondary=simulation_input_files)
     outputs: List["File"] = relationship("File", secondary=simulation_output_files)
-    meta: List["MetaData"] = relationship("MetaData")
+    meta: List["MetaData"] = relationship("MetaData", lazy='raise')
     watchers = relationship("Watcher", secondary=simulation_watchers, lazy='dynamic')
 
     def __init__(self, manifest: Union[Manifest, None], config: Optional[Config]=None) -> None:
@@ -178,11 +178,9 @@ class Simulation(Base):
         if recurse:
             data["inputs"] = [f.data(recurse=True) for f in self.inputs]
             data["outputs"] = [f.data(recurse=True) for f in self.outputs]
-        if meta_keys is not None:
-            from ..models import MetaData
-            data["metadata"] = [m.data(recurse=True) for m in self.meta if m.element in meta_keys]
-        elif recurse:
             data["metadata"] = [m.data(recurse=True) for m in self.meta]
+        elif meta_keys:
+            data["metadata"] = [m.data(recurse=True) for m in self.meta if m.element in meta_keys]
         return data
 
     def meta_dict(self) -> Dict[str, Union[Dict, Any]]:
