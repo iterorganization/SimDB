@@ -25,7 +25,7 @@ def test_check_role(get_option):
         get_option.return_value = 'user1,"user2", user3'
         ok = api.check_role(config, 'user1', 'test_role')
         assert ok
-        get_option.assert_called_once_with('role.test_role.users', default='')
+        get_option.assert_called_with('role.test_role.users', default='')
         ok = api.check_role(config, 'user4', None)
         assert ok
         ok = api.check_role(config, 'user4', 'test_role')
