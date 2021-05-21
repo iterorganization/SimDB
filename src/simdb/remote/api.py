@@ -211,7 +211,7 @@ def list_simulations(user: User=Optional[None]):
     if constraints:
         data = api.db.query_meta_data(constraints, names)
     else:
-        data = api.db.list_simulation_data(fetch_meta=False, meta_keys=names)
+        data = api.db.list_simulation_data(meta_keys=names)
 
     return jsonify(data)
 

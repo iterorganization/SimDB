@@ -65,7 +65,7 @@ def simulation_list(config: Config, meta: list):
     from .utils import print_simulations
 
     db = get_local_db(config)
-    simulations = db.list_simulations(fetch_meta=bool(meta))
+    simulations = db.list_simulations(meta_keys=meta)
     print_simulations(simulations, verbose=config.verbose, metadata_names=meta)
 
 
@@ -194,7 +194,12 @@ def simulation_query(config: Config, constraint: str):
 
     \b
     Where [mod] is 0 or more query modifiers. Available query modifiers are:
+        eq: - This checks for equality (this is the same behaviour as not providing any modifier).
         in: - This searches inside the value instead of looking for exact matches.
+        gt: - This checks for values greater than the given quantity.
+        gt: - This checks for values greater than or equal to the given quantity.
+        lt: - This checks for values less than the given quantity.
+        le: - This checks for values less than or equal to the given quantity.
 
     \b
     Examples:

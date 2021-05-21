@@ -121,19 +121,23 @@ class Database:
 
     def _find_simulation(self, sim_ref: str) -> "Simulation":
         from .models import Simulation
+        from sqlalchemy.orm import joinedload
         try:
             sim_uuid = uuid.UUID(sim_ref)
-            simulation = self.session.query(Simulation).filter_by(uuid=sim_uuid).one_or_none()
+            simulation = self.session.query(Simulation).options(joinedload(Simulation.meta))\
+                .filter_by(uuid=sim_uuid).one_or_none()
         except ValueError:
             simulation = None
             if _is_short_uuid(sim_ref):
                 try:
-                    simulation = self.session.query(Simulation).filter(Simulation.uuid.startswith(sim_ref)).one_or_none()
+                    simulation = self.session.query(Simulation).options(joinedload(Simulation.meta))\
+                        .filter(Simulation.uuid.startswith(sim_ref)).one_or_none()
                 except sqlalchemy.exc.StatementError:
                     simulation = None
             if not simulation:
                 sim_alias = sim_ref
-                simulation = self.session.query(Simulation).filter_by(alias=sim_alias).one_or_none()
+                simulation = self.session.query(Simulation).options(joinedload(Simulation.meta))\
+                    .filter_by(alias=sim_alias).one_or_none()
             if not simulation:
                 raise DatabaseError(f"Simulation {sim_ref} not found.")
         return simulation
@@ -159,24 +163,24 @@ class Database:
                 con.execute(table.delete())
             trans.commit()
 
-    def list_simulations(self, fetch_meta: bool=False, meta_keys: List[str]=None) -> List[dict]:
+    def list_simulations(self, meta_keys: List[str]=None) -> List[dict]:
         """
         Return a list of all the simulations stored in the database.
 
         :return: A list of Simulations.
         """
         from .models import Simulation, MetaData
+        from sqlalchemy.orm import joinedload
 
-        if meta_keys or fetch_meta:
-            query = self.session.query(Simulation).outerjoin(Simulation.meta)
-            if meta_keys:
-                query = query.filter(MetaData.element.in_(meta_keys))
+        if meta_keys:
+            query = self.session.query(Simulation).options(joinedload(Simulation.meta)).outerjoin(Simulation.meta)\
+                .filter(MetaData.element.in_(meta_keys))
             return query.all()
         else:
             query = self.session.query(Simulation)
             return query.all()
 
-    def list_simulation_data(self, fetch_meta: bool=False, meta_keys: List[str]=None) -> List[dict]:
+    def list_simulation_data(self, meta_keys: List[str]=None) -> List[dict]:
         """
         Return a list of all the simulations stored in the database.
 
@@ -185,12 +189,10 @@ class Database:
         from .models import Simulation, MetaData
         from sqlalchemy.orm import joinedload, Bundle
 
-        if meta_keys or fetch_meta:
+        if meta_keys:
             s_b = Bundle('simulation', Simulation.alias, Simulation.uuid)
             m_b = Bundle('metadata', MetaData.element, MetaData.value)
-            query = self.session.query(s_b, m_b).outerjoin(Simulation.meta)
-            if meta_keys:
-                query = query.filter(m_b.c.element.in_(meta_keys))
+            query = self.session.query(s_b, m_b).outerjoin(Simulation.meta).filter(m_b.c.element.in_(meta_keys))
             data = {}
             for row in query:
                 data.setdefault(row.simulation.uuid,
@@ -235,7 +237,9 @@ class Database:
         s_b = Bundle('simulation', Simulation.id, Simulation.alias, Simulation.uuid)
         query = self.session.query(m_b, s_b).join(Simulation)
         for name, value, query_type in constraints:
-            if query_type == QueryType.EQ:
+            if query == QueryType.NONE:
+                pass
+            elif query_type == QueryType.EQ:
                 if name == 'alias':
                     query = query.filter(func.lower(Simulation.alias) == value.lower())
                 elif name == 'uuid':
@@ -246,8 +250,8 @@ class Database:
                 elif name == 'uuid':
                     query = query.filter(func.REPLACE(cast(Simulation.uuid, String), '-', '')
                                          .ilike("%{}%".format(value.replace('-', ''))))
-            else:
-                raise ValueError(f"Unknown query type {query_type}.")
+            elif name in ('uuid', 'alias'):
+                raise ValueError(f'Invalid query type {query_type} for alias or uuid.')
 
         return query
 
@@ -315,7 +319,6 @@ class Database:
         :return: The Simulation.
         """
         simulation = self._find_simulation(sim_ref)
-        self.session.commit()
         return simulation
 
     def get_file(self, file_uuid_str: str) -> "File":
