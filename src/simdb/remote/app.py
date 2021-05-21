@@ -6,6 +6,7 @@ import base64
 import json
 
 from .api import api
+from .cache import cache
 from ..config import Config
 
 config = Config('app.cfg')
@@ -39,6 +40,7 @@ app.json_encoder = NumpyEncoder
 app.json_decoder = NumpyDecoder
 app.config.from_mapping(flask_options)
 app.simdb_config = config
+cache.init_app(app)
 
 
 @app.route("/")

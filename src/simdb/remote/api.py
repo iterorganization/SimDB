@@ -21,6 +21,7 @@ from ..database.models import Simulation, File, Watcher, MetaData
 from ..checksum import sha1_checksum
 from ..cli.manifest import DataObject
 from ..query import QueryType, parse_query_arg
+from .cache import cache
 
 API_VERSION = 1
 api = Blueprint("api", __name__)
@@ -184,11 +185,17 @@ def token(user: User=Optional[None]):
 @requires_auth("admin")
 def reset_db(user: User=Optional[None]):
     api.db.reset()
+    cache.clear()
     return jsonify({})
+
+
+def cache_key(*args, **kwargs):
+    return request.url
 
 
 @api.route("/simulations", methods=["GET"])
 @requires_auth()
+@cache.cached(key_prefix=cache_key)
 def list_simulations(user: User=Optional[None]):
     names = []
     constraints = []
@@ -211,6 +218,7 @@ def list_simulations(user: User=Optional[None]):
 
 @api.route("/files", methods=["GET"])
 @requires_auth()
+@cache.cached(key_prefix=cache_key)
 def list_files(user: User=Optional[None]):
     files = api.db.list_files()
     return jsonify([file.data() for file in files])
@@ -412,6 +420,7 @@ def ingest_simulation(user: User=Optional[None]):
                 api.db.insert_simulation(replaces_sim)
 
         api.db.insert_simulation(simulation)
+        cache.clear()
 
         return jsonify(result)
     except (DatabaseError, ValueError) as err:
@@ -440,7 +449,10 @@ def _validate(simulation) -> Dict:
 def validate(sim_id, user: User=Optional[None]):
     try:
         simulation = api.db.get_simulation(sim_id)
-        return jsonify(_validate(simulation))
+        result = _validate(simulation)
+        api.db.insert_simulation(simulation)
+        cache.clear()
+        return jsonify(result)
     except DatabaseError as err:
         return error(str(err))
 
@@ -468,6 +480,7 @@ def update_simulation(sim_id: str, user: User=Optional[None]):
         status = data["status"]
         _update_simulation_status(simulation, status, user)
         api.db.insert_simulation(simulation)
+        cache.clear()
         return {}
     except DatabaseError as err:
         return error(str(err))
@@ -513,6 +526,7 @@ def get_staging_dir(sim_hex: str, user: User=Optional[None]):
 def delete_simulation(sim_id: str, user: User=Optional[None]):
     try:
         simulation = api.db.delete_simulation(sim_id)
+        cache.clear()
         files = []
         for file in itertools.chain(simulation.inputs, simulation.outputs):
             files.append("%s (%s)" % (file.uuid, file.file_name))
@@ -540,6 +554,7 @@ def add_watcher(sim_id: str, user: User=Optional[None]):
 
         watcher = Watcher(username, email, notification)
         api.db.add_watcher(sim_id, watcher)
+        cache.clear()
 
         if username != user.name:
             # TODO: send email notify user that they have been added as a watcher
@@ -559,6 +574,7 @@ def remove_watcher(sim_id: str, user: User=Optional[None]):
         username = data["user"] if "user" in data else user.name
 
         api.db.remove_watcher(sim_id, username)
+        cache.clear()
         return jsonify({"removed": {"simulation": sim_id, "watcher": data["user"]}})
     except DatabaseError as err:
         return error(str(err))

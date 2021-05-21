@@ -21,3 +21,4 @@ click>=7.0
 PyJWT>=1.4.0
 easyad>=1.0
 click_option_group>=0.5
+flask-caching>=1.10
