@@ -16,7 +16,7 @@ class MetaData(Base):
     """
     __tablename__ = "metadata"
     id = Column(sql_types.Integer, primary_key=True)
-    sim_id = Column(sql_types.Integer, ForeignKey(Simulation.id))
+    sim_id = Column(sql_types.Integer, ForeignKey(Simulation.id), index=True)
     element = Column(sql_types.String(250), nullable=False)
     value = Column(sql_types.PickleType(4), nullable=True)
 

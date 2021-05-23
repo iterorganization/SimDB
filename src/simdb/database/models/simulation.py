@@ -52,8 +52,8 @@ class Simulation(Base):
 
     __tablename__ = "simulations"
     id = Column(sql_types.Integer, primary_key=True)
-    uuid = Column(UUID, nullable=False, unique=True)
-    alias: str = Column(sql_types.String(250), nullable=True, unique=True)
+    uuid = Column(UUID, nullable=False, unique=True, index=True)
+    alias: str = Column(sql_types.String(250), nullable=True, unique=True, index=True)
     inputs: List["File"] = relationship("File", secondary=simulation_input_files)
     outputs: List["File"] = relationship("File", secondary=simulation_output_files)
     meta: List["MetaData"] = relationship("MetaData", lazy='raise')

@@ -21,7 +21,7 @@ class File(Base):
     """
     __tablename__ = "files"
     id = Column(sql_types.Integer, primary_key=True)
-    uuid = Column(UUID, nullable=False, unique=True)
+    uuid = Column(UUID, nullable=False, unique=True, index=True)
     usage = Column(sql_types.String(250), nullable=True)
     uri: urilib.URI = Column(URI(1024), nullable=True)
     checksum = Column(sql_types.String(64), nullable=True)
