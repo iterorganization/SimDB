@@ -65,3 +65,26 @@ def print_simulations(simulations: List["Simulation"], verbose: bool=False, meta
         if not line_written:
             click.echo("-" * (sum(column_widths) + len(column_widths) - 1))
             line_written = True
+
+
+def _print_trace_sim(trace_data: dict, indentation: int):
+    spaces = ' ' * indentation
+    uuid = trace_data['uuid']
+    alias = trace_data['alias']
+    status = trace_data['status'] if 'status' in trace_data else 'unknown'
+    click.echo(f"{spaces}Simulation: {uuid}")
+    click.echo(f"{spaces}     Alias: {alias}")
+    click.echo(f"{spaces}    Status: {status}")
+
+    if 'replaces' in trace_data:
+        click.echo(f'{spaces}Replaces:')
+        _print_trace_sim(trace_data['replaces'], indentation + 2)
+
+
+def print_trace(trace_data, verbose: bool=False) -> None:
+    if not trace_data:
+        click.echo("No simulations trace found")
+        return
+
+    _print_trace_sim(trace_data, 0)
+

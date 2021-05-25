@@ -7,7 +7,7 @@ from typing import List, TYPE_CHECKING, Optional, Tuple
 
 from ..remote_api import RemoteAPI
 from . import pass_config
-from .utils import print_simulations
+from .utils import print_simulations, print_trace
 from ...notifications import Notification
 
 
@@ -168,6 +168,14 @@ def remote_info(api: RemoteAPI, sim_id: str):
     """
     simulation = api.get_simulation(sim_id)
     click.echo(str(simulation))
+
+
+@remote.command("trace", cls=RemoteSubCommand)
+@pass_api
+@click.argument("sim_id")
+def remote_trace(api: RemoteAPI, sim_id: str):
+    trace_data = api.trace_simulation(sim_id)
+    print_trace(trace_data)
 
 
 @remote.command("query", cls=RemoteSubCommand)

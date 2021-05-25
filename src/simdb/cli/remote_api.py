@@ -1,43 +1,20 @@
 import os
 import json
-from typing import List, Dict, Callable, Tuple, IO, Iterable, Optional, Union, Any, TYPE_CHECKING
+from typing import List, Dict, Callable, Tuple, IO, Iterable, Optional, Union, TYPE_CHECKING
 import gzip
 import io
 import sys
 import click
-import base64
 
 from .manifest import DataObject
 from ..config import Config
+from ..json import CustomDecoder, CustomEncoder
 
 if TYPE_CHECKING or 'sphinx' in sys.modules:
     # Only importing these for type checking and documentation generation in order to speed up runtime startup.
     from simdb.database.models import Simulation, Watcher, File
     import requests
     from requests.auth import AuthBase
-
-
-def numpy_hook(obj: Dict) -> Any:
-    import numpy as np
-    if 'type' in obj and obj['type'] == 'numpy.ndarray':
-        bytes = base64.decodebytes(obj['bytes'].encode())
-        return np.frombuffer(bytes, dtype=obj['dtype'])
-    return obj
-
-
-class NumpyDecoder(json.JSONDecoder):
-    def __init__(self, *args, **kwargs):
-        kwargs['object_hook'] = numpy_hook
-        super().__init__(*args, **kwargs)
-
-
-class NumpyEncoder(json.JSONEncoder):
-    def default(self, obj: Any) -> Any:
-        import numpy as np
-        if isinstance(obj, np.ndarray):
-            bytes = base64.b64encode(obj).decode()
-            return {'type': 'numpy.ndarray', 'dtype': obj.dtype.name, 'bytes': bytes}
-        return json.JSONEncoder.default(self, obj)
 
 
 class FailedConnection(RuntimeError):
@@ -99,9 +76,6 @@ def check_return(res: "requests.Response") -> None:
 
 
 class RemoteAPI:
-    # dir_path = os.path.dirname(os.path.realpath(__file__))
-    # cert_path = os.path.join(dir_path, "../remote/server.crt")
-
     _remote: str
 
     def __init__(self, remote: Optional[str], username: Optional[str], password: Optional[str], config: Config) -> None:
@@ -158,7 +132,7 @@ class RemoteAPI:
     def put(self, url: str, data: Dict, **kwargs) -> "requests.Response":
         import requests
         headers = {'Content-type': 'application/json'}
-        res = requests.put(self._api_url + url, data=json.dumps(data, cls=NumpyEncoder), headers=headers,
+        res = requests.put(self._api_url + url, data=json.dumps(data, cls=CustomEncoder), headers=headers,
                            auth=self._get_auth(), **kwargs)
         check_return(res)
         return res
@@ -171,7 +145,7 @@ class RemoteAPI:
             headers = {}
         else:
             headers = {'Content-type': 'application/json'}
-        post_data = json.dumps(data, cls=NumpyEncoder) if data else {}
+        post_data = json.dumps(data, cls=CustomEncoder) if data else {}
         res = requests.post(self._api_url + url, data=post_data, headers=headers, auth=self._get_auth(), **kwargs)
         check_return(res)
         return res
@@ -179,7 +153,7 @@ class RemoteAPI:
     def patch(self, url: str, data: Dict, **kwargs) -> "requests.Response":
         import requests
         headers = {'Content-type': 'application/json'}
-        res = requests.patch(self._api_url + url, data=json.dumps(data, cls=NumpyEncoder), headers=headers,
+        res = requests.patch(self._api_url + url, data=json.dumps(data, cls=CustomEncoder), headers=headers,
                              auth=self._get_auth(), **kwargs)
         check_return(res)
         return res
@@ -187,7 +161,7 @@ class RemoteAPI:
     def delete(self, url: str, data: Dict, **kwargs) -> "requests.Response":
         import requests
         headers = {'Content-type': 'application/json'}
-        res = requests.delete(self._api_url + url, data=json.dumps(data, cls=NumpyEncoder), headers=headers,
+        res = requests.delete(self._api_url + url, data=json.dumps(data, cls=CustomEncoder), headers=headers,
                               auth=self._get_auth(), **kwargs)
         check_return(res)
         return res
@@ -217,13 +191,18 @@ class RemoteAPI:
         from ..database.models import Simulation
         args = '?' + '&'.join(meta) if meta else ''
         res = self.get("simulations" + args)
-        return [Simulation.from_data(sim) for sim in res.json(cls=NumpyDecoder)]
+        return [Simulation.from_data(sim) for sim in res.json(cls=CustomDecoder)]
 
     @try_request
     def get_simulation(self, sim_id: str) -> "Simulation":
         from ..database.models import Simulation
         res = self.get("simulation/" + sim_id)
-        return Simulation.from_data(res.json(cls=NumpyDecoder))
+        return Simulation.from_data(res.json(cls=CustomDecoder))
+
+    @try_request
+    def trace_simulation(self, sim_id: str) -> dict:
+        res = self.get("trace/" + sim_id)
+        return res.json(cls=CustomDecoder)
 
     @try_request
     def query_simulations(self, constraints: List[str]) -> List["Simulation"]:
@@ -234,7 +213,7 @@ class RemoteAPI:
             params[key] = value
 
         res = self.get("simulations", params)
-        return [Simulation.from_data(sim) for sim in res.json(cls=NumpyDecoder)]
+        return [Simulation.from_data(sim) for sim in res.json(cls=CustomDecoder)]
 
     @try_request
     def delete_simulation(self, sim_id: str) -> Dict:
@@ -313,6 +292,7 @@ class RemoteAPI:
                     'files': [{'file_type': file_type, 'file_uuid': file.uuid.hex}]
                 })
             except:
+                import shutil
                 # While IMAS requires a local file copy we need to remove it if the remote validation fails.
                 shutil.rmtree(data['staging_dir']) 
                 raise

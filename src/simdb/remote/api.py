@@ -415,7 +415,7 @@ def ingest_simulation(user: User=Optional[None]):
                 replaces_sim = api.db.get_simulation(sim_id)
                 if replaces_sim is None:
                     raise ValueError(f'Simulation replaces:{sim_id} is not a valid simulation identifier.')
-                _update_simulation_status(replaces_sim, Simulation.status.DEPRECATED, user)
+                _update_simulation_status(replaces_sim, Simulation.Status.DEPRECATED, user)
                 replaces_sim.set_meta('replaced_by', simulation.uuid)
                 api.db.insert_simulation(replaces_sim)
 
@@ -457,7 +457,7 @@ def validate(sim_id, user: User=Optional[None]):
         return error(str(err))
 
 
-@api.route("/simulation/<string:sim_id>", methods=["GET"])
+@api.route("/simulation/<path:sim_id>", methods=["GET"])
 @requires_auth()
 def get_simulation(sim_id: str, user: User=Optional[None]):
     try:
@@ -467,7 +467,31 @@ def get_simulation(sim_id: str, user: User=Optional[None]):
         return error(str(err))
 
 
-@api.route("/simulation/<string:sim_id>", methods=["PATCH"])
+def _build_trace(sim_id: str) -> dict:
+    simulation = api.db.get_simulation(sim_id)
+    data = simulation.data(recurse=False)
+    status = simulation.find_meta('status')
+    if status:
+        data['status'] = status[0].value
+    replaces = simulation.find_meta("replaces")
+    if replaces:
+        data['replaces'] = _build_trace(replaces[0].value)
+    replaced_on = simulation.find_meta('replaced_on')
+    if replaced_on:
+        data['replaces_on'] = replaced_on[0].value
+    return data
+
+
+@api.route("/trace/<path:sim_id>", methods=["GET"])
+@requires_auth()
+def get_trace(sim_id: str, user: User=Optional[None]):
+    try:
+        return jsonify(_build_trace(sim_id))
+    except DatabaseError as err:
+        return error(str(err))
+
+
+@api.route("/simulation/<path:sim_id>", methods=["PATCH"])
 @requires_auth("admin")
 def update_simulation(sim_id: str, user: User=Optional[None]):
     try:
@@ -486,12 +510,12 @@ def update_simulation(sim_id: str, user: User=Optional[None]):
         return error(str(err))
 
 
-def _update_simulation_status(simulation, status: Simulation.Status, user) -> None:
+def _update_simulation_status(simulation: Simulation, status: Simulation.Status, user) -> None:
     from ..email.server import EmailServer
 
-    old_status = simulation.status
-    simulation.status = status
-    simulation.set_meta(status.lower().replace(' ', '_') + '_on', datetime.datetime.now().isoformat())
+    old_status = simulation.find_meta("status")
+    simulation.set_meta("status", status.value)
+    simulation.set_meta(status.value.lower().replace(' ', '_') + '_on', datetime.datetime.now().isoformat())
     if status != old_status:
         server = EmailServer(current_app.simdb_config)
         msg = f"""\
@@ -521,7 +545,7 @@ def get_staging_dir(sim_hex: str, user: User=Optional[None]):
     return jsonify({'staging_dir': str(Path(upload_dir) / sim_hex)})
 
 
-@api.route("/simulation/<string:sim_id>", methods=["DELETE"])
+@api.route("/simulation/<path:sim_id>", methods=["DELETE"])
 @requires_auth("admin")
 def delete_simulation(sim_id: str, user: User=Optional[None]):
     try:
