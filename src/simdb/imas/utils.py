@@ -1,4 +1,5 @@
 import inspect
+import multiprocessing as mp
 from typing import List, Any
 from uri import URI
 from datetime import datetime
@@ -148,13 +149,23 @@ def imas_timestamp(uri: URI) -> datetime:
     return timestamp
 
 
-def copy_imas(from_uri, to_uri):
+def _copy_imas(from_uri, to_uri, ids_name):
     from_entry = open_imas(from_uri)
-    to_entry = open_imas(to_uri, create=True)
-    idss = list_idss(from_entry)
-    for ids in idss:
-        ids = from_entry.get(ids)
-        to_entry.put(ids)
+    to_entry = open_imas(to_uri)
+    ids = from_entry.get(ids_name)
+    to_entry.put(ids)
     from_entry.close()
     to_entry.close()
 
+
+def copy_imas(from_uri: URI, to_uri: URI):
+    from_entry = open_imas(from_uri)
+    to_entry = open_imas(to_uri, create=True)
+    idss = list_idss(from_entry)
+    from_entry.close()
+    to_entry.close()
+
+    for ids in idss:
+        p = mp.Process(target=_copy_imas, args=(from_uri, to_uri, ids))
+        p.start()
+        p.join()

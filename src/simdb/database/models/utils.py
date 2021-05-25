@@ -46,7 +46,11 @@ def unflatten_dict(in_dict: Dict[str, Any]) -> Dict[str, Union[Dict, Any]]:
     return out_dict
 
 
-def checked_get(data: Dict[str, Any], key, type: Type):
-    if not isinstance(data[key], type):
-        raise ValueError("corrupted %s - expected %s" % (key, str(type)))
+def checked_get(data: Dict[str, Any], key, expected_type: Type):
+    if key not in data:
+        raise ValueError(f"Corrupted data - missing key {key}.")
+    if not isinstance(data[key], expected_type):
+        type_name = type(data[key]).__name__
+        expected_type_name = expected_type.__name__
+        raise ValueError(f"Corrupted data - {key} has incorrect type {type_name}, expected {expected_type_name}.")
     return data[key]

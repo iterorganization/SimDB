@@ -1,9 +1,7 @@
-import uuid
 from typing import Dict, Any
 
 from sqlalchemy import Column, types as sql_types, ForeignKey, Index
 
-# from .types import UUID
 from .base import Base
 from .simulation import Simulation
 from ...docstrings import inherit_docstrings
@@ -21,7 +19,6 @@ class MetaData(Base):
     value = Column(sql_types.PickleType(4), nullable=True)
 
     def __init__(self, key: str, value: Any) -> None:
-        self.uuid = uuid.uuid1()
         self.element = key
         self.value = value
 
@@ -31,12 +28,10 @@ class MetaData(Base):
     @classmethod
     def from_data(cls, data: Dict) -> "MetaData":
         meta = MetaData(data["element"], data["value"])
-        # meta.uuid = uuid.UUID(data["uuid"])
         return meta
 
     def data(self, recurse: bool=False) -> Dict[str, str]:
         data = dict(
-            # uuid=self.uuid.hex,
             element=self.element,
             value=self.value,
         )

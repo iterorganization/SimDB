@@ -154,7 +154,7 @@ class Simulation(Base):
     def from_data(cls, data: Dict[str, Union[str, Dict, List]]) -> "Simulation":
         from .metadata import MetaData
         simulation = Simulation(None)
-        simulation.uuid = uuid.UUID(checked_get(data, "uuid", str))
+        simulation.uuid = checked_get(data, "uuid", uuid.UUID)
         simulation.alias = checked_get(data, "alias", str)
         if "inputs" in data:
             inputs = checked_get(data, "inputs", list)
@@ -172,7 +172,7 @@ class Simulation(Base):
 
     def data(self, recurse: bool=False, meta_keys: List[str]=None) -> Dict[str, Union[str, List]]:
         data = dict(
-            uuid=self.uuid.hex,
+            uuid=self.uuid,
             alias=self.alias,
         )
         if recurse:

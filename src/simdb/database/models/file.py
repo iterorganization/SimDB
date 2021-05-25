@@ -4,7 +4,6 @@ from typing import Dict, Optional
 from pathlib import Path
 
 import uri as urilib
-from dateutil import parser as date_parser
 from sqlalchemy import Column, types as sql_types
 
 from ...cli.manifest import DataObject
@@ -12,6 +11,7 @@ from .base import Base
 from .types import UUID, URI
 from ...docstrings import inherit_docstrings
 from ...config.config import Config
+from .utils import checked_get
 
 
 @inherit_docstrings
@@ -86,15 +86,17 @@ class File(Base):
 
     @classmethod
     def from_data(cls, data: Dict) -> "File":
-        file = File(DataObject.Type[data["type"]], urilib.URI(data["uri"]), perform_integrity_check=False)
-        file.uuid = uuid.UUID(data["uuid"])
-        file.usage = data["usage"]
-        file.checksum = data["checksum"]
-        file.purpose = data["purpose"]
-        file.sensitivity = data["sensitivity"]
-        file.access = data["access"]
-        file.embargo = data["embargo"]
-        file.datetime = date_parser.parse(data["datetime"])
+        data_type = checked_get(data, "type", str)
+        uri = checked_get(data, "uri", str)
+        file = File(DataObject.Type[data_type], urilib.URI(uri), perform_integrity_check=False)
+        file.uuid = checked_get(data, "uuid", uuid.UUID)
+        file.usage = checked_get(data, "usage", str)
+        file.checksum = checked_get(data, "checksum", str)
+        file.purpose = checked_get(data, "purpose", str)
+        file.sensitivity = checked_get(data, "sensitivity", str)
+        file.access = checked_get(data, "access", str)
+        file.embargo = checked_get(data, "embargo", str)
+        file.datetime = datetime.fromisoformat(checked_get(data, "datetime", str))
         return file
 
     def data(self, recurse: bool=False) -> Dict[str, str]:

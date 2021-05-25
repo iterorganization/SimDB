@@ -6,6 +6,7 @@ from .base import Base
 from .types import ChoiceType
 from ...notifications import Notification
 from ...docstrings import inherit_docstrings
+from .utils import checked_get
 
 
 @inherit_docstrings
@@ -40,7 +41,10 @@ class Watcher(Base):
 
     @classmethod
     def from_data(cls, data: Dict) -> "Watcher":
-        watcher = Watcher(data["username"], data["email"], data["notification"])
+        username = checked_get(data, "username", str)
+        email = checked_get(data, "email", str)
+        notification = checked_get(data, "notification", str)
+        watcher = Watcher(username, email, notification)
         return watcher
 
     def data(self, recurse: bool=False) -> Dict[str, str]:

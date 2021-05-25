@@ -118,6 +118,8 @@ class ListValuesValidator(ManifestValidator):
         super().__init__(version)
 
     def validate(self, values: Union[list, dict]) -> None:
+        if values is None:
+            return
         if isinstance(values, dict):
             raise InvalidManifest("badly formatted manifest - %s should be provided as a list" % self.section_name)
         for item in values:
@@ -175,6 +177,8 @@ class DataObjectValidator(ListValuesValidator):
     def validate(self, values: Union[list, dict]) -> None:
         from uri import URI
         super().validate(values)
+        if values is None:
+            return
         for value in values:
             if self.version > 0:
                 uri = URI(value["uri"])
@@ -296,7 +300,7 @@ class Manifest:
     @property
     def inputs(self) -> Iterable[Source]:
         sources = []
-        if isinstance(self._data, dict):
+        if isinstance(self._data, dict) and self._data["inputs"]:
             for i in self._data["inputs"]:
                 source = Source(self._path, i["uri"])
                 if source.type == DataObject.Type.FILE:
@@ -310,7 +314,7 @@ class Manifest:
     @property
     def outputs(self) -> Iterable[Sink]:
         sinks = []
-        if isinstance(self._data, dict):
+        if isinstance(self._data, dict) and self._data["outputs"]:
             for i in self._data["outputs"]:
                 sink = Sink(self._path, i["uri"])
                 if sink.type == DataObject.Type.FILE:
