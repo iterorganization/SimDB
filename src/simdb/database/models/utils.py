@@ -46,9 +46,13 @@ def unflatten_dict(in_dict: Dict[str, Any]) -> Dict[str, Union[Dict, Any]]:
     return out_dict
 
 
-def checked_get(data: Dict[str, Any], key, expected_type: Type):
+def checked_get(data: Dict[str, Any], key, expected_type: Type, optional: bool=False):
     if key not in data:
         raise ValueError(f"Corrupted data - missing key {key}.")
+    if data[key] is None:
+        if optional:
+            return None
+        raise ValueError(f"Corrupted data - non-optional {key} is None.")
     if not isinstance(data[key], expected_type):
         type_name = type(data[key]).__name__
         expected_type_name = expected_type.__name__

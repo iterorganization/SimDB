@@ -90,18 +90,18 @@ class File(Base):
         uri = checked_get(data, "uri", str)
         file = File(DataObject.Type[data_type], urilib.URI(uri), perform_integrity_check=False)
         file.uuid = checked_get(data, "uuid", uuid.UUID)
-        file.usage = checked_get(data, "usage", str)
+        file.usage = checked_get(data, "usage", str, optional=True)
         file.checksum = checked_get(data, "checksum", str)
-        file.purpose = checked_get(data, "purpose", str)
-        file.sensitivity = checked_get(data, "sensitivity", str)
-        file.access = checked_get(data, "access", str)
-        file.embargo = checked_get(data, "embargo", str)
+        file.purpose = checked_get(data, "purpose", str, optional=True)
+        file.sensitivity = checked_get(data, "sensitivity", str, optional=True)
+        file.access = checked_get(data, "access", str, optional=True)
+        file.embargo = checked_get(data, "embargo", str, optional=True)
         file.datetime = datetime.fromisoformat(checked_get(data, "datetime", str))
         return file
 
     def data(self, recurse: bool=False) -> Dict[str, str]:
         data = dict(
-            uuid=self.uuid.hex,
+            uuid=self.uuid,
             usage=self.usage,
             uri=str(self.uri),
             checksum=self.checksum,
