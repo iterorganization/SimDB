@@ -185,12 +185,12 @@ class Database:
             data = {}
             for row in query:
                 data.setdefault(row.simulation.uuid,
-                                {'alias': row.simulation.alias, 'uuid': row.simulation.uuid.hex, 'meta': []})
+                                {'alias': row.simulation.alias, 'uuid': row.simulation.uuid, 'meta': []})
                 data[row.simulation.uuid]['meta'].append({'element': row.metadata.element, 'value': row.metadata.value})
             return list(data.values())
         else:
             query = self.session.query(Simulation.alias, Simulation.uuid)
-            return [{'alias': alias, 'uuid': uuid.hex} for alias, uuid in query]
+            return [{'alias': alias, 'uuid': uuid} for alias, uuid in query]
 
     def list_files(self) -> List["File"]:
         """
@@ -296,7 +296,7 @@ class Database:
         data = {}
         for row in query:
             data.setdefault(row.simulation.uuid,
-                            {'alias': row.simulation.alias, 'uuid': row.simulation.uuid.hex, 'meta': []})
+                            {'alias': row.simulation.alias, 'uuid': row.simulation.uuid, 'meta': []})
             data[row.simulation.uuid]['meta'].append({'element': row.metadata.element, 'value': row.metadata.value})
         return list(data.values())
 
