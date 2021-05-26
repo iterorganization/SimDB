@@ -1,4 +1,5 @@
 import yaml
+import re
 
 
 def map_status(status):
@@ -7,6 +8,10 @@ def map_status(status):
         'active': 'accepted',
         'obsolete': 'deprecated',
     }[status]
+
+
+replaces_re1 = re.compile(r'\d+/\d+')
+replaces_re2 = re.compile(r'\((\d+),(\d+)\)(\s*-.*)?')
 
 
 def get_meta(data):
@@ -25,8 +30,21 @@ def get_meta(data):
         'database': data['characteristics']['machine'],
     }
     if 'database_relations' in data:
-        meta['replaces'] = data['database_relations']['replaces']
-        meta['replaced_by'] = data['database_relations']['replaced_by']
+        replaces = data['database_relations']['replaces']
+        if not replaces:
+            return meta
+        if replaces_re1.match(replaces):
+            meta['replaces'] = replaces
+        else:
+            m = replaces_re2.match(replaces)
+            if m:
+                meta['replaces'] = f'{m[1]}/{m[2]}'
+                if m[3]:
+                    reason = m[3].strip()
+                    if reason.startswith('-'):
+                        reason = reason[1:]
+                    meta['replaces_reason'] = reason.strip()
+        #meta['replaced_by'] = data['database_relations']['replaced_by']
     return meta
 
 
