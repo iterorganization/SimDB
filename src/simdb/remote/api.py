@@ -412,12 +412,17 @@ def ingest_simulation(user: User=Optional[None]):
         if not current_app.simdb_config.get_option("development.disable_replaces", default=False):
             if replaces and replaces[0].value:
                 sim_id = replaces[0].value
-                replaces_sim = api.db.get_simulation(sim_id)
+                try:
+                    replaces_sim = api.db.get_simulation(sim_id)
+                except Exception:
+                    replaces_sim = None
                 if replaces_sim is None:
-                    raise ValueError(f'Simulation replaces:{sim_id} is not a valid simulation identifier.')
-                _update_simulation_status(replaces_sim, Simulation.status.DEPRECATED, user)
-                replaces_sim.set_meta('replaced_by', simulation.uuid)
-                api.db.insert_simulation(replaces_sim)
+                    pass
+                    # raise ValueError(f'Simulation replaces:{sim_id} is not a valid simulation identifier.')
+                else:
+                    _update_simulation_status(replaces_sim, Simulation.Status.DEPRECATED, user)
+                    replaces_sim.set_meta('replaced_by', simulation.uuid)
+                    api.db.insert_simulation(replaces_sim)
 
         api.db.insert_simulation(simulation)
         cache.clear()
@@ -486,13 +491,14 @@ def update_simulation(sim_id: str, user: User=Optional[None]):
         return error(str(err))
 
 
-def _update_simulation_status(simulation, status: Simulation.Status, user) -> None:
+def _update_simulation_status(simulation: Simulation, status: Simulation.Status, user) -> None:
     from ..email.server import EmailServer
 
-    old_status = simulation.status
-    simulation.status = status
-    simulation.set_meta(status.lower().replace(' ', '_') + '_on', datetime.datetime.now().isoformat())
-    if status != old_status:
+    old_status = simulation.find_meta("status")
+    old_status = old_status[0] if old_status else None
+    simulation.set_meta("status", status)
+    simulation.set_meta(status.value.lower().replace(' ', '_') + '_on', datetime.datetime.now().isoformat())
+    if status != old_status and simulation.watchers.count():
         server = EmailServer(current_app.simdb_config)
         msg = f"""\
 Simulation status changed from {old_status} to {status}.
