@@ -46,10 +46,6 @@ def _is_hex_string(string: str) -> bool:
         return False
 
 
-def _is_short_uuid(sim_id: str):
-    return len(sim_id) == 8 and _is_hex_string(sim_id)
-
-
 class Database:
     """
     Class to wrap the database access.
@@ -121,23 +117,16 @@ class Database:
 
     def _find_simulation(self, sim_ref: str) -> "Simulation":
         from .models import Simulation
+        from sqlalchemy import cast as sql_cast, Text, or_ as sql_or
         from sqlalchemy.orm import joinedload
         try:
             sim_uuid = uuid.UUID(sim_ref)
             simulation = self.session.query(Simulation).options(joinedload(Simulation.meta))\
                 .filter_by(uuid=sim_uuid).one_or_none()
         except ValueError:
-            simulation = None
-            if _is_short_uuid(sim_ref):
-                try:
-                    simulation = self.session.query(Simulation).options(joinedload(Simulation.meta))\
-                        .filter(Simulation.uuid.startswith(sim_ref)).one_or_none()
-                except sqlalchemy.exc.StatementError:
-                    simulation = None
-            if not simulation:
-                sim_alias = sim_ref
-                simulation = self.session.query(Simulation).options(joinedload(Simulation.meta))\
-                    .filter_by(alias=sim_alias).one_or_none()
+            simulation = self.session.query(Simulation).options(joinedload(Simulation.meta))\
+                .filter(sql_or(sql_cast(Simulation.uuid, Text).startswith(sim_ref), Simulation.alias == sim_ref))
+                .one_or_none()
             if not simulation:
                 raise DatabaseError(f"Simulation {sim_ref} not found.")
         return simulation
