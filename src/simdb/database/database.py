@@ -125,7 +125,7 @@ class Database:
                 .filter_by(uuid=sim_uuid).one_or_none()
         except ValueError:
             simulation = self.session.query(Simulation).options(joinedload(Simulation.meta))\
-                .filter(sql_or(sql_cast(Simulation.uuid, Text).startswith(sim_ref), Simulation.alias == sim_ref))
+                .filter(sql_or(sql_cast(Simulation.uuid, Text).startswith(sim_ref), Simulation.alias == sim_ref))\
                 .one_or_none()
             if not simulation:
                 raise DatabaseError(f"Simulation {sim_ref} not found.")
