@@ -4,6 +4,7 @@ from typing import Dict, Optional
 from pathlib import Path
 
 import uri as urilib
+from dateutil import parser as date_parser
 from sqlalchemy import Column, types as sql_types
 
 from ...cli.manifest import DataObject
@@ -96,7 +97,7 @@ class File(Base):
         file.sensitivity = checked_get(data, "sensitivity", str, optional=True)
         file.access = checked_get(data, "access", str, optional=True)
         file.embargo = checked_get(data, "embargo", str, optional=True)
-        file.datetime = datetime.fromisoformat(checked_get(data, "datetime", str))
+        file.datetime = date_parser.parse(checked_get(data, "datetime", str))
         return file
 
     def data(self, recurse: bool=False) -> Dict[str, str]:

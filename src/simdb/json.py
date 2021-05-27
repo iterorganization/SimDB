@@ -6,14 +6,14 @@ import json
 def _custom_hook(obj: Dict) -> Any:
     import numpy as np
     import uuid
-    if 'type' in obj:
-        if obj['type'] == 'numpy.ndarray':
+    if '_type' in obj:
+        if obj['_type'] == 'numpy.ndarray':
             np_bytes = base64.decodebytes(obj['bytes'].encode())
             return np.frombuffer(np_bytes, dtype=obj['dtype'])
-        elif obj['type'] == 'uuid.UUID':
+        elif obj['_type'] == 'uuid.UUID':
             return uuid.UUID(obj['hex'])
         else:
-            obj_type = obj['type']
+            obj_type = obj['_type']
             raise ValueError(f'Unknown type to deserialise {obj_type}.')
     return obj
 
@@ -30,7 +30,7 @@ class CustomEncoder(json.JSONEncoder):
         import uuid
         if isinstance(obj, np.ndarray):
             bytes = base64.b64encode(obj).decode()
-            return {'type': 'numpy.ndarray', 'dtype': obj.dtype.name, 'bytes': bytes}
+            return {'_type': 'numpy.ndarray', 'dtype': obj.dtype.name, 'bytes': bytes}
         elif isinstance(obj, uuid.UUID):
-            return {'type': 'uuid.UUID', 'hex': obj.hex}
+            return {'_type': 'uuid.UUID', 'hex': obj.hex}
         return json.JSONEncoder.default(self, obj)

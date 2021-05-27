@@ -69,15 +69,31 @@ def print_simulations(simulations: List["Simulation"], verbose: bool=False, meta
 
 def _print_trace_sim(trace_data: dict, indentation: int):
     spaces = ' ' * indentation
+
+    if 'error' in trace_data:
+        error = trace_data['error']
+        click.echo(f"{spaces}{error}")
+        return
+
     uuid = trace_data['uuid']
     alias = trace_data['alias']
     status = trace_data['status'] if 'status' in trace_data else 'unknown'
+
     click.echo(f"{spaces}Simulation: {uuid}")
     click.echo(f"{spaces}     Alias: {alias}")
     click.echo(f"{spaces}    Status: {status}")
+    status_on_name = status + '_on'
+    if status_on_name in trace_data:
+        status_on = trace_data[status_on_name]
+        label = status_on_name.replace('_', ' ').capitalize()
+        click.echo(f"{spaces}{label}: {status_on}")
 
     if 'replaces' in trace_data:
-        click.echo(f'{spaces}Replaces:')
+        if 'replaces_reason' in trace_data:
+            replaces_reason = trace_data['replaces_reason']
+            click.echo(f'{spaces}Replaces: (reason: {replaces_reason})')
+        else:
+            click.echo(f'{spaces}Replaces:')
         _print_trace_sim(trace_data['replaces'], indentation + 2)
 
 

@@ -145,7 +145,7 @@ class RemoteAPI:
             headers = {}
         else:
             headers = {'Content-type': 'application/json'}
-        post_data = json.dumps(data, cls=CustomEncoder) if data else {}
+        post_data = json.dumps(data, cls=CustomEncoder, indent=2) if data else {}
         res = requests.post(self._api_url + url, data=post_data, headers=headers, auth=self._get_auth(), **kwargs)
         check_return(res)
         return res
@@ -272,7 +272,7 @@ class RemoteAPI:
         elif file.type == DataObject.Type.IMAS:
             from uri import URI
             from ..imas.utils import copy_imas
-            res = self.get("staging_dir/{}".format(sim_data['uuid']))
+            res = self.get("staging_dir/{}".format(sim_data['uuid'].hex))
             data = res.json()
             out_uri = URI(file.uri)
             out_uri.query.remove('user')
@@ -281,7 +281,7 @@ class RemoteAPI:
             copy_imas(file.uri, out_uri)
             print('success', file=out_stream, flush=True)
             files = sim_data['outputs'] if file_type == 'output' else sim_data['inputs']
-            file_data = next((f for f in files if f['uuid'] == file.uuid.hex), None)
+            file_data = next((f for f in files if f['uuid'] == file.uuid), None)
             if file_data:
                 file_data['uri'] = str(out_uri)
             else:
