@@ -390,7 +390,8 @@ def ingest_simulation(user: User=Optional[None]):
             path = _secure_path(sim_file.uri.path, common_root, staging_dir)
             if not path.exists():
                 raise ValueError('simulation file %s not uploaded' % sim_file.uuid)
-            sim_file.uri = URI(scheme='file', path=path)
+            if sim_file.uri.scheme.name == 'file':
+                sim_file.uri = URI(scheme='file', path=path)
 
         result = {
             'ingested': simulation.uuid.hex,
@@ -473,17 +474,36 @@ def get_simulation(sim_id: str, user: User=Optional[None]):
 
 
 def _build_trace(sim_id: str) -> dict:
-    simulation = api.db.get_simulation(sim_id)
+    try:
+        simulation = api.db.get_simulation(sim_id)
+    except DatabaseError as err:
+        return {'error': str(err)}
     data = simulation.data(recurse=False)
+
     status = simulation.find_meta('status')
     if status:
-        data['status'] = status[0].value
+        status = status[0].value
+        if isinstance(status, str):
+            data['status'] = status
+        else:
+            data['status'] = status.value
+        status_on_name = data['status'] + '_on'
+        status_on = simulation.find_meta(status_on_name)
+        if status_on:
+            data[status_on_name] = status_on[0].value
+
     replaces = simulation.find_meta("replaces")
     if replaces:
         data['replaces'] = _build_trace(replaces[0].value)
+
     replaced_on = simulation.find_meta('replaced_on')
     if replaced_on:
-        data['replaces_on'] = replaced_on[0].value
+        data['deprecated_on'] = replaced_on[0].value
+
+    replaces_reason = simulation.find_meta('replaces_reason')
+    if replaces_reason:
+        data['replaces_reason'] = replaces_reason[0].value
+
     return data
 
 
@@ -491,7 +511,8 @@ def _build_trace(sim_id: str) -> dict:
 @requires_auth()
 def get_trace(sim_id: str, user: User=Optional[None]):
     try:
-        return jsonify(_build_trace(sim_id))
+        data = _build_trace(sim_id)
+        return jsonify(data)
     except DatabaseError as err:
         return error(str(err))
 
@@ -520,7 +541,7 @@ def _update_simulation_status(simulation: Simulation, status: Simulation.Status,
 
     old_status = simulation.find_meta("status")
     old_status = old_status[0] if old_status else None
-    simulation.set_meta("status", status)
+    simulation.set_meta("status", status.value)
     simulation.set_meta(status.value.lower().replace(' ', '_') + '_on', datetime.datetime.now().isoformat())
     if status != old_status and simulation.watchers.count():
         server = EmailServer(current_app.simdb_config)

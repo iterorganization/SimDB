@@ -1,6 +1,7 @@
 from typing import Dict, Any
 import base64
 import json
+import enum
 
 
 def _custom_hook(obj: Dict) -> Any:
@@ -33,4 +34,6 @@ class CustomEncoder(json.JSONEncoder):
             return {'_type': 'numpy.ndarray', 'dtype': obj.dtype.name, 'bytes': bytes}
         elif isinstance(obj, uuid.UUID):
             return {'_type': 'uuid.UUID', 'hex': obj.hex}
+        elif isinstance(obj, enum.Enum):
+            return obj.value
         return json.JSONEncoder.default(self, obj)
