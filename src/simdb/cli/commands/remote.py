@@ -200,6 +200,11 @@ def remote_query(config: "Config", api: RemoteAPI, constraints: List[str], meta:
         responsible_name=in:foo     matches all names containing foo
     """
     simulations = api.query_simulations(constraints)
+    if not meta:
+        meta = []
+        for constraint in constraints:
+            name, _ = constraint.split('=')
+            meta.append(name)
     print_simulations(simulations, verbose=config.verbose, metadata_names=meta)
 
 
