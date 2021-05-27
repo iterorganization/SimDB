@@ -296,8 +296,8 @@ class Database:
         data = {}
         for row in query:
             data.setdefault(row.simulation.uuid,
-                            {'alias': row.simulation.alias, 'uuid': row.simulation.uuid, 'meta': []})
-            data[row.simulation.uuid]['meta'].append({'element': row.metadata.element, 'value': row.metadata.value})
+                            {'alias': row.simulation.alias, 'uuid': row.simulation.uuid, 'metadata': []})
+            data[row.simulation.uuid]['metadata'].append({'element': row.metadata.element, 'value': row.metadata.value})
         return list(data.values())
 
     def get_simulation(self, sim_ref: str) -> "Simulation":
