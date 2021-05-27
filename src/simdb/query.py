@@ -13,9 +13,11 @@ class QueryType(Enum):
 
 
 def parse_query_arg(value: str) -> (str, str):
+    if not value:
+        return value, QueryType.NONE
     *comp, value = value.split(':')
     if not comp:
-        return value, QueryType.NONE
+        return value, QueryType.EQ
     if len(comp) > 1:
         raise ValueError(f'Malformed query string {value}.')
     try:
