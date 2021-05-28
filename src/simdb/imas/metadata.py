@@ -27,7 +27,7 @@ class ReadValues(Enum):
 
 
 def walk_imas(ids_node) -> Dict:
-    import imasdef
+    from imas import imasdef
     meta = {}
     for name in (i for i in dir(ids_node) if not i.startswith('_')):
         attr = getattr(ids_node, name)
