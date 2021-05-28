@@ -193,7 +193,7 @@ def simulation_query(config: Config, constraint: str):
         NAME=[mod]VALUE
 
     \b
-    Where [mod] is 0 or more query modifiers. Available query modifiers are:
+    Where `[mod]` is an optional query modifier. Available query modifiers are:
         eq: - This checks for equality (this is the same behaviour as not providing any modifier).
         in: - This searches inside the value instead of looking for exact matches.
         gt: - This checks for values greater than the given quantity.
@@ -202,9 +202,20 @@ def simulation_query(config: Config, constraint: str):
         le: - This checks for values less than or equal to the given quantity.
 
     \b
-    Examples:
+    Modifier examples:
         responsible_name=foo        performs exact match
         responsible_name=in:foo     matches all names containing foo
+        pulse=gt:1000               matches all pulses > 1000
+
+    \b
+    Any string comparisons are done in a case-insensitive manner. If multiple constraints are provided then simulations
+    are returned that match all given constraints.
+
+    \b
+    Examples:
+        sim simulation query workflow.name=in:test       finds all simulations where workflow.name contains test
+                                                         (case-insensitive)
+        sim simulation query pulse=gt:1000 run=0         finds all simulations where pulse is > 1000 and run = 0
     """
     if not constraint:
         raise click.ClickException("At least one constraint must be provided.")

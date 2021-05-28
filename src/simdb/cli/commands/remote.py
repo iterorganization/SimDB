@@ -184,20 +184,36 @@ def remote_trace(api: RemoteAPI, sim_id: str):
 @click.argument("constraints", nargs=-1)
 @click.option("-m", "--meta-data", "meta", help="Additional meta-data field to print.", multiple=True, default=[])
 def remote_query(config: "Config", api: RemoteAPI, constraints: List[str], meta: List[str]):
-    """Perform a metadata query to find matching simulation from remote.
+    """Perform a metadata query to find matching remote simulations.
 
     \b
     Each constraint must be in the form:
         NAME=[mod]VALUE
 
     \b
-    Where [mod] is 0 or more query modifiers. Available query modifiers are:
+    Where `[mod]` is an optional query modifier. Available query modifiers are:
+        eq: - This checks for equality (this is the same behaviour as not providing any modifier).
         in: - This searches inside the value instead of looking for exact matches.
+        gt: - This checks for values greater than the given quantity.
+        gt: - This checks for values greater than or equal to the given quantity.
+        lt: - This checks for values less than the given quantity.
+        le: - This checks for values less than or equal to the given quantity.
+
+    \b
+    Modifier examples:
+        responsible_name=foo        performs exact match
+        responsible_name=in:foo     matches all names containing foo
+        pulse=gt:1000               matches all pulses > 1000
+
+    \b
+    Any string comparisons are done in a case-insensitive manner. If multiple constraints are provided then simulations
+    are returned that match all given constraints.
 
     \b
     Examples:
-        responsible_name=foo        performs exact match
-        responsible_name=in:foo     matches all names containing foo
+        sim remote query workflow.name=in:test       finds all simulations where workflow.name contains test
+                                                         (case-insensitive)
+        sim remote query pulse=gt:1000 run=0         finds all simulations where pulse is > 1000 and run = 0
     """
     simulations = api.query_simulations(constraints)
     if not meta:
