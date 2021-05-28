@@ -141,6 +141,7 @@ def test_remote_query_command(query_simulations, get_api_version):
         sim = mock.Mock()
         sim.uuid = el[0]
         sim.alias = el[1]
+        sim.find_meta.return_value = []
         sims.append(sim)
     constraints = ('alias=123', 'description=in:test')
     query_simulations.return_value = sims
@@ -171,6 +172,7 @@ def test_remote_query_command_with_verbose(query_simulations, get_api_version):
         sim.alias = el[1]
         sim.datetime = el[2]
         sim.status = el[3]
+        sim.find_meta.return_value = []
         sims.append(sim)
     constraints = ('alias=123', 'description=in:test')
     query_simulations.return_value = sims

@@ -95,9 +95,14 @@ def walk_dict(d: Dict, node, depth: int, read_values: ReadValues) -> Dict:
 
 
 def load_metadata(entry):
-    with open(Path(__file__).absolute().parent / 'imas_metadata.yaml') as f:
-        text = f.read()
-
-    data = yaml.safe_load(text)
-    meta = walk_dict(data, entry, 0, ReadValues.SELECTED)
+    # with open(Path(__file__).absolute().parent / 'imas_metadata.yaml') as f:
+    #     text = f.read()
+    #
+    # data = yaml.safe_load(text)
+    data_to_read = {
+        'summary': {
+            'values': 'all'
+        }
+    }
+    meta = walk_dict(data_to_read, entry, 0, ReadValues.SELECTED)
     return meta

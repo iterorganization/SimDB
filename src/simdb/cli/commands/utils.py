@@ -42,10 +42,11 @@ def print_simulations(simulations: List["Simulation"], verbose: bool=False, meta
             line.append(sim.status)
         if metadata_names:
             for name in metadata_names:
-                if sim.find_meta(name):
+                meta = sim.find_meta(name)
+                if meta:
                     if name not in header:
                         header.append(name)
-                    line.append(sim.find_meta(name)[0].data()["value"])
+                    line.append(meta[0].value)
         if not lines:
             lines.append(header)
         lines.append(line)
