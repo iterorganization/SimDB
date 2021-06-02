@@ -203,10 +203,11 @@ def list_simulations(user: User=Optional[None]):
         constraints: List[Tuple[str, str, QueryType]] = []
         for name in request.args:
             names.append(name)
-            value = request.args[name]
-            constraint = parse_query_arg(value)
-            if constraint[0]:
-                constraints.append((name,) + constraint)
+            values = request.args.getlist(name)
+            for value in values:
+                constraint = parse_query_arg(value)
+                if constraint[0]:
+                    constraints.append((name,) + constraint)
 
     if constraints:
         data = api.db.query_meta_data(constraints, names)

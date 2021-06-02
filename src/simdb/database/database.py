@@ -250,15 +250,15 @@ class Database:
         rows = self._get_metadata(constraints)
 
         sim_id_sets = {}
-        for name, _, _ in constraints:
-            sim_id_sets[name] = set()
+        for name, _, query_type in constraints:
+            sim_id_sets[(name, query_type)] = set()
 
         for row in rows:
             for name, value, query_type in constraints:
                 if name in ('alias', 'uuid'):
                     continue
                 if row.metadata.element == name and query_compare(query_type, name, row.metadata.value, value):
-                    sim_id_sets[name].add(row.simulation.id)
+                    sim_id_sets[(name, query_type)].add(row.simulation.id)
 
         if sim_id_sets:
             return set.intersection(*sim_id_sets.values())

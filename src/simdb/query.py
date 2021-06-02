@@ -43,35 +43,35 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str):
             return float(compare) in value
         elif isinstance(value, int):
             raise ValueError(f"Cannot use 'in' query selection for integer metadata field {name}.")
-        else:
+        elif value is not None:
             return compare in str(value)
     elif query_type == QueryType.GT:
         if isinstance(value, np.ndarray):
             return np.any(value > float(compare))
         elif isinstance(value, int) or isinstance(value, float):
             return value > float(compare)
-        else:
+        elif value is not None:
             return value > compare
     elif query_type == QueryType.GE:
         if isinstance(value, np.ndarray):
             return np.any(value >= float(compare))
         elif isinstance(value, int) or isinstance(value, float):
             return value >= float(compare)
-        else:
+        elif value is not None:
             return value >= compare
     elif query_type == QueryType.LT:
         if isinstance(value, np.ndarray):
             return np.any(value < float(compare))
         elif isinstance(value, int) or isinstance(value, float):
             return value < float(compare)
-        else:
+        elif value is not None:
             return value < compare
     elif query_type == QueryType.LE:
         if isinstance(value, np.ndarray):
             return np.any(value <= float(compare))
         elif isinstance(value, int) or isinstance(value, float):
             return value <= float(compare)
-        else:
+        elif value is not None:
             return value <= compare
     else:
         raise ValueError(f"Unknown query type {query_type}.")
