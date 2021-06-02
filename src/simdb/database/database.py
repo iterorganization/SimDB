@@ -4,6 +4,7 @@ import sys
 import contextlib
 from typing import Optional, List, Tuple, Union, TYPE_CHECKING, cast, Any, Iterable
 from enum import Enum, auto
+from collections import defaultdict
 
 from ..config import Config
 
@@ -249,15 +250,18 @@ class Database:
 
         rows = self._get_metadata(constraints)
 
-        sim_ids = []
+        sim_id_sets = defaultdict(lambda: set())
         for row in rows:
             for name, value, query_type in constraints:
                 if name in ('alias', 'uuid'):
                     continue
                 if row.metadata.element == name and query_compare(query_type, name, row.metadata.value, value):
-                    sim_ids.append(row.simulation.id)
+                    sim_id_sets[name].add(row.simulation.id)
 
-        return sim_ids
+        if sim_id_sets:
+            return set.intersection(*sim_id_sets.values())
+
+        return []
 
     def query_meta(self, constraints: List[Tuple[str, str, "QueryType"]]) -> List["Simulation"]:
         """
