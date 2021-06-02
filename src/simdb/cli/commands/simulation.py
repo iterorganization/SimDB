@@ -224,15 +224,17 @@ def simulation_query(config: Config, constraint: str):
     from .utils import print_simulations
 
     constraints: List[Tuple[str, str, QueryType]] = []
+    names = []
     for item in constraint:
         if '=' not in item:
             raise click.ClickException("Invalid constraint.")
         key, value = item.split('=')
+        names.append(key)
         constraints.append((key,) + parse_query_arg(value))
 
     db = get_local_db(config)
     simulations = db.query_meta(constraints)
-    print_simulations(simulations, verbose=config.verbose)
+    print_simulations(simulations, verbose=config.verbose, metadata_names=names)
 
 
 @simulation.command("validate", cls=CustomCommand)

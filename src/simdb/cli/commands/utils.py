@@ -1,5 +1,6 @@
 import sys
 from typing import List, Dict, Tuple, TYPE_CHECKING, TypeVar
+from collections import OrderedDict
 import click
 
 
@@ -30,41 +31,42 @@ def print_simulations(simulations: List["Simulation"], verbose: bool=False, meta
         return
 
     lines = []
-    header = ["UUID", "alias"]
+    column_widths = OrderedDict(UUID=4, alias=5)
     if verbose:
-        header.append("datetime")
-        header.append("status")
+        column_widths["datetime"] = 8
+        column_widths["status"] = 6
 
     for sim in simulations:
-        line = [str(sim.uuid), sim.alias]
+        line = [str(sim.uuid),  sim.alias]
+        column_widths["UUID"] = max(column_widths["UUID"], len(str(sim.uuid)))
+        column_widths["alias"] = max(column_widths["alias"], len(sim.alias))
+
         if verbose:
             line.append(sim.datetime)
             line.append(sim.status)
+            column_widths["datetime"] = max(column_widths["datetime"], len(sim.datetime))
+            column_widths["status"] = max(column_widths["status"], len(sim.status))
+
         if metadata_names:
             for name in metadata_names:
                 meta = sim.find_meta(name)
                 if meta:
-                    if name not in header:
-                        header.append(name)
-                    line.append(meta[0].value)
-        if not lines:
-            lines.append(header)
-        lines.append(line)
+                    line.append(str(meta[0].value))
+                    column_widths.setdefault(name, len(name))
+                    column_widths[name] = max(column_widths[name], len(str(meta[0].value)))
 
-    column_widths = [0] * len(header)
-    for line in lines:
-        for col in range(len(line)):
-            width = len(str(line[col]))
-            if width > column_widths[col]:
-                column_widths[col] = width
+        if not lines:
+            lines.append(list(column_widths.keys()))
+
+        lines.append(line)
               
     line_written = False
     for line in lines:
-        for col in range(len(line)):
-            click.echo("%s" % str(line[col]).ljust(column_widths[col] + 1), nl=False)
+        for col, width in enumerate(column_widths.values()):
+            click.echo("%s" % str(line[col]).ljust(width + 1), nl=False)
         click.echo()
         if not line_written:
-            click.echo("-" * (sum(column_widths) + len(column_widths) - 1))
+            click.echo("-" * (sum(column_widths.values()) + len(column_widths) - 1))
             line_written = True
 
 
