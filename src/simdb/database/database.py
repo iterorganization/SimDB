@@ -4,7 +4,6 @@ import sys
 import contextlib
 from typing import Optional, List, Tuple, Union, TYPE_CHECKING, cast, Any, Iterable
 from enum import Enum, auto
-from collections import defaultdict
 
 from ..config import Config
 
@@ -250,7 +249,10 @@ class Database:
 
         rows = self._get_metadata(constraints)
 
-        sim_id_sets = defaultdict(lambda: set())
+        sim_id_sets = {}
+        for name, _, _ in constraints:
+            sim_id_sets[name] = set()
+
         for row in rows:
             for name, value, query_type in constraints:
                 if name in ('alias', 'uuid'):
