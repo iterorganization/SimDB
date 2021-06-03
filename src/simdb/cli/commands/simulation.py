@@ -197,7 +197,7 @@ def simulation_query(config: Config, constraint: str):
         eq: - This checks for equality (this is the same behaviour as not providing any modifier).
         in: - This searches inside the value instead of looking for exact matches.
         gt: - This checks for values greater than the given quantity.
-        gt: - This checks for values greater than or equal to the given quantity.
+        ge: - This checks for values greater than or equal to the given quantity.
         lt: - This checks for values less than the given quantity.
         le: - This checks for values less than or equal to the given quantity.
 
