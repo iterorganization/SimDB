@@ -84,7 +84,7 @@ def main(args):
     }
 
     with open(out_file, 'w') as file:
-        yaml.dump(out_data, file, default_flow_style=False)
+        yaml.dump(out_data, file, default_flow_style=False, sort_keys=False)
 
 
 if __name__ == '__main__':
