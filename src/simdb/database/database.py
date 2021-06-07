@@ -371,11 +371,18 @@ class Database:
         :param simulation: The Simulation to insert.
         :return: None
         """
-        from sqlalchemy.exc import DBAPIError
+        from sqlalchemy.exc import DBAPIError, IntegrityError
 
         try:
             self.session.add(simulation)
             self.session.commit()
+        except IntegrityError as err:
+            self.session.rollback()
+            if 'alias' in str(err.orig):
+                raise DatabaseError(f'Simulation already exists with alias {simulation.alias} - please use a unique alias.')
+            elif 'uuid' in str(err.orig):
+                raise DatabaseError(f'Simulation already exists with uuid {simulation.uuid}.')
+            raise DatabaseError(str(err.orig))
         except DBAPIError as err:
             self.session.rollback()
             raise DatabaseError(str(err.orig))

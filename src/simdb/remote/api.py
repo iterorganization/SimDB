@@ -331,7 +331,8 @@ def upload_file(user: User=Optional[None]):
                 _verify_file(simulation.uuid, sim_file, common_root)
             return jsonify({})
 
-        data = json.load(request.files["data"])
+        from ..json import CustomDecoder
+        data = json.load(request.files["data"], cls=CustomDecoder)
 
         if "simulation" not in data:
             return error("Simulation data not provided")
@@ -602,7 +603,9 @@ def add_watcher(sim_id: str, user: User=Optional[None]):
 
         if "notification" not in data:
             return error("Watcher notification not provided")
-        notification = getattr(Watcher.Notification, data["notification"])
+
+        from ..notifications import Notification
+        notification = getattr(Notification, data["notification"])
 
         watcher = Watcher(username, email, notification)
         api.db.add_watcher(sim_id, watcher)
