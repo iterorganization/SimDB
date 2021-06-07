@@ -259,7 +259,7 @@ class RemoteAPI:
                     'chunk_info': {file.uuid.hex: {'chunk_size': chunk_size, 'chunk': i}}
                 }
                 files: List[Tuple[str, Tuple[str, bytes, str]]] = [
-                    ("data", ("data", json.dumps(data).encode(), "text/json")),
+                    ("data", ("data", json.dumps(data, cls=CustomEncoder).encode(), "text/json")),
                     ("files", (file.uuid.hex, chunk, "application/octet-stream"))
                 ]
                 self.post("files", data={}, files=files)
