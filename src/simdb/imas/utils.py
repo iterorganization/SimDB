@@ -115,7 +115,7 @@ def open_imas(uri: URI, create=False) -> Any:
     entry = imas.DBEntry(imasdef.MDSPLUS_BACKEND, machine, shot, run, user_name=(path or user), data_version=version)
     if create:
         if Path(path).exists():
-            (Path(path) / machine / '3' / '0').mkdir(parents=True)
+            (Path(path) / machine / '3' / '0').mkdir(parents=True, exist_ok=True)
         (status, _) = entry.create()
         if status != 0:
             raise ImasError("failed to create IMAS data with URI {}".format(uri))

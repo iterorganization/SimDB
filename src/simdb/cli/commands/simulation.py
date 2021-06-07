@@ -185,7 +185,8 @@ def simulation_push(config: Config, remote: Optional[str], sim_id: str, username
 @simulation.command("query")
 @pass_config
 @click.argument("constraint", nargs=-1)
-def simulation_query(config: Config, constraint: str):
+@click.option("-m", "--meta-data", "meta", help="Additional meta-data field to print.", multiple=True, default=[])
+def simulation_query(config: Config, constraint: str, meta: List[str]):
     """Perform a metadata query to find matching local simulations.
 
     \b
@@ -231,6 +232,7 @@ def simulation_query(config: Config, constraint: str):
         key, value = item.split('=')
         names.append(key)
         constraints.append((key,) + parse_query_arg(value))
+    names += meta
 
     db = get_local_db(config)
     simulations = db.query_meta(constraints)
