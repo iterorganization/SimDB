@@ -216,12 +216,14 @@ def remote_query(config: "Config", api: RemoteAPI, constraints: List[str], meta:
         sim remote query pulse=gt:1000 run=0         finds all simulations where pulse is > 1000 and run = 0
     """
     simulations = api.query_simulations(constraints)
-    if not meta:
-        meta = []
-        for constraint in constraints:
-            name, _ = constraint.split('=')
-            meta.append(name)
-    print_simulations(simulations, verbose=config.verbose, metadata_names=meta)
+
+    names = []
+    for constraint in constraints:
+        name, _ = constraint.split('=')
+        meta.append(name)
+    names += meta
+
+    print_simulations(simulations, verbose=config.verbose, metadata_names=names)
 
 
 @remote.command("update", cls=RemoteSubCommand)
