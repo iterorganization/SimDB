@@ -5,6 +5,7 @@ from typing import Optional, List, Tuple
 from . import pass_config
 from ...config.config import Config
 from ...query import QueryType, parse_query_arg
+from .validators import validate_limit
 
 
 @click.group()
@@ -59,7 +60,7 @@ def simulation_alias(config: Config, prefix: str):
 @pass_config
 @click.option("-m", "--meta-data", "meta", help="Additional meta-data field to print.", multiple=True, default=[])
 @click.option("-l", "--limit", help="Limit number of returned entries (use 0 for no limit).", default=100,
-              show_default=True)
+              show_default=True, callback=validate_limit)
 def simulation_list(config: Config, meta: list, limit: int):
     """List ingested simulations.
     """

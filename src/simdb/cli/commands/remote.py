@@ -9,6 +9,7 @@ from ..remote_api import RemoteAPI
 from . import pass_config
 from .utils import print_simulations, print_trace
 from ...notifications import Notification
+from .validators import validate_limit
 
 
 pass_api = click.make_pass_decorator(RemoteAPI)
@@ -154,7 +155,7 @@ def add_watcher(config: "Config", api: RemoteAPI, sim_id: str, user: Optional[st
 @click.option("-m", "--meta-data", "meta", help="Additional meta-data field to print.", multiple=True, default=[],
               metavar='NAME')
 @click.option("-l", "--limit", help="Limit number of returned entries (use 0 for no limit).", default=100,
-              show_default=True)
+              show_default=True, callback=validate_limit)
 def remote_list(config: "Config", api: RemoteAPI, meta: List[str], limit: int):
     """List simulations available on remote.
     """
