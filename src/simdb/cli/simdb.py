@@ -1,3 +1,4 @@
+import copy
 import sys
 import click
 
@@ -24,7 +25,27 @@ def recursive_help(cmd, parent=None):
         recursive_help(sub, ctx)
 
 
-@click.group("simdb")
+class AliasCommandGroup(click.Group):
+
+    def __init__(self, name, **kwargs):
+        super().__init__(name, **kwargs)
+
+    def add_command(self, cmd, name=None, aliases=None):
+        super().add_command(cmd, name)
+        aliases = aliases if aliases is not None else []
+        for alias in aliases:
+            cmd = copy.copy(cmd)
+            cmd.short_help = f'Alias for {name}.'
+            self.commands[alias] = cmd
+
+    def get_command(self, ctx, cmd_name):
+        return self.commands.get(cmd_name)
+
+    def list_commands(self, ctx):
+        return sorted(self.commands)
+
+
+@click.group("simdb", cls=AliasCommandGroup)
 @click.version_option(__version__)
 @click.option("-d", "--debug", is_flag=True, help="Run in debug mode.")
 @click.option("-v", "--verbose", is_flag=True, help="Run with verbose output.")
@@ -40,14 +61,14 @@ def cli(ctx, debug, verbose, config_file):
     g_debug = debug
 
 
-@cli.command()
+@cli.command(hidden=True)
 def dump_help():
     recursive_help(cli)
 
 
 cli.add_command(manifest)
 cli.add_command(alias)
-cli.add_command(simulation)
+cli.add_command(simulation, aliases=["sim"])
 cli.add_command(config)
 cli.add_command(database)
 cli.add_command(remote)
