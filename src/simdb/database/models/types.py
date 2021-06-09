@@ -15,6 +15,8 @@ class UUID(sql_types.TypeDecorator):
     """
     impl = sql_types.CHAR
 
+    cache_ok = True
+
     @property
     def python_type(self):
         return uuid.UUID
