@@ -152,7 +152,7 @@ class Database:
                 con.execute(table.delete())
             trans.commit()
 
-    def list_simulations(self, meta_keys: List[str]=None) -> List[dict]:
+    def list_simulations(self, meta_keys: List[str]=None, limit: int=0) -> List[dict]:
         """
         Return a list of all the simulations stored in the database.
 
@@ -164,12 +164,16 @@ class Database:
         if meta_keys:
             query = self.session.query(Simulation).options(joinedload(Simulation.meta)).outerjoin(Simulation.meta)\
                 .filter(MetaData.element.in_(meta_keys))
+            if limit:
+                query = query.limit(limit)
             return query.all()
         else:
             query = self.session.query(Simulation)
+            if limit:
+                query = query.limit(limit)
             return query.all()
 
-    def list_simulation_data(self, meta_keys: List[str]=None) -> List[dict]:
+    def list_simulation_data(self, meta_keys: List[str]=None, limit: int=0) -> List[dict]:
         """
         Return a list of all the simulations stored in the database.
 
@@ -182,6 +186,8 @@ class Database:
             s_b = Bundle('simulation', Simulation.alias, Simulation.uuid)
             m_b = Bundle('metadata', MetaData.element, MetaData.value)
             query = self.session.query(s_b, m_b).outerjoin(Simulation.meta).filter(m_b.c.element.in_(meta_keys))
+            if limit:
+                query = query.limit(limit)
             data = {}
             for row in query:
                 data.setdefault(row.simulation.uuid,
@@ -190,6 +196,8 @@ class Database:
             return list(data.values())
         else:
             query = self.session.query(Simulation.alias, Simulation.uuid)
+            if limit:
+                query = query.limit(limit)
             return [{'alias': alias, 'uuid': uuid} for alias, uuid in query]
 
     def list_files(self) -> List["File"]:

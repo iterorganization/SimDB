@@ -197,6 +197,7 @@ def cache_key(*args, **kwargs):
 @requires_auth()
 @cache.cached(key_prefix=cache_key)
 def list_simulations(user: User=Optional[None]):
+    limit = request.headers.get('result-limit', 0)
     names = []
     constraints = []
     if request.args:
@@ -212,7 +213,7 @@ def list_simulations(user: User=Optional[None]):
     if constraints:
         data = api.db.query_meta_data(constraints, names)
     else:
-        data = api.db.list_simulation_data(meta_keys=names)
+        data = api.db.list_simulation_data(meta_keys=names, limit=limit)
 
     return jsonify(data)
 

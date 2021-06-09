@@ -58,14 +58,16 @@ def simulation_alias(config: Config, prefix: str):
 @simulation.command("list")
 @pass_config
 @click.option("-m", "--meta-data", "meta", help="Additional meta-data field to print.", multiple=True, default=[])
-def simulation_list(config: Config, meta: list):
+@click.option("-l", "--limit", help="Limit number of returned entries (use 0 for no limit).", default=100,
+              show_default=True)
+def simulation_list(config: Config, meta: list, limit: int):
     """List ingested simulations.
     """
     from ...database import get_local_db
     from .utils import print_simulations
 
     db = get_local_db(config)
-    simulations = db.list_simulations(meta_keys=meta)
+    simulations = db.list_simulations(meta_keys=meta, limit=limit)
     print_simulations(simulations, verbose=config.verbose, metadata_names=meta)
 
 

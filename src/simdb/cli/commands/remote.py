@@ -153,10 +153,12 @@ def add_watcher(config: "Config", api: RemoteAPI, sim_id: str, user: Optional[st
 @pass_config
 @click.option("-m", "--meta-data", "meta", help="Additional meta-data field to print.", multiple=True, default=[],
               metavar='NAME')
-def remote_list(config: "Config", api: RemoteAPI, meta: List[str]):
+@click.option("-l", "--limit", help="Limit number of returned entries (use 0 for no limit).", default=100,
+              show_default=True)
+def remote_list(config: "Config", api: RemoteAPI, meta: List[str], limit: int):
     """List simulations available on remote.
     """
-    simulations = api.list_simulations(meta)
+    simulations = api.list_simulations(meta, limit)
     print_simulations(simulations, verbose=config.verbose, metadata_names=meta)
 
 

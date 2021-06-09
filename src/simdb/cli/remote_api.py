@@ -121,11 +121,11 @@ class RemoteAPI:
         else:
             return self._username, self._password
 
-    def get(self, url: str, params: Dict=None) -> "requests.Response":
+    def get(self, url: str, params: Dict=None, headers: Dict=None) -> "requests.Response":
         import requests
-        if params is None:
-            params = {}
-        res = requests.get(self._api_url + url, params=params, auth=self._get_auth())
+        params = params if params is not None else {}
+        headers = headers if headers is not None else {}
+        res = requests.get(self._api_url + url, params=params, auth=self._get_auth(), headers=headers)
         check_return(res)
         return res
 
@@ -187,10 +187,11 @@ class RemoteAPI:
         return res.json()
 
     @try_request
-    def list_simulations(self, meta: List[str]=None) -> List["Simulation"]:
+    def list_simulations(self, meta: List[str]=None, limit: int=0) -> List["Simulation"]:
         from ..database.models import Simulation
         args = '?' + '&'.join(meta) if meta else ''
-        res = self.get("simulations" + args)
+        headers = {'result-limit': str(limit)}
+        res = self.get("simulations" + args, headers=headers)
         return [Simulation.from_data(sim) for sim in res.json(cls=CustomDecoder)]
 
     @try_request
