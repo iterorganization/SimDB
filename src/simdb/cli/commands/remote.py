@@ -221,6 +221,7 @@ def remote_query(config: "Config", api: RemoteAPI, constraints: List[str], meta:
     simulations = api.query_simulations(constraints)
 
     names = []
+    meta = meta or []
     for constraint in constraints:
         name, _ = constraint.split('=')
         meta.append(name)
