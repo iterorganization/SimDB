@@ -44,7 +44,7 @@ class Simulation(Base):
     Class to represent simulations in the database ORM.
     """
     class Status(Enum):
-        INVALIDATED = 'invalidated'
+        NOT_VALIDATED = 'not validated'
         ACCEPTED = 'accepted'
         FAILED = 'failed'
         PASSED = 'passed'
@@ -71,7 +71,7 @@ class Simulation(Base):
             return
         self.uuid = uuid.uuid1()
         self.datetime = datetime.now()
-        self.status = Simulation.Status.INVALIDATED
+        self.status = Simulation.Status.NOT_VALIDATED
         self.user = getuser()
 
         if manifest.alias:
@@ -106,7 +106,7 @@ class Simulation(Base):
             self.meta.append(MetaData(key, value))
 
         if not self.find_meta("status"):
-            self.set_meta("status", Simulation.Status.INVALIDATED.value)
+            self.set_meta("status", Simulation.Status.NOT_VALIDATED.value)
 
     def __str__(self):
         import numpy as np
