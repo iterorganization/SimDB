@@ -15,24 +15,24 @@ def simulation():
     pass
 
 
-@simulation.command("new")
-@pass_config
-@click.option("-a", "--alias", help="Alias of to assign to the simulation.")
-@click.option("-u", "--uuid-only", "uuid", is_flag=True,
-              help="Return a new UUID but do not insert the new simulation into the database.")
-def simulation_new(config: Config, alias: str, uuid: str):
-    """Create an empty simulation in the database which can be updated later.
-    """
-    from ...database import get_local_db
-    from ...database.models import Simulation
-    from ..manifest import Manifest
-
-    simulation = Simulation(Manifest())
-    simulation.alias = alias
-    if not uuid:
-        db = get_local_db(config)
-        db.insert_simulation(simulation)
-    click.echo(simulation.uuid)
+# @simulation.command("new")
+# @pass_config
+# @click.option("-a", "--alias", help="Alias of to assign to the simulation.")
+# @click.option("-u", "--uuid-only", "uuid", is_flag=True,
+#               help="Return a new UUID but do not insert the new simulation into the database.")
+# def simulation_new(config: Config, alias: str, uuid: str):
+#     """Create an empty simulation in the database which can be updated later.
+#     """
+#     from ...database import get_local_db
+#     from ...database.models import Simulation
+#     from ..manifest import Manifest
+#
+#     simulation = Simulation(Manifest())
+#     simulation.alias = alias
+#     if not uuid:
+#         db = get_local_db(config)
+#         db.insert_simulation(simulation)
+#     click.echo(simulation.uuid)
 
 
 @simulation.command("alias")
