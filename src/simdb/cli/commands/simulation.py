@@ -35,27 +35,6 @@ def simulation():
 #     click.echo(simulation.uuid)
 
 
-@simulation.command("alias")
-@pass_config
-@click.option("-p", "--prefix", help="Prefix to use for the alias.", default='sim', show_default=True)
-def simulation_alias(config: Config, prefix: str):
-    """Generate a unique alias with the given PREFIX.
-    """
-    from ...database import get_local_db
-
-    db = get_local_db(config)
-    aliases = db.get_aliases(prefix)
-
-    n = 1
-    alias = f"{prefix}{n:03}"
-
-    while alias in aliases:
-        n += 1
-        alias = f"{prefix}{n:03}"
-
-    click.echo(alias)
-
-
 @simulation.command("list")
 @pass_config
 @click.option("-m", "--meta-data", "meta", help="Additional meta-data field to print.", multiple=True, default=[])

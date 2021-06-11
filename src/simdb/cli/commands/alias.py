@@ -1,6 +1,17 @@
+import sys
 import click
+from typing import TYPE_CHECKING, Iterable
 
+from ..remote_api import RemoteAPI
 from . import pass_config
+
+
+pass_api = click.make_pass_decorator(RemoteAPI)
+
+
+if TYPE_CHECKING or 'sphinx' in sys.modules:
+    from ...config import Config
+    from click import Context
 
 
 class AliasCommand(click.Command):
@@ -10,29 +21,51 @@ class AliasCommand(click.Command):
         super().parse_args(ctx, args)
 
 
-@click.group()
-def alias():
-    """Query remote and local aliases.
-    """
-    pass
+class AliasGroup(click.Group):
+    def parse_args(self, ctx, args):
+        if args and args[0] in self.commands:
+            args.insert(0, '')
+        super().parse_args(ctx, args)
 
 
-@alias.command(cls=AliasCommand)
+class AliasSubGroup(click.Group):
+    def format_usage(self, ctx, formatter):
+        pieces = self.collect_usage_pieces(ctx)
+        formatter.write_usage(ctx.command_path.replace('remote', 'remote [NAME]'), " ".join(pieces))
+
+
+def is_empty(value) -> bool:
+    return any(value) if isinstance(value, Iterable) else bool(value)
+
+
+@click.group(cls=AliasGroup, invoke_without_command=True)
+@click.pass_context
 @pass_config
-@click.argument("remote", required=False)
-@click.argument("alias")
 @click.option("--username", help="Username used to authenticate with the remote.")
 @click.option("--password", help="Password used to authenticate with the remote.")
-def make_unique(config, remote, alias, username, password):
+@click.argument("remote", required=False)
+def alias(config: "Config", ctx: "Context", remote, username, password):
+    """Query remote and local aliases.
+    """
+    if not ctx.invoked_subcommand and not any(is_empty(i) for i in ctx.params.values()):
+        click.echo(ctx.get_help())
+    elif '--help' not in click.get_os_args():
+        if ctx.invoked_subcommand:
+            ctx.obj = RemoteAPI(remote, username, password, config)
+
+
+@alias.command("make-unique", cls=AliasCommand)
+@pass_api
+@pass_config
+@click.argument("alias")
+def alias_make_unique(config: "Config", api: RemoteAPI, alias: str):
     """Make the given alias unique, checking locally stored simulations and the remote.
     """
-    from ..remote_api import RemoteAPI
     from ...database import get_local_db
     
     trans = str.maketrans("#/()=,*%", "________")
     alias = alias.translate(trans)
 
-    api = RemoteAPI(remote, username, password, config)
     simulations = api.list_simulations()
 
     db = get_local_db(config)
@@ -48,19 +81,15 @@ def make_unique(config, remote, alias, username, password):
     click.echo(alias)
 
 
-@alias.command(cls=AliasCommand)
+@alias.command("search", cls=AliasCommand)
+@pass_api
 @pass_config
-@click.argument("remote", required=False)
-@click.argument("value")
-@click.option("--username", help="Username used to authenticate with the remote.")
-@click.option("--password", help="Password used to authenticate with the remote.")
-def search(config, remote, value, username, password):
+@click.argument("alias")
+def alias_search(config: "Config", api: RemoteAPI, value: str):
     """Search the REMOTE for all aliases that contain the given VALUE.
     """
-    from ..remote_api import RemoteAPI
     from ...database import get_local_db
 
-    api = RemoteAPI(remote, username, password, config)
     simulations = api.list_simulations()
 
     db = get_local_db(config)
@@ -71,19 +100,17 @@ def search(config, remote, value, username, password):
         click.echo(alias)
 
 
-@alias.command(cls=AliasCommand)
+@alias.command("list", cls=AliasCommand)
+@pass_api
 @pass_config
-@click.argument("remote", required=False)
-@click.option("--username", help="Username used to authenticate with the remote.")
-@click.option("--password", help="Password used to authenticate with the remote.")
-def list(config, remote, username, password):
+@click.argument("alias")
+@click.option("--local", help="Only list the local aliases.", is_flag=True)
+def alias_list(config: "Config", api: RemoteAPI, local: bool):
     """List aliases from the local database and the REMOTE (if specified)."""
-    from ..remote_api import RemoteAPI
     from ...database import get_local_db
 
-    if remote:
+    if not local:
         remote_simulations = []
-        api = RemoteAPI(remote, username, password, config)
         if api.has_url():
             remote_simulations = api.list_simulations()
         else:
