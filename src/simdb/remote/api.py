@@ -436,17 +436,17 @@ def ingest_simulation(user: User=Optional[None]):
         return error(str(err))
 
 
-def _validate(simulation) -> Dict:
+def _validate(simulation, user) -> Dict:
     from ..validation import ValidationError, Validator
     schema = Validator.validation_schema()
     try:
         Validator(schema).validate(simulation)
-        simulation.status = Simulation.Status.PASSED
+        _update_simulation_status(simulation, Simulation.Status.PASSED, user)
         return {
             'passed': True,
         }
     except ValidationError as err:
-        simulation.status = Simulation.Status.FAILED
+        _update_simulation_status(simulation, Simulation.Status.FAILED, user)
         return {
             'passed': False,
             'error': str(err),
@@ -458,7 +458,7 @@ def _validate(simulation) -> Dict:
 def validate(sim_id, user: User=Optional[None]):
     try:
         simulation = api.db.get_simulation(sim_id)
-        result = _validate(simulation)
+        result = _validate(simulation, user)
         api.db.insert_simulation(simulation)
         cache.clear()
         return jsonify(result)
@@ -530,7 +530,7 @@ def update_simulation(sim_id: str, user: User=Optional[None]):
         simulation = api.db.get_simulation(sim_id)
         if simulation is None:
             raise ValueError(f"Simulation {sim_id} not found.")
-        status = data["status"]
+        status = Simulation.Status(data["status"])
         _update_simulation_status(simulation, status, user)
         api.db.insert_simulation(simulation)
         cache.clear()
@@ -542,9 +542,8 @@ def update_simulation(sim_id: str, user: User=Optional[None]):
 def _update_simulation_status(simulation: Simulation, status: Simulation.Status, user) -> None:
     from ..email.server import EmailServer
 
-    old_status = simulation.find_meta("status")
-    old_status = old_status[0] if old_status else None
-    simulation.set_meta("status", status.value)
+    old_status = simulation.status
+    simulation.status = status
     simulation.set_meta(status.value.lower().replace(' ', '_') + '_on', datetime.datetime.now().isoformat())
     if status != old_status and simulation.watchers.count():
         server = EmailServer(current_app.simdb_config)

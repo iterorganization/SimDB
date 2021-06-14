@@ -108,6 +108,18 @@ class Simulation(Base):
         if not self.find_meta("status"):
             self.set_meta("status", Simulation.Status.NOT_VALIDATED.value)
 
+    @property
+    def status(self) -> Optional["Simulation.Status"]:
+        result = self.find_meta("status")
+        if result:
+            value = result[0].value if result[0].value != 'invalidated' else 'not validated'
+            return Simulation.Status(value)
+        return None
+
+    @status.setter
+    def status(self, status: "Simulation.Status"):
+        self.set_meta("status", status.value)
+
     def __str__(self):
         import numpy as np
         result = ""

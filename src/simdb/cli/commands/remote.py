@@ -245,8 +245,11 @@ def remote_update(api: RemoteAPI, sim_id: str, update_type: str):
         api.update_simulation(sim_id, Simulation.Status.ACCEPTED)
         click.echo(f"Simulation {sim_id} marked as accepted.")
     elif update_type == "validate":
-        # TODO: Validate simulation.
-        pass
+        ok, err = api.validate_simulation(sim_id)
+        if ok:
+            click.echo(f"Simulation {sim_id} validated successfully.")
+        else:
+            click.echo(f"Validation error: {err}.")
     elif update_type == "deprecate":
         api.update_simulation(sim_id, Simulation.Status.DEPRECATED)
         click.echo(f"Simulation {sim_id} marked as deprecated.")
