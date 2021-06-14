@@ -85,7 +85,7 @@ def alias_make_unique(config: "Config", api: RemoteAPI, alias: str):
 @pass_api
 @pass_config
 @click.argument("alias")
-def alias_search(config: "Config", api: RemoteAPI, value: str):
+def alias_search(config: "Config", api: RemoteAPI, alias: str):
     """Search the REMOTE for all aliases that contain the given VALUE.
     """
     from ...database import get_local_db
@@ -95,7 +95,7 @@ def alias_search(config: "Config", api: RemoteAPI, value: str):
     db = get_local_db(config)
     simulations += db.list_simulations()
 
-    aliases = [sim.alias for sim in simulations if value in sim.alias]
+    aliases = [sim.alias for sim in simulations if alias in sim.alias]
     for alias in aliases:
         click.echo(alias)
 
@@ -103,7 +103,6 @@ def alias_search(config: "Config", api: RemoteAPI, value: str):
 @alias.command("list", cls=AliasCommand)
 @pass_api
 @pass_config
-@click.argument("alias")
 @click.option("--local", help="Only list the local aliases.", is_flag=True)
 def alias_list(config: "Config", api: RemoteAPI, local: bool):
     """List aliases from the local database and the REMOTE (if specified)."""

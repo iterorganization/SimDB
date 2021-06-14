@@ -7,14 +7,14 @@ LOCAL_ALIASES = ['hello', 'world', 'foo-123']
 REMOTE_ALIASES = ['foo#1', 'bar', 'barfoo', '123foo', 'barbaz']
 
 
-def _generate_mock_data(get_local_db, remote_api):
+def _generate_mock_data(get_local_db, remote_list_simulations):
     simulations = []
 
     for alias in REMOTE_ALIASES:
         sim = mock.Mock()
         sim.alias = alias
         simulations.append(sim)
-    remote_api().list_simulations.return_value = simulations
+    remote_list_simulations.return_value = simulations
     simulations = []
 
     for alias in LOCAL_ALIASES:
@@ -25,9 +25,11 @@ def _generate_mock_data(get_local_db, remote_api):
 
 
 @mock.patch('simdb.database.get_local_db')
-@mock.patch('simdb.cli.remote_api.RemoteAPI')
-def test_alias_search_command(remote_api, get_local_db):
-    _generate_mock_data(get_local_db, remote_api)
+@mock.patch('simdb.cli.remote_api.RemoteAPI.list_simulations')
+@mock.patch('simdb.cli.remote_api.RemoteAPI.__init__')
+def test_alias_search_command(init, remote_list_simulations, get_local_db):
+    init.return_value = None
+    _generate_mock_data(get_local_db, remote_list_simulations)
 
     config_file = config_test_file()
     runner = CliRunner()
@@ -38,9 +40,13 @@ def test_alias_search_command(remote_api, get_local_db):
 
 
 @mock.patch('simdb.database.get_local_db')
-@mock.patch('simdb.cli.remote_api.RemoteAPI')
-def test_alias_list_command(remote_api, get_local_db):
-    _generate_mock_data(get_local_db, remote_api)
+@mock.patch('simdb.cli.remote_api.RemoteAPI.list_simulations')
+@mock.patch('simdb.cli.remote_api.RemoteAPI.has_url')
+@mock.patch('simdb.cli.remote_api.RemoteAPI.__init__')
+def test_alias_list_command(init, has_url, remote_list_simulations, get_local_db):
+    init.return_value = None
+    has_url.return_value = True
+    _generate_mock_data(get_local_db, remote_list_simulations)
 
     config_file = config_test_file()
     runner = CliRunner()
@@ -50,13 +56,17 @@ def test_alias_list_command(remote_api, get_local_db):
 
 
 @mock.patch('simdb.database.get_local_db')
-@mock.patch('simdb.cli.remote_api.RemoteAPI')
-def test_alias_list_command_with_remote_name(remote_api, get_local_db):
-    _generate_mock_data(get_local_db, remote_api)
+@mock.patch('simdb.cli.remote_api.RemoteAPI.list_simulations')
+@mock.patch('simdb.cli.remote_api.RemoteAPI.has_url')
+@mock.patch('simdb.cli.remote_api.RemoteAPI.__init__')
+def test_alias_list_command_with_remote_name(init, has_url, remote_list_simulations, get_local_db):
+    init.return_value = None
+    has_url.return_value = True
+    _generate_mock_data(get_local_db, remote_list_simulations)
 
     config_file = config_test_file()
     runner = CliRunner()
-    result = runner.invoke(cli, [f'--config-file={config_file}', 'alias', 'list', 'test'])
+    result = runner.invoke(cli, [f'--config-file={config_file}', 'alias', 'test', 'list'])
     assert result.exception is None
     assert '\n  '.join(REMOTE_ALIASES) in result.output
     assert '\n  '.join(LOCAL_ALIASES) in result.output
