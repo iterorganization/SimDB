@@ -471,7 +471,9 @@ def validate(sim_id, user: User=Optional[None]):
 def get_simulation(sim_id: str, user: User=Optional[None]):
     try:
         simulation = api.db.get_simulation(sim_id)
-        return jsonify(simulation.data(recurse=True))
+        if simulation:
+            return jsonify(simulation.data(recurse=True))
+        return error('Simulation not found')
     except DatabaseError as err:
         return error(str(err))
 
