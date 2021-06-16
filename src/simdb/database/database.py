@@ -77,12 +77,15 @@ class Database:
                 host: the host to connect to
                 port: the port to connect to
         """
-        new_db = False
         if db_type == Database.DBMS.SQLITE:
             if "file" not in kwargs:
                 raise ValueError("Missing file parameter for SQLITE database")
-            new_db = (not os.path.exists(kwargs["file"]))
+            # new_db = (not os.path.exists(kwargs["file"]))
             self.engine: "sqlalchemy.engine.Engine" = create_engine("sqlite:///%(file)s" % kwargs)
+            with contextlib.closing(self.engine.connect()) as con:
+                res: sqlalchemy.engine.ResultProxy = con.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%';")
+                new_db = (res.rowcount == -1)
 
         elif db_type == Database.DBMS.POSTGRESQL:
             if "host" not in kwargs:

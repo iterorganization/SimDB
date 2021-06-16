@@ -9,4 +9,4 @@ done
 DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
 export PYTHONPATH=$DIR/../../:$PYTHONPATH
-python3 -c "from simdb.remote.app import run; run()"
+python3 -c "from simdb.remote.wsgi import run; run()"
