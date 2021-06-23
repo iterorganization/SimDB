@@ -5,7 +5,6 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="simdb",
-    # version="0.1.0",
     author="Jonathan Hollocombe",
     author_email="jonathan.hollocombe@ukaea.uk",
     description="ITER Simulation Management Tool",
@@ -39,7 +38,7 @@ setuptools.setup(
     ],
     version_config={
         "template": "{tag}",
-        "dirty_template": "{tag}.{ccount}",
+        "dirty_template": "{tag}.{ccount}.{sha}",
     },
     setup_requires=[
         "setuptools-git-versioning",
