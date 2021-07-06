@@ -12,9 +12,10 @@ The tool comes in two parts:
 """
 
 import os
+import pkg_resources
 from typing import Tuple, cast
 
-__version__: str = "0.1.1"
+__version__: str = pkg_resources.require("simdb")[0].version
 __version_info__: Tuple[str, str, str] = cast(Tuple[str, str, str], tuple(__version__.split('.')))
 
 _dir_path = os.path.dirname(os.path.realpath(__file__))
