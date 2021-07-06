@@ -15,10 +15,10 @@ openssl x509 -inform DEM -in io-ws-pkiroot_ITER\ Organization\ Root\ CA.crt -out
 cat CA1.pem CA2.pem > $HOME/iter.pem
 ```
 
-Before using the SimDB client you need to set the environment variable `REQUESTS_CA_BUNDLE` to point to the file created above:
+Before using the SimDB client you need to set the environment variable `SIMDB_REQUESTS_CA_BUNDLE` to point to the file created above:
 
 ```bash
-export REQUESTS_CA_BUNDLE=$HOME/iter.pem
+export SIMDB_REQUESTS_CA_BUNDLE=$HOME/iter.pem
 ```
 
 This line can be added to `$HOME/.bash_profile` so that you don't need to set it for each bash terminal. 
