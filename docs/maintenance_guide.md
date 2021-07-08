@@ -64,6 +64,7 @@ In this directory you should create a file 'app.cfg' specifying the server confi
 | server | ssl_cert_file | yes (ssl_enabled=True) | Path to SSL certificate file if ssl_enabled is True. |
 | server | ssl_key_file | yes (ssl_enabled=True) | Path to SSL key file if ssl_enabled is True. |
 | server | admin_password | yes | Password for admin superuser. |
+| server | token_lifetime | no | Number of days generated tokens are valid for - defaults to 30 days. |
 | flask | flask_env | no | Flask server environment [development, production] - defaults to production. |
 | flask | debug | no | Flag [True, Flase] to specify whether Flask server is run with debug mode enabled - defaults to True if flask_env='development', otherwise False. |
 | flask | testing | no | Flag [True, False] to specify whether exceptions are propagated rather than being handled by Flask's error handlers - defaults to False. |

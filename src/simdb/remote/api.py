@@ -78,6 +78,10 @@ def authenticate():
                     401, {"WWW-Authenticate": "Basic realm='Login Required'"})
 
 
+class AuthenticationError(Exception):
+    pass
+
+
 class RequiresAuth:
 
     def __init__(self, role=None):
@@ -98,9 +102,9 @@ class RequiresAuth:
                         if datetime.datetime.utcnow() < expires:
                             user = User(payload['sub'], payload['email'])
                         else:
-                            raise Exception("Token expired")
+                            raise AuthenticationError("Token expired")
                     except (IndexError, KeyError, jwt.exceptions.PyJWTError):
-                        raise Exception("Invalid token")
+                        raise AuthenticationError("Invalid token")
             else:
                 user = check_auth(config, auth.username, auth.password)
             if not user:
@@ -110,6 +114,11 @@ class RequiresAuth:
             kwargs['user'] = user
             return f(*args, **kwargs)
         return decorated
+
+
+@api.errorhandler(AuthenticationError)
+def handle_authentication_error(err: Exception):
+    return str(err), 401
 
 
 def requires_auth(*args):
@@ -168,8 +177,9 @@ def index(user: User=Optional[None]):
 @requires_auth()
 def token(user: User=Optional[None]):
     auth = request.authorization
+    lifetime = current_app.simdb_config.get_option("server.token_lifetime", default=30)
     payload = {
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(days=30),
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(days=lifetime),
         'iat': datetime.datetime.utcnow(),
         'sub': auth.username,
         'email': user.email,
