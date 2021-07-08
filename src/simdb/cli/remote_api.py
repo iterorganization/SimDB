@@ -121,11 +121,14 @@ class RemoteAPI:
         else:
             return self._username, self._password
 
-    def get(self, url: str, params: Dict=None, headers: Dict=None) -> "requests.Response":
+    def get(self, url: str, params: Dict=None, headers: Dict=None, authenticate=True) -> "requests.Response":
         import requests
         params = params if params is not None else {}
         headers = headers if headers is not None else {}
-        res = requests.get(self._api_url + url, params=params, auth=self._get_auth(), headers=headers)
+        if authenticate:
+            res = requests.get(self._api_url + url, params=params, auth=self._get_auth(), headers=headers)
+        else:
+            res = requests.get(self._api_url + url, params=params, headers=headers)
         check_return(res)
         return res
 
@@ -177,7 +180,7 @@ class RemoteAPI:
 
     @try_request
     def get_api_version(self) -> int:
-        res = self.get("")
+        res = self.get("", authenticate=False)
         data = res.json()
         return data["version"]
 

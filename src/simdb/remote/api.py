@@ -158,7 +158,6 @@ def remove_db_session(_error):
 
 
 @api.route("/")
-@requires_auth()
 def index(user: User=Optional[None]):
     return jsonify(
         {
