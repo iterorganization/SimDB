@@ -37,9 +37,9 @@ def print_simulations(simulations: List["Simulation"], verbose: bool=False, meta
         column_widths["status"] = 6
 
     for sim in simulations:
-        line = [str(sim.uuid),  sim.alias]
+        line = [str(sim.uuid),  sim.alias if sim.alias else '']
         column_widths["UUID"] = max(column_widths["UUID"], len(str(sim.uuid)))
-        column_widths["alias"] = max(column_widths["alias"], len(sim.alias))
+        column_widths["alias"] = max(column_widths["alias"], len(sim.alias) if sim.alias else 0)
 
         if verbose:
             line.append(sim.datetime)

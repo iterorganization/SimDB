@@ -410,7 +410,7 @@ def ingest_simulation(user: User=Optional[None]):
         }
 
         if current_app.simdb_config.get_option("validation.auto_validate", default=False):
-            result['validation'] = _validate(simulation)
+            result['validation'] = _validate(simulation, user)
 
         if current_app.simdb_config.get_option("validation.error_on_fail", default=False):
             if simulation.status == Simulation.Status.NOT_VALIDATED:
