@@ -37,8 +37,6 @@ setuptools.setup(
         "click_option_group (>=0.5)",
     ],
     version_config={
-        "template": "{tag}",
-        "dirty_template": "{tag}.{ccount}.{sha}",
     },
     setup_requires=[
         "setuptools-git-versioning",

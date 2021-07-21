@@ -199,7 +199,8 @@ def reset_db(user: User=Optional[None]):
 
 
 def cache_key(*args, **kwargs):
-    return request.url
+    limit = request.headers.get('result-limit', 0)
+    return request.url + str(limit)
 
 
 @api.route("/simulations", methods=["GET"])
