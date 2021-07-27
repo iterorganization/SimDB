@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request
 
-from .api import api
-from .cache import cache
+from .api import blueprint, api
+from .core.cache import cache
 from ..config import Config
 from ..json import CustomEncoder, CustomDecoder
 
@@ -24,7 +24,7 @@ def create_app(config: Config=None, testing=False, debug=False, profile=False):
 
     @app.route("/")
     def index():
-        return jsonify({"endpoints": [request.url + f"api/v{config.api_version}"]})
+        return jsonify({"endpoints": [request.url + f"api/v{api.version}"]})
 
-    app.register_blueprint(api, url_prefix=f"/api/v{config.api_version}")
+    app.register_blueprint(blueprint, url_prefix=f"/api/v{api.version}")
     return app

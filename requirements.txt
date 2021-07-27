@@ -22,3 +22,4 @@ PyJWT>=1.4.0
 easyad>=1.0
 click_option_group>=0.5
 flask-caching>=1.10
+flask-restx>=0.5

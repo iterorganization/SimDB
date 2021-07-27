@@ -68,7 +68,8 @@ In this directory you should create a file 'app.cfg' specifying the server confi
 | flask | flask_env | no | Flask server environment [development, production] - defaults to production. |
 | flask | debug | no | Flag [True, Flase] to specify whether Flask server is run with debug mode enabled - defaults to True if flask_env='development', otherwise False. |
 | flask | testing | no | Flag [True, False] to specify whether exceptions are propagated rather than being handled by Flask's error handlers - defaults to False. |
-| flask | secret_key | yes | Secret key used to encrypt server messages including authentication tokens - should be at least 20 characters long. | 
+| flask | secret_key | yes | Secret key used to encrypt server messages including authentication tokens - should be at least 20 characters long. |
+| flask | swagger_ui_doc_expansion | no | Default state of the Swagger UI documentations [none, list, full]. | 
 | validation | auto_validate | no | Flag [True, False] to set whether the server should run validation on uploaded simulation automatically. Defaults to False. |
 | validation | error_on_fail | no | Flag [True, False] to set whether simulations that fail validation should be rejected - auto_validate must be set to True if this flag is set to True. Defaults to False |
 | email | server | yes | SMTP server used to send emails from the SimDB server. |
