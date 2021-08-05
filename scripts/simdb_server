@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
 
-from simdb.remote.app import run
+from simdb.remote.wsgi import run
 
 run()
