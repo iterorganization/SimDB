@@ -58,7 +58,7 @@ class Config:
     _site_config_path: Path
     _user_config_dir: Path
     _user_config_path: Path
-    _api_version: int
+    _api_version: str
     _debug: bool
     _verbose: bool
 
@@ -70,7 +70,7 @@ class Config:
         self._site_config_path = self._site_config_dir / file_name
         self._user_config_dir = Path(appdirs.user_config_dir('simdb'))
         self._user_config_path = self._user_config_dir / file_name
-        self._api_version = 1
+        self._api_version = "1.0"
         self._debug = False
         self._verbose = False
 

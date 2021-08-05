@@ -9,7 +9,7 @@ import jwt
 User = namedtuple("User", ("name", "email"))
 
 
-HEADER_NAME = 'X-API-Token'
+HEADER_NAME = 'Authorization'
 
 
 def authenticate():
@@ -72,7 +72,9 @@ class RequiresAuth:
             if not auth:
                 if request.headers.get(HEADER_NAME, ''):
                     try:
-                        token = request.headers[HEADER_NAME]
+                        (name, token) = request.headers[HEADER_NAME].split(' ')
+                        if name != 'JWT-Token':
+                            raise AuthenticationError("Invalid token")
                         payload = jwt.decode(token.strip(), current_app.config.get('SECRET_KEY'), algorithms=['HS256'])
                         expires = datetime.datetime.fromtimestamp(payload['exp'])
                         if datetime.datetime.utcnow() < expires:

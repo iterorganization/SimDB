@@ -186,7 +186,7 @@ def remote_trace(api: RemoteAPI, sim_id: str):
 @pass_config
 @click.argument("constraints", nargs=-1)
 @click.option("-m", "--meta-data", "meta", help="Additional meta-data field to print.", multiple=True, default=[])
-def remote_query(config: "Config", api: RemoteAPI, constraints: List[str], meta: List[str]):
+def remote_query(config: "Config", api: RemoteAPI, constraints: List[str], meta: Tuple[str]):
     """Perform a metadata query to find matching remote simulations.
 
     \b
@@ -218,13 +218,13 @@ def remote_query(config: "Config", api: RemoteAPI, constraints: List[str], meta:
                                                          (case-insensitive)
         sim remote query pulse=gt:1000 run=0         finds all simulations where pulse is > 1000 and run = 0
     """
-    simulations = api.query_simulations(constraints)
+    simulations = api.query_simulations(constraints, meta)
 
     names = []
-    meta = meta or []
+    meta = list(meta) or []
     for constraint in constraints:
         name, _ = constraint.split('=')
-        meta.append(name)
+        names.append(name)
     names += meta
 
     print_simulations(simulations, verbose=config.verbose, metadata_names=names)

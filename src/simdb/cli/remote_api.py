@@ -182,7 +182,7 @@ class RemoteAPI:
     def get_api_version(self) -> int:
         res = self.get("", authenticate=False)
         data = res.json()
-        return data["version"]
+        return data["api_version"]
 
     @try_request
     def get_validation_schema(self) -> Dict:
@@ -209,14 +209,14 @@ class RemoteAPI:
         return res.json(cls=CustomDecoder)
 
     @try_request
-    def query_simulations(self, constraints: List[str]) -> List["Simulation"]:
+    def query_simulations(self, constraints: List[str], meta: List[str]) -> List["Simulation"]:
         from ..database.models import Simulation
         params = {}
         for item in constraints:
             (key, value) = item.split('=')
             params[key] = value
-
-        res = self.get("simulations", params)
+        args = '?' + '&'.join(meta) if meta else ''
+        res = self.get("simulations" + args, params)
         return [Simulation.from_data(sim) for sim in res.json(cls=CustomDecoder)]
 
     @try_request
