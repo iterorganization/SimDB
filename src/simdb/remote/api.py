@@ -6,7 +6,7 @@ import jwt
 import os
 
 from .. import __version__
-from .core.auth import User, requires_auth, HEADER_NAME
+from .core.auth import User, requires_auth, HEADER_NAME, AuthenticationError
 from ..database import Database
 from .apis import sim_ns, file_ns, watcher_ns, metadata_ns
 
@@ -70,6 +70,11 @@ def setup_db(setup_state):
 def remove_db_session(_error):
     if current_app.db:
         current_app.db.remove()
+
+
+@api.errorhandler(AuthenticationError)
+def handle_authentication_error(err: Exception):
+    return str(err), 401
 
 
 @api.route("/")
