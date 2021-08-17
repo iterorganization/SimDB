@@ -22,3 +22,4 @@ test_manifest.yml
 /test-reports/
 /tests/cli/test.cfg
 /tests/cli/*.yaml
+.eggs

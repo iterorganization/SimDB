@@ -182,7 +182,7 @@ class RemoteAPI:
     def get_api_version(self) -> int:
         res = self.get("", authenticate=False)
         data = res.json()
-        return data["api_version"]
+        return data["version"]
 
     @try_request
     def get_validation_schema(self) -> Dict:
@@ -192,14 +192,10 @@ class RemoteAPI:
     @try_request
     def list_simulations(self, meta: List[str]=None, limit: int=0) -> List["Simulation"]:
         from ..database.models import Simulation
-        from ..remote.apis.simulations import SimulationList
         args = '?' + '&'.join(meta) if meta else ''
-        headers = {
-            SimulationList.LIMIT_HEADER: str(limit),
-            SimulationList.PAGE_HEADER: str(1),
-        }
+        headers = {'result-limit': str(limit)}
         res = self.get("simulations" + args, headers=headers)
-        return [Simulation.from_data(sim) for sim in res.json(cls=CustomDecoder)['results']]
+        return [Simulation.from_data(sim) for sim in res.json(cls=CustomDecoder)]
 
     @try_request
     def get_simulation(self, sim_id: str) -> "Simulation":
@@ -213,7 +209,7 @@ class RemoteAPI:
         return res.json(cls=CustomDecoder)
 
     @try_request
-    def query_simulations(self, constraints: List[str], meta: List[str]) -> List["Simulation"]:
+    def query_simulations(self, constraints: List[str], meta: List[str], limit=0) -> List["Simulation"]:
         from ..database.models import Simulation
         from ..remote.apis.simulations import SimulationList
         params = {}
@@ -222,7 +218,7 @@ class RemoteAPI:
             params[key] = value
         args = '?' + '&'.join(meta) if meta else ''
         headers = {
-            SimulationList.LIMIT_HEADER: str(0),
+            SimulationList.LIMIT_HEADER: str(limit),
             SimulationList.PAGE_HEADER: str(1),
         }
         res = self.get("simulations" + args, params, headers=headers)
