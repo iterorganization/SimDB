@@ -1,7 +1,11 @@
 from typing import Dict, Any
 import base64
-import json
 import enum
+
+try:
+    import simplejson as json
+except ImportError:
+    import json
 
 
 def _custom_hook(obj: Dict) -> Any:

@@ -1,4 +1,5 @@
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 
 from .api import blueprint, api
 from .core.cache import cache
@@ -13,6 +14,7 @@ def create_app(config: Config=None, testing=False, debug=False, profile=False):
     flask_options = [(k.upper(), v) for (k, v) in config.get_section('flask', [])]
 
     app = Flask(__name__)
+    CORS(app, resources={r'/api/*': {'origins': '*'}})
     app.config['TESTING'] = testing
     app.config['DEBUG'] = debug
     app.config['PROFILE'] = profile

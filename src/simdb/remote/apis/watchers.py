@@ -1,18 +1,13 @@
-from flask import request, current_app, jsonify, Response
+from flask import request, current_app, jsonify
 from flask_restx import Resource, Namespace
 
 from ..core.auth import User, requires_auth
 from ..core.cache import cache
-from ...database import DatabaseError
+from ..core.errors import error
+from ...database import DatabaseError, models
 
 
 api = Namespace('watchers', path='/')
-
-
-def error(message: str) -> Response:
-    response = jsonify(error=message)
-    response.status_code = 500
-    return response
 
 
 @api.route("/watchers/<string:sim_id>")
@@ -32,7 +27,7 @@ class Watcher(Resource):
             from ...notifications import Notification
             notification = getattr(Notification, data["notification"])
 
-            watcher = Watcher(username, email, notification)
+            watcher = models.Watcher(username, email, notification)
             current_app.db.add_watcher(sim_id, watcher)
             cache.clear()
 

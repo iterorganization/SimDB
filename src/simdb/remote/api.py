@@ -8,7 +8,7 @@ import os
 from .. import __version__
 from .core.auth import User, requires_auth, HEADER_NAME
 from ..database import Database
-from .apis import sim_ns, file_ns, watcher_ns
+from .apis import sim_ns, file_ns, watcher_ns, metadata_ns
 
 
 API_VERSION = 1
@@ -37,6 +37,7 @@ api.init_app(blueprint)
 api.add_namespace(sim_ns)
 api.add_namespace(file_ns)
 api.add_namespace(watcher_ns)
+api.add_namespace(metadata_ns)
 
 
 def error(message: str) -> Response:

@@ -176,32 +176,33 @@ class Database:
                 query = query.limit(limit)
             return query.all()
 
-    def list_simulation_data(self, meta_keys: List[str]=None, limit: int=0) -> List[dict]:
+    def list_simulation_data(self, meta_keys: List[str]=None, limit: int=0, page: int=1) -> Tuple[int, List[dict]]:
         """
         Return a list of all the simulations stored in the database.
 
         :return: A list of Simulations.
         """
         from .models import Simulation, MetaData
-        from sqlalchemy.orm import joinedload, Bundle
+        from sqlalchemy.orm import Bundle
 
         if meta_keys:
             s_b = Bundle('simulation', Simulation.alias, Simulation.uuid)
             m_b = Bundle('metadata', MetaData.element, MetaData.value)
             query = self.session.query(s_b, m_b).outerjoin(Simulation.meta).filter(m_b.c.element.in_(meta_keys))
-            if limit:
-                query = query.limit(limit)
+            limit_query = query.limit(limit).offset((page - 1) * limit) if limit else query
             data = {}
-            for row in query:
+            for row in limit_query:
                 data.setdefault(row.simulation.uuid,
                                 {'alias': row.simulation.alias, 'uuid': row.simulation.uuid, 'metadata': []})
-                data[row.simulation.uuid]['metadata'].append({'element': row.metadata.element, 'value': row.metadata.value})
-            return list(data.values())
+                data[row.simulation.uuid]['metadata'].append({
+                    'element': row.metadata.element,
+                    'value': row.metadata.value
+                })
+            return query.count(), list(data.values())
         else:
             query = self.session.query(Simulation.alias, Simulation.uuid)
-            if limit:
-                query = query.limit(limit)
-            return [{'alias': alias, 'uuid': uuid} for alias, uuid in query]
+            limit_query = query.limit(limit).offset((page - 1) * limit) if limit else query
+            return query.count(), [{'alias': alias, 'uuid': uuid} for alias, uuid in limit_query]
 
     def list_files(self) -> List["File"]:
         """
@@ -293,7 +294,8 @@ class Database:
             .filter(Simulation.id.in_(sim_ids))
         return query.all()
 
-    def query_meta_data(self, constraints: List[Tuple[str, str, "QueryType"]], meta_keys: List[str]) -> List[dict]:
+    def query_meta_data(self, constraints: List[Tuple[str, str, "QueryType"]], meta_keys: List[str], limit: int=0,
+                        page: int=1) -> Tuple[int, List[dict]]:
         """
         Query the metadata and return matching simulations.
 
@@ -304,18 +306,23 @@ class Database:
 
         sim_ids = self._get_sim_ids(constraints)
         if not sim_ids:
-            return []
+            return 0, []
 
         s_b = Bundle('simulation', Simulation.id, Simulation.alias, Simulation.uuid)
         m_b = Bundle('metadata', MetaData.element, MetaData.value)
         query = self.session.query(s_b, m_b).outerjoin(Simulation.meta).filter(s_b.c.id.in_(sim_ids))\
             .filter(m_b.c.element.in_(meta_keys))
+        if limit:
+            limit = limit * len(meta_keys)
+            limit_query = query.limit(limit).offset((page - 1) * limit)
+        else:
+            limit_query = query
         data = {}
-        for row in query:
+        for row in limit_query:
             data.setdefault(row.simulation.uuid,
                             {'alias': row.simulation.alias, 'uuid': row.simulation.uuid, 'metadata': []})
             data[row.simulation.uuid]['metadata'].append({'element': row.metadata.element, 'value': row.metadata.value})
-        return list(data.values())
+        return query.count() / len(meta_keys), list(data.values())
 
     def get_simulation(self, sim_ref: str) -> "Simulation":
         """
@@ -374,6 +381,13 @@ class Database:
 
     def list_watchers(self, sim_ref: str) -> List["Watcher"]:
         return self._find_simulation(sim_ref).watchers.all()
+
+    def list_metadata_keys(self) -> List[dict]:
+        from ..database.models import MetaData
+        query = self.session.query(MetaData.element, MetaData.value).group_by(MetaData.element)
+        return [
+            {'name': row[0], 'type': type(row[1]).__name__} for row in query.all()
+        ]
 
     def insert_simulation(self, simulation: "Simulation") -> None:
         """

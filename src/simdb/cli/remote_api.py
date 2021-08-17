@@ -192,10 +192,14 @@ class RemoteAPI:
     @try_request
     def list_simulations(self, meta: List[str]=None, limit: int=0) -> List["Simulation"]:
         from ..database.models import Simulation
+        from ..remote.apis.simulations import SimulationList
         args = '?' + '&'.join(meta) if meta else ''
-        headers = {'result-limit': str(limit)}
+        headers = {
+            SimulationList.LIMIT_HEADER: str(limit),
+            SimulationList.PAGE_HEADER: str(1),
+        }
         res = self.get("simulations" + args, headers=headers)
-        return [Simulation.from_data(sim) for sim in res.json(cls=CustomDecoder)]
+        return [Simulation.from_data(sim) for sim in res.json(cls=CustomDecoder)['results']]
 
     @try_request
     def get_simulation(self, sim_id: str) -> "Simulation":
@@ -211,13 +215,18 @@ class RemoteAPI:
     @try_request
     def query_simulations(self, constraints: List[str], meta: List[str]) -> List["Simulation"]:
         from ..database.models import Simulation
+        from ..remote.apis.simulations import SimulationList
         params = {}
         for item in constraints:
             (key, value) = item.split('=')
             params[key] = value
         args = '?' + '&'.join(meta) if meta else ''
-        res = self.get("simulations" + args, params)
-        return [Simulation.from_data(sim) for sim in res.json(cls=CustomDecoder)]
+        headers = {
+            SimulationList.LIMIT_HEADER: str(0),
+            SimulationList.PAGE_HEADER: str(1),
+        }
+        res = self.get("simulations" + args, params, headers=headers)
+        return [Simulation.from_data(sim) for sim in res.json(cls=CustomDecoder)['results']]
 
     @try_request
     def delete_simulation(self, sim_id: str) -> Dict:

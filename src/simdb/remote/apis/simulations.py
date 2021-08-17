@@ -1,4 +1,4 @@
-from flask import request, current_app, jsonify, Response
+from flask import request, current_app, jsonify
 from flask_restx import Resource, Namespace
 from typing import Optional, List, Tuple, Dict
 from pathlib import Path
@@ -8,22 +8,16 @@ import os
 import itertools
 
 from ..core.auth import User, requires_auth
-from ..core.cache import cache
+from ..core.cache import cache, cache_key
+from ..core.errors import error
 from ..core.path import secure_path
-from ...database import DatabaseError
-from ...database.models import Simulation, MetaData
+from ...database import DatabaseError, models
 
 
 api = Namespace('simulations', path='/')
 
 
-def error(message: str) -> Response:
-    response = jsonify(error=message)
-    response.status_code = 500
-    return response
-
-
-def _update_simulation_status(simulation: Simulation, status: Simulation.Status, user) -> None:
+def _update_simulation_status(simulation: models.Simulation, status: models.Simulation.Status, user) -> None:
     from ...email.server import EmailServer
 
     old_status = simulation.status
@@ -46,12 +40,12 @@ def _validate(simulation, user) -> Dict:
     schema = Validator.validation_schema()
     try:
         Validator(schema).validate(simulation)
-        _update_simulation_status(simulation, Simulation.Status.PASSED, user)
+        _update_simulation_status(simulation, models.Simulation.Status.PASSED, user)
         return {
             'passed': True,
         }
     except ValidationError as err:
-        _update_simulation_status(simulation, Simulation.Status.FAILED, user)
+        _update_simulation_status(simulation, models.Simulation.Status.FAILED, user)
         return {
             'passed': False,
             'error': str(err),
@@ -115,19 +109,23 @@ def _build_trace(sim_id: str) -> dict:
 
 @api.route("/simulations")
 class SimulationList(Resource):
-    LIMIT_HEADER = 'X-Result-Limit'
+    LIMIT_HEADER = 'simdb-result-limit'
+    PAGE_HEADER = 'simdb-page'
 
     parser = api.parser()
-    parser.add_argument(LIMIT_HEADER, location='headers')
+    parser.add_argument(LIMIT_HEADER, location='headers', type=int, help='Limit returned results')
+    parser.add_argument(PAGE_HEADER, location='headers', type=int, help='Specify the page of results to return')
 
     @api.expect(parser)
     @api.response(200, 'Success')
     @api.response(401, 'Unauthorized')
     @requires_auth()
+    @cache.cached(key_prefix=cache_key)
     def get(self, user: User):
         from ...query import QueryType, parse_query_arg
 
-        limit = request.headers.get(SimulationList.LIMIT_HEADER, 100)
+        limit = int(request.headers.get(SimulationList.LIMIT_HEADER, 100))
+        page = int(request.headers.get(SimulationList.PAGE_HEADER, 1))
         names = []
         constraints = []
         if request.args:
@@ -141,11 +139,16 @@ class SimulationList(Resource):
                         constraints.append((name,) + constraint)
 
         if constraints:
-            data = current_app.db.query_meta_data(constraints, names)
+            count, data = current_app.db.query_meta_data(constraints, names, limit=limit, page=page)
         else:
-            data = current_app.db.list_simulation_data(meta_keys=names, limit=limit)
+            count, data = current_app.db.list_simulation_data(meta_keys=names, limit=limit, page=page)
 
-        return jsonify(data)
+        return jsonify({
+            'count': count,
+            'page': page,
+            'limit': limit,
+            'results': data
+        })
 
     @requires_auth()
     def post(self, user: User):
@@ -155,14 +158,14 @@ class SimulationList(Resource):
             if "simulation" not in data:
                 return error("Simulation data not provided")
 
-            simulation = Simulation.from_data(data["simulation"])
+            simulation = models.Simulation.from_data(data["simulation"])
             simulation.user = user.name
 
             if "alias" in data["simulation"]:
                 alias = data["simulation"]["alias"]
                 (updated_alias, next_id) = _set_alias(alias)
                 if updated_alias:
-                    simulation.meta.append(MetaData('seqid', next_id))
+                    simulation.meta.append(models.MetaData('seqid', next_id))
                     simulation.alias = updated_alias
                 else:
                     simulation.alias = alias
@@ -189,12 +192,12 @@ class SimulationList(Resource):
             }
 
             if current_app.simdb_config.get_option("validation.auto_validate", default=False):
-                result['validation'] = _validate(simulation)
+                result['validation'] = _validate(simulation, user)
 
             if current_app.simdb_config.get_option("validation.error_on_fail", default=False):
-                if simulation.status == Simulation.Status.NOT_VALIDATED:
+                if simulation.status == models.Simulation.Status.NOT_VALIDATED:
                     raise Exception('Validation config option error_on_fail=True without auto_validate=True.')
-                elif simulation.status == Simulation.Status.FAILED:
+                elif simulation.status == models.Simulation.Status.FAILED:
                     result["error"] = 'Simulation validation failed and server has error_on_fail=True.'
                     response = jsonify(result)
                     response.status_code = 400
@@ -212,7 +215,7 @@ class SimulationList(Resource):
                         pass
                         # raise ValueError(f'Simulation replaces:{sim_id} is not a valid simulation identifier.')
                     else:
-                        _update_simulation_status(replaces_sim, Simulation.Status.DEPRECATED, user)
+                        _update_simulation_status(replaces_sim, models.Simulation.Status.DEPRECATED, user)
                         replaces_sim.set_meta('replaced_by', simulation.uuid)
                         current_app.db.insert_simulation(replaces_sim)
 
@@ -246,7 +249,7 @@ class Simulation(Resource):
             simulation = current_app.db.get_simulation(sim_id)
             if simulation is None:
                 raise ValueError(f"Simulation {sim_id} not found.")
-            status = Simulation.Status(data["status"])
+            status = models.Simulation.Status(data["status"])
             _update_simulation_status(simulation, status, user)
             current_app.db.insert_simulation(simulation)
             cache.clear()

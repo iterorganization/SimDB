@@ -1,4 +1,4 @@
-from flask import request, current_app, jsonify, Response
+from flask import request, current_app, jsonify
 from flask_restx import Resource, Namespace
 from typing import Optional, List, Iterable, Dict
 from pathlib import Path
@@ -12,8 +12,8 @@ import itertools
 
 from ..core.auth import User, requires_auth
 from ..core.path import secure_path
-from ...database import DatabaseError
-from ...database.models import Simulation, File
+from ..core.errors import error
+from ...database import DatabaseError, models
 from ...cli.manifest import DataObject
 from ...checksum import sha1_checksum
 
@@ -21,13 +21,7 @@ from ...checksum import sha1_checksum
 api = Namespace('files', path='/')
 
 
-def error(message: str) -> Response:
-    response = jsonify(error=message)
-    response.status_code = 500
-    return response
-
-
-def _verify_file(sim_uuid: uuid.UUID, sim_file: File, common_root: Path):
+def _verify_file(sim_uuid: uuid.UUID, sim_file: models.File, common_root: Path):
     if current_app.simdb_config.get_option("development.disable_checksum", default=False):
         return
     staging_dir = Path(current_app.simdb_config.get_option("server.upload_folder")) / sim_uuid.hex
@@ -62,7 +56,7 @@ def _save_chunked_file(file: FileStorage, chunk_info: Dict, path: Path, compress
 
 
 def _stage_file_from_chunks(files: Iterable[FileStorage], chunk_info: Dict, sim_uuid: uuid.UUID,
-                            sim_files: List[File], common_root: Path) -> None:
+                            sim_files: List[models.File], common_root: Path) -> None:
     staging_dir = Path(current_app.simdb_config.get_option("server.upload_folder")) / sim_uuid.hex
     os.makedirs(staging_dir, exist_ok=True)
 
@@ -97,7 +91,7 @@ class FileList(Resource):
         try:
             data = request.get_json()
             if data:
-                simulation = Simulation.from_data(data["simulation"])
+                simulation = models.Simulation.from_data(data["simulation"])
                 for file in data['files']:
                     file_uuid = uuid.UUID(file['file_uuid'])
                     file_type = file['file_type']
@@ -115,7 +109,7 @@ class FileList(Resource):
             if "simulation" not in data:
                 return error("Simulation data not provided")
 
-            simulation = Simulation.from_data(data["simulation"])
+            simulation = models.Simulation.from_data(data["simulation"])
 
             chunk_info = data.get("chunk_info", {})
             file_type = data['file_type']
