@@ -182,7 +182,7 @@ class RemoteAPI:
     def get_api_version(self) -> int:
         res = self.get("", authenticate=False)
         data = res.json()
-        return data["version"]
+        return data["api_version"]
 
     @try_request
     def get_validation_schema(self) -> Dict:

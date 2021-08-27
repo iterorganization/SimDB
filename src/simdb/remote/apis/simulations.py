@@ -209,7 +209,7 @@ class SimulationList(Resource):
                     sim_id = replaces[0].value
                     try:
                         replaces_sim = current_app.db.get_simulation(sim_id)
-                    except Exception:
+                    except DatabaseError:
                         replaces_sim = None
                     if replaces_sim is None:
                         pass
@@ -231,6 +231,7 @@ class SimulationList(Resource):
 class Simulation(Resource):
 
     @requires_auth()
+    @cache.cached(key_prefix=cache_key)
     def get(self, sim_id: str, user: User):
         try:
             simulation = current_app.db.get_simulation(sim_id)
@@ -291,7 +292,9 @@ class ValidateSimulation(Resource):
 
 @api.route("/trace/<path:sim_id>")
 class SimulationTrace(Resource):
+
     @requires_auth()
+    @cache.cached(key_prefix=cache_key)
     def get(self, sim_id: str, user: User):
         try:
             data = _build_trace(sim_id)

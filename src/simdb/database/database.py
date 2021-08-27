@@ -118,6 +118,22 @@ class Database:
             scopefunc = lambda: 0
         self.session: "Session" = cast("Session", scoped_session(sessionmaker(bind=self.engine), scopefunc=scopefunc))
 
+    def _get_simulation_data(self, limit, query, meta_keys, page) -> Tuple[int, List]:
+        if limit:
+            limit = limit * len(meta_keys)
+            limit_query = query.limit(limit).offset((page - 1) * limit)
+        else:
+            limit_query = self.get_simulation_data(query)
+        data = {}
+        for row in limit_query:
+            data.setdefault(row.simulation.uuid,
+                            {'alias': row.simulation.alias, 'uuid': row.simulation.uuid, 'metadata': []})
+            data[row.simulation.uuid]['metadata'].append({
+                'element': row.metadata.element,
+                'value': row.metadata.value
+            })
+        return query.count() / len(meta_keys), list(data.values())
+
     def _find_simulation(self, sim_ref: str) -> "Simulation":
         from .models import Simulation
         from sqlalchemy import cast as sql_cast, Text, or_ as sql_or
@@ -189,20 +205,15 @@ class Database:
             s_b = Bundle('simulation', Simulation.alias, Simulation.uuid)
             m_b = Bundle('metadata', MetaData.element, MetaData.value)
             query = self.session.query(s_b, m_b).outerjoin(Simulation.meta).filter(m_b.c.element.in_(meta_keys))
-            limit_query = query.limit(limit).offset((page - 1) * limit) if limit else query
-            data = {}
-            for row in limit_query:
-                data.setdefault(row.simulation.uuid,
-                                {'alias': row.simulation.alias, 'uuid': row.simulation.uuid, 'metadata': []})
-                data[row.simulation.uuid]['metadata'].append({
-                    'element': row.metadata.element,
-                    'value': row.metadata.value
-                })
-            return query.count(), list(data.values())
+            return self._get_simulation_data(limit, query, meta_keys, page)
         else:
             query = self.session.query(Simulation.alias, Simulation.uuid)
             limit_query = query.limit(limit).offset((page - 1) * limit) if limit else query
             return query.count(), [{'alias': alias, 'uuid': uuid} for alias, uuid in limit_query]
+
+    def get_simulation_data(self, query):
+        limit_query = query
+        return limit_query
 
     def list_files(self) -> List["File"]:
         """
@@ -312,17 +323,7 @@ class Database:
         m_b = Bundle('metadata', MetaData.element, MetaData.value)
         query = self.session.query(s_b, m_b).outerjoin(Simulation.meta).filter(s_b.c.id.in_(sim_ids))\
             .filter(m_b.c.element.in_(meta_keys))
-        if limit:
-            limit = limit * len(meta_keys)
-            limit_query = query.limit(limit).offset((page - 1) * limit)
-        else:
-            limit_query = query
-        data = {}
-        for row in limit_query:
-            data.setdefault(row.simulation.uuid,
-                            {'alias': row.simulation.alias, 'uuid': row.simulation.uuid, 'metadata': []})
-            data[row.simulation.uuid]['metadata'].append({'element': row.metadata.element, 'value': row.metadata.value})
-        return query.count() / len(meta_keys), list(data.values())
+        return self._get_simulation_data(limit, query, meta_keys, page)
 
     def get_simulation(self, sim_ref: str) -> "Simulation":
         """
