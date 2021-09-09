@@ -27,7 +27,7 @@ def check_role(config, user: User, role: Optional[str]) -> bool:
         users = config.get_option(f'role.{role}.users', default='')
         reader = csv.reader([users])
         for row in reader:
-            if user in row:
+            if user.name in row:
                 return True
         return False
 

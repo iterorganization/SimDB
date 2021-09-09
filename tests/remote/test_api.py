@@ -24,7 +24,6 @@ for _ in range(100):
 def client():
     from simdb.remote.app import create_app
     from simdb.config import Config
-    from simdb.remote.api import api
     config = Config()
     config.load()
     db_fd, db_file = tempfile.mkstemp()
@@ -32,11 +31,16 @@ def client():
     config.set_option("database.file", db_file)
     config.set_option("server.admin_password", TEST_PASSWORD)
     app = create_app(config=config, testing=True, debug=True)
-
-    for sim in SIMULATIONS:
-        api.db.insert_simulation(sim)
+    app.testing = True
 
     with app.test_client() as client:
+        # with app.app_context():
+        for sim in SIMULATIONS:
+            app.db.insert_simulation(sim)
+
+        app.db.session.commit()
+        app.db.session.close()
+
         yield client
 
     os.close(db_fd)
@@ -47,17 +51,18 @@ def client():
 def test_get_root(client):
     rv = client.get("/")
     assert rv.status_code == 200
-    assert rv.json == {'endpoints': ['http://localhost/api/v1']}
+    assert rv.json == {'endpoints': ['http://localhost/api/v1.0']}
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_api_root(client):
-    rv = client.get("/api/v1/", headers=HEADERS)
+    rv = client.get("/api/v1.0/", headers=HEADERS)
     assert rv.status_code == 200
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_simulations(client):
-    rv = client.get("/api/v1/simulations", headers=HEADERS)
-    assert len(rv.json) == len(SIMULATIONS)
+    rv = client.get("/api/v1.0/simulations", headers=HEADERS)
+    assert rv.json['count'] == 100
+    assert len(rv.json['results']) == len(SIMULATIONS)
     assert rv.status_code == 200

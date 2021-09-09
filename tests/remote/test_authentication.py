@@ -16,19 +16,19 @@ except ImportError:
 @mock.patch('simdb.config.Config.get_option')
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_check_role(get_option):
-    from simdb.remote import api
+    from simdb.remote.core.auth import check_role, User
     from flask import Flask
     app = Flask('test')
     config = Config()
     app.simdb_config = config
     with app.app_context():
         get_option.return_value = 'user1,"user2", user3'
-        ok = api.check_role(config, 'user1', 'test_role')
+        ok = check_role(config, User('user1', ''), 'test_role')
         assert ok
         get_option.assert_called_with('role.test_role.users', default='')
-        ok = api.check_role(config, 'user4', None)
+        ok = check_role(config, User('user4', ''), None)
         assert ok
-        ok = api.check_role(config, 'user4', 'test_role')
+        ok = check_role(config, User('user4', ''), 'test_role')
         assert not ok
 
 
@@ -36,7 +36,7 @@ def test_check_role(get_option):
 @pytest.mark.skipif(not has_easyad, reason="requires easyad library")
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_check_auth(get_option):
-    from simdb.remote import api
+    from simdb.remote.core.auth import check_auth
     patcher = mock.patch('easyad.EasyAD')
     easy_ad = patcher.start()
 
@@ -46,7 +46,7 @@ def test_check_auth(get_option):
         'server.ad_server': 'test.server',
         'server.ad_domain': 'test.domain',
     }[a]
-    ok = api.check_auth(config, "admin", "abc123")
+    ok = check_auth(config, "admin", "abc123")
     assert ok
     get_option.assert_called_once_with('server.admin_password')
 
@@ -56,7 +56,7 @@ def test_check_auth(get_option):
         return None
     easy_ad().authenticate_user.side_effect = auth
 
-    ok = api.check_auth(config, "user", "password")
+    ok = check_auth(config, "user", "password")
     assert ok
     easy_ad.assert_called_with({
         'AD_SERVER': 'test.server',
@@ -64,5 +64,5 @@ def test_check_auth(get_option):
     })
     easy_ad().authenticate_user.assert_called_once_with("user", "password", json_safe=True)
 
-    ok = api.check_auth(config, "user", "wrong")
+    ok = check_auth(config, "user", "wrong")
     assert not ok

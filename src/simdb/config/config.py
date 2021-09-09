@@ -36,7 +36,9 @@ def _isfloat(value: str) -> bool:
 
 
 def _convert(value: str) -> Union[int, float, str, bool]:
-    if value.isdecimal():
+    if value == "":
+        return value
+    elif value.isdecimal():
         return int(value)
     elif _isfloat(value):
         return float(value)

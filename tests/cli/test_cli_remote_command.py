@@ -154,7 +154,7 @@ def test_remote_query_command(query_simulations, get_api_version):
             assert i in result.output
     assert query_simulations.called
     (args, kwargs) = query_simulations.call_args
-    assert args == (constraints,)
+    assert args == (constraints, (), 100)
     assert kwargs == {}
     assert get_api_version.called
 
@@ -185,7 +185,7 @@ def test_remote_query_command_with_verbose(query_simulations, get_api_version):
             assert i in result.output
     assert query_simulations.called
     (args, kwargs) = query_simulations.call_args
-    assert args == (constraints,)
+    assert args == (constraints, (), 100)
     assert kwargs == {}
     assert get_api_version.called
 
