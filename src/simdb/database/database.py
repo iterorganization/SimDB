@@ -385,7 +385,9 @@ class Database:
 
     def list_metadata_keys(self) -> List[dict]:
         from ..database.models import MetaData
-        query = self.session.query(MetaData.element, MetaData.value).group_by(MetaData.element)
+        # TODO: only the top version works for Postgres, swap to other version for SQLite
+        query = self.session.query(MetaData.element, MetaData.value).distinct(MetaData.element)
+        # query = self.session.query(MetaData.element, MetaData.value).group_by(MetaData.element)
         return [
             {'name': row[0], 'type': type(row[1]).__name__} for row in query.all()
         ]
