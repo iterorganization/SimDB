@@ -112,7 +112,7 @@ class RemoteAPI:
             def __init__(self, token):
                 self._token = token
 
-            def __call__(self, request: "requests.Request"):
+            def __call__(self, request: "requests.PreparedRequest"):
                 request.headers['Authorization'] = f'JWT-Token {self._token}'
                 return request
 
@@ -211,7 +211,7 @@ class RemoteAPI:
     @try_request
     def query_simulations(self, constraints: List[str], meta: List[str], limit=0) -> List["Simulation"]:
         from ..database.models import Simulation
-        from ..remote.apis.simulations import SimulationList
+        from simdb.remote.apis.v1_1.simulations import SimulationList
         params = {}
         for item in constraints:
             (key, value) = item.split('=')
@@ -303,7 +303,7 @@ class RemoteAPI:
             except:
                 import shutil
                 # While IMAS requires a local file copy we need to remove it if the remote validation fails.
-                shutil.rmtree(data['staging_dir']) 
+                shutil.rmtree(data['staging_dir'])
                 raise
 
     @try_request

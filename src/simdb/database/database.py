@@ -171,7 +171,7 @@ class Database:
                 con.execute(table.delete())
             trans.commit()
 
-    def list_simulations(self, meta_keys: List[str]=None, limit: int=0) -> List[dict]:
+    def list_simulations(self, meta_keys: List[str]=None, limit: int=0) -> List["Simulation"]:
         """
         Return a list of all the simulations stored in the database.
 

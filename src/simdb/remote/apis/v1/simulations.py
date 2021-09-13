@@ -7,18 +7,18 @@ import datetime
 import os
 import itertools
 
-from ..core.auth import User, requires_auth
-from ..core.cache import cache, cache_key
-from ..core.errors import error
-from ..core.path import secure_path
-from ...database import DatabaseError, models
+from simdb.remote.core.auth import User, requires_auth
+from simdb.remote.core.cache import cache, cache_key
+from simdb.remote.core.errors import error
+from simdb.remote.core.path import secure_path
+from simdb.database import DatabaseError, models
 
 
 api = Namespace('simulations', path='/')
 
 
 def _update_simulation_status(simulation: models.Simulation, status: models.Simulation.Status, user) -> None:
-    from ...email.server import EmailServer
+    from ....email.server import EmailServer
 
     old_status = simulation.status
     simulation.status = status
@@ -36,7 +36,7 @@ Updated by {user}.
 
 
 def _validate(simulation, user) -> Dict:
-    from ...validation import ValidationError, Validator
+    from ....validation import ValidationError, Validator
     schema = Validator.validation_schema()
     try:
         Validator(schema).validate(simulation)
@@ -122,10 +122,10 @@ class SimulationList(Resource):
     @requires_auth()
     @cache.cached(key_prefix=cache_key)
     def get(self, user: User):
-        from ...query import QueryType, parse_query_arg
+        from ....query import QueryType, parse_query_arg
 
         limit = int(request.headers.get(SimulationList.LIMIT_HEADER, 100))
-        page = int(request.headers.get(SimulationList.PAGE_HEADER, 1))
+        page = 1
         names = []
         constraints = []
         if request.args:
@@ -143,12 +143,7 @@ class SimulationList(Resource):
         else:
             count, data = current_app.db.list_simulation_data(meta_keys=names, limit=limit, page=page)
 
-        return jsonify({
-            'count': count,
-            'page': page,
-            'limit': limit,
-            'results': data
-        })
+        return jsonify(data)
 
     @requires_auth()
     def post(self, user: User):

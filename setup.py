@@ -56,7 +56,7 @@ setuptools.setup(
         "scripts/simdb_server",
     ],
     package_data={
-        "simdb": ["LICENCE.txt"],
+        "simdb": ["LICENCE.txt", "py.typed"],
         "simdb.cli": ["template.yaml"],
         "simdb.remote": ["simdb.initd", "simdb.nginx"],
     },

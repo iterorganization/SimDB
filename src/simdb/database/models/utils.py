@@ -22,7 +22,7 @@ def _parse_index(head: str) -> Tuple[bool, str, int]:
     return False, head, 0
 
 
-def _unflatten_value(out_dict: Dict[str, Union[Dict, Any]], key: Deque[str], value: Any) -> None:
+def _unflatten_value(out_dict: Dict[str, Union[Dict, List, Any]], key: Deque[str], value: Any) -> None:
     head = key.popleft()
     tail = key
     is_index, head, index = _parse_index(head)

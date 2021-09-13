@@ -1,7 +1,8 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
-from .api import blueprint, api
+from .apis.v1 import blueprint as api_v1
+from .apis.v1_1 import blueprint as api_v1_1
 from .core.cache import cache
 from ..config import Config
 from ..json import CustomEncoder, CustomDecoder
@@ -26,7 +27,11 @@ def create_app(config: Config=None, testing=False, debug=False, profile=False):
 
     @app.route("/")
     def index():
-        return jsonify({"endpoints": [request.url + f"api/v{api.version}"]})
+        return jsonify({"endpoints": [
+            request.url + "v1",
+            request.url + "v1.1",
+        ]})
 
-    app.register_blueprint(blueprint, url_prefix=f"/api/v{api.version}")
+    app.register_blueprint(api_v1, url_prefix="/v1")
+    app.register_blueprint(api_v1_1, url_prefix="/v1.1")
     return app

@@ -10,12 +10,12 @@ import json
 import gzip
 import itertools
 
-from ..core.auth import User, requires_auth
-from ..core.path import secure_path
-from ..core.errors import error
-from ...database import DatabaseError, models
-from ...cli.manifest import DataObject
-from ...checksum import sha1_checksum
+from simdb.remote.core.auth import User, requires_auth
+from simdb.remote.core.path import secure_path
+from simdb.remote.core.errors import error
+from simdb.database import DatabaseError, models
+from simdb.cli.manifest import DataObject
+from simdb.checksum import sha1_checksum
 
 
 api = Namespace('files', path='/')
@@ -33,8 +33,7 @@ def _verify_file(sim_uuid: uuid.UUID, sim_file: models.File, common_root: Path):
         if sim_file.checksum != checksum:
             raise ValueError("checksum failed for file %s" % repr(sim_file))
     elif sim_file.type == DataObject.Type.IMAS:
-        from ...imas.checksum import checksum as imas_checksum
-        config = current_app.simdb_config
+        from ....imas.checksum import checksum as imas_checksum
         user_folder = current_app.simdb_config.get_option("server.user_upload_folder", default=None)
         uri = sim_file.uri
         if user_folder is not None:
@@ -99,11 +98,13 @@ class FileList(Resource):
                     sim_file = next((f for f in sim_files if f.uuid == file_uuid), None)
                     if sim_file is None:
                         raise ValueError("file with uuid %s not found in simulation" % file_uuid)
-                    common_root = os.path.commonpath([f.uri.path for f in itertools.chain(simulation.inputs, simulation.outputs)])
+                    common_root = os.path.commonpath(
+                        [f.uri.path for f in itertools.chain(simulation.inputs, simulation.outputs)]
+                    )
                     _verify_file(simulation.uuid, sim_file, common_root)
                 return jsonify({})
 
-            from ...json import CustomDecoder
+            from ....json import CustomDecoder
             data = json.load(request.files["data"], cls=CustomDecoder)
 
             if "simulation" not in data:

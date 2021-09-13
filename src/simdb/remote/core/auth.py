@@ -42,11 +42,14 @@ def check_auth(config, username, password) -> Optional[User]:
     if username == "admin" and password == config.get_option("server.admin_password"):
         return User("admin", None)
 
-    ad_config = {
-        'AD_SERVER': config.get_option('server.ad_server'),
-        'AD_DOMAIN': config.get_option('server.ad_domain'),
-    }
-    ad = EasyAD(ad_config)
+    try:
+        ad_config = {
+            'AD_SERVER': config.get_option('server.ad_server'),
+            'AD_DOMAIN': config.get_option('server.ad_domain'),
+        }
+        ad = EasyAD(ad_config)
+    except KeyError:
+        return None
 
     user = ad.authenticate_user(username, password, json_safe=True)
     if user:
