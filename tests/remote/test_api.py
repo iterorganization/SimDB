@@ -20,7 +20,7 @@ for _ in range(100):
     SIMULATIONS.append(Simulation(Manifest()))
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def client():
     from simdb.remote.app import create_app
     from simdb.config import Config
@@ -51,18 +51,18 @@ def client():
 def test_get_root(client):
     rv = client.get("/")
     assert rv.status_code == 200
-    assert rv.json == {'endpoints': ['http://localhost/api/v1.0']}
+    assert rv.json == {'endpoints': ['http://localhost/v1', 'http://localhost/v1.1']}
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_api_root(client):
-    rv = client.get("/api/v1.0/", headers=HEADERS)
+    rv = client.get("/v1.1/", headers=HEADERS)
     assert rv.status_code == 200
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_simulations(client):
-    rv = client.get("/api/v1.0/simulations", headers=HEADERS)
+    rv = client.get("/v1.1/simulations", headers=HEADERS)
     assert rv.json['count'] == 100
     assert len(rv.json['results']) == len(SIMULATIONS)
     assert rv.status_code == 200
