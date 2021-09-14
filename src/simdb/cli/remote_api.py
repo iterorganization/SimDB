@@ -195,7 +195,8 @@ class RemoteAPI:
         args = '?' + '&'.join(meta) if meta else ''
         headers = {'result-limit': str(limit)}
         res = self.get("simulations" + args, headers=headers)
-        return [Simulation.from_data(sim) for sim in res.json(cls=CustomDecoder)]
+        data = res.json(cls=CustomDecoder)
+        return [Simulation.from_data(sim) for sim in data['results']]
 
     @try_request
     def get_simulation(self, sim_id: str) -> "Simulation":
@@ -222,7 +223,8 @@ class RemoteAPI:
             SimulationList.PAGE_HEADER: str(1),
         }
         res = self.get("simulations" + args, params, headers=headers)
-        return [Simulation.from_data(sim) for sim in res.json(cls=CustomDecoder)['results']]
+        data = res.json(cls=CustomDecoder)
+        return [Simulation.from_data(sim) for sim in data['results']]
 
     @try_request
     def delete_simulation(self, sim_id: str) -> Dict:

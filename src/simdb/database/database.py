@@ -240,7 +240,7 @@ class Database:
         return simulation
 
     def _get_metadata(self, constraints: List[Tuple[str, str, "QueryType"]]) -> Iterable:
-        from sqlalchemy import func, String
+        from sqlalchemy import func, String, or_
         from sqlalchemy.orm import Bundle
         from ..query import QueryType
         from .models import Simulation, MetaData
@@ -264,6 +264,14 @@ class Database:
                                          .ilike("%{}%".format(value.replace('-', ''))))
             elif name in ('uuid', 'alias'):
                 raise ValueError(f'Invalid query type {query_type} for alias or uuid.')
+
+        names_filters = []
+        for name, _, _ in constraints:
+            if name in ('alias', 'uuid'):
+                continue
+            names_filters.append(MetaData.element.ilike(name))
+        if names_filters:
+            query = query.filter(or_(*names_filters))
 
         return query
 

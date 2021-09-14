@@ -77,7 +77,7 @@ def remove_db_session(_error):
 
 @api.errorhandler(AuthenticationError)
 def handle_authentication_error(err: Exception):
-    return str(err), 401
+    return {'message': str(err)}, 401
 
 
 @api.route("/")
