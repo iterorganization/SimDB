@@ -56,7 +56,7 @@ class Stats:
         )
 
 
-def between(number: float, range: Tuple[float, float], closed: bool=True):
+def between(number: float, range: Tuple[float, float], closed: bool = True):
     if closed:
         return range[0] <= number <= range[1]
     else:
@@ -281,7 +281,8 @@ def drilldown(device: str, scenario: str, parent_path: str, obj_name: str, obj: 
 
     if dtype.startswith('float'):
         print('Float Object: ' + obj_name + ' = ' + str(obj), file=out)
-        if not not is_missing(obj): print('Missing Value!', file=out)
+        if not not is_missing(obj):
+            print('Missing Value!', file=out)
         if mode == RunMode.TEST:
             float_scalar_validation_tests(device, scenario, path, obj, test_report)
         elif mode == RunMode.SAVE:
@@ -489,13 +490,15 @@ def verify_equilibrium_cocos(imas_obj: Any) -> bool:
         psi_bnd = time_slice[a_index].global_quantities.psi_boundary
         sign_psi = +1
         if not is_missing(psi_axis) and not is_missing(psi_bnd):
-            if psi_bnd - psi_axis < 0.0: sign_psi = -1
+            if psi_bnd - psi_axis < 0.0:
+                sign_psi = -1
         else:
             psi = time_slice[a_index].profiles_1d.psi  # Read profile
             if not is_missing(psi):
                 psi_axis = psi[0]
                 psi_bnd = psi[len(psi) - 1]
-                if psi_bnd - psi_axis < 0.0: sign_psi = -1
+                if psi_bnd - psi_axis < 0.0:
+                    sign_psi = -1
             else:
                 print('Unable to verify COCOS compliance: missing poloidal flux profile')
                 compliance = False
@@ -540,7 +543,8 @@ def verify_equilibrium_cocos(imas_obj: Any) -> bool:
             q_axis = time_slice[a_index].global_quantities.q_axis
             q_95 = time_slice[a_index].global_quantities.q_95
             if not is_missing(q_axis) and not is_missing(q_axis):
-                if q_95 < 0.0: sign_q = -1
+                if q_95 < 0.0:
+                    sign_q = -1
             else:
                 print('Unable to verify COCOS compliance: missing q profile')
                 compliance = False
@@ -689,10 +693,10 @@ def validate_ids(device: str, scenario: str, imas_obj: Any, ids_name: str, mode:
             dtype = str(obj.dtype)
             if dtype.startswith("int") or dtype.startswith("float"):
                 print('Atomic Array Object: ' + name, file=out)
-                print(str(rank), file=out)    # Rank
-                print(str(shape), file=out)   # Shape
-                print(str(size), file=out)    # Number of elements
-                print(str(dtype), file=out)   # Type
+                print(str(rank), file=out)  # Rank
+                print(str(shape), file=out)  # Shape
+                print(str(size), file=out)  # Number of elements
+                print(str(dtype), file=out)  # Type
 
                 if size > 0:
                     print(str(obj), file=out)

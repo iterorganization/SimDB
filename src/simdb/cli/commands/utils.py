@@ -3,7 +3,6 @@ from typing import List, Dict, Tuple, TYPE_CHECKING, TypeVar
 from collections import OrderedDict
 import click
 
-
 if TYPE_CHECKING or 'sphinx' in sys.modules:
     # Only importing these for type checking and documentation generation in order to speed up runtime startup.
     from simdb.database.models import Simulation
@@ -25,7 +24,7 @@ def flatten_dict(values: Dict) -> List[Tuple[str, str]]:
     return items
 
 
-def print_simulations(simulations: List["Simulation"], verbose: bool=False, metadata_names: List[str]=None) -> None:
+def print_simulations(simulations: List["Simulation"], verbose: bool = False, metadata_names: List[str] = None) -> None:
     if len(simulations) == 0:
         click.echo("No simulations found")
         return
@@ -37,7 +36,7 @@ def print_simulations(simulations: List["Simulation"], verbose: bool=False, meta
         column_widths["status"] = 6
 
     for sim in simulations:
-        line = [str(sim.uuid),  sim.alias if sim.alias else '']
+        line = [str(sim.uuid), sim.alias if sim.alias else '']
         column_widths["UUID"] = max(column_widths["UUID"], len(str(sim.uuid)))
         column_widths["alias"] = max(column_widths["alias"], len(sim.alias) if sim.alias else 0)
 
@@ -59,7 +58,7 @@ def print_simulations(simulations: List["Simulation"], verbose: bool=False, meta
             lines.append(list(column_widths.keys()))
 
         lines.append(line)
-              
+
     line_written = False
     for line in lines:
         for col, width in enumerate(column_widths.values()):
@@ -100,10 +99,9 @@ def _print_trace_sim(trace_data: dict, indentation: int):
         _print_trace_sim(trace_data['replaces'], indentation + 2)
 
 
-def print_trace(trace_data, verbose: bool=False) -> None:
+def print_trace(trace_data, verbose: bool = False) -> None:
     if not trace_data:
         click.echo("No simulations trace found")
         return
 
     _print_trace_sim(trace_data, 0)
-

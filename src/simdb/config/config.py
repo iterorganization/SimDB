@@ -98,7 +98,7 @@ class Config:
     def api_version(self) -> int:
         return self._api_version
 
-    def load(self, file: TextIO=None) -> None:
+    def load(self, file: TextIO = None) -> None:
         """
         Load the configuration.
 
@@ -176,7 +176,7 @@ class Config:
             self._parser.write(file)
         self._user_config_path.chmod(0o600)
 
-    def get_section(self, name: str, default: Optional[List[Tuple[str, str]]]=None)\
+    def get_section(self, name: str, default: Optional[List[Tuple[str, str]]] = None) \
             -> List[Tuple[str, Union[int, float, bool, str]]]:
         try:
             items = self._parser.items(name)
@@ -186,7 +186,7 @@ class Config:
                 return default
             raise KeyError(f'Section {name} not found in configuration')
 
-    def get_option(self, name: str, default: Optional[str]=NOTHING) -> Union[int, float, bool, str]:
+    def get_option(self, name: str, default: Optional[str] = NOTHING) -> Union[int, float, bool, str]:
         section, option = _parse_name(name)
         try:
             return _convert(self._parser.get(section, option))

@@ -1,4 +1,4 @@
-from flask import request, current_app, jsonify, Blueprint, _app_ctx_stack, Response, g
+from flask import request, current_app, jsonify, Blueprint, _app_ctx_stack, Response
 from flask_restx import Api, Resource
 from pathlib import Path
 import datetime

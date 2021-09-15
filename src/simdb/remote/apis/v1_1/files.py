@@ -17,7 +17,6 @@ from simdb.database import DatabaseError, models
 from simdb.cli.manifest import DataObject
 from simdb.checksum import sha1_checksum
 
-
 api = Namespace('files', path='/')
 
 
@@ -44,7 +43,7 @@ def _verify_file(sim_uuid: uuid.UUID, sim_file: models.File, common_root: Path):
             raise ValueError("checksum failed for IDS %s" % uri)
 
 
-def _save_chunked_file(file: FileStorage, chunk_info: Dict, path: Path, compressed: bool=True):
+def _save_chunked_file(file: FileStorage, chunk_info: Dict, path: Path, compressed: bool = True):
     with open(path, "r+b" if path.exists() else "wb") as file_out:
         file_out.seek(chunk_info['chunk_size'] * chunk_info['chunk'])
         if compressed:
@@ -134,7 +133,7 @@ class FileList(Resource):
 class File(Resource):
 
     @requires_auth()
-    def get(self, file_uuid: str, user: User=Optional[None]):
+    def get(self, file_uuid: str, user: User = Optional[None]):
         try:
             file = current_app.db.get_file(file_uuid)
             return jsonify(file.data(recurse=True))

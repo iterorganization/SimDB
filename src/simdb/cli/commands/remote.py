@@ -290,4 +290,3 @@ def token_delete(config: "Config", api: RemoteAPI):
         click.echo(f"Token for remote {api.remote} deleted.")
     except KeyError:
         click.echo(f"No token for remote {api.remote} found.")
-

@@ -6,3 +6,5 @@ the Config object passed to other parts of SimDB.
 """
 
 from .config import Config
+
+__all__ = ['Config']

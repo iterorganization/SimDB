@@ -6,6 +6,7 @@ class BaseModel:
     """
     Base model for ORM classes.
     """
+
     def __str__(self):
         """
         Return a string representation of the {cls.__name__} formatted to print.
@@ -24,7 +25,7 @@ class BaseModel:
         """
         raise NotImplementedError
 
-    def data(self, recurse: bool=False) -> Dict:
+    def data(self, recurse: bool = False) -> Dict:
         """
         Serialise the {cls.__name__}.
 

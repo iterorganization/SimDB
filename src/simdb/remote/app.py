@@ -8,7 +8,7 @@ from ..config import Config
 from ..json import CustomEncoder, CustomDecoder
 
 
-def create_app(config: Config=None, testing=False, debug=False, profile=False):
+def create_app(config: Config = None, testing=False, debug=False, profile=False):
     if config is None:
         config = Config('app.cfg')
         config.load()

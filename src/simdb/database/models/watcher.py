@@ -15,10 +15,10 @@ class Watcher(Base):
     Class to represent people watching simulations for updates.
     """
     NOTIFICATION_CHOICES = {
-        Notification.VALIDATION:   'V',
-        Notification.REVISION:     'R',
+        Notification.VALIDATION: 'V',
+        Notification.REVISION: 'R',
         Notification.OBSOLESCENCE: 'O',
-        Notification.ALL:          'A',
+        Notification.ALL: 'A',
     }
 
     __tablename__ = "watchers"
@@ -47,7 +47,7 @@ class Watcher(Base):
         watcher = Watcher(username, email, notification)
         return watcher
 
-    def data(self, recurse: bool=False) -> Dict[str, str]:
+    def data(self, recurse: bool = False) -> Dict[str, str]:
         data = dict(
             username=self.username,
             email=self.email,

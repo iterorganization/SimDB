@@ -116,7 +116,7 @@ def simulation_ingest(config: Config, manifest_file: str, alias: str):
         manifest.validate()
     except InvalidAlias:
         if not alias:
-            raise 
+            raise
 
     simulation = Simulation(manifest, config)
     if alias:

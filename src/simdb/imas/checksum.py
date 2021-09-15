@@ -28,8 +28,8 @@ def walk_imas(imas_obj, check: Hash, path='') -> None:
         attr = getattr(imas_obj, name)
         if 'numpy.ndarray' in str(type(attr)):
             if attr.size != 0:
-                #if np.isnan(attr).any():
-                #    print(path, name)
+                # if np.isnan(attr).any():
+                #     print(path, name)
                 if attr.dtype == np.int32:
                     attr[np.isnan(attr)] = imasdef.EMPTY_INT
                 elif attr.dtype == np.float32:

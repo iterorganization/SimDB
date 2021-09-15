@@ -13,7 +13,6 @@ from simdb.remote.core.errors import error
 from simdb.remote.core.path import secure_path
 from simdb.database import DatabaseError, models
 
-
 api = Namespace('simulations', path='/')
 
 
@@ -242,7 +241,7 @@ class Simulation(Resource):
             return error(str(err))
 
     @requires_auth("admin")
-    def patch(self, sim_id: str, user: User=Optional[None]):
+    def patch(self, sim_id: str, user: User = Optional[None]):
         try:
             data = request.get_json()
             if "status" not in data:

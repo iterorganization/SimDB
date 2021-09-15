@@ -5,9 +5,7 @@ from typing import TYPE_CHECKING, Iterable
 from ..remote_api import RemoteAPI
 from . import pass_config
 
-
 pass_api = click.make_pass_decorator(RemoteAPI)
-
 
 if TYPE_CHECKING or 'sphinx' in sys.modules:
     from ...config import Config
@@ -62,7 +60,7 @@ def alias_make_unique(config: "Config", api: RemoteAPI, alias: str):
     """Make the given alias unique, checking locally stored simulations and the remote.
     """
     from ...database import get_local_db
-    
+
     trans = str.maketrans("#/()=,*%", "________")
     alias = alias.translate(trans)
 

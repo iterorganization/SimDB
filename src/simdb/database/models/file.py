@@ -33,8 +33,8 @@ class File(Base):
     embargo = Column(sql_types.String(20), nullable=True)
     datetime = Column(sql_types.DateTime, nullable=False)
 
-    def __init__(self, type: DataObject.Type, uri: urilib.URI, perform_integrity_check: bool=True,
-                 config: Optional[Config]=None) -> None:
+    def __init__(self, type: DataObject.Type, uri: urilib.URI, perform_integrity_check: bool = True,
+                 config: Optional[Config] = None) -> None:
         self.uuid = uuid.uuid1()
         self.uri = uri
         self.type = type
@@ -100,7 +100,7 @@ class File(Base):
         file.datetime = date_parser.parse(checked_get(data, "datetime", str))
         return file
 
-    def data(self, recurse: bool=False) -> Dict[str, str]:
+    def data(self, recurse: bool = False) -> Dict[str, str]:
         data = dict(
             uuid=self.uuid,
             usage=self.usage,

@@ -30,7 +30,7 @@ class MetaData(Base):
         meta = MetaData(data["element"], data["value"])
         return meta
 
-    def data(self, recurse: bool=False) -> Dict[str, str]:
+    def data(self, recurse: bool = False) -> Dict[str, str]:
         data = dict(
             element=self.element,
             value=self.value,

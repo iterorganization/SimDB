@@ -28,10 +28,11 @@ def try_request(func: Callable) -> Callable:
             return func(*args, **kwargs)
         except requests.ConnectionError as ex:
             raise FailedConnection(f"Connection failed to {ex.request.url}.")
+
     return wrapped_func
 
 
-def read_bytes(path: str, compressed: bool=True) -> bytes:
+def read_bytes(path: str, compressed: bool = True) -> bytes:
     if compressed:
         with io.BytesIO() as buffer:
             with gzip.GzipFile(fileobj=buffer, mode="wb") as gz_file:
@@ -44,7 +45,7 @@ def read_bytes(path: str, compressed: bool=True) -> bytes:
             return file.read()
 
 
-def read_bytes_in_chunks(path: str, compressed: bool=True, chunk_size: int=1024) -> Iterable[bytes]:
+def read_bytes_in_chunks(path: str, compressed: bool = True, chunk_size: int = 1024) -> Iterable[bytes]:
     with open(path, "rb") as file_in:
         while True:
             if compressed:
@@ -121,7 +122,7 @@ class RemoteAPI:
         else:
             return self._username, self._password
 
-    def get(self, url: str, params: Dict=None, headers: Dict=None, authenticate=True) -> "requests.Response":
+    def get(self, url: str, params: Dict = None, headers: Dict = None, authenticate=True) -> "requests.Response":
         import requests
         params = params if params is not None else {}
         headers = headers if headers is not None else {}
@@ -190,7 +191,7 @@ class RemoteAPI:
         return res.json()
 
     @try_request
-    def list_simulations(self, meta: List[str]=None, limit: int=0) -> List["Simulation"]:
+    def list_simulations(self, meta: List[str] = None, limit: int = 0) -> List["Simulation"]:
         from ..database.models import Simulation
         args = '?' + '&'.join(meta) if meta else ''
         headers = {'result-limit': str(limit)}
@@ -302,14 +303,14 @@ class RemoteAPI:
                     'simulation': sim_data,
                     'files': [{'file_type': file_type, 'file_uuid': file.uuid.hex}]
                 })
-            except:
+            except Exception:
                 import shutil
                 # While IMAS requires a local file copy we need to remove it if the remote validation fails.
                 shutil.rmtree(data['staging_dir'])
                 raise
 
     @try_request
-    def push_simulation(self, simulation: "Simulation", out_stream: IO=sys.stdout) -> None:
+    def push_simulation(self, simulation: "Simulation", out_stream: IO = sys.stdout) -> None:
         """
         Push the local simulation to the remote server.
 
@@ -328,7 +329,7 @@ class RemoteAPI:
             print(f"Validation error: {err}.")
 
         sim_data = simulation.data(recurse=True)
-        chunk_size = 10*1024*1024  # 10 MB
+        chunk_size = 10 * 1024 * 1024  # 10 MB
 
         for file in simulation.inputs:
             self._push_file(file, 'input', sim_data, chunk_size, out_stream)

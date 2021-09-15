@@ -4,7 +4,7 @@ from typing import Dict, Any, Union, List, Tuple, Deque, Type
 FLATTEN_DICT_DELIM = '.'
 
 
-def flatten_dict(out_dict: Dict[str, Any], in_dict: Dict[str, Union[Dict, List, Any]], prefix: Tuple=()):
+def flatten_dict(out_dict: Dict[str, Any], in_dict: Dict[str, Union[Dict, List, Any]], prefix: Tuple = ()):
     for key, value in in_dict.items():
         if isinstance(value, dict):
             flatten_dict(out_dict, value, prefix + (key,))
@@ -33,7 +33,7 @@ def _unflatten_value(out_dict: Dict[str, Union[Dict, List, Any]], key: Deque[str
         if is_index:
             while index > len(el):
                 el.append({})
-            el = el[index-1]
+            el = el[index - 1]
         _unflatten_value(el, tail, value)
     else:
         out_dict[head] = value
@@ -46,7 +46,7 @@ def unflatten_dict(in_dict: Dict[str, Any]) -> Dict[str, Union[Dict, Any]]:
     return out_dict
 
 
-def checked_get(data: Dict[str, Any], key, expected_type: Type, optional: bool=False):
+def checked_get(data: Dict[str, Any], key, expected_type: Type, optional: bool = False):
     if key not in data:
         raise ValueError(f"Corrupted data - missing key {key}.")
     if data[key] is None:

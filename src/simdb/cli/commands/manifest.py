@@ -35,4 +35,3 @@ def create(manifest_file):
     Manifest.from_template().save(manifest_file)
     path = Path(manifest_file.name).absolute()
     click.echo(f"Create manifest file {path}.")
-

@@ -2,13 +2,6 @@ import copy
 import sys
 import click
 
-from .commands.manifest import manifest
-from .commands.alias import alias
-from .commands.simulation import simulation
-from .commands.config import config
-from .commands.database import database
-from .commands.remote import remote
-from .commands.provenance import provenance
 from ..config import Config
 from .. import __version__
 
@@ -66,13 +59,25 @@ def dump_help():
     recursive_help(cli)
 
 
-cli.add_command(manifest)
-cli.add_command(alias)
-cli.add_command(simulation, aliases=["sim"])
-cli.add_command(config)
-cli.add_command(database)
-cli.add_command(remote)
-cli.add_command(provenance)
+def add_commands():
+    from .commands.manifest import manifest
+    from .commands.alias import alias
+    from .commands.simulation import simulation
+    from .commands.config import config
+    from .commands.database import database
+    from .commands.remote import remote
+    from .commands.provenance import provenance
+
+    cli.add_command(manifest)
+    cli.add_command(alias)
+    cli.add_command(simulation, aliases=["sim"])
+    cli.add_command(config)
+    cli.add_command(database)
+    cli.add_command(remote)
+    cli.add_command(provenance)
+
+
+add_commands()
 
 
 def main() -> None:

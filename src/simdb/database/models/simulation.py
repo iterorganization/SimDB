@@ -17,21 +17,17 @@ from ...cli.manifest import Manifest, DataObject
 from ...docstrings import inherit_docstrings
 from ...config.config import Config
 
-
 if TYPE_CHECKING or 'sphinx' in sys.modules:
     # Only importing these for type checking and documentation generation in order to speed up runtime startup.
     from .metadata import MetaData
-
 
 simulation_input_files = Table("simulation_input_files", Base.metadata,
                                Column("simulation_id", sql_types.Integer, ForeignKey("simulations.id")),
                                Column("file_id", sql_types.Integer, ForeignKey("files.id")))
 
-
 simulation_output_files = Table("simulation_output_files", Base.metadata,
                                 Column("simulation_id", sql_types.Integer, ForeignKey("simulations.id")),
                                 Column("file_id", sql_types.Integer, ForeignKey("files.id")))
-
 
 simulation_watchers = Table("simulation_watchers", Base.metadata,
                             Column("simulation_id", sql_types.Integer, ForeignKey("simulations.id")),
@@ -43,6 +39,7 @@ class Simulation(Base):
     """
     Class to represent simulations in the database ORM.
     """
+
     class Status(Enum):
         NOT_VALIDATED = 'not validated'
         ACCEPTED = 'accepted'
@@ -59,7 +56,7 @@ class Simulation(Base):
     meta: List["MetaData"] = relationship("MetaData", lazy='raise')
     watchers = relationship("Watcher", secondary=simulation_watchers, lazy='dynamic')
 
-    def __init__(self, manifest: Union[Manifest, None], config: Optional[Config]=None) -> None:
+    def __init__(self, manifest: Union[Manifest, None], config: Optional[Config] = None) -> None:
         """
         Initialise a new Simulation object using the provided Manifest.
 
@@ -182,7 +179,7 @@ class Simulation(Base):
                 simulation.meta.append(MetaData.from_data(el))
         return simulation
 
-    def data(self, recurse: bool=False, meta_keys: List[str]=None) -> Dict[str, Union[str, List]]:
+    def data(self, recurse: bool = False, meta_keys: List[str] = None) -> Dict[str, Union[str, List]]:
         data = dict(
             uuid=self.uuid,
             alias=self.alias,

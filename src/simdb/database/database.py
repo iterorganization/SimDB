@@ -2,7 +2,7 @@ import uuid
 import os
 import sys
 import contextlib
-from typing import Optional, List, Tuple, Union, TYPE_CHECKING, cast, Any, Iterable
+from typing import Optional, List, Tuple, TYPE_CHECKING, cast, Any, Iterable
 from enum import Enum, auto
 
 from ..config import Config
@@ -12,13 +12,13 @@ class DatabaseError(RuntimeError):
     pass
 
 
-if TYPE_CHECKING or 'sphinx' in sys.modules:
+TYPING = TYPE_CHECKING or 'sphinx' in sys.modules
+
+if TYPING:
     # Only importing these for type checking and documentation generation in order to speed up runtime startup.
-    from sqlalchemy.exc import DBAPIError
-    from sqlalchemy import create_engine, func
-    from sqlalchemy.orm import scoped_session, sessionmaker
+    from sqlalchemy.orm import scoped_session
     import sqlalchemy
-    from .models import Base, Simulation, File, MetaData, Watcher
+    from .models import Base, Simulation, File, Watcher
     from ..query import QueryType
 
     class Session(scoped_session):
@@ -115,7 +115,8 @@ class Database:
             Base.metadata.create_all(self.engine)
         Base.metadata.bind = self.engine
         if scopefunc is None:
-            scopefunc = lambda: 0
+            def scopefunc():
+                return 0
         self.session: "Session" = cast("Session", scoped_session(sessionmaker(bind=self.engine), scopefunc=scopefunc))
 
     def _get_simulation_data(self, limit, query, meta_keys, page) -> Tuple[int, List]:
@@ -140,11 +141,11 @@ class Database:
         from sqlalchemy.orm import joinedload
         try:
             sim_uuid = uuid.UUID(sim_ref)
-            simulation = self.session.query(Simulation).options(joinedload(Simulation.meta))\
+            simulation = self.session.query(Simulation).options(joinedload(Simulation.meta)) \
                 .filter_by(uuid=sim_uuid).one_or_none()
         except ValueError:
-            simulation = self.session.query(Simulation).options(joinedload(Simulation.meta))\
-                .filter(sql_or(sql_cast(Simulation.uuid, Text).startswith(sim_ref), Simulation.alias == sim_ref))\
+            simulation = self.session.query(Simulation).options(joinedload(Simulation.meta)) \
+                .filter(sql_or(sql_cast(Simulation.uuid, Text).startswith(sim_ref), Simulation.alias == sim_ref)) \
                 .one_or_none()
             if not simulation:
                 raise DatabaseError(f"Simulation {sim_ref} not found.")
@@ -171,7 +172,7 @@ class Database:
                 con.execute(table.delete())
             trans.commit()
 
-    def list_simulations(self, meta_keys: List[str]=None, limit: int=0) -> List["Simulation"]:
+    def list_simulations(self, meta_keys: List[str] = None, limit: int = 0) -> List["Simulation"]:
         """
         Return a list of all the simulations stored in the database.
 
@@ -181,7 +182,7 @@ class Database:
         from sqlalchemy.orm import joinedload
 
         if meta_keys:
-            query = self.session.query(Simulation).options(joinedload(Simulation.meta)).outerjoin(Simulation.meta)\
+            query = self.session.query(Simulation).options(joinedload(Simulation.meta)).outerjoin(Simulation.meta) \
                 .filter(MetaData.element.in_(meta_keys))
             if limit:
                 query = query.limit(limit)
@@ -192,7 +193,8 @@ class Database:
                 query = query.limit(limit)
             return query.all()
 
-    def list_simulation_data(self, meta_keys: List[str]=None, limit: int=0, page: int=1) -> Tuple[int, List[dict]]:
+    def list_simulation_data(self, meta_keys: List[str] = None, limit: int = 0, page: int = 1) \
+            -> Tuple[int, List[dict]]:
         """
         Return a list of all the simulations stored in the database.
 
@@ -309,12 +311,12 @@ class Database:
         if not sim_ids:
             return []
 
-        query = self.session.query(Simulation).options(joinedload(Simulation.meta))\
+        query = self.session.query(Simulation).options(joinedload(Simulation.meta)) \
             .filter(Simulation.id.in_(sim_ids))
         return query.all()
 
-    def query_meta_data(self, constraints: List[Tuple[str, str, "QueryType"]], meta_keys: List[str], limit: int=0,
-                        page: int=1) -> Tuple[int, List[dict]]:
+    def query_meta_data(self, constraints: List[Tuple[str, str, "QueryType"]], meta_keys: List[str], limit: int = 0,
+                        page: int = 1) -> Tuple[int, List[dict]]:
         """
         Query the metadata and return matching simulations.
 
@@ -329,7 +331,7 @@ class Database:
 
         s_b = Bundle('simulation', Simulation.id, Simulation.alias, Simulation.uuid)
         m_b = Bundle('metadata', MetaData.element, MetaData.value)
-        query = self.session.query(s_b, m_b).outerjoin(Simulation.meta).filter(s_b.c.id.in_(sim_ids))\
+        query = self.session.query(s_b, m_b).outerjoin(Simulation.meta).filter(s_b.c.id.in_(sim_ids)) \
             .filter(m_b.c.element.in_(meta_keys))
         return self._get_simulation_data(limit, query, meta_keys, page)
 
@@ -415,7 +417,8 @@ class Database:
         except IntegrityError as err:
             self.session.rollback()
             if 'alias' in str(err.orig):
-                raise DatabaseError(f'Simulation already exists with alias {simulation.alias} - please use a unique alias.')
+                raise DatabaseError(
+                    f'Simulation already exists with alias {simulation.alias} - please use a unique alias.')
             elif 'uuid' in str(err.orig):
                 raise DatabaseError(f'Simulation already exists with uuid {simulation.uuid}.')
             raise DatabaseError(str(err.orig))
