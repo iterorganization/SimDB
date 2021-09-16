@@ -11,12 +11,9 @@ The tool comes in two parts:
       staging and checking.
 """
 
-import os
 import pkg_resources
 from typing import Tuple, cast
 
 __version__: str = pkg_resources.require("simdb")[0].version
 __version_info__: Tuple[str, str, str] = cast(Tuple[str, str, str], tuple(__version__.split('.')))
-
-_dir_path = os.path.dirname(os.path.realpath(__file__))
-__licence__: str = open(os.path.join(_dir_path, "../../LICENCE")).read()
+__licence__: str = pkg_resources.require("simdb")[0].get_metadata('LICENCE')
