@@ -13,7 +13,7 @@ setuptools.setup(
     version_config={
         'version_callback': version,
         'template': '{tag}',
-        'dev_template': '{tag}.{ccount}',
-        'dirty_template': '{tag}.{ccount}-dirty',
+        'dev_template': '{tag}.{ccount}+git.{sha}',
+        'dirty_template': '{tag}.{ccount}+git.{sha}.dirty',
     },
 )
