@@ -24,7 +24,7 @@ class Watcher(Resource):
             if "notification" not in data:
                 return error("Watcher notification not provided")
 
-            from ....notifications import Notification
+            from ...notifications import Notification
             notification = getattr(Notification, data["notification"])
 
             watcher = models.Watcher(username, email, notification)

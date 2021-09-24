@@ -32,7 +32,7 @@ def _verify_file(sim_uuid: uuid.UUID, sim_file: models.File, common_root: Path):
         if sim_file.checksum != checksum:
             raise ValueError("checksum failed for file %s" % repr(sim_file))
     elif sim_file.type == DataObject.Type.IMAS:
-        from ....imas.checksum import checksum as imas_checksum
+        from ...imas.checksum import checksum as imas_checksum
         user_folder = current_app.simdb_config.get_option("server.user_upload_folder", default=None)
         uri = sim_file.uri
         if user_folder is not None:
@@ -103,7 +103,7 @@ class FileList(Resource):
                     _verify_file(simulation.uuid, sim_file, common_root)
                 return jsonify({})
 
-            from ....json import CustomDecoder
+            from ...json import CustomDecoder
             data = json.load(request.files["data"], cls=CustomDecoder)
 
             if "simulation" not in data:
