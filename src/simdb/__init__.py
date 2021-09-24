@@ -16,4 +16,8 @@ from typing import Tuple, cast
 
 __version__: str = pkg_resources.require("simdb")[0].version
 __version_info__: Tuple[str, str, str] = cast(Tuple[str, str, str], tuple(__version__.split('.')))
-__licence__: str = pkg_resources.require("simdb")[0].get_metadata('LICENCE')
+try:
+    __licence__: str = pkg_resources.require("simdb")[0].get_metadata('LICENCE')
+except FileNotFoundError:
+    # When installing with 'pip -e' in development environment
+    __licence__: str = "see LICENCE"

@@ -1,8 +1,7 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
-from .apis.v1 import blueprint as api_v1
-from .apis.v1_1 import blueprint as api_v1_1
+from .apis import blueprints
 from .core.cache import cache
 from ..config import Config
 from ..json import CustomEncoder, CustomDecoder
@@ -15,7 +14,7 @@ def create_app(config: Config = None, testing=False, debug=False, profile=False)
     flask_options = [(k.upper(), v) for (k, v) in config.get_section('flask', [])]
 
     app = Flask(__name__)
-    CORS(app, resources={r'/api/*': {'origins': '*'}})
+    CORS(app, resources={r'/*': {'origins': '*'}})
     app.config['TESTING'] = testing
     app.config['DEBUG'] = debug
     app.config['PROFILE'] = profile
@@ -27,11 +26,12 @@ def create_app(config: Config = None, testing=False, debug=False, profile=False)
 
     @app.route("/")
     def index():
-        return jsonify({"endpoints": [
-            request.url + "v1",
-            request.url + "v1.1",
-        ]})
+        endpoints = []
+        for ver in blueprints:
+            endpoints.append(f"{request.url}{ver}")
+        return jsonify({"endpoints": endpoints})
 
-    app.register_blueprint(api_v1, url_prefix="/v1")
-    app.register_blueprint(api_v1_1, url_prefix="/v1.1")
+    for version, blueprint in blueprints.items():
+        app.register_blueprint(blueprint, url_prefix=f"/{version}")
+
     return app

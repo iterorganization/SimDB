@@ -134,7 +134,7 @@ def remove_watcher(config: "Config", api: RemoteAPI, sim_id: str, user: str):
               type=click.Choice(list(i.name for i in Notification), case_sensitive=False),
               default=Notification.ALL.name, show_default=True)
 def add_watcher(config: "Config", api: RemoteAPI, sim_id: str, user: Optional[str], email: Optional[str],
-                notification: Optional[str]):
+                notification: str):
     """Register a user as a watcher for a simulation with given SIM_ID (UUID or alias).
     """
     if not user:
@@ -222,7 +222,7 @@ def remote_query(config: "Config", api: RemoteAPI, constraints: List[str], meta:
     """
     simulations = api.query_simulations(constraints, meta, limit)
 
-    names = []
+    names: List[str] = []
     meta = meta or []
     for constraint in constraints:
         name, _ = constraint.split('=')
