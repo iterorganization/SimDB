@@ -51,6 +51,7 @@ class Simulation(Base):
     id = Column(sql_types.Integer, primary_key=True)
     uuid = Column(UUID, nullable=False, unique=True, index=True)
     alias: str = Column(sql_types.String(250), nullable=True, unique=True, index=True)
+    datetime: datetime = Column(sql_types.DateTime, nullable=False)
     inputs: List["File"] = relationship("File", secondary=simulation_input_files)
     outputs: List["File"] = relationship("File", secondary=simulation_output_files)
     meta: List["MetaData"] = relationship("MetaData", lazy='raise')
@@ -165,6 +166,7 @@ class Simulation(Base):
         simulation = Simulation(None)
         simulation.uuid = checked_get(data, "uuid", uuid.UUID)
         simulation.alias = checked_get(data, "alias", str)
+        simulation.datetime = datetime.fromtimestamp(checked_get(data, "datetime", float))
         if "inputs" in data:
             inputs = checked_get(data, "inputs", list)
             simulation.inputs = [File.from_data(el) for el in inputs]
@@ -183,6 +185,7 @@ class Simulation(Base):
         data = dict(
             uuid=self.uuid,
             alias=self.alias,
+            datetime=self.datetime.timestamp(),
         )
         if recurse:
             data["inputs"] = [f.data(recurse=True) for f in self.inputs]
