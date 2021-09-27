@@ -5,7 +5,9 @@ from typing import Any
 class QueryType(Enum):
     NONE = auto()
     EQ = auto()
+    NE = auto()
     IN = auto()
+    NI = auto()
     GT = auto()
     GE = auto()
     LT = auto()
@@ -38,6 +40,11 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str):
             raise ValueError(f"Cannot compare value to array element {name}.")
         else:
             return str(value) == compare
+    elif query_type == QueryType.NE:
+        if isinstance(value, np.ndarray):
+            raise ValueError(f"Cannot compare value to array element {name}.")
+        else:
+            return str(value) != compare
     elif query_type == QueryType.IN:
         if isinstance(value, np.ndarray):
             return float(compare) in value
@@ -45,6 +52,13 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str):
             raise ValueError(f"Cannot use 'in' query selection for integer metadata field {name}.")
         elif value is not None:
             return compare in str(value)
+    elif query_type == QueryType.NI:
+        if isinstance(value, np.ndarray):
+            return float(compare) in value
+        elif isinstance(value, int):
+            raise ValueError(f"Cannot use 'ni' query selection for integer metadata field {name}.")
+        elif value is not None:
+            return compare not in str(value)
     elif query_type == QueryType.GT:
         if isinstance(value, np.ndarray):
             return np.any(value > float(compare))
