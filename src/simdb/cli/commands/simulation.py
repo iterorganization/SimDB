@@ -178,7 +178,9 @@ def simulation_query(config: Config, constraint: str, meta: List[str]):
     \b
     Where `[mod]` is an optional query modifier. Available query modifiers are:
         eq: - This checks for equality (this is the same behaviour as not providing any modifier).
+        ne: - This checks for value that do not equal.
         in: - This searches inside the value instead of looking for exact matches.
+        ni: - This searches inside the value for elements that do not match.
         gt: - This checks for values greater than the given quantity.
         ge: - This checks for values greater than or equal to the given quantity.
         lt: - This checks for values less than the given quantity.

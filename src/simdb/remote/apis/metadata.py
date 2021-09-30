@@ -17,3 +17,14 @@ class MetaData(Resource):
             return jsonify(current_app.db.list_metadata_keys())
         except DatabaseError as err:
             return error(str(err))
+
+
+@api.route("/metadata/<string:name>")
+class MetaDataValues(Resource):
+
+    @cache.cached(key_prefix=cache_key)
+    def get(self, name):
+        try:
+            return jsonify(current_app.db.list_metadata_values(name))
+        except DatabaseError as err:
+            return error(str(err))

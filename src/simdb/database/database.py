@@ -193,8 +193,8 @@ class Database:
                 query = query.limit(limit)
             return query.all()
 
-    def list_simulation_data(self, meta_keys: List[str] = None, limit: int = 0, page: int = 1) \
-            -> Tuple[int, List[dict]]:
+    def list_simulation_data(self, meta_keys: List[str] = None, limit: int = 0, page: int = 1, sort_by: str = '',
+                             sort_asc: bool = False) -> Tuple[int, List[dict]]:
         """
         Return a list of all the simulations stored in the database.
 
@@ -202,14 +202,40 @@ class Database:
         """
         from .models import Simulation, MetaData
         from sqlalchemy.orm import Bundle
+        from sqlalchemy import or_, func, desc, asc
+
+        sort_query = None
+        if sort_by:
+            sort_dir = asc if sort_asc else desc
+            sort_query = self.session\
+                .query(Simulation.id, func.row_number().over(order_by=sort_dir(MetaData.value)).label('row_num'))\
+                .join(Simulation.meta)\
+                .filter(MetaData.element == sort_by)\
+                .subquery()
 
         if meta_keys:
             s_b = Bundle('simulation', Simulation.alias, Simulation.uuid)
             m_b = Bundle('metadata', MetaData.element, MetaData.value)
-            query = self.session.query(s_b, m_b).outerjoin(Simulation.meta).filter(m_b.c.element.in_(meta_keys))
+            query = self.session.query(s_b, m_b).outerjoin(Simulation.meta)
+
+            names_filters = []
+            for name in meta_keys:
+                if name in ('alias', 'uuid'):
+                    continue
+                names_filters.append(m_b.c.element.ilike(name))
+            if names_filters:
+                query = query.filter(or_(*names_filters))
+
+            if sort_query is not None:
+                query = query.join(sort_query, Simulation.id == sort_query.c.id).order_by(sort_query.c.row_num)
+
             return self._get_simulation_data(limit, query, meta_keys, page)
         else:
             query = self.session.query(Simulation.alias, Simulation.uuid)
+
+            if sort_query is not None:
+                query = query.join(sort_query, Simulation.id == sort_query.c.id).order_by(sort_query.c.row_num)
+
             limit_query = query.limit(limit).offset((page - 1) * limit) if limit else query
             return query.count(), [{'alias': alias, 'uuid': uuid} for alias, uuid in limit_query]
 
@@ -316,7 +342,7 @@ class Database:
         return query.all()
 
     def query_meta_data(self, constraints: List[Tuple[str, str, "QueryType"]], meta_keys: List[str], limit: int = 0,
-                        page: int = 1) -> Tuple[int, List[dict]]:
+                        page: int = 1, sort_by: str = '', sort_asc: bool = False) -> Tuple[int, List[dict]]:
         """
         Query the metadata and return matching simulations.
 
@@ -324,15 +350,29 @@ class Database:
         """
         from .models import Simulation, MetaData
         from sqlalchemy.orm import Bundle
+        from sqlalchemy import desc, asc, func
 
         sim_ids = self._get_sim_ids(constraints)
         if not sim_ids:
             return 0, []
 
+        sort_query = None
+        if sort_by:
+            sort_dir = asc if sort_asc else desc
+            sort_query = self.session\
+                .query(Simulation.id, func.row_number().over(order_by=sort_dir(MetaData.value)).label('row_num'))\
+                .join(Simulation.meta)\
+                .filter(MetaData.element == sort_by)\
+                .subquery()
+
         s_b = Bundle('simulation', Simulation.id, Simulation.alias, Simulation.uuid)
         m_b = Bundle('metadata', MetaData.element, MetaData.value)
         query = self.session.query(s_b, m_b).outerjoin(Simulation.meta).filter(s_b.c.id.in_(sim_ids)) \
             .filter(m_b.c.element.in_(meta_keys))
+
+        if sort_query is not None:
+            query = query.join(sort_query, Simulation.id == sort_query.c.id).order_by(sort_query.c.row_num)
+
         return self._get_simulation_data(limit, query, meta_keys, page)
 
     def get_simulation(self, sim_ref: str) -> "Simulation":
@@ -402,6 +442,15 @@ class Database:
         return [
             {'name': row[0], 'type': type(row[1]).__name__} for row in query.all()
         ]
+
+    def list_metadata_values(self, name: str) -> List[str]:
+        from ..database.models import MetaData
+        query = self.session.query(MetaData.value).filter(MetaData.element == name).distinct()
+        data = [row[0] for row in query.all()]
+        try:
+            return sorted(data)
+        except TypeError:
+            return data
 
     def insert_simulation(self, simulation: "Simulation") -> None:
         """

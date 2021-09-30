@@ -110,10 +110,15 @@ def _build_trace(sim_id: str) -> dict:
 class SimulationList(Resource):
     LIMIT_HEADER = 'simdb-result-limit'
     PAGE_HEADER = 'simdb-page'
+    SORT_BY_HEADER = 'simdb-sort-by'
+    SORT_ASC_HEADER = 'simdb-sort-asc'
 
     parser = api.parser()
     parser.add_argument(LIMIT_HEADER, location='headers', type=int, help='Limit returned results')
     parser.add_argument(PAGE_HEADER, location='headers', type=int, help='Specify the page of results to return')
+    parser.add_argument(SORT_BY_HEADER, location='headers', type=str, help='Specify the field to sort the results by')
+    parser.add_argument(SORT_ASC_HEADER, location='headers', type=bool,
+                        help='Specify if the results are sorted ascending or descending')
 
     @api.expect(parser)
     @api.response(200, 'Success')
@@ -125,6 +130,8 @@ class SimulationList(Resource):
 
         limit = int(request.headers.get(SimulationList.LIMIT_HEADER, 100))
         page = int(request.headers.get(SimulationList.PAGE_HEADER, 1))
+        sort_by = request.headers.get(SimulationList.SORT_BY_HEADER, '')
+        sort_asc = bool(request.headers.get(SimulationList.SORT_ASC_HEADER, 0))
         names = []
         constraints = []
         if request.args:
@@ -138,9 +145,11 @@ class SimulationList(Resource):
                         constraints.append((name,) + constraint)
 
         if constraints:
-            count, data = current_app.db.query_meta_data(constraints, names, limit=limit, page=page)
+            count, data = current_app.db.query_meta_data(constraints, names, limit=limit, page=page, sort_by=sort_by,
+                                                         sort_asc=sort_asc)
         else:
-            count, data = current_app.db.list_simulation_data(meta_keys=names, limit=limit, page=page)
+            count, data = current_app.db.list_simulation_data(meta_keys=names, limit=limit, page=page, sort_by=sort_by,
+                                                              sort_asc=sort_asc)
 
         return jsonify({
             'count': count,

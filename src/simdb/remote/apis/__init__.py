@@ -72,6 +72,7 @@ def register(api, version, namespaces):
                         request.url + "simulations",
                         request.url + "files",
                         request.url + "validation_schema",
+                        request.url + "metadata",
                     ],
                     "documentation": request.url + "docs",
                 })
