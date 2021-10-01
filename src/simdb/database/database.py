@@ -139,14 +139,18 @@ class Database:
         from .models import Simulation
         from sqlalchemy import cast as sql_cast, Text, or_ as sql_or
         from sqlalchemy.orm import joinedload
+        from sqlalchemy.exc import SQLAlchemyError
         try:
             sim_uuid = uuid.UUID(sim_ref)
             simulation = self.session.query(Simulation).options(joinedload(Simulation.meta)) \
                 .filter_by(uuid=sim_uuid).one_or_none()
         except ValueError:
-            simulation = self.session.query(Simulation).options(joinedload(Simulation.meta)) \
-                .filter(sql_or(sql_cast(Simulation.uuid, Text).startswith(sim_ref), Simulation.alias == sim_ref)) \
-                .one_or_none()
+            try:
+                simulation = self.session.query(Simulation).options(joinedload(Simulation.meta)) \
+                    .filter(sql_or(sql_cast(Simulation.uuid, Text).startswith(sim_ref), Simulation.alias == sim_ref)) \
+                    .one_or_none()
+            except SQLAlchemyError:
+                simulation = None
             if not simulation:
                 raise DatabaseError(f"Simulation {sim_ref} not found.")
         return simulation
@@ -444,8 +448,11 @@ class Database:
         ]
 
     def list_metadata_values(self, name: str) -> List[str]:
-        from ..database.models import MetaData
-        query = self.session.query(MetaData.value).filter(MetaData.element == name).distinct()
+        from ..database.models import MetaData, Simulation
+        if name == 'alias':
+            query = self.session.query(Simulation.alias)
+        else:
+            query = self.session.query(MetaData.value).filter(MetaData.element == name).distinct()
         data = [row[0] for row in query.all()]
         try:
             return sorted(data)

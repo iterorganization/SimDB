@@ -131,7 +131,7 @@ class SimulationList(Resource):
         limit = int(request.headers.get(SimulationList.LIMIT_HEADER, 100))
         page = int(request.headers.get(SimulationList.PAGE_HEADER, 1))
         sort_by = request.headers.get(SimulationList.SORT_BY_HEADER, '')
-        sort_asc = bool(request.headers.get(SimulationList.SORT_ASC_HEADER, 0))
+        sort_asc = request.headers.get(SimulationList.SORT_ASC_HEADER, 'false').lower() == "true"
         names = []
         constraints = []
         if request.args:
