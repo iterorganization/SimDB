@@ -283,6 +283,47 @@ class Simulation(Resource):
             return error(str(err))
 
 
+@api.route("/simulation/metadata/<path:sim_id>")
+class SimulationMeta(Resource):
+
+    @requires_auth()
+    @cache.cached(key_prefix=cache_key)
+    def get(self, sim_id: str, user: User):
+        try:
+            simulation = current_app.db.get_simulation(sim_id)
+            if simulation:
+                return jsonify([meta.data() for meta in simulation.meta])
+            return error('Simulation not found')
+        except DatabaseError as err:
+            return error(str(err))
+
+    @requires_auth("admin")
+    def patch(self, sim_id: str, user: User = Optional[None]):
+        try:
+            data = request.get_json()
+
+            if "key" not in data:
+                return error("Metadata key not provided")
+
+            if "value" not in data:
+                return error("New metadata value not provided")
+
+            key = data["key"]
+            value = data["value"]
+
+            simulation = current_app.db.get_simulation(sim_id)
+            if simulation is None:
+                raise ValueError(f"Simulation {sim_id} not found.")
+
+            old_values = [meta.data() for meta in simulation.find_meta(key)]
+            simulation.set_meta(key, value)
+            current_app.db.insert_simulation(simulation)
+            cache.clear()
+            return old_values
+        except DatabaseError as err:
+            return error(str(err))
+
+
 @api.route("/validate/<string:sim_id>")
 class ValidateSimulation(Resource):
 

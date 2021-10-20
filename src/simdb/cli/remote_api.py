@@ -87,7 +87,8 @@ class RemoteAPI:
             raise KeyError('Remote name not provided and no default remote found in config.')
         self._remote = remote
         self._url: str = config.get_option(f'remote.{remote}.url')
-        self._api_url: str = f'{self._url}/api/v{config.api_version}/'
+        # self._api_url: str = f'{self._url}/api/v{config.api_version}/'
+        self._api_url: str = f'{self._url}/v{config.api_version}/'
 
         self._token = config.get_option(f'remote.{remote}.token', default='')
         if not self._token:
@@ -257,6 +258,11 @@ class RemoteAPI:
     def list_watchers(self, sim_id: str) -> List[Tuple]:
         res = self.get("watchers/" + sim_id)
         return [(d["username"], d["email"], d["notification"]) for d in res.json()]
+
+    @try_request
+    def set_metadata(self, sim_id: str, key: str, value: str) -> List[str]:
+        res = self.patch("simulation/metadata/" + sim_id, {'key': key, 'value': value})
+        return [data["value"] for data in res.json()]
 
     def _push_file(self, file: "File", file_type: str, sim_data: Dict, chunk_size: int, out_stream: IO):
         if file.type == DataObject.Type.FILE:
