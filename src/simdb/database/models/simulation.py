@@ -54,7 +54,7 @@ class Simulation(Base):
     datetime: datetime = Column(sql_types.DateTime, nullable=False)
     inputs: List["File"] = relationship("File", secondary=simulation_input_files)
     outputs: List["File"] = relationship("File", secondary=simulation_output_files)
-    meta: List["MetaData"] = relationship("MetaData", lazy='raise')
+    meta: List["MetaData"] = relationship("MetaData", lazy='raise', cascade='all, delete-orphan')
     watchers = relationship("Watcher", secondary=simulation_watchers, lazy='dynamic')
 
     def __init__(self, manifest: Union[Manifest, None], config: Optional[Config] = None) -> None:
@@ -149,6 +149,9 @@ class Simulation(Base):
 
     def find_meta(self, name: str) -> List["MetaData"]:
         return [m for m in self.meta if m.element == name]
+
+    def remove_meta(self, name: str) -> None:
+        self.meta = [m for m in self.meta if m.element != name]
 
     def set_meta(self, name: str, value: str) -> None:
         from .metadata import MetaData

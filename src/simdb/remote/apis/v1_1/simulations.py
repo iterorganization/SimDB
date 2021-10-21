@@ -323,6 +323,27 @@ class SimulationMeta(Resource):
         except DatabaseError as err:
             return error(str(err))
 
+    @requires_auth("admin")
+    def delete(self, sim_id: str, user: User = Optional[None]):
+        try:
+            data = request.get_json()
+
+            if "key" not in data:
+                return error("Metadata key not provided")
+
+            key = data["key"]
+
+            simulation = current_app.db.get_simulation(sim_id)
+            if simulation is None:
+                raise ValueError(f"Simulation {sim_id} not found.")
+
+            simulation.remove_meta(key)
+            current_app.db.insert_simulation(simulation)
+            cache.clear()
+            return {}
+        except DatabaseError as err:
+            return error(str(err))
+
 
 @api.route("/validate/<string:sim_id>")
 class ValidateSimulation(Resource):

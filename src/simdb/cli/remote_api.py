@@ -264,6 +264,11 @@ class RemoteAPI:
         res = self.patch("simulation/metadata/" + sim_id, {'key': key, 'value': value})
         return [data["value"] for data in res.json()]
 
+    @try_request
+    def delete_metadata(self, sim_id: str, key: str) -> List[str]:
+        res = self.delete("simulation/metadata/" + sim_id, {'key': key})
+        return [data["value"] for data in res.json()]
+
     def _push_file(self, file: "File", file_type: str, sim_data: Dict, chunk_size: int, out_stream: IO):
         if file.type == DataObject.Type.FILE:
             path = file.uri.path

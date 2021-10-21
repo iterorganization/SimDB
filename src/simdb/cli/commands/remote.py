@@ -308,11 +308,22 @@ def admin():
 @click.argument("sim_id")
 @click.argument("key")
 @click.argument("value")
-def token_delete(api: RemoteAPI, sim_id: str, key: str, value: str):
-    """Update the metadata value for the given simulation.
+def admin_set_meta(api: RemoteAPI, sim_id: str, key: str, value: str):
+    """Add or update a metadata value for the given simulation.
     """
     old_value = api.set_metadata(sim_id, key, value)
     if old_value:
         click.echo(f"Update {key} for simulation {sim_id}: {old_value} -> {value}")
     else:
         click.echo(f"Added {key} for simulation {sim_id} with value '{value}'")
+
+
+@admin.command("del-meta")
+@pass_api
+@click.argument("sim_id")
+@click.argument("key")
+def adming_del_meta(api: RemoteAPI, sim_id: str, key: str):
+    """Remove a metadata value for the given simulation.
+    """
+    api.delete_metadata(sim_id, key)
+    click.echo(f"Deleted {key} for simulation {sim_id}")
