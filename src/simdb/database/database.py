@@ -121,19 +121,27 @@ class Database:
 
     def _get_simulation_data(self, limit, query, meta_keys, page) -> Tuple[int, List]:
         if limit:
-            limit = limit * len(meta_keys)
+            limit = limit * len(meta_keys) if meta_keys else limit
             limit_query = query.limit(limit).offset((page - 1) * limit)
         else:
             limit_query = self.get_simulation_data(query)
         data = {}
         for row in limit_query:
-            data.setdefault(row.simulation.uuid,
-                            {'alias': row.simulation.alias, 'uuid': row.simulation.uuid, 'metadata': []})
-            data[row.simulation.uuid]['metadata'].append({
-                'element': row.metadata.element,
-                'value': row.metadata.value
+            data.setdefault(row.simulation.uuid, {
+                'alias': row.simulation.alias,
+                'uuid': row.simulation.uuid,
+                'datetime': row.simulation.datetime.isoformat(),
+                'metadata': []
             })
-        return query.count() / len(meta_keys), list(data.values())
+            if meta_keys:
+                data[row.simulation.uuid]['metadata'].append({
+                    'element': row.metadata.element,
+                    'value': row.metadata.value
+                })
+        if meta_keys:
+            return query.count() / len(meta_keys), list(data.values())
+        else:
+            return query.count(), list(data.values())
 
     def _find_simulation(self, sim_ref: str) -> "Simulation":
         from .models import Simulation
@@ -218,7 +226,7 @@ class Database:
                 .subquery()
 
         if meta_keys:
-            s_b = Bundle('simulation', Simulation.alias, Simulation.uuid)
+            s_b = Bundle('simulation', Simulation.alias, Simulation.uuid, Simulation.datetime)
             m_b = Bundle('metadata', MetaData.element, MetaData.value)
             query = self.session.query(s_b, m_b).outerjoin(Simulation.meta)
 
@@ -235,13 +243,16 @@ class Database:
 
             return self._get_simulation_data(limit, query, meta_keys, page)
         else:
-            query = self.session.query(Simulation.alias, Simulation.uuid)
+            query = self.session.query(Simulation.alias, Simulation.uuid, Simulation.datetime)
 
             if sort_query is not None:
                 query = query.join(sort_query, Simulation.id == sort_query.c.id).order_by(sort_query.c.row_num)
 
             limit_query = query.limit(limit).offset((page - 1) * limit) if limit else query
-            return query.count(), [{'alias': alias, 'uuid': uuid} for alias, uuid in limit_query]
+            return query.count(), [
+                {'alias': alias, 'uuid': uuid, 'datetime': datetime.isoformat()}
+                for alias, uuid, datetime in limit_query
+            ]
 
     def get_simulation_data(self, query):
         limit_query = query
@@ -319,7 +330,7 @@ class Database:
         for row in rows:
             for name, value, query_type in constraints:
                 if name in ('alias', 'uuid'):
-                    continue
+                    sim_id_sets[(name, query_type)].add(row.simulation.id)
                 if row.metadata.element == name and query_compare(query_type, name, row.metadata.value, value):
                     sim_id_sets[(name, query_type)].add(row.simulation.id)
 
@@ -369,10 +380,13 @@ class Database:
                 .filter(MetaData.element == sort_by)\
                 .subquery()
 
-        s_b = Bundle('simulation', Simulation.id, Simulation.alias, Simulation.uuid)
+        s_b = Bundle('simulation', Simulation.id, Simulation.alias, Simulation.uuid, Simulation.datetime)
         m_b = Bundle('metadata', MetaData.element, MetaData.value)
-        query = self.session.query(s_b, m_b).outerjoin(Simulation.meta).filter(s_b.c.id.in_(sim_ids)) \
-            .filter(m_b.c.element.in_(meta_keys))
+        if meta_keys:
+            query = self.session.query(s_b, m_b).outerjoin(Simulation.meta).filter(s_b.c.id.in_(sim_ids))
+            query = query.filter(m_b.c.element.in_(meta_keys))
+        else:
+            query = self.session.query(s_b).filter(s_b.c.id.in_(sim_ids))
 
         if sort_query is not None:
             query = query.join(sort_query, Simulation.id == sort_query.c.id).order_by(sort_query.c.row_num)

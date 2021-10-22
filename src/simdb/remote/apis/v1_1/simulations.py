@@ -137,7 +137,8 @@ class SimulationList(Resource):
         if request.args:
             constraints: List[Tuple[str, str, QueryType]] = []
             for name in request.args:
-                names.append(name)
+                if name not in ('alias', 'uuid'):
+                    names.append(name)
                 values = request.args.getlist(name)
                 for value in values:
                     constraint = parse_query_arg(value)

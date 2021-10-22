@@ -84,8 +84,8 @@ class RequiresAuth:
                             user = User(payload['sub'], payload['email'])
                         else:
                             raise AuthenticationError("Token expired")
-                    except (IndexError, KeyError, jwt.exceptions.PyJWTError):
-                        raise AuthenticationError("Invalid token")
+                    except (IndexError, KeyError, jwt.exceptions.PyJWTError) as ex:
+                        raise AuthenticationError(f"Invalid token: {ex}")
             else:
                 user = check_auth(config, auth.username, auth.password)
             if not user:

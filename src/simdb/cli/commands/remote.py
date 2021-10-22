@@ -1,5 +1,7 @@
 import re
 import sys
+import uuid
+
 import click
 from collections.abc import Iterable
 from click_option_group import optgroup, MutuallyExclusiveOptionGroup
@@ -308,9 +310,16 @@ def admin():
 @click.argument("sim_id")
 @click.argument("key")
 @click.argument("value")
-def admin_set_meta(api: RemoteAPI, sim_id: str, key: str, value: str):
+@click.option("-t", "--type", type=click.Choice(["string", "UUID", "int", "float"], case_sensitive=False), default="string")
+def admin_set_meta(api: RemoteAPI, sim_id: str, key: str, value: str, type: str):
     """Add or update a metadata value for the given simulation.
     """
+    if type == 'UUID':
+        value = uuid.UUID(value)
+    elif type == 'int':
+        value = int(value)
+    elif type == "float":
+        value = float(value)
     old_value = api.set_metadata(sim_id, key, value)
     if old_value:
         click.echo(f"Update {key} for simulation {sim_id}: {old_value} -> {value}")
@@ -322,7 +331,7 @@ def admin_set_meta(api: RemoteAPI, sim_id: str, key: str, value: str):
 @pass_api
 @click.argument("sim_id")
 @click.argument("key")
-def adming_del_meta(api: RemoteAPI, sim_id: str, key: str):
+def admin_del_meta(api: RemoteAPI, sim_id: str, key: str):
     """Remove a metadata value for the given simulation.
     """
     api.delete_metadata(sim_id, key)
