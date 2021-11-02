@@ -69,7 +69,7 @@ class Simulation(Base):
             return
         self.uuid = uuid.uuid1()
         self.datetime = datetime.now()
-        self.status = Simulation.Status.NOT_VALIDATED
+        #self.status = Simulation.Status.NOT_VALIDATED
         self.user = getuser()
 
         if manifest.alias:
@@ -169,7 +169,8 @@ class Simulation(Base):
         simulation = Simulation(None)
         simulation.uuid = checked_get(data, "uuid", uuid.UUID)
         simulation.alias = checked_get(data, "alias", str)
-        simulation.datetime = datetime.fromisoformat(checked_get(data, "datetime", str))
+        if "datetime" in data:
+            simulation.datetime = datetime.fromisoformat(checked_get(data, "datetime", str))
         if "inputs" in data:
             inputs = checked_get(data, "inputs", list)
             simulation.inputs = [File.from_data(el) for el in inputs]

@@ -87,8 +87,7 @@ class RemoteAPI:
             raise KeyError('Remote name not provided and no default remote found in config.')
         self._remote = remote
         self._url: str = config.get_option(f'remote.{remote}.url')
-        # self._api_url: str = f'{self._url}/api/v{config.api_version}/'
-        self._api_url: str = f'{self._url}/v{config.api_version}/'
+        self._api_url: str = f'{self._url}/api/v{config.api_version}/'
 
         self._token = config.get_option(f'remote.{remote}.token', default='')
         if not self._token:
@@ -195,7 +194,7 @@ class RemoteAPI:
     def list_simulations(self, meta: List[str] = None, limit: int = 0) -> List["Simulation"]:
         from ..database.models import Simulation
         args = '?' + '&'.join(meta) if meta else ''
-        headers = {'result-limit': str(limit)}
+        headers = {'simdb-result-limit': str(limit)}
         res = self.get("simulations" + args, headers=headers)
         data = res.json(cls=CustomDecoder)
         return [Simulation.from_data(sim) for sim in data['results']]
@@ -295,14 +294,18 @@ class RemoteAPI:
         elif file.type == DataObject.Type.IMAS:
             from uri import URI
             from ..imas.utils import copy_imas
+            from pathlib import Path
             res = self.get("staging_dir/{}".format(sim_data['uuid'].hex))
             data = res.json()
             out_uri = URI(file.uri)
             out_uri.query.remove('user')
             out_uri['path'] = data['staging_dir']
-            print('Uploading IDS {} to {} ... '.format(file.uri, out_uri), file=out_stream, end='', flush=True)
-            copy_imas(file.uri, out_uri)
-            print('success', file=out_stream, flush=True)
+            print('Uploading IDS {} to {} ... '.format(file.uri, out_uri), file=out_stream, flush=True)
+            if (Path(data['staging_dir']) / file.uri['database'] / '3' / '0').exists():
+                print('Already exists', file=out_stream, flush=True)
+            else:
+                copy_imas(file.uri, out_uri)
+                print('Success', file=out_stream, flush=True)
             files = sim_data['outputs'] if file_type == 'output' else sim_data['inputs']
             file_data = next((f for f in files if f['uuid'] == file.uuid), None)
             if file_data:

@@ -4,7 +4,7 @@ import re
 
 def map_status(status):
     return {
-        'draft': 'invalidated',
+        'draft': 'not validated',
         'active': 'accepted',
         'obsolete': 'deprecated',
     }[status]
@@ -29,6 +29,37 @@ def get_meta(data):
         'run': data['characteristics']['run'],
         'database': data['characteristics']['machine'],
     }
+    dataset_description = {
+        'data_entry': {
+            'user': data['responsible_name'],
+            'machine': data['characteristics']['machine'],
+            'pulse_type': data['characteristics']['type'],
+            'pulse': int(data['characteristics']['shot']),
+            'run': int(data['characteristics']['run']),
+        },
+    }
+    if 'summary' in data['idslist'] and 'start_end_step' in data['idslist']['summary']:
+        start, end, step = data['idslist']['summary']['start_end_step'][0].split()
+        start = float(start)
+        end = float(end)
+        dataset_description['pulse_time_begin_epoch'] = {
+            'seconds': round(start),
+            'nanoseconds': (start - round(start)) * 10**9,
+        }
+        dataset_description['pulse_time_end_epoch'] = {
+            'seconds': round(end),
+            'nanoseconds': (end - round(end)) * 10**9,
+        }
+        dataset_description['simulation'] = {
+            'time_begin': start,
+            'time_end': end,
+        }
+        try:
+            dataset_description['simulation']['time_step'] = float(step)
+        except ValueError:
+            pass
+
+    meta['dataset_description'] = dataset_description 
     if 'database_relations' in data:
         replaces = data['database_relations']['replaces']
         if not replaces:

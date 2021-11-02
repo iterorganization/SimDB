@@ -57,7 +57,7 @@ def walk_dict(d: Dict, node, depth: int, read_values: ReadValues) -> Dict:
         if depth == 0:
             ids = node.get(k)
             meta[k] = walk_dict(d[k], ids, depth + 1, read_values)
-            return meta
+            continue
 
         if k == 'values':
             try:
@@ -98,8 +98,11 @@ def load_metadata(entry):
     # data = yaml.safe_load(text)
     data_to_read = {
         'summary': {
-            'values': 'all'
-        }
+            'values': 'all',
+        },
+        'dataset_description': {
+            'values': 'all',
+        },
     }
     meta = walk_dict(data_to_read, entry, 0, ReadValues.SELECTED)
     return meta
