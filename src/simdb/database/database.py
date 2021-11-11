@@ -92,7 +92,7 @@ class Database:
                 raise ValueError("Missing host parameter for POSTGRESQL database")
             if "port" not in kwargs:
                 raise ValueError("Missing port parameter for POSTGRESQL database")
-            self.engine: "sqlalchemy.engine.Engine" = create_engine("postgresql://%(host)s:%(port)d/simdb" % kwargs)
+            self.engine: "sqlalchemy.engine.Engine" = create_engine("postgresql://simdb:simdb@%(host)s:%(port)d/simdb" % kwargs)
             with contextlib.closing(self.engine.connect()) as con:
                 res: sqlalchemy.engine.ResultProxy = con.execute(
                     "SELECT * FROM pg_catalog.pg_tables WHERE schemaname = 'public';")
