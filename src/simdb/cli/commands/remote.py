@@ -225,10 +225,9 @@ def remote_query(config: "Config", api: RemoteAPI, constraints: List[str], meta:
     simulations = api.query_simulations(constraints, meta, limit)
 
     names: List[str] = []
-    meta = meta or []
     for constraint in constraints:
         name, _ = constraint.split('=')
-        meta.append(name)
+        names.append(name)
     names += meta
 
     print_simulations(simulations, verbose=config.verbose, metadata_names=names)
@@ -296,11 +295,9 @@ def token_delete(config: "Config", api: RemoteAPI):
 
 @remote.group(cls=RemoteSubGroup)
 def admin():
-    """Run admin commands on REMOTE SimDB server.
+    """Run admin commands on REMOTE SimDB server (requires admin privileges).
 
     Requires user to have admin privileges on remote.
-
-    TODO: don't show this sub command if user does not have admin privileges on selected remote.
     """
     pass
 
