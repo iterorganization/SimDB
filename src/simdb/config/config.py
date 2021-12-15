@@ -91,7 +91,9 @@ class Config:
 
     def _load_user_config(self):
         if self._user_config_path.exists() and self._user_config_path.stat().st_mode != 0o100600:
-            raise Exception(f'User configuration file {self._user_config_path} has incorrect permissions.')
+            raise Exception(f'''
+            User configuration file {self._user_config_path} has incorrect permissions (must have 0600 permissions).
+            ''')
         self._parser.read(self._user_config_path)
 
     @property

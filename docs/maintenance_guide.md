@@ -21,6 +21,7 @@ source venv/bin/activate
 And install SimDB:
 
 ```bash
+pip3 install -r requirements.txt
 pip3 install .
 ```
 
@@ -50,32 +51,36 @@ On macOS this would be:
 /Users/$USER/Library/Application Support/simdb
 ```
 
-In this directory you should create a file 'app.cfg' specifying the server configuration. Options for the server configuration are:
+In this directory you should create a file 'app.cfg' specifying the server configuration. This file must have permissions set to `0600` i.e. user read only.
 
-| Section | Option | Required | Description |
-| --- | --- | --- | --- |
-| database | type | yes | Database type [sqlite, postgres]. |
-| database | file | yes (type=sqlite) | Database file (for sqlite) - defaults to remote.db in the user data directory if not specified. |
-| database | host | yes (type=postgres) | Database host (for postgres). |
-| database | port | yes (type=postgres) | Database port (for postgres). |
-| database | name | yes (type=postgres) | Database name (for postgres). |
-| server | upload_folder | yes | Root directory where SimDB simulation files are stored. |
-| server | ssl_enabled | no | Flag [True, False] to specify whether the debug server uses SSL - this should be set to False for production servers behind dedicated webserver. Defaults to False. |
-| server | ssl_cert_file | yes (ssl_enabled=True) | Path to SSL certificate file if ssl_enabled is True. |
-| server | ssl_key_file | yes (ssl_enabled=True) | Path to SSL key file if ssl_enabled is True. |
-| server | admin_password | yes | Password for admin superuser. |
-| server | token_lifetime | no | Number of days generated tokens are valid for - defaults to 30 days. |
-| flask | flask_env | no | Flask server environment [development, production] - defaults to production. |
-| flask | debug | no | Flag [True, Flase] to specify whether Flask server is run with debug mode enabled - defaults to True if flask_env='development', otherwise False. |
-| flask | testing | no | Flag [True, False] to specify whether exceptions are propagated rather than being handled by Flask's error handlers - defaults to False. |
-| flask | secret_key | yes | Secret key used to encrypt server messages including authentication tokens - should be at least 20 characters long. |
-| flask | swagger_ui_doc_expansion | no | Default state of the Swagger UI documentations [none, list, full]. | 
-| validation | auto_validate | no | Flag [True, False] to set whether the server should run validation on uploaded simulation automatically. Defaults to False. |
-| validation | error_on_fail | no | Flag [True, False] to set whether simulations that fail validation should be rejected - auto_validate must be set to True if this flag is set to True. Defaults to False |
-| email | server | yes | SMTP server used to send emails from the SimDB server. |
-| email | port | yes | SMTP server port port. |
-| email | user | yes | SMTP server user to send emails from . |
-| email | password | yes | SMTP server user password. |
+Options for the server configuration are:
+
+| Section    | Option                   | Required               | Description                                                                                                                                                              |
+|------------|--------------------------|------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| database   | type                     | yes                    | Database type [sqlite, postgres].                                                                                                                                        |
+| database   | file                     | yes (type=sqlite)      | Database file (for sqlite) - defaults to remote.db in the user data directory if not specified.                                                                          |
+| database   | host                     | yes (type=postgres)    | Database host (for postgres).                                                                                                                                            |
+| database   | port                     | yes (type=postgres)    | Database port (for postgres).                                                                                                                                            |
+| database   | name                     | yes (type=postgres)    | Database name (for postgres).                                                                                                                                            |
+| server     | upload_folder            | yes                    | Root directory where SimDB simulation files are stored.                                                                                                                  |
+| server     | ssl_enabled              | no                     | Flag [True, False] to specify whether the debug server uses SSL - this should be set to False for production servers behind dedicated webserver. Defaults to False.      |
+| server     | ssl_cert_file            | yes (ssl_enabled=True) | Path to SSL certificate file if ssl_enabled is True.                                                                                                                     |
+| server     | ssl_key_file             | yes (ssl_enabled=True) | Path to SSL key file if ssl_enabled is True.                                                                                                                             |
+| server     | admin_password           | yes                    | Password for admin superuser.                                                                                                                                            |
+| server     | token_lifetime           | no                     | Number of days generated tokens are valid for - defaults to 30 days.                                                                                                     |
+ | server     | ad_server                | yes                    | Active directory server used for user authentication.                                                                                                                    |
+ | server     | ad_domain                | yes                    | Active directory domain used for user authentication.                                                                                                                    |
+| flask      | flask_env                | no                     | Flask server environment [development, production] - defaults to production.                                                                                             |
+| flask      | debug                    | no                     | Flag [True, Flase] to specify whether Flask server is run with debug mode enabled - defaults to True if flask_env='development', otherwise False.                        |
+| flask      | testing                  | no                     | Flag [True, False] to specify whether exceptions are propagated rather than being handled by Flask's error handlers - defaults to False.                                 |
+| flask      | secret_key               | yes                    | Secret key used to encrypt server messages including authentication tokens - should be at least 20 characters long.                                                      |
+| flask      | swagger_ui_doc_expansion | no                     | Default state of the Swagger UI documentations [none, list, full].                                                                                                       | 
+| validation | auto_validate            | no                     | Flag [True, False] to set whether the server should run validation on uploaded simulation automatically. Defaults to False.                                              |
+| validation | error_on_fail            | no                     | Flag [True, False] to set whether simulations that fail validation should be rejected - auto_validate must be set to True if this flag is set to True. Defaults to False |
+| email      | server                   | yes                    | SMTP server used to send emails from the SimDB server.                                                                                                                   |
+| email      | port                     | yes                    | SMTP server port port.                                                                                                                                                   |
+| email      | user                     | yes                    | SMTP server user to send emails from .                                                                                                                                   |
+| email      | password                 | yes                    | SMTP server user password.                                                                                                                                               |
 
 Example of app.cfg for SQLite:
 
@@ -172,7 +177,7 @@ To run the server in production you should run it as wsgi service behind a dedic
 
 ### Set up gunicorn service
 
-Copy the init.d script from `simdb/remote/simdb.initd` in the simdb install directory (i.e. `/usr/local/lib/python3.7/site-packages/simdb/remote`) as `/etc/init.d/simdb`.
+Copy the init.d script from `src/simdb/remote/scripts/simdb.initd` in the simdb install directory (i.e. `/usr/local/lib/python3.7/site-packages/simdb/remote`) as `/etc/init.d/simdb`.
 
 You will need to modify the line `USER=simdb` to change to user to whichever user you wish to run the simdb as (the gunicorn service will run as root but the workers will run in user space).
 
