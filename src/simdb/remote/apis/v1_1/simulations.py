@@ -168,7 +168,7 @@ class SimulationList(Resource):
                 return error("Simulation data not provided")
 
             simulation = models.Simulation.from_data(data["simulation"])
-            simulation.user = user.name
+            simulation.meta.append(models.MetaData('uploaded_by', user.name))
 
             if "alias" in data["simulation"]:
                 alias = data["simulation"]["alias"]
