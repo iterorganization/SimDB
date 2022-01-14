@@ -5,6 +5,10 @@ from pathlib import Path
 from typing import Tuple, List, Optional, TextIO, Union
 
 
+class ConfigError(Exception):
+    pass
+
+
 def _parse_name(arg: str) -> Tuple[str, str]:
     if '.' in arg:
         section, *name, option = arg.split('.')
@@ -129,6 +133,7 @@ class Config:
             self._site_config_dir = self._site_config_path.parent
 
         if file is not None:
+            self._user_config_path = Path(file.name)
             self._parser.read_file(file)
         else:
             self._load_site_config()
@@ -177,6 +182,9 @@ class Config:
         with open(self._user_config_path, 'w') as file:
             self._parser.write(file)
         self._user_config_path.chmod(0o600)
+
+    def sections(self) -> List[str]:
+        return self._parser.sections()
 
     def get_section(self, name: str, default: Optional[List[Tuple[str, str]]] = None) \
             -> List[Tuple[str, Union[int, float, bool, str]]]:
