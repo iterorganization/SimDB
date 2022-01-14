@@ -24,8 +24,8 @@ if TYPE_CHECKING or 'sphinx' in sys.modules:
 
 class RemoteGroup(click.Group):
     def parse_args(self, ctx, args):
-        if args and args[0] in self.commands:
-            args.insert(0, '')
+        if args and args[-1] in self.commands:
+            args.insert(-1, '')
         super().parse_args(ctx, args)
 
 

@@ -86,18 +86,33 @@ class RemoteAPI:
         if not remote:
             raise KeyError('Remote name not provided and no default remote found in config.')
         self._remote = remote
-        self._url: str = config.get_option(f'remote.{remote}.url')
+
+        try:
+            self._url: str = config.get_option(f'remote.{remote}.url')
+        except KeyError:
+            raise ValueError(f'Remote \'{remote}\' not found.')
+
         # self._api_url: str = f'{self._url}/api/v{config.api_version}/'
         self._api_url: str = f'{self._url}/v{config.api_version}/'
 
-        self._token = config.get_option(f'remote.{remote}.token', default='')
-        if not self._token:
+        self._use_token = (not username and not password)
+
+        if not username:
+            username = config.get_option(f'remote.{remote}.username', default='')
+
+        if password and not username:
+            raise ValueError('Password given but no username given or found in configuration.')
+
+        if not self._use_token:
             if not username:
-                username = config.get_option(f'remote.{remote}.username', default='')
-                if not username:
-                    username = click.prompt('Username', default=os.environ.get('USER', ''))
+                username = click.prompt('Username', default=os.environ.get('USER', ''))
             if not password:
                 password = click.prompt(f'Password for user {username}', hide_input=True)
+
+        self._token = config.get_option(f'remote.{remote}.token', default='')
+        if self._use_token and not self._token:
+            raise ValueError('No username or password given and no token found.')
+
         self._username = username
         self._password = password
 
@@ -118,7 +133,7 @@ class RemoteAPI:
                 request.headers['Authorization'] = f'JWT-Token {self._token}'
                 return request
 
-        if self._token:
+        if self._use_token:
             return JWTAuth(self._token)
         else:
             return self._username, self._password
