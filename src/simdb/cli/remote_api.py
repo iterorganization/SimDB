@@ -195,7 +195,7 @@ class RemoteAPI:
     def list_simulations(self, meta: List[str] = None, limit: int = 0) -> List["Simulation"]:
         from ..database.models import Simulation
         args = '?' + '&'.join(meta) if meta else ''
-        headers = {'result-limit': str(limit)}
+        headers = {'simdb-result-limit': str(limit)}
         res = self.get("simulations" + args, headers=headers)
         data = res.json(cls=CustomDecoder)
         return [Simulation.from_data(sim) for sim in data['results']]
