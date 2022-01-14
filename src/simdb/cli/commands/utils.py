@@ -49,10 +49,12 @@ def print_simulations(simulations: List["Simulation"], verbose: bool = False, me
         if metadata_names:
             for name in metadata_names:
                 meta = sim.find_meta(name)
+                column_widths.setdefault(name, len(name))
                 if meta:
                     line.append(str(meta[0].value))
-                    column_widths.setdefault(name, len(name))
                     column_widths[name] = max(column_widths[name], len(str(meta[0].value)))
+                else:
+                    line.append('')
 
         if not lines:
             lines.append(list(column_widths.keys()))
