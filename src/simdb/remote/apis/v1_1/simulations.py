@@ -274,10 +274,10 @@ class Simulation(Resource):
             cache.clear()
             files = []
             for file in itertools.chain(simulation.inputs, simulation.outputs):
-                files.append("%s (%s)" % (file.uuid, file.file_name))
-                os.remove(os.path.join(file.directory, file.file_name))
+                files.append("%s (%s)" % (file.uuid, file.uri.path.name))
+                os.remove(file.uri.path)
             if simulation.inputs or simulation.outputs:
-                directory = simulation.inputs[0].directory if simulation.inputs else simulation.outputs[0].directory
+                directory = simulation.inputs[0].uri.path.parent if simulation.inputs else simulation.outputs[0].uri.path.parent
                 os.rmdir(directory)
             return jsonify({"deleted": {"simulation": simulation.uuid, "files": files}})
         except DatabaseError as err:
