@@ -95,7 +95,10 @@ def remote(config: "Config", ctx: "Context", username: str, password: str, name:
             config.delete_section(f'remote.{name}')
             config.save()
         elif ctx.invoked_subcommand:
-            ctx.obj = RemoteAPI(name, username, password, config)
+            if ctx.invoked_subcommand == 'token' and click.get_os_args()[-1] == 'new':
+                ctx.obj = RemoteAPI(name, username, password, config, use_token=False)
+            else:
+                ctx.obj = RemoteAPI(name, username, password, config)
 
 
 @remote.group(cls=RemoteSubGroup)

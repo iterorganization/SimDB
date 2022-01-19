@@ -79,7 +79,8 @@ def check_return(res: "requests.Response") -> None:
 class RemoteAPI:
     _remote: str
 
-    def __init__(self, remote: Optional[str], username: Optional[str], password: Optional[str], config: Config) -> None:
+    def __init__(self, remote: Optional[str], username: Optional[str], password: Optional[str], config: Config,
+                 use_token: bool=None) -> None:
         self._config: Config = config
         if not remote:
             remote = config.default_remote
@@ -95,7 +96,10 @@ class RemoteAPI:
         # self._api_url: str = f'{self._url}/api/v{config.api_version}/'
         self._api_url: str = f'{self._url}/v{config.api_version}/'
 
-        self._use_token = (not username and not password)
+        if use_token is not None:
+            self._use_token = use_token
+        else:
+            self._use_token = (not username and not password)
 
         if not username:
             username = config.get_option(f'remote.{remote}.username', default='')
