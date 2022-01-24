@@ -245,7 +245,10 @@ class Simulation(Resource):
         try:
             simulation = current_app.db.get_simulation(sim_id)
             if simulation:
-                return jsonify(simulation.data(recurse=True))
+                sim_data = simulation.data(recurse=True)
+                sim_data['children'] = current_app.db.get_simulation_children(simulation)
+                sim_data['parents'] = current_app.db.get_simulation_parents(simulation)
+                return jsonify(sim_data)
             return error('Simulation not found')
         except DatabaseError as err:
             return error(str(err))

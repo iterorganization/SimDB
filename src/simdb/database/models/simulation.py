@@ -52,8 +52,8 @@ class Simulation(Base):
     uuid = Column(UUID, nullable=False, unique=True, index=True)
     alias: str = Column(sql_types.String(250), nullable=True, unique=True, index=True)
     datetime: datetime = Column(sql_types.DateTime, nullable=False)
-    inputs: List["File"] = relationship("File", secondary=simulation_input_files)
-    outputs: List["File"] = relationship("File", secondary=simulation_output_files)
+    inputs: List["File"] = relationship("File", secondary=simulation_input_files, backref="input_for")
+    outputs: List["File"] = relationship("File", secondary=simulation_output_files, backref="output_of")
     meta: List["MetaData"] = relationship("MetaData", lazy='raise', cascade='all, delete-orphan')
     watchers = relationship("Watcher", secondary=simulation_watchers, lazy='dynamic')
 

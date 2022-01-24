@@ -80,7 +80,7 @@ class RemoteAPI:
     _remote: str
 
     def __init__(self, remote: Optional[str], username: Optional[str], password: Optional[str], config: Config,
-                 use_token: bool=None) -> None:
+                 use_token: bool = None) -> None:
         self._config: Config = config
         if not remote:
             remote = config.default_remote
