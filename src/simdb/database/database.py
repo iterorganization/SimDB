@@ -405,20 +405,20 @@ class Database:
 
     def get_simulation_parents(self, simulation: "Simulation") -> List[dict]:
         from .models import Simulation, File
-        subquery = self.session.query(File.checksum).filter(File.checksum).filter(File.input_for.contains(simulation))\
+        subquery = self.session.query(File.checksum).filter(File.checksum != "")\
+            .filter(File.input_for.contains(simulation))\
             .subquery()
         query = self.session.query(Simulation.uuid, Simulation.alias).join(Simulation.outputs)\
             .filter(File.checksum.in_(subquery)).distinct()
-        print(query.statement.compile())
         return [{'uuid': r.uuid, 'alias': r.alias} for r in query.all()]
 
     def get_simulation_children(self, simulation: "Simulation") -> List[dict]:
         from .models import Simulation, File
-        subquery = self.session.query(File.checksum).filter(File.checksum).filter(File.output_of.contains(simulation))\
+        subquery = self.session.query(File.checksum).filter(File.checksum != "")\
+            .filter(File.output_of.contains(simulation))\
             .subquery()
         query = self.session.query(Simulation.uuid, Simulation.alias).join(Simulation.inputs)\
             .filter(File.checksum.in_(subquery)).distinct()
-        print(query.statement.compile())
         return [{'uuid': r.uuid, 'alias': r.alias} for r in query.all()]
 
     def get_file(self, file_uuid_str: str) -> "File":
