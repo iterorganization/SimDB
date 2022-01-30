@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from datetime import datetime
 from typing import List, Union, Dict, Any, TYPE_CHECKING, Optional
 from getpass import getuser
+from backports.datetime_fromisoformat import MonkeyPatch
 
 from sqlalchemy import Column, types as sql_types, Table, ForeignKey
 from sqlalchemy.orm import relationship
@@ -16,6 +17,10 @@ from .file import File
 from ...cli.manifest import Manifest, DataObject
 from ...docstrings import inherit_docstrings
 from ...config.config import Config
+
+
+MonkeyPatch.patch_fromisoformat()
+
 
 if TYPE_CHECKING or 'sphinx' in sys.modules:
     # Only importing these for type checking and documentation generation in order to speed up runtime startup.
@@ -169,6 +174,8 @@ class Simulation(Base):
         simulation = Simulation(None)
         simulation.uuid = checked_get(data, "uuid", uuid.UUID)
         simulation.alias = checked_get(data, "alias", str)
+        if "datetime" not in data:
+            data["datetime"] = datetime.now().isoformat()
         simulation.datetime = datetime.fromisoformat(checked_get(data, "datetime", str))
         if "inputs" in data:
             inputs = checked_get(data, "inputs", list)
