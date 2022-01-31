@@ -1,4 +1,6 @@
 import configparser
+import io
+
 import appdirs
 import os
 from pathlib import Path
@@ -133,7 +135,8 @@ class Config:
             self._site_config_dir = self._site_config_path.parent
 
         if file is not None:
-            self._user_config_path = Path(file.name)
+            name = file.name if hasattr(file, "name") else '-'
+            self._user_config_path = Path(name)
             self._parser.read_file(file)
         else:
             self._load_site_config()
