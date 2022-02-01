@@ -70,7 +70,7 @@ def add_commands():
 
     cli.add_command(manifest)
     cli.add_command(alias)
-    cli.add_command(simulation, aliases=["sim"])
+    cli.add_command(simulation, aliases=["sim"], name='simulation')
     cli.add_command(config)
     cli.add_command(database)
     cli.add_command(remote)
