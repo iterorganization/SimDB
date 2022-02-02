@@ -20,6 +20,7 @@ class File(Base):
     """
     Class to represent files in the database ORM.
     """
+
     __tablename__ = "files"
     id = Column(sql_types.Integer, primary_key=True)
     uuid = Column(UUID, nullable=False, unique=True, index=True)
@@ -33,8 +34,13 @@ class File(Base):
     embargo = Column(sql_types.String(20), nullable=True)
     datetime = Column(sql_types.DateTime, nullable=False)
 
-    def __init__(self, type: DataObject.Type, uri: urilib.URI, perform_integrity_check: bool = True,
-                 config: Optional[Config] = None) -> None:
+    def __init__(
+        self,
+        type: DataObject.Type,
+        uri: urilib.URI,
+        perform_integrity_check: bool = True,
+        config: Optional[Config] = None,
+    ) -> None:
         self.uuid = uuid.uuid1()
         self.uri = uri
         self.type = type
@@ -45,9 +51,23 @@ class File(Base):
 
     def __str__(self):
         result = ""
-        for name in ("uuid", "usage", "uri", "checksum", "type", "purpose", "sensitivity", "access",
-                     "embargo", "datetime"):
-            result += "  %s:%s%s\n" % (name, ((14 - len(name)) * " "), getattr(self, name))
+        for name in (
+            "uuid",
+            "usage",
+            "uri",
+            "checksum",
+            "type",
+            "purpose",
+            "sensitivity",
+            "access",
+            "embargo",
+            "datetime",
+        ):
+            result += "  %s:%s%s\n" % (
+                name,
+                ((14 - len(name)) * " "),
+                getattr(self, name),
+            )
         return result
 
     def __repr__(self):
@@ -55,16 +75,19 @@ class File(Base):
         return result
 
     def generate_checksum(self, config):
-        if config and config.get_option('development.disable_checksum', default=False):
-            return ''
+        if config and config.get_option("development.disable_checksum", default=False):
+            return ""
         if self.type == DataObject.Type.UDA:
             from ...uda.checksum import checksum as uda_checksum
+
             checksum = uda_checksum(self.uri)
         elif self.type == DataObject.Type.IMAS:
             from ...imas.checksum import checksum as imas_checksum
+
             checksum = imas_checksum(self.uri)
         elif self.type == DataObject.Type.FILE:
             from ...checksum import sha1_checksum
+
             checksum = sha1_checksum(self.uri)
         else:
             raise NotImplementedError(f"Cannot generate checksum for type {self.type}.")
@@ -75,6 +98,7 @@ class File(Base):
             return datetime.now()
         elif self.type == DataObject.Type.IMAS:
             from ...imas.utils import imas_timestamp
+
             return imas_timestamp(self.uri)
         elif self.type == DataObject.Type.FILE:
             return datetime.fromtimestamp(Path(self.uri.path).stat().st_ctime)
@@ -89,7 +113,9 @@ class File(Base):
     def from_data(cls, data: Dict) -> "File":
         data_type = checked_get(data, "type", str)
         uri = checked_get(data, "uri", str)
-        file = File(DataObject.Type[data_type], urilib.URI(uri), perform_integrity_check=False)
+        file = File(
+            DataObject.Type[data_type], urilib.URI(uri), perform_integrity_check=False
+        )
         file.uuid = checked_get(data, "uuid", uuid.UUID)
         file.usage = checked_get(data, "usage", str, optional=True)
         file.checksum = checked_get(data, "checksum", str)

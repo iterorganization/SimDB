@@ -13,12 +13,14 @@ def run():
 
     if config.get_option("server.ssl_enabled"):
         context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
-        context.load_cert_chain(certfile=config.get_option("server.ssl_cert_file"),
-                                keyfile=config.get_option("server.ssl_key_file"))
-        app.run(host='0.0.0.0', port='5000', ssl_context=context)
+        context.load_cert_chain(
+            certfile=config.get_option("server.ssl_cert_file"),
+            keyfile=config.get_option("server.ssl_key_file"),
+        )
+        app.run(host="0.0.0.0", port="5000", ssl_context=context)
     else:
-        app.run(host='0.0.0.0', port='5000')
+        app.run(host="0.0.0.0", port="5000")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     run()

@@ -22,21 +22,30 @@ from ...config.config import Config
 MonkeyPatch.patch_fromisoformat()
 
 
-if TYPE_CHECKING or 'sphinx' in sys.modules:
+if TYPE_CHECKING or "sphinx" in sys.modules:
     # Only importing these for type checking and documentation generation in order to speed up runtime startup.
     from .metadata import MetaData
 
-simulation_input_files = Table("simulation_input_files", Base.metadata,
-                               Column("simulation_id", sql_types.Integer, ForeignKey("simulations.id")),
-                               Column("file_id", sql_types.Integer, ForeignKey("files.id")))
+simulation_input_files = Table(
+    "simulation_input_files",
+    Base.metadata,
+    Column("simulation_id", sql_types.Integer, ForeignKey("simulations.id")),
+    Column("file_id", sql_types.Integer, ForeignKey("files.id")),
+)
 
-simulation_output_files = Table("simulation_output_files", Base.metadata,
-                                Column("simulation_id", sql_types.Integer, ForeignKey("simulations.id")),
-                                Column("file_id", sql_types.Integer, ForeignKey("files.id")))
+simulation_output_files = Table(
+    "simulation_output_files",
+    Base.metadata,
+    Column("simulation_id", sql_types.Integer, ForeignKey("simulations.id")),
+    Column("file_id", sql_types.Integer, ForeignKey("files.id")),
+)
 
-simulation_watchers = Table("simulation_watchers", Base.metadata,
-                            Column("simulation_id", sql_types.Integer, ForeignKey("simulations.id")),
-                            Column("watcher_id", sql_types.Integer, ForeignKey("watchers.id")))
+simulation_watchers = Table(
+    "simulation_watchers",
+    Base.metadata,
+    Column("simulation_id", sql_types.Integer, ForeignKey("simulations.id")),
+    Column("watcher_id", sql_types.Integer, ForeignKey("watchers.id")),
+)
 
 
 @inherit_docstrings
@@ -46,23 +55,31 @@ class Simulation(Base):
     """
 
     class Status(Enum):
-        NOT_VALIDATED = 'not validated'
-        ACCEPTED = 'accepted'
-        FAILED = 'failed'
-        PASSED = 'passed'
-        DEPRECATED = 'deprecated'
+        NOT_VALIDATED = "not validated"
+        ACCEPTED = "accepted"
+        FAILED = "failed"
+        PASSED = "passed"
+        DEPRECATED = "deprecated"
 
     __tablename__ = "simulations"
     id = Column(sql_types.Integer, primary_key=True)
     uuid = Column(UUID, nullable=False, unique=True, index=True)
     alias: str = Column(sql_types.String(250), nullable=True, unique=True, index=True)
     datetime: datetime = Column(sql_types.DateTime, nullable=False)
-    inputs: List["File"] = relationship("File", secondary=simulation_input_files, backref="input_for")
-    outputs: List["File"] = relationship("File", secondary=simulation_output_files, backref="output_of")
-    meta: List["MetaData"] = relationship("MetaData", lazy='raise', cascade='all, delete-orphan')
-    watchers = relationship("Watcher", secondary=simulation_watchers, lazy='dynamic')
+    inputs: List["File"] = relationship(
+        "File", secondary=simulation_input_files, backref="input_for"
+    )
+    outputs: List["File"] = relationship(
+        "File", secondary=simulation_output_files, backref="output_of"
+    )
+    meta: List["MetaData"] = relationship(
+        "MetaData", lazy="raise", cascade="all, delete-orphan"
+    )
+    watchers = relationship("Watcher", secondary=simulation_watchers, lazy="dynamic")
 
-    def __init__(self, manifest: Union[Manifest, None], config: Optional[Config] = None) -> None:
+    def __init__(
+        self, manifest: Union[Manifest, None], config: Optional[Config] = None
+    ) -> None:
         """
         Initialise a new Simulation object using the provided Manifest.
 
@@ -88,12 +105,13 @@ class Simulation(Base):
             if output.type == DataObject.Type.IMAS:
                 from ...imas.utils import open_imas, list_idss, check_time
                 from ...imas.metadata import load_metadata
+
                 entry = open_imas(output.uri)
                 idss = list_idss(entry)
                 for ids in idss:
                     check_time(entry, ids)
 
-                self.meta.append(MetaData('ids', '[%s]' % ', '.join(idss)))
+                self.meta.append(MetaData("ids", "[%s]" % ", ".join(idss)))
 
                 meta = load_metadata(entry)
                 flattened_meta: Dict[str, str] = {}
@@ -115,7 +133,9 @@ class Simulation(Base):
     def status(self) -> Optional["Simulation.Status"]:
         result = self.find_meta("status")
         if result:
-            value = result[0].value if result[0].value != 'invalidated' else 'not validated'
+            value = (
+                result[0].value if result[0].value != "invalidated" else "not validated"
+            )
             return Simulation.Status(value)
         return None
 
@@ -125,18 +145,23 @@ class Simulation(Base):
 
     def __str__(self):
         import numpy as np
+
         result = ""
         for name in ("uuid", "alias"):
-            result += "%s:%s%s\n" % (name, ((10 - len(name)) * " "), getattr(self, name))
+            result += "%s:%s%s\n" % (
+                name,
+                ((10 - len(name)) * " "),
+                getattr(self, name),
+            )
         result += "metadata:\n"
         for meta in self.meta:
-            if isinstance(meta.value, Iterable) and '\n' in meta.value:
+            if isinstance(meta.value, Iterable) and "\n" in meta.value:
                 first_line = True
-                for line in meta.value.split('\n'):
+                for line in meta.value.split("\n"):
                     if first_line:
                         result += f"  {meta.element}: {line}\n"
                     elif line:
-                        indent = ' ' * (len(meta.element) + 2)
+                        indent = " " * (len(meta.element) + 2)
                         result += f"  {indent}{line}"
                     first_line = False
             elif isinstance(meta.value, np.ndarray):
@@ -171,6 +196,7 @@ class Simulation(Base):
     @classmethod
     def from_data(cls, data: Dict[str, Union[str, Dict, List]]) -> "Simulation":
         from .metadata import MetaData
+
         simulation = Simulation(None)
         simulation.uuid = checked_get(data, "uuid", uuid.UUID)
         simulation.alias = checked_get(data, "alias", str)
@@ -191,7 +217,9 @@ class Simulation(Base):
                 simulation.meta.append(MetaData.from_data(el))
         return simulation
 
-    def data(self, recurse: bool = False, meta_keys: List[str] = None) -> Dict[str, Union[str, List]]:
+    def data(
+        self, recurse: bool = False, meta_keys: List[str] = None
+    ) -> Dict[str, Union[str, List]]:
         data = dict(
             uuid=self.uuid,
             alias=self.alias,
@@ -202,7 +230,9 @@ class Simulation(Base):
             data["outputs"] = [f.data(recurse=True) for f in self.outputs]
             data["metadata"] = [m.data(recurse=True) for m in self.meta]
         elif meta_keys:
-            data["metadata"] = [m.data(recurse=True) for m in self.meta if m.element in meta_keys]
+            data["metadata"] = [
+                m.data(recurse=True) for m in self.meta if m.element in meta_keys
+            ]
         return data
 
     def meta_dict(self) -> Dict[str, Union[Dict, Any]]:

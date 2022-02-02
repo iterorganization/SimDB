@@ -1,28 +1,34 @@
 from collections import deque
 from typing import Dict, Any, Union, List, Tuple, Deque, Type
 
-FLATTEN_DICT_DELIM = '.'
+FLATTEN_DICT_DELIM = "."
 
 
-def flatten_dict(out_dict: Dict[str, Any], in_dict: Dict[str, Union[Dict, List, Any]], prefix: Tuple = ()):
+def flatten_dict(
+    out_dict: Dict[str, Any],
+    in_dict: Dict[str, Union[Dict, List, Any]],
+    prefix: Tuple = (),
+):
     for key, value in in_dict.items():
         if isinstance(value, dict):
             flatten_dict(out_dict, value, prefix + (key,))
         elif isinstance(value, list):
             for i, el in enumerate(value):
-                flatten_dict(out_dict, el, prefix + (f'{key}#{i + 1}',))
+                flatten_dict(out_dict, el, prefix + (f"{key}#{i + 1}",))
         else:
             out_dict[FLATTEN_DICT_DELIM.join(prefix + (key,))] = value
 
 
 def _parse_index(head: str) -> Tuple[bool, str, int]:
-    tokens = head.split('#')
+    tokens = head.split("#")
     if len(tokens) > 1 and tokens[-1].isdigit():
-        return True, '#'.join(tokens[:-1]), int(tokens[-1])
+        return True, "#".join(tokens[:-1]), int(tokens[-1])
     return False, head, 0
 
 
-def _unflatten_value(out_dict: Dict[str, Union[Dict, List, Any]], key: Deque[str], value: Any) -> None:
+def _unflatten_value(
+    out_dict: Dict[str, Union[Dict, List, Any]], key: Deque[str], value: Any
+) -> None:
     head = key.popleft()
     tail = key
     is_index, head, index = _parse_index(head)
@@ -56,5 +62,7 @@ def checked_get(data: Dict[str, Any], key, expected_type: Type, optional: bool =
     if not isinstance(data[key], expected_type):
         type_name = type(data[key]).__name__
         expected_type_name = expected_type.__name__
-        raise ValueError(f"Corrupted data - {key} has incorrect type {type_name}, expected {expected_type_name}.")
+        raise ValueError(
+            f"Corrupted data - {key} has incorrect type {type_name}, expected {expected_type_name}."
+        )
     return data[key]

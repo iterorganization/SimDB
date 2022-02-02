@@ -12,7 +12,7 @@ class DatabaseError(RuntimeError):
     pass
 
 
-TYPING = TYPE_CHECKING or 'sphinx' in sys.modules
+TYPING = TYPE_CHECKING or "sphinx" in sys.modules
 
 if TYPING:
     # Only importing these for type checking and documentation generation in order to speed up runtime startup.
@@ -50,6 +50,7 @@ class Database:
     """
     Class to wrap the database access.
     """
+
     engine: "sqlalchemy.engine.Engine"
     _session: "sqlalchemy.orm.SessionExtension" = None
 
@@ -57,6 +58,7 @@ class Database:
         """
         DBMSs supported.
         """
+
         SQLITE = auto()
         POSTGRESQL = auto()
         MSSQL = auto()
@@ -81,22 +83,28 @@ class Database:
             if "file" not in kwargs:
                 raise ValueError("Missing file parameter for SQLITE database")
             # new_db = (not os.path.exists(kwargs["file"]))
-            self.engine: "sqlalchemy.engine.Engine" = create_engine("sqlite:///%(file)s" % kwargs)
+            self.engine: "sqlalchemy.engine.Engine" = create_engine(
+                "sqlite:///%(file)s" % kwargs
+            )
             with contextlib.closing(self.engine.connect()) as con:
                 res: sqlalchemy.engine.ResultProxy = con.execute(
-                    "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%';")
-                new_db = (res.rowcount == -1)
+                    "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%';"
+                )
+                new_db = res.rowcount == -1
 
         elif db_type == Database.DBMS.POSTGRESQL:
             if "host" not in kwargs:
                 raise ValueError("Missing host parameter for POSTGRESQL database")
             if "port" not in kwargs:
                 raise ValueError("Missing port parameter for POSTGRESQL database")
-            self.engine: "sqlalchemy.engine.Engine" = create_engine("postgresql://simdb:simdb@%(host)s:%(port)d/simdb" % kwargs)
+            self.engine: "sqlalchemy.engine.Engine" = create_engine(
+                "postgresql://simdb:simdb@%(host)s:%(port)d/simdb" % kwargs
+            )
             with contextlib.closing(self.engine.connect()) as con:
                 res: sqlalchemy.engine.ResultProxy = con.execute(
-                    "SELECT * FROM pg_catalog.pg_tables WHERE schemaname = 'public';")
-                new_db = (res.rowcount == 0)
+                    "SELECT * FROM pg_catalog.pg_tables WHERE schemaname = 'public';"
+                )
+                new_db = res.rowcount == 0
 
         elif db_type == Database.DBMS.MSSQL:
             if "user" not in kwargs:
@@ -105,8 +113,9 @@ class Database:
                 raise ValueError("Missing password parameter for MSSQL database")
             if "dsnname" not in kwargs:
                 raise ValueError("Missing dsnname parameter for MSSQL database")
-            self.engine: "sqlalchemy.engine.Engine" = create_engine("mssql+pyodbc://%(user)s:%(password)s@%(dsnname)s"
-                                                                    % kwargs)
+            self.engine: "sqlalchemy.engine.Engine" = create_engine(
+                "mssql+pyodbc://%(user)s:%(password)s@%(dsnname)s" % kwargs
+            )
             new_db = False
 
         else:
@@ -115,9 +124,14 @@ class Database:
             Base.metadata.create_all(self.engine)
         Base.metadata.bind = self.engine
         if scopefunc is None:
+
             def scopefunc():
                 return 0
-        self.session: "Session" = cast("Session", scoped_session(sessionmaker(bind=self.engine), scopefunc=scopefunc))
+
+        self.session: "Session" = cast(
+            "Session",
+            scoped_session(sessionmaker(bind=self.engine), scopefunc=scopefunc),
+        )
 
     def _get_simulation_data(self, limit, query, meta_keys, page) -> Tuple[int, List]:
         if limit:
@@ -127,17 +141,19 @@ class Database:
             limit_query = self.get_simulation_data(query)
         data = {}
         for row in limit_query:
-            data.setdefault(row.simulation.uuid, {
-                'alias': row.simulation.alias,
-                'uuid': row.simulation.uuid,
-                'datetime': row.simulation.datetime.isoformat(),
-                'metadata': []
-            })
+            data.setdefault(
+                row.simulation.uuid,
+                {
+                    "alias": row.simulation.alias,
+                    "uuid": row.simulation.uuid,
+                    "datetime": row.simulation.datetime.isoformat(),
+                    "metadata": [],
+                },
+            )
             if meta_keys:
-                data[row.simulation.uuid]['metadata'].append({
-                    'element': row.metadata.element,
-                    'value': row.metadata.value
-                })
+                data[row.simulation.uuid]["metadata"].append(
+                    {"element": row.metadata.element, "value": row.metadata.value}
+                )
         if meta_keys:
             return query.count() / len(meta_keys), list(data.values())
         else:
@@ -148,15 +164,28 @@ class Database:
         from sqlalchemy import cast as sql_cast, Text, or_ as sql_or
         from sqlalchemy.orm import joinedload
         from sqlalchemy.exc import SQLAlchemyError
+
         try:
             sim_uuid = uuid.UUID(sim_ref)
-            simulation = self.session.query(Simulation).options(joinedload(Simulation.meta)) \
-                .filter_by(uuid=sim_uuid).one_or_none()
+            simulation = (
+                self.session.query(Simulation)
+                .options(joinedload(Simulation.meta))
+                .filter_by(uuid=sim_uuid)
+                .one_or_none()
+            )
         except ValueError:
             try:
-                simulation = self.session.query(Simulation).options(joinedload(Simulation.meta)) \
-                    .filter(sql_or(sql_cast(Simulation.uuid, Text).startswith(sim_ref), Simulation.alias == sim_ref)) \
+                simulation = (
+                    self.session.query(Simulation)
+                    .options(joinedload(Simulation.meta))
+                    .filter(
+                        sql_or(
+                            sql_cast(Simulation.uuid, Text).startswith(sim_ref),
+                            Simulation.alias == sim_ref,
+                        )
+                    )
                     .one_or_none()
+                )
             except SQLAlchemyError:
                 simulation = None
             if not simulation:
@@ -184,7 +213,9 @@ class Database:
                 con.execute(table.delete())
             trans.commit()
 
-    def list_simulations(self, meta_keys: List[str] = None, limit: int = 0) -> List["Simulation"]:
+    def list_simulations(
+        self, meta_keys: List[str] = None, limit: int = 0
+    ) -> List["Simulation"]:
         """
         Return a list of all the simulations stored in the database.
 
@@ -194,8 +225,12 @@ class Database:
         from sqlalchemy.orm import joinedload
 
         if meta_keys:
-            query = self.session.query(Simulation).options(joinedload(Simulation.meta)).outerjoin(Simulation.meta) \
+            query = (
+                self.session.query(Simulation)
+                .options(joinedload(Simulation.meta))
+                .outerjoin(Simulation.meta)
                 .filter(MetaData.element.in_(meta_keys))
+            )
             if limit:
                 query = query.limit(limit)
             return query.all()
@@ -205,8 +240,14 @@ class Database:
                 query = query.limit(limit)
             return query.all()
 
-    def list_simulation_data(self, meta_keys: List[str] = None, limit: int = 0, page: int = 1, sort_by: str = '',
-                             sort_asc: bool = False) -> Tuple[int, List[dict]]:
+    def list_simulation_data(
+        self,
+        meta_keys: List[str] = None,
+        limit: int = 0,
+        page: int = 1,
+        sort_by: str = "",
+        sort_asc: bool = False,
+    ) -> Tuple[int, List[dict]]:
         """
         Return a list of all the simulations stored in the database.
 
@@ -219,38 +260,54 @@ class Database:
         sort_query = None
         if sort_by:
             sort_dir = asc if sort_asc else desc
-            sort_query = self.session\
-                .query(Simulation.id, func.row_number().over(order_by=sort_dir(MetaData.value)).label('row_num'))\
-                .join(Simulation.meta)\
-                .filter(MetaData.element == sort_by)\
+            sort_query = (
+                self.session.query(
+                    Simulation.id,
+                    func.row_number()
+                    .over(order_by=sort_dir(MetaData.value))
+                    .label("row_num"),
+                )
+                .join(Simulation.meta)
+                .filter(MetaData.element == sort_by)
                 .subquery()
+            )
 
         if meta_keys:
-            s_b = Bundle('simulation', Simulation.alias, Simulation.uuid, Simulation.datetime)
-            m_b = Bundle('metadata', MetaData.element, MetaData.value)
+            s_b = Bundle(
+                "simulation", Simulation.alias, Simulation.uuid, Simulation.datetime
+            )
+            m_b = Bundle("metadata", MetaData.element, MetaData.value)
             query = self.session.query(s_b, m_b).outerjoin(Simulation.meta)
 
             names_filters = []
             for name in meta_keys:
-                if name in ('alias', 'uuid'):
+                if name in ("alias", "uuid"):
                     continue
                 names_filters.append(m_b.c.element.ilike(name))
             if names_filters:
                 query = query.filter(or_(*names_filters))
 
             if sort_query is not None:
-                query = query.join(sort_query, Simulation.id == sort_query.c.id).order_by(sort_query.c.row_num)
+                query = query.join(
+                    sort_query, Simulation.id == sort_query.c.id
+                ).order_by(sort_query.c.row_num)
 
             return self._get_simulation_data(limit, query, meta_keys, page)
         else:
-            query = self.session.query(Simulation.alias, Simulation.uuid, Simulation.datetime)
+            query = self.session.query(
+                Simulation.alias, Simulation.uuid, Simulation.datetime
+            )
 
             if sort_query is not None:
-                query = query.join(sort_query, Simulation.id == sort_query.c.id).order_by(sort_query.c.row_num)
+                query = query.join(
+                    sort_query, Simulation.id == sort_query.c.id
+                ).order_by(sort_query.c.row_num)
 
-            limit_query = query.limit(limit).offset((page - 1) * limit) if limit else query
+            limit_query = (
+                query.limit(limit).offset((page - 1) * limit) if limit else query
+            )
             return query.count(), [
-                {'alias': alias, 'uuid': uuid, 'datetime': datetime.isoformat()}
+                {"alias": alias, "uuid": uuid, "datetime": datetime.isoformat()}
                 for alias, uuid, datetime in limit_query
             ]
 
@@ -282,35 +339,40 @@ class Database:
         self.session.commit()
         return simulation
 
-    def _get_metadata(self, constraints: List[Tuple[str, str, "QueryType"]]) -> Iterable:
+    def _get_metadata(
+        self, constraints: List[Tuple[str, str, "QueryType"]]
+    ) -> Iterable:
         from sqlalchemy import func, String, or_
         from sqlalchemy.orm import Bundle
         from ..query import QueryType
         from .models import Simulation, MetaData
 
-        m_b = Bundle('metadata', MetaData.element, MetaData.value)
-        s_b = Bundle('simulation', Simulation.id, Simulation.alias, Simulation.uuid)
+        m_b = Bundle("metadata", MetaData.element, MetaData.value)
+        s_b = Bundle("simulation", Simulation.id, Simulation.alias, Simulation.uuid)
         query = self.session.query(m_b, s_b).join(Simulation)
         for name, value, query_type in constraints:
             if query == QueryType.NONE:
                 pass
             elif query_type == QueryType.EQ:
-                if name == 'alias':
+                if name == "alias":
                     query = query.filter(func.lower(Simulation.alias) == value.lower())
-                elif name == 'uuid':
+                elif name == "uuid":
                     query = query.filter(Simulation.uuid == uuid.UUID(value))
             elif query_type == QueryType.IN:
-                if name == 'alias':
+                if name == "alias":
                     query = query.filter(Simulation.alias.ilike("%{}%".format(value)))
-                elif name == 'uuid':
-                    query = query.filter(func.REPLACE(cast(Simulation.uuid, String), '-', '')
-                                         .ilike("%{}%".format(value.replace('-', ''))))
-            elif name in ('uuid', 'alias'):
-                raise ValueError(f'Invalid query type {query_type} for alias or uuid.')
+                elif name == "uuid":
+                    query = query.filter(
+                        func.REPLACE(cast(Simulation.uuid, String), "-", "").ilike(
+                            "%{}%".format(value.replace("-", ""))
+                        )
+                    )
+            elif name in ("uuid", "alias"):
+                raise ValueError(f"Invalid query type {query_type} for alias or uuid.")
 
         names_filters = []
         for name, _, _ in constraints:
-            if name in ('alias', 'uuid'):
+            if name in ("alias", "uuid"):
                 continue
             names_filters.append(MetaData.element.ilike(name))
         if names_filters:
@@ -318,7 +380,9 @@ class Database:
 
         return query
 
-    def _get_sim_ids(self, constraints: List[Tuple[str, str, "QueryType"]]) -> Iterable[int]:
+    def _get_sim_ids(
+        self, constraints: List[Tuple[str, str, "QueryType"]]
+    ) -> Iterable[int]:
         from ..query import query_compare
 
         rows = self._get_metadata(constraints)
@@ -329,9 +393,11 @@ class Database:
 
         for row in rows:
             for name, value, query_type in constraints:
-                if name in ('alias', 'uuid'):
+                if name in ("alias", "uuid"):
                     sim_id_sets[(name, query_type)].add(row.simulation.id)
-                if row.metadata.element == name and query_compare(query_type, name, row.metadata.value, value):
+                if row.metadata.element == name and query_compare(
+                    query_type, name, row.metadata.value, value
+                ):
                     sim_id_sets[(name, query_type)].add(row.simulation.id)
 
         if sim_id_sets:
@@ -339,7 +405,9 @@ class Database:
 
         return []
 
-    def query_meta(self, constraints: List[Tuple[str, str, "QueryType"]]) -> List["Simulation"]:
+    def query_meta(
+        self, constraints: List[Tuple[str, str, "QueryType"]]
+    ) -> List["Simulation"]:
         """
         Query the metadata and return matching simulations.
 
@@ -352,12 +420,22 @@ class Database:
         if not sim_ids:
             return []
 
-        query = self.session.query(Simulation).options(joinedload(Simulation.meta)) \
+        query = (
+            self.session.query(Simulation)
+            .options(joinedload(Simulation.meta))
             .filter(Simulation.id.in_(sim_ids))
+        )
         return query.all()
 
-    def query_meta_data(self, constraints: List[Tuple[str, str, "QueryType"]], meta_keys: List[str], limit: int = 0,
-                        page: int = 1, sort_by: str = '', sort_asc: bool = False) -> Tuple[int, List[dict]]:
+    def query_meta_data(
+        self,
+        constraints: List[Tuple[str, str, "QueryType"]],
+        meta_keys: List[str],
+        limit: int = 0,
+        page: int = 1,
+        sort_by: str = "",
+        sort_asc: bool = False,
+    ) -> Tuple[int, List[dict]]:
         """
         Query the metadata and return matching simulations.
 
@@ -374,22 +452,40 @@ class Database:
         sort_query = None
         if sort_by:
             sort_dir = asc if sort_asc else desc
-            sort_query = self.session\
-                .query(Simulation.id, func.row_number().over(order_by=sort_dir(MetaData.value)).label('row_num'))\
-                .join(Simulation.meta)\
-                .filter(MetaData.element == sort_by)\
+            sort_query = (
+                self.session.query(
+                    Simulation.id,
+                    func.row_number()
+                    .over(order_by=sort_dir(MetaData.value))
+                    .label("row_num"),
+                )
+                .join(Simulation.meta)
+                .filter(MetaData.element == sort_by)
                 .subquery()
+            )
 
-        s_b = Bundle('simulation', Simulation.id, Simulation.alias, Simulation.uuid, Simulation.datetime)
-        m_b = Bundle('metadata', MetaData.element, MetaData.value)
+        s_b = Bundle(
+            "simulation",
+            Simulation.id,
+            Simulation.alias,
+            Simulation.uuid,
+            Simulation.datetime,
+        )
+        m_b = Bundle("metadata", MetaData.element, MetaData.value)
         if meta_keys:
-            query = self.session.query(s_b, m_b).outerjoin(Simulation.meta).filter(s_b.c.id.in_(sim_ids))
+            query = (
+                self.session.query(s_b, m_b)
+                .outerjoin(Simulation.meta)
+                .filter(s_b.c.id.in_(sim_ids))
+            )
             query = query.filter(m_b.c.element.in_(meta_keys))
         else:
             query = self.session.query(s_b).filter(s_b.c.id.in_(sim_ids))
 
         if sort_query is not None:
-            query = query.join(sort_query, Simulation.id == sort_query.c.id).order_by(sort_query.c.row_num)
+            query = query.join(sort_query, Simulation.id == sort_query.c.id).order_by(
+                sort_query.c.row_num
+            )
 
         return self._get_simulation_data(limit, query, meta_keys, page)
 
@@ -405,21 +501,37 @@ class Database:
 
     def get_simulation_parents(self, simulation: "Simulation") -> List[dict]:
         from .models import Simulation, File
-        subquery = self.session.query(File.checksum).filter(File.checksum != "")\
-            .filter(File.input_for.contains(simulation))\
+
+        subquery = (
+            self.session.query(File.checksum)
+            .filter(File.checksum != "")
+            .filter(File.input_for.contains(simulation))
             .subquery()
-        query = self.session.query(Simulation.uuid, Simulation.alias).join(Simulation.outputs)\
-            .filter(File.checksum.in_(subquery)).distinct()
-        return [{'uuid': r.uuid, 'alias': r.alias} for r in query.all()]
+        )
+        query = (
+            self.session.query(Simulation.uuid, Simulation.alias)
+            .join(Simulation.outputs)
+            .filter(File.checksum.in_(subquery))
+            .distinct()
+        )
+        return [{"uuid": r.uuid, "alias": r.alias} for r in query.all()]
 
     def get_simulation_children(self, simulation: "Simulation") -> List[dict]:
         from .models import Simulation, File
-        subquery = self.session.query(File.checksum).filter(File.checksum != "")\
-            .filter(File.output_of.contains(simulation))\
+
+        subquery = (
+            self.session.query(File.checksum)
+            .filter(File.checksum != "")
+            .filter(File.output_of.contains(simulation))
             .subquery()
-        query = self.session.query(Simulation.uuid, Simulation.alias).join(Simulation.inputs)\
-            .filter(File.checksum.in_(subquery)).distinct()
-        return [{'uuid': r.uuid, 'alias': r.alias} for r in query.all()]
+        )
+        query = (
+            self.session.query(Simulation.uuid, Simulation.alias)
+            .join(Simulation.inputs)
+            .filter(File.checksum.in_(subquery))
+            .distinct()
+        )
+        return [{"uuid": r.uuid, "alias": r.alias} for r in query.all()]
 
     def get_file(self, file_uuid_str: str) -> "File":
         """
@@ -471,20 +583,28 @@ class Database:
 
     def list_metadata_keys(self) -> List[dict]:
         from ..database.models import MetaData
-        if self.engine.dialect.name == 'postgresql':
-            query = self.session.query(MetaData.element, MetaData.value).distinct(MetaData.element)
+
+        if self.engine.dialect.name == "postgresql":
+            query = self.session.query(MetaData.element, MetaData.value).distinct(
+                MetaData.element
+            )
         else:
-            query = self.session.query(MetaData.element, MetaData.value).group_by(MetaData.element)
-        return [
-            {'name': row[0], 'type': type(row[1]).__name__} for row in query.all()
-        ]
+            query = self.session.query(MetaData.element, MetaData.value).group_by(
+                MetaData.element
+            )
+        return [{"name": row[0], "type": type(row[1]).__name__} for row in query.all()]
 
     def list_metadata_values(self, name: str) -> List[str]:
         from ..database.models import MetaData, Simulation
-        if name == 'alias':
+
+        if name == "alias":
             query = self.session.query(Simulation.alias)
         else:
-            query = self.session.query(MetaData.value).filter(MetaData.element == name).distinct()
+            query = (
+                self.session.query(MetaData.value)
+                .filter(MetaData.element == name)
+                .distinct()
+            )
         data = [row[0] for row in query.all()]
         try:
             return sorted(data)
@@ -505,11 +625,14 @@ class Database:
             self.session.commit()
         except IntegrityError as err:
             self.session.rollback()
-            if 'alias' in str(err.orig):
+            if "alias" in str(err.orig):
                 raise DatabaseError(
-                    f'Simulation already exists with alias {simulation.alias} - please use a unique alias.')
-            elif 'uuid' in str(err.orig):
-                raise DatabaseError(f'Simulation already exists with uuid {simulation.uuid}.')
+                    f"Simulation already exists with alias {simulation.alias} - please use a unique alias."
+                )
+            elif "uuid" in str(err.orig):
+                raise DatabaseError(
+                    f"Simulation already exists with uuid {simulation.uuid}."
+                )
             raise DatabaseError(str(err.orig))
         except DBAPIError as err:
             self.session.rollback()
@@ -520,15 +643,24 @@ class Database:
         from sqlalchemy.sql import column
 
         if prefix:
-            return [el[0] for el in
-                    self.session.query(Simulation).filter(Simulation.alias.like(prefix + '%')).values(column('alias'))]
+            return [
+                el[0]
+                for el in self.session.query(Simulation)
+                .filter(Simulation.alias.like(prefix + "%"))
+                .values(column("alias"))
+            ]
         else:
-            return [el[0] for el in self.session.query(Simulation).values(column('alias'))]
+            return [
+                el[0] for el in self.session.query(Simulation).values(column("alias"))
+            ]
 
 
 def get_local_db(config: Config) -> Database:
     import appdirs
-    db_file = config.get_option('db.file', default=os.path.join(appdirs.user_data_dir('simdb'), 'sim.db'))
+
+    db_file = config.get_option(
+        "db.file", default=os.path.join(appdirs.user_data_dir("simdb"), "sim.db")
+    )
     db_dir = os.path.dirname(db_file)
     os.makedirs(db_dir, exist_ok=True)
     database = Database(Database.DBMS.SQLITE, file=db_file)

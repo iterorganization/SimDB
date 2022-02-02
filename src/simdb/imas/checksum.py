@@ -7,7 +7,7 @@ from typing import cast
 from .utils import open_imas, list_idss
 
 
-IGNORED_FIELDS = ('data_dictionary', 'access_layer', 'access_layer_language')
+IGNORED_FIELDS = ("data_dictionary", "access_layer", "access_layer_language")
 
 
 class Hash:
@@ -18,15 +18,15 @@ class Hash:
         pass
 
 
-def walk_imas(imas_obj, check: Hash, path='') -> None:
+def walk_imas(imas_obj, check: Hash, path="") -> None:
     from imas import imasdef
     import numpy as np
 
-    for name in (i for i in dir(imas_obj) if not i.startswith('_')):
+    for name in (i for i in dir(imas_obj) if not i.startswith("_")):
         if name in IGNORED_FIELDS:
             continue
         attr = getattr(imas_obj, name)
-        if 'numpy.ndarray' in str(type(attr)):
+        if "numpy.ndarray" in str(type(attr)):
             if attr.size != 0:
                 # if np.isnan(attr).any():
                 #     print(path, name)
@@ -46,11 +46,11 @@ def walk_imas(imas_obj, check: Hash, path='') -> None:
         elif type(attr) == float:
             if attr != imasdef.EMPTY_FLOAT:
                 check.update(struct.pack("f", attr))
-        elif '__structure' in str(type(attr)):
-            walk_imas(attr, check, path=f'{path}.{name}')
-        elif '__structArray' in str(type(attr)):
+        elif "__structure" in str(type(attr)):
+            walk_imas(attr, check, path=f"{path}.{name}")
+        elif "__structArray" in str(type(attr)):
             for i, el in enumerate(attr):
-                walk_imas(el, check, path=f'{path}.{name}[{i}]')
+                walk_imas(el, check, path=f"{path}.{name}[{i}]")
 
 
 def ids_checksum(ids) -> Hash:
@@ -64,7 +64,7 @@ def _checksum(q: mp.Queue, uri: URI) -> str:
     idss = list_idss(entry)
     check = hashlib.sha256()
     for name in idss:
-        print(f'Checksumming {name}', flush=True)
+        print(f"Checksumming {name}", flush=True)
         ids = entry.get(name)
         check.update(ids_checksum(ids).digest())
     entry.close()

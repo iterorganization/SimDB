@@ -1,9 +1,11 @@
 import cerberus
 import yaml
-import appdirs
+import re
 from pathlib import Path
+from typing import Dict, List
+
 from ..database.models import Simulation
-from typing import Dict
+from ..config import Config, ConfigError
 
 
 class TestParameters:
@@ -22,19 +24,19 @@ class CustomValidator(cerberus.Validator):
     import numpy as np
 
     types_mapping = cerberus.Validator.types_mapping.copy()
-    types_mapping['numpy'] = cerberus.TypeDefinition('numpy', (np.ndarray,), ())
+    types_mapping["numpy"] = cerberus.TypeDefinition("numpy", (np.ndarray,), ())
 
     def _validate_exists(self, check_exists, field, value):
-        """ The rule's arguments are validated against this schema:
+        """The rule's arguments are validated against this schema:
         {'type': ['string'],
-             'check_with': 'type'} """
+             'check_with': 'type'}"""
         if check_exists and not Path(value).exists():
             self._error(field, "File must exist")
 
     def _validate_checksum(self, check_checksum, field, value):
-        """ The rule's arguments are validated against this schema:
+        """The rule's arguments are validated against this schema:
         {'type': ['string'],
-             'check_with': 'type'} """
+             'check_with': 'type'}"""
         if check_checksum and False:
             self._error(field, "File checksum must be valid")
 
@@ -43,6 +45,7 @@ class CustomValidator(cerberus.Validator):
         {'type': 'float'}
         """
         import numpy as np
+
         if not isinstance(value, np.ndarray):
             self._error(field, "Value is not a numpy array")
         if min_value is not None and value.min() < min_value:
@@ -53,6 +56,7 @@ class CustomValidator(cerberus.Validator):
         {'type': 'float'}
         """
         import numpy as np
+
         if not isinstance(value, np.ndarray):
             self._error(field, "Value is not a numpy array")
         if max_value is not None and value.max() > max_value:
@@ -60,6 +64,7 @@ class CustomValidator(cerberus.Validator):
 
     def _compare(self, comparison, field, value, comparator: str, message: str):
         import numpy as np
+
         if comparison is None:
             return
         if isinstance(value, np.ndarray):
@@ -75,25 +80,25 @@ class CustomValidator(cerberus.Validator):
         """The rule's arguments are validated against this schema:
         {'type': 'float'}
         """
-        self._compare(comparison, field, value, '__gt__', 'greater than')
+        self._compare(comparison, field, value, "__gt__", "greater than")
 
     def _validate_ge(self, comparison, field, value):
         """The rule's arguments are validated against this schema:
         {'type': 'float'}
         """
-        self._compare(comparison, field, value, '__ge__', 'greater than or equal to')
+        self._compare(comparison, field, value, "__ge__", "greater than or equal to")
 
     def _validate_lt(self, comparison, field, value):
         """The rule's arguments are validated against this schema:
         {'type': 'float'}
         """
-        self._compare(comparison, field, value, '__lt__', 'less than')
+        self._compare(comparison, field, value, "__lt__", "less than")
 
     def _validate_le(self, comparison, field, value):
         """The rule's arguments are validated against this schema:
         {'type': 'float'}
         """
-        self._compare(comparison, field, value, '__le__', 'less than or equal to')
+        self._compare(comparison, field, value, "__le__", "less than or equal to")
 
     @classmethod
     def _normalize_coerce_int(cls, value):
@@ -106,28 +111,56 @@ class CustomValidator(cerberus.Validator):
     @classmethod
     def _normalize_coerce_numpy(cls, value):
         import numpy as np
-        return np.fromstring(value[1:-1], sep=' ')
+
+        return np.fromstring(value[1:-1], sep=" ")
+
+
+def _load_schema(path: Path):
+    if not path.exists():
+        return [{}]
+
+    # load schema from file
+    with open(path, "r") as file:
+        try:
+            schema = yaml.load(file, Loader=yaml.SafeLoader)
+            return schema
+        except yaml.YAMLError:
+            raise LoadError("Failed to read validation schema from file %s" % file)
 
 
 class Validator:
 
     _validator: cerberus.Validator
+    _section_re = re.compile(r"\S+ \"(\S+)=(\S+)\"")
 
     @classmethod
-    def validation_schema(cls, path=None) -> Dict:
-        if path is None:
-            path = Path(appdirs.user_config_dir('simdb')) / 'validation-schema.yaml'
+    def validation_schemas(
+        cls, config: Config, simulation: Simulation, path=None
+    ) -> List[Dict]:
+        root = Path(
+            config.get_option("validation.path", default=str(config.config_directory))
+        )
 
-        if not path.exists():
-            return {}
+        paths = []
+        if path:
+            paths.append(path)
+        else:
+            path.append(root / "validation-schema.yaml")
 
-        # load schema from file
-        with open(path, 'r') as file:
-            try:
-                schema = yaml.load(file, Loader=yaml.SafeLoader)
-                return schema
-            except yaml.YAMLError:
-                raise LoadError("Failed to read validation schema from file %s" % file)
+        sections = [sec for sec in config.sections() if sec.startswith("validation")]
+        for section in sections:
+            m = cls._section_re.match(section)
+            if m:
+                key = m.group(1)
+                # value = m.group(2)
+                for _ in simulation.find_meta(key):
+                    pass
+            elif section != "validation":
+                raise ConfigError(f"Invalid validation section {section}")
+
+        schemas = []
+        for path in path:
+            schemas.append(_load_schema(path))
 
     def __init__(self, schema: Dict):
         try:

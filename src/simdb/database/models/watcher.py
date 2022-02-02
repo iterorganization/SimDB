@@ -14,20 +14,23 @@ class Watcher(Base):
     """
     Class to represent people watching simulations for updates.
     """
+
     NOTIFICATION_CHOICES = {
-        Notification.VALIDATION: 'V',
-        Notification.REVISION: 'R',
-        Notification.OBSOLESCENCE: 'O',
-        Notification.ALL: 'A',
+        Notification.VALIDATION: "V",
+        Notification.REVISION: "R",
+        Notification.OBSOLESCENCE: "O",
+        Notification.ALL: "A",
     }
 
     __tablename__ = "watchers"
     id = Column(sql_types.Integer, primary_key=True)
     username = Column(sql_types.String(250))
     email = Column(sql_types.String(1000))
-    notification = Column(ChoiceType(choices=NOTIFICATION_CHOICES, length=1, enum_type=Notification))
+    notification = Column(
+        ChoiceType(choices=NOTIFICATION_CHOICES, length=1, enum_type=Notification)
+    )
 
-    @validates('email')
+    @validates("email")
     def validate_email(self, key, address):
         from email_validator import validate_email
 

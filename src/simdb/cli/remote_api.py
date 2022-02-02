@@ -1,6 +1,16 @@
 import os
 import json
-from typing import List, Dict, Callable, Tuple, IO, Iterable, Optional, Union, TYPE_CHECKING
+from typing import (
+    List,
+    Dict,
+    Callable,
+    Tuple,
+    IO,
+    Iterable,
+    Optional,
+    Union,
+    TYPE_CHECKING,
+)
 import gzip
 import io
 import sys
@@ -10,7 +20,7 @@ from .manifest import DataObject
 from ..config import Config
 from ..json import CustomDecoder, CustomEncoder
 
-if TYPE_CHECKING or 'sphinx' in sys.modules:
+if TYPE_CHECKING or "sphinx" in sys.modules:
     # Only importing these for type checking and documentation generation in order to speed up runtime startup.
     from simdb.database.models import Simulation, Watcher, File
     import requests
@@ -24,6 +34,7 @@ class FailedConnection(RuntimeError):
 def try_request(func: Callable) -> Callable:
     def wrapped_func(*args, **kwargs):
         import requests
+
         try:
             return func(*args, **kwargs)
         except requests.ConnectionError as ex:
@@ -45,7 +56,9 @@ def read_bytes(path: str, compressed: bool = True) -> bytes:
             return file.read()
 
 
-def read_bytes_in_chunks(path: str, compressed: bool = True, chunk_size: int = 1024) -> Iterable[bytes]:
+def read_bytes_in_chunks(
+    path: str, compressed: bool = True, chunk_size: int = 1024
+) -> Iterable[bytes]:
     with open(path, "rb") as file_in:
         while True:
             if compressed:
@@ -79,43 +92,55 @@ def check_return(res: "requests.Response") -> None:
 class RemoteAPI:
     _remote: str
 
-    def __init__(self, remote: Optional[str], username: Optional[str], password: Optional[str], config: Config,
-                 use_token: bool = None) -> None:
+    def __init__(
+        self,
+        remote: Optional[str],
+        username: Optional[str],
+        password: Optional[str],
+        config: Config,
+        use_token: bool = None,
+    ) -> None:
         self._config: Config = config
         if not remote:
             remote = config.default_remote
         if not remote:
-            raise KeyError('Remote name not provided and no default remote found in config.')
+            raise KeyError(
+                "Remote name not provided and no default remote found in config."
+            )
         self._remote = remote
 
         try:
-            self._url: str = config.get_option(f'remote.{remote}.url')
+            self._url: str = config.get_option(f"remote.{remote}.url")
         except KeyError:
-            raise ValueError(f'Remote \'{remote}\' not found.')
+            raise ValueError(f"Remote '{remote}' not found.")
 
         # self._api_url: str = f'{self._url}/api/v{config.api_version}/'
-        self._api_url: str = f'{self._url}/v{config.api_version}/'
+        self._api_url: str = f"{self._url}/v{config.api_version}/"
 
         if use_token is not None:
             self._use_token = use_token
         else:
-            self._use_token = (not username and not password)
+            self._use_token = not username and not password
 
         if not username:
-            username = config.get_option(f'remote.{remote}.username', default='')
+            username = config.get_option(f"remote.{remote}.username", default="")
 
         if password and not username:
-            raise ValueError('Password given but no username given or found in configuration.')
+            raise ValueError(
+                "Password given but no username given or found in configuration."
+            )
 
         if not self._use_token:
             if not username:
-                username = click.prompt('Username', default=os.environ.get('USER', ''))
+                username = click.prompt("Username", default=os.environ.get("USER", ""))
             if not password:
-                password = click.prompt(f'Password for user {username}', hide_input=True)
+                password = click.prompt(
+                    f"Password for user {username}", hide_input=True
+                )
 
-        self._token = config.get_option(f'remote.{remote}.token', default='')
+        self._token = config.get_option(f"remote.{remote}.token", default="")
         if self._use_token and not self._token:
-            raise ValueError('No username or password given and no token found.')
+            raise ValueError("No username or password given and no token found.")
 
         self._username = username
         self._password = password
@@ -134,7 +159,7 @@ class RemoteAPI:
                 self._token = token
 
             def __call__(self, request: "requests.PreparedRequest"):
-                request.headers['Authorization'] = f'JWT-Token {self._token}'
+                request.headers["Authorization"] = f"JWT-Token {self._token}"
                 return request
 
         if self._use_token:
@@ -142,12 +167,20 @@ class RemoteAPI:
         else:
             return self._username, self._password
 
-    def get(self, url: str, params: Dict = None, headers: Dict = None, authenticate=True) -> "requests.Response":
+    def get(
+        self, url: str, params: Dict = None, headers: Dict = None, authenticate=True
+    ) -> "requests.Response":
         import requests
+
         params = params if params is not None else {}
         headers = headers if headers is not None else {}
         if authenticate:
-            res = requests.get(self._api_url + url, params=params, auth=self._get_auth(), headers=headers)
+            res = requests.get(
+                self._api_url + url,
+                params=params,
+                auth=self._get_auth(),
+                headers=headers,
+            )
         else:
             res = requests.get(self._api_url + url, params=params, headers=headers)
         check_return(res)
@@ -155,38 +188,63 @@ class RemoteAPI:
 
     def put(self, url: str, data: Dict, **kwargs) -> "requests.Response":
         import requests
-        headers = {'Content-type': 'application/json'}
-        res = requests.put(self._api_url + url, data=json.dumps(data, cls=CustomEncoder), headers=headers,
-                           auth=self._get_auth(), **kwargs)
+
+        headers = {"Content-type": "application/json"}
+        res = requests.put(
+            self._api_url + url,
+            data=json.dumps(data, cls=CustomEncoder),
+            headers=headers,
+            auth=self._get_auth(),
+            **kwargs,
+        )
         check_return(res)
         return res
 
     def post(self, url: str, data: Dict, **kwargs) -> "requests.Response":
         import requests
+
         if "files" in kwargs:
             if data:
-                raise Exception('Cannot send JSON data at the same time as files.')
+                raise Exception("Cannot send JSON data at the same time as files.")
             headers = {}
         else:
-            headers = {'Content-type': 'application/json'}
+            headers = {"Content-type": "application/json"}
         post_data = json.dumps(data, cls=CustomEncoder, indent=2) if data else {}
-        res = requests.post(self._api_url + url, data=post_data, headers=headers, auth=self._get_auth(), **kwargs)
+        res = requests.post(
+            self._api_url + url,
+            data=post_data,
+            headers=headers,
+            auth=self._get_auth(),
+            **kwargs,
+        )
         check_return(res)
         return res
 
     def patch(self, url: str, data: Dict, **kwargs) -> "requests.Response":
         import requests
-        headers = {'Content-type': 'application/json'}
-        res = requests.patch(self._api_url + url, data=json.dumps(data, cls=CustomEncoder), headers=headers,
-                             auth=self._get_auth(), **kwargs)
+
+        headers = {"Content-type": "application/json"}
+        res = requests.patch(
+            self._api_url + url,
+            data=json.dumps(data, cls=CustomEncoder),
+            headers=headers,
+            auth=self._get_auth(),
+            **kwargs,
+        )
         check_return(res)
         return res
 
     def delete(self, url: str, data: Dict, **kwargs) -> "requests.Response":
         import requests
-        headers = {'Content-type': 'application/json'}
-        res = requests.delete(self._api_url + url, data=json.dumps(data, cls=CustomEncoder), headers=headers,
-                              auth=self._get_auth(), **kwargs)
+
+        headers = {"Content-type": "application/json"}
+        res = requests.delete(
+            self._api_url + url,
+            data=json.dumps(data, cls=CustomEncoder),
+            headers=headers,
+            auth=self._get_auth(),
+            **kwargs,
+        )
         check_return(res)
         return res
 
@@ -211,17 +269,21 @@ class RemoteAPI:
         return res.json()
 
     @try_request
-    def list_simulations(self, meta: List[str] = None, limit: int = 0) -> List["Simulation"]:
+    def list_simulations(
+        self, meta: List[str] = None, limit: int = 0
+    ) -> List["Simulation"]:
         from ..database.models import Simulation
-        args = '?' + '&'.join(meta) if meta else ''
-        headers = {'simdb-result-limit': str(limit)}
+
+        args = "?" + "&".join(meta) if meta else ""
+        headers = {"simdb-result-limit": str(limit)}
         res = self.get("simulations" + args, headers=headers)
         data = res.json(cls=CustomDecoder)
-        return [Simulation.from_data(sim) for sim in data['results']]
+        return [Simulation.from_data(sim) for sim in data["results"]]
 
     @try_request
     def get_simulation(self, sim_id: str) -> "Simulation":
         from ..database.models import Simulation
+
         res = self.get("simulation/" + sim_id)
         return Simulation.from_data(res.json(cls=CustomDecoder))
 
@@ -231,21 +293,24 @@ class RemoteAPI:
         return res.json(cls=CustomDecoder)
 
     @try_request
-    def query_simulations(self, constraints: List[str], meta: List[str], limit=0) -> List["Simulation"]:
+    def query_simulations(
+        self, constraints: List[str], meta: List[str], limit=0
+    ) -> List["Simulation"]:
         from ..database.models import Simulation
         from simdb.remote.apis.v1_1.simulations import SimulationList
+
         params = {}
         for item in constraints:
-            (key, value) = item.split('=')
+            (key, value) = item.split("=")
             params[key] = value
-        args = '?' + '&'.join(meta) if meta else ''
+        args = "?" + "&".join(meta) if meta else ""
         headers = {
             SimulationList.LIMIT_HEADER: str(limit),
             SimulationList.PAGE_HEADER: str(1),
         }
         res = self.get("simulations" + args, params, headers=headers)
         data = res.json(cls=CustomDecoder)
-        return [Simulation.from_data(sim) for sim in data['results']]
+        return [Simulation.from_data(sim) for sim in data["results"]]
 
     @try_request
     def delete_simulation(self, sim_id: str) -> Dict:
@@ -254,24 +319,29 @@ class RemoteAPI:
 
     @try_request
     def update_simulation(self, sim_id: str, update_type: "Simulation.Status") -> None:
-        self.patch("simulation/" + sim_id, {'status': update_type.value})
+        self.patch("simulation/" + sim_id, {"status": update_type.value})
 
     @try_request
     def validate_simulation(self, sim_id: str) -> Tuple[bool, str]:
         res = self.post("validate/" + sim_id, {})
         data = res.json()
-        if data['passed']:
-            return True, ''
+        if data["passed"]:
+            return True, ""
         else:
-            return False, data['error']
+            return False, data["error"]
 
     @try_request
-    def add_watcher(self, sim_id: str, user: str, email: str, notification: "Watcher.Notification") -> None:
-        self.post("watchers/" + sim_id, {'user': user, 'email': email, 'notification': notification.name})
+    def add_watcher(
+        self, sim_id: str, user: str, email: str, notification: "Watcher.Notification"
+    ) -> None:
+        self.post(
+            "watchers/" + sim_id,
+            {"user": user, "email": email, "notification": notification.name},
+        )
 
     @try_request
     def remove_watcher(self, sim_id: str, user: str) -> None:
-        self.delete("watchers/" + sim_id, {'user': user})
+        self.delete("watchers/" + sim_id, {"user": user})
 
     @try_request
     def list_watchers(self, sim_id: str) -> List[Tuple]:
@@ -280,67 +350,106 @@ class RemoteAPI:
 
     @try_request
     def set_metadata(self, sim_id: str, key: str, value: str) -> List[str]:
-        res = self.patch("simulation/metadata/" + sim_id, {'key': key, 'value': value})
+        res = self.patch("simulation/metadata/" + sim_id, {"key": key, "value": value})
         return [data["value"] for data in res.json()]
 
     @try_request
     def delete_metadata(self, sim_id: str, key: str) -> List[str]:
-        res = self.delete("simulation/metadata/" + sim_id, {'key': key})
+        res = self.delete("simulation/metadata/" + sim_id, {"key": key})
         return [data["value"] for data in res.json()]
 
-    def _push_file(self, file: "File", file_type: str, sim_data: Dict, chunk_size: int, out_stream: IO):
+    def _push_file(
+        self,
+        file: "File",
+        file_type: str,
+        sim_data: Dict,
+        chunk_size: int,
+        out_stream: IO,
+    ):
         if file.type == DataObject.Type.FILE:
             path = file.uri.path
-            print('Uploading file {} '.format(path), file=out_stream, end='')
+            print("Uploading file {} ".format(path), file=out_stream, end="")
             num_chunks = 0
-            for i, chunk in enumerate(read_bytes_in_chunks(path, compressed=True, chunk_size=chunk_size)):
-                print('.', file=out_stream, end='', flush=True)
+            for i, chunk in enumerate(
+                read_bytes_in_chunks(path, compressed=True, chunk_size=chunk_size)
+            ):
+                print(".", file=out_stream, end="", flush=True)
                 data = {
-                    'simulation': sim_data,
-                    'file_type': file_type,
-                    'chunk_info': {file.uuid.hex: {'chunk_size': chunk_size, 'chunk': i}}
+                    "simulation": sim_data,
+                    "file_type": file_type,
+                    "chunk_info": {
+                        file.uuid.hex: {"chunk_size": chunk_size, "chunk": i}
+                    },
                 }
                 files: List[Tuple[str, Tuple[str, bytes, str]]] = [
-                    ("data", ("data", json.dumps(data, cls=CustomEncoder).encode(), "text/json")),
-                    ("files", (file.uuid.hex, chunk, "application/octet-stream"))
+                    (
+                        "data",
+                        (
+                            "data",
+                            json.dumps(data, cls=CustomEncoder).encode(),
+                            "text/json",
+                        ),
+                    ),
+                    ("files", (file.uuid.hex, chunk, "application/octet-stream")),
                 ]
                 self.post("files", data={}, files=files)
                 num_chunks += 1
-            self.post("files", data={
-                'simulation': sim_data,
-                'files': [{'chunks': num_chunks, 'file_type': file_type, 'file_uuid': file.uuid.hex}]
-            })
-            print('Complete', file=out_stream, flush=True)
+            self.post(
+                "files",
+                data={
+                    "simulation": sim_data,
+                    "files": [
+                        {
+                            "chunks": num_chunks,
+                            "file_type": file_type,
+                            "file_uuid": file.uuid.hex,
+                        }
+                    ],
+                },
+            )
+            print("Complete", file=out_stream, flush=True)
         elif file.type == DataObject.Type.IMAS:
             from uri import URI
             from ..imas.utils import copy_imas
-            res = self.get("staging_dir/{}".format(sim_data['uuid'].hex))
+
+            res = self.get("staging_dir/{}".format(sim_data["uuid"].hex))
             data = res.json()
             out_uri = URI(file.uri)
-            out_uri.query.remove('user')
-            out_uri['path'] = data['staging_dir']
-            print('Uploading IDS {} to {} ... '.format(file.uri, out_uri), file=out_stream, end='', flush=True)
+            out_uri.query.remove("user")
+            out_uri["path"] = data["staging_dir"]
+            print(
+                "Uploading IDS {} to {} ... ".format(file.uri, out_uri),
+                file=out_stream,
+                end="",
+                flush=True,
+            )
             copy_imas(file.uri, out_uri)
-            print('success', file=out_stream, flush=True)
-            files = sim_data['outputs'] if file_type == 'output' else sim_data['inputs']
-            file_data = next((f for f in files if f['uuid'] == file.uuid), None)
+            print("success", file=out_stream, flush=True)
+            files = sim_data["outputs"] if file_type == "output" else sim_data["inputs"]
+            file_data = next((f for f in files if f["uuid"] == file.uuid), None)
             if file_data:
-                file_data['uri'] = str(out_uri)
+                file_data["uri"] = str(out_uri)
             else:
-                raise Exception('Failed to find file in simulation')
+                raise Exception("Failed to find file in simulation")
             try:
-                self.post("files", data={
-                    'simulation': sim_data,
-                    'files': [{'file_type': file_type, 'file_uuid': file.uuid.hex}]
-                })
+                self.post(
+                    "files",
+                    data={
+                        "simulation": sim_data,
+                        "files": [{"file_type": file_type, "file_uuid": file.uuid.hex}],
+                    },
+                )
             except Exception:
                 import shutil
+
                 # While IMAS requires a local file copy we need to remove it if the remote validation fails.
-                shutil.rmtree(data['staging_dir'])
+                shutil.rmtree(data["staging_dir"])
                 raise
 
     @try_request
-    def push_simulation(self, simulation: "Simulation", out_stream: IO = sys.stdout) -> None:
+    def push_simulation(
+        self, simulation: "Simulation", out_stream: IO = sys.stdout
+    ) -> None:
         """
         Push the local simulation to the remote server.
 
@@ -362,14 +471,14 @@ class RemoteAPI:
         chunk_size = 10 * 1024 * 1024  # 10 MB
 
         for file in simulation.inputs:
-            self._push_file(file, 'input', sim_data, chunk_size, out_stream)
+            self._push_file(file, "input", sim_data, chunk_size, out_stream)
 
         for file in simulation.outputs:
-            self._push_file(file, 'output', sim_data, chunk_size, out_stream)
+            self._push_file(file, "output", sim_data, chunk_size, out_stream)
 
-        print('Uploading simulation data ... ', file=out_stream, end='', flush=True)
-        self.post("simulations", data={'simulation': sim_data})
-        print('Success', file=out_stream, flush=True)
+        print("Uploading simulation data ... ", file=out_stream, end="", flush=True)
+        self.post("simulations", data={"simulation": sim_data})
+        print("Success", file=out_stream, flush=True)
 
     @try_request
     def reset_database(self) -> None:

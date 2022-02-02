@@ -17,15 +17,15 @@ class QueryType(Enum):
 def parse_query_arg(value: str) -> (str, str):
     if not value:
         return value, QueryType.NONE
-    *comp, value = value.split(':')
+    *comp, value = value.split(":")
     if not comp:
         return value, QueryType.EQ
     if len(comp) > 1:
-        raise ValueError(f'Malformed query string {value}.')
+        raise ValueError(f"Malformed query string {value}.")
     try:
         return value, QueryType[comp[0].upper()]
     except KeyError:
-        raise ValueError(f'Unknown query modifier {comp[0]}.')
+        raise ValueError(f"Unknown query modifier {comp[0]}.")
 
 
 def query_compare(query_type: QueryType, name: str, value: Any, compare: str):
@@ -49,14 +49,18 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str):
         if isinstance(value, np.ndarray):
             return float(compare) in value
         elif isinstance(value, int):
-            raise ValueError(f"Cannot use 'in' query selection for integer metadata field {name}.")
+            raise ValueError(
+                f"Cannot use 'in' query selection for integer metadata field {name}."
+            )
         elif value is not None:
             return compare in str(value)
     elif query_type == QueryType.NI:
         if isinstance(value, np.ndarray):
             return float(compare) in value
         elif isinstance(value, int):
-            raise ValueError(f"Cannot use 'ni' query selection for integer metadata field {name}.")
+            raise ValueError(
+                f"Cannot use 'ni' query selection for integer metadata field {name}."
+            )
         elif value is not None:
             return compare not in str(value)
     elif query_type == QueryType.GT:

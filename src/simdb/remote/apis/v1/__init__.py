@@ -7,21 +7,21 @@ from ..metadata import api as metadata_ns
 from ..watchers import api as watcher_ns
 
 api = Api(
-    title='SimDB REST API',
-    version='1.0',
-    description='SimDB REST API',
+    title="SimDB REST API",
+    version="1.0",
+    description="SimDB REST API",
     authorizations={
-        'basicAuth': {
-            'type': 'basic',
+        "basicAuth": {
+            "type": "basic",
         },
-        'apiToken': {
-            'type': 'apiKey',
-            'in': 'header',
-            'name': HEADER_NAME,
-        }
+        "apiToken": {
+            "type": "apiKey",
+            "in": "header",
+            "name": HEADER_NAME,
+        },
     },
-    security=['basicAuth', 'apiToken'],
-    doc='/docs'
+    security=["basicAuth", "apiToken"],
+    doc="/docs",
 )
 
 api.add_namespace(sim_ns)

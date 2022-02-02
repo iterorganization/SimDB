@@ -7,12 +7,11 @@ from simdb.remote.core.errors import error
 from simdb.database import DatabaseError, models
 
 
-api = Namespace('watchers', path='/')
+api = Namespace("watchers", path="/")
 
 
 @api.route("/watchers/<string:sim_id>")
 class Watcher(Resource):
-
     @requires_auth()
     def post(self, sim_id: str, user: User):
         try:
@@ -25,6 +24,7 @@ class Watcher(Resource):
                 return error("Watcher notification not provided")
 
             from ...notifications import Notification
+
             notification = getattr(Notification, data["notification"])
 
             watcher = models.Watcher(username, email, notification)
@@ -55,6 +55,11 @@ class Watcher(Resource):
     @requires_auth()
     def get(self, sim_id: str, user: User):
         try:
-            return jsonify([watcher.data(recurse=True) for watcher in current_app.db.list_watchers(sim_id)])
+            return jsonify(
+                [
+                    watcher.data(recurse=True)
+                    for watcher in current_app.db.list_watchers(sim_id)
+                ]
+            )
         except DatabaseError as err:
             return error(str(err))

@@ -9,13 +9,16 @@ import jwt
 User = namedtuple("User", ("name", "email"))
 
 
-HEADER_NAME = 'Authorization'
+HEADER_NAME = "Authorization"
 
 
 def authenticate():
     """Sends a 401 response that enables basic auth"""
-    return Response("Could not verify your access level for that URL. You have to login with proper credentials",
-                    401, {"WWW-Authenticate": "Basic realm='Login Required'"})
+    return Response(
+        "Could not verify your access level for that URL. You have to login with proper credentials",
+        401,
+        {"WWW-Authenticate": "Basic realm='Login Required'"},
+    )
 
 
 def check_role(config, user: User, role: Optional[str]) -> bool:
@@ -24,7 +27,7 @@ def check_role(config, user: User, role: Optional[str]) -> bool:
     if role:
         import csv
 
-        users = config.get_option(f'role.{role}.users', default='')
+        users = config.get_option(f"role.{role}.users", default="")
         reader = csv.reader([users])
         for row in reader:
             if user.name in row:
@@ -35,20 +38,18 @@ def check_role(config, user: User, role: Optional[str]) -> bool:
 
 
 def check_auth(config, username, password) -> Optional[User]:
-    """This function is called to check if a username / password combination is valid.
-    """
-    from easyad import EasyAD
-
+    """This function is called to check if a username / password combination is valid."""
     if username == "admin" and password == config.get_option("server.admin_password"):
         return User("admin", None)
 
     try:
+        from easyad import EasyAD
         ad_config = {
-            'AD_SERVER': config.get_option('server.ad_server'),
-            'AD_DOMAIN': config.get_option('server.ad_domain'),
+            "AD_SERVER": config.get_option("server.ad_server"),
+            "AD_DOMAIN": config.get_option("server.ad_domain"),
         }
         ad = EasyAD(ad_config)
-    except KeyError:
+    except (KeyError, ImportError):
         return None
 
     user = ad.authenticate_user(username, password, json_safe=True)
@@ -73,15 +74,19 @@ class RequiresAuth:
             auth = request.authorization
             user: Optional[User] = None
             if not auth:
-                if request.headers.get(HEADER_NAME, ''):
+                if request.headers.get(HEADER_NAME, ""):
                     try:
-                        (name, token) = request.headers[HEADER_NAME].split(' ')
-                        if name != 'JWT-Token':
+                        (name, token) = request.headers[HEADER_NAME].split(" ")
+                        if name != "JWT-Token":
                             raise AuthenticationError("Invalid token")
-                        payload = jwt.decode(token.strip(), current_app.config.get('SECRET_KEY'), algorithms=['HS256'])
-                        expires = datetime.datetime.fromtimestamp(payload['exp'])
+                        payload = jwt.decode(
+                            token.strip(),
+                            current_app.config.get("SECRET_KEY"),
+                            algorithms=["HS256"],
+                        )
+                        expires = datetime.datetime.fromtimestamp(payload["exp"])
                         if datetime.datetime.utcnow() < expires:
-                            user = User(payload['sub'], payload['email'])
+                            user = User(payload["sub"], payload["email"])
                         else:
                             raise AuthenticationError("Token expired")
                     except (IndexError, KeyError, jwt.exceptions.PyJWTError) as ex:
@@ -92,8 +97,9 @@ class RequiresAuth:
                 return authenticate()
             if not check_role(config, user, self._role):
                 return authenticate()
-            kwargs['user'] = user
+            kwargs["user"] = user
             return f(*args, **kwargs)
+
         return decorated
 
 

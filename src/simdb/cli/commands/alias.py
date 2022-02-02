@@ -7,7 +7,7 @@ from . import pass_config
 
 pass_api = click.make_pass_decorator(RemoteAPI)
 
-if TYPE_CHECKING or 'sphinx' in sys.modules:
+if TYPE_CHECKING or "sphinx" in sys.modules:
     from ...config import Config
     from click import Context
 
@@ -15,21 +15,23 @@ if TYPE_CHECKING or 'sphinx' in sys.modules:
 class AliasCommand(click.Command):
     def parse_args(self, ctx, args):
         if len(args) < sum(1 for i in self.params if isinstance(i, click.Argument)):
-            args.insert(0, '')
+            args.insert(0, "")
         super().parse_args(ctx, args)
 
 
 class AliasGroup(click.Group):
     def parse_args(self, ctx, args):
         if args and args[0] in self.commands:
-            args.insert(0, '')
+            args.insert(0, "")
         super().parse_args(ctx, args)
 
 
 class AliasSubGroup(click.Group):
     def format_usage(self, ctx, formatter):
         pieces = self.collect_usage_pieces(ctx)
-        formatter.write_usage(ctx.command_path.replace('remote', 'remote [NAME]'), " ".join(pieces))
+        formatter.write_usage(
+            ctx.command_path.replace("remote", "remote [NAME]"), " ".join(pieces)
+        )
 
 
 def is_empty(value) -> bool:
@@ -43,11 +45,10 @@ def is_empty(value) -> bool:
 @click.option("--password", help="Password used to authenticate with the remote.")
 @click.argument("remote", required=False)
 def alias(config: "Config", ctx: "Context", remote, username, password):
-    """Query remote and local aliases.
-    """
+    """Query remote and local aliases."""
     if not ctx.invoked_subcommand and not any(is_empty(i) for i in ctx.params.values()):
         click.echo(ctx.get_help())
-    elif '--help' not in click.get_os_args():
+    elif "--help" not in click.get_os_args():
         if ctx.invoked_subcommand:
             ctx.obj = RemoteAPI(remote, username, password, config)
 
@@ -57,8 +58,7 @@ def alias(config: "Config", ctx: "Context", remote, username, password):
 @pass_config
 @click.argument("alias")
 def alias_make_unique(config: "Config", api: RemoteAPI, alias: str):
-    """Make the given alias unique, checking locally stored simulations and the remote.
-    """
+    """Make the given alias unique, checking locally stored simulations and the remote."""
     from ...database import get_local_db
 
     trans = str.maketrans("#/()=,*%", "________")
@@ -73,7 +73,7 @@ def alias_make_unique(config: "Config", api: RemoteAPI, alias: str):
     n = 1
     base = alias
     while alias in aliases:
-        alias = f'{base}-{n}'
+        alias = f"{base}-{n}"
         n += 1
 
     click.echo(alias)
@@ -84,8 +84,7 @@ def alias_make_unique(config: "Config", api: RemoteAPI, alias: str):
 @pass_config
 @click.argument("alias")
 def alias_search(config: "Config", api: RemoteAPI, alias: str):
-    """Search the REMOTE for all aliases that contain the given VALUE.
-    """
+    """Search the REMOTE for all aliases that contain the given VALUE."""
     from ...database import get_local_db
 
     simulations = api.list_simulations()
@@ -111,7 +110,9 @@ def alias_list(config: "Config", api: RemoteAPI, local: bool):
         if api.has_url():
             remote_simulations = api.list_simulations()
         else:
-            click.echo('The Remote Server has not been specified in the configuration file. Please set remote-url')
+            click.echo(
+                "The Remote Server has not been specified in the configuration file. Please set remote-url"
+            )
 
         click.echo("Remote:")
         for sim in remote_simulations:
