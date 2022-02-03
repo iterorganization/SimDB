@@ -1,10 +1,10 @@
 from flask import request, current_app, jsonify
 from flask_restx import Resource, Namespace
 
-from simdb.remote.core.auth import User, requires_auth
-from simdb.remote.core.cache import cache
-from simdb.remote.core.errors import error
-from simdb.database import DatabaseError, models
+from ...remote.core.auth import User, requires_auth
+from ...remote.core.cache import cache
+from ...remote.core.errors import error
+from ...database import DatabaseError, models
 
 
 api = Namespace("watchers", path="/")

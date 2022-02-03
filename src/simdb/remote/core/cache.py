@@ -1,7 +1,7 @@
 from flask_caching import Cache
 from flask import request
 
-from simdb.config import Config
+from ...config import Config
 
 config = Config("app.cfg")
 config.load()

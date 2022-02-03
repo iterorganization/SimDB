@@ -7,17 +7,19 @@ import datetime
 import os
 import itertools
 
-from simdb.remote.core.auth import User, requires_auth
-from simdb.remote.core.cache import cache, cache_key
-from simdb.remote.core.errors import error
-from simdb.remote.core.path import secure_path
-from simdb.database import DatabaseError, models
+from ....remote.core.auth import User, requires_auth
+from ....remote.core.cache import cache, cache_key
+from ....remote.core.errors import error
+from ....remote.core.path import secure_path
+from ....database import DatabaseError
+from ....database.models import simulation as models_sim
+from ....database.models import metadata as models_meta
 
 api = Namespace("simulations", path="/")
 
 
 def _update_simulation_status(
-    simulation: models.Simulation, status: models.Simulation.Status, user
+    simulation: models_sim.Simulation, status: models_sim.Simulation.Status, user
 ) -> None:
     from ....email.server import EmailServer
 
@@ -46,12 +48,12 @@ def _validate(simulation, user) -> Dict:
     try:
         for schema in schemas:
             Validator(schema).validate(simulation)
-            _update_simulation_status(simulation, models.Simulation.Status.PASSED, user)
+            _update_simulation_status(simulation, models_sim.Simulation.Status.PASSED, user)
             return {
                 "passed": True,
             }
     except ValidationError as err:
-        _update_simulation_status(simulation, models.Simulation.Status.FAILED, user)
+        _update_simulation_status(simulation, models_sim.Simulation.Status.FAILED, user)
         return {
             "passed": False,
             "error": str(err),
@@ -199,14 +201,14 @@ class SimulationList(Resource):
             if "simulation" not in data:
                 return error("Simulation data not provided")
 
-            simulation = models.Simulation.from_data(data["simulation"])
-            simulation.meta.append(models.MetaData("uploaded_by", user.name))
+            simulation = models_sim.Simulation.from_data(data["simulation"])
+            simulation.meta.append(models_meta.MetaData("uploaded_by", user.name))
 
             if "alias" in data["simulation"]:
                 alias = data["simulation"]["alias"]
                 (updated_alias, next_id) = _set_alias(alias)
                 if updated_alias:
-                    simulation.meta.append(models.MetaData("seqid", next_id))
+                    simulation.meta.append(models_meta.MetaData("seqid", next_id))
                     simulation.alias = updated_alias
                 else:
                     simulation.alias = alias
@@ -243,11 +245,11 @@ class SimulationList(Resource):
             if current_app.simdb_config.get_option(
                 "validation.error_on_fail", default=False
             ):
-                if simulation.status == models.Simulation.Status.NOT_VALIDATED:
+                if simulation.status == models_sim.Simulation.Status.NOT_VALIDATED:
                     raise Exception(
                         "Validation config option error_on_fail=True without auto_validate=True."
                     )
-                elif simulation.status == models.Simulation.Status.FAILED:
+                elif simulation.status == models_sim.Simulation.Status.FAILED:
                     result[
                         "error"
                     ] = "Simulation validation failed and server has error_on_fail=True."
@@ -270,7 +272,7 @@ class SimulationList(Resource):
                         # raise ValueError(f'Simulation replaces:{sim_id} is not a valid simulation identifier.')
                     else:
                         _update_simulation_status(
-                            replaces_sim, models.Simulation.Status.DEPRECATED, user
+                            replaces_sim, models_sim.Simulation.Status.DEPRECATED, user
                         )
                         replaces_sim.set_meta("replaced_by", simulation.uuid)
                         current_app.db.insert_simulation(replaces_sim)
@@ -310,7 +312,7 @@ class Simulation(Resource):
             simulation = current_app.db.get_simulation(sim_id)
             if simulation is None:
                 raise ValueError(f"Simulation {sim_id} not found.")
-            status = models.Simulation.Status(data["status"])
+            status = models_sim.Simulation.Status(data["status"])
             _update_simulation_status(simulation, status, user)
             current_app.db.insert_simulation(simulation)
             cache.clear()

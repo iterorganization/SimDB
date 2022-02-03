@@ -1,11 +1,10 @@
-import sys
 from typing import List, Dict, Tuple, TYPE_CHECKING, TypeVar
 from collections import OrderedDict
 import click
 
-if TYPE_CHECKING or "sphinx" in sys.modules:
+if TYPE_CHECKING:
     # Only importing these for type checking and documentation generation in order to speed up runtime startup.
-    from simdb.database.models import Simulation
+    from ...database.models import Simulation
 else:
     Config = TypeVar("Config")
 

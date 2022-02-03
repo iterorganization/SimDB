@@ -7,8 +7,10 @@ from typing import List, Union, Dict, Any, TYPE_CHECKING, Optional
 from getpass import getuser
 from backports.datetime_fromisoformat import MonkeyPatch
 
-from sqlalchemy import Column, types as sql_types, Table, ForeignKey
-from sqlalchemy.orm import relationship
+if "sphinx" not in sys.modules:
+    # This seems to break sphinx doc generation!
+    from sqlalchemy.orm import relationship
+    from sqlalchemy import Table, ForeignKey, Column, types as sql_types
 
 from .utils import flatten_dict, unflatten_dict, checked_get
 from .types import UUID
@@ -22,7 +24,7 @@ from ...config.config import Config
 MonkeyPatch.patch_fromisoformat()
 
 
-if TYPE_CHECKING or "sphinx" in sys.modules:
+if TYPE_CHECKING:
     # Only importing these for type checking and documentation generation in order to speed up runtime startup.
     from .metadata import MetaData
 

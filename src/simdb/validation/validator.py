@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 from typing import Dict, List
 
-from ..database.models import Simulation
+from ..database.models.simulation import Simulation
 from ..config import Config, ConfigError
 
 

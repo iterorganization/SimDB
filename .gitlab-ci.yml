@@ -129,6 +129,7 @@ pages:
     - cd docs
     - sphinx-apidoc -f -o sphinx -e -M ../src/simdb && rm sphinx/modules.rst
     - cp *.md sphinx
+    - cp *.svg sphinx
     - make clean
     - make html
     - mv _build/html/ ../public/

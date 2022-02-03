@@ -10,12 +10,12 @@ import json
 import gzip
 import itertools
 
-from simdb.remote.core.auth import User, requires_auth
-from simdb.remote.core.path import secure_path
-from simdb.remote.core.errors import error
-from simdb.database import DatabaseError, models
-from simdb.cli.manifest import DataObject
-from simdb.checksum import sha1_checksum
+from ...remote.core.auth import User, requires_auth
+from ...remote.core.path import secure_path
+from ...remote.core.errors import error
+from ...database import DatabaseError, models
+from ...cli.manifest import DataObject
+from ...checksum import sha1_checksum
 
 api = Namespace("files", path="/")
 

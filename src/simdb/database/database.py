@@ -18,7 +18,10 @@ if TYPING:
     # Only importing these for type checking and documentation generation in order to speed up runtime startup.
     from sqlalchemy.orm import scoped_session
     import sqlalchemy
-    from .models import Base, Simulation, File, Watcher
+    from .models import Base
+    from .models.simulation import Simulation
+    from .models.file import File
+    from .models.watcher import Watcher
     from ..query import QueryType
 
     class Session(scoped_session):
@@ -160,7 +163,7 @@ class Database:
             return query.count(), list(data.values())
 
     def _find_simulation(self, sim_ref: str) -> "Simulation":
-        from .models import Simulation
+        from .models.simulation import Simulation
         from sqlalchemy import cast as sql_cast, Text, or_ as sql_or
         from sqlalchemy.orm import joinedload
         from sqlalchemy.exc import SQLAlchemyError
@@ -221,7 +224,8 @@ class Database:
 
         :return: A list of Simulations.
         """
-        from .models import Simulation, MetaData
+        from .models.simulation import Simulation
+        from .models.metadata import MetaData
         from sqlalchemy.orm import joinedload
 
         if meta_keys:
@@ -253,7 +257,8 @@ class Database:
 
         :return: A list of Simulations.
         """
-        from .models import Simulation, MetaData
+        from .models.simulation import Simulation
+        from .models.metadata import MetaData
         from sqlalchemy.orm import Bundle
         from sqlalchemy import or_, func, desc, asc
 
@@ -321,7 +326,7 @@ class Database:
 
         :return:  A list of Files.
         """
-        from .models import File
+        from .models.file import File
 
         return self.session.query(File).all()
 
@@ -345,7 +350,8 @@ class Database:
         from sqlalchemy import func, String, or_
         from sqlalchemy.orm import Bundle
         from ..query import QueryType
-        from .models import Simulation, MetaData
+        from .models.simulation import Simulation
+        from .models.metadata import MetaData
 
         m_b = Bundle("metadata", MetaData.element, MetaData.value)
         s_b = Bundle("simulation", Simulation.id, Simulation.alias, Simulation.uuid)
@@ -413,7 +419,7 @@ class Database:
 
         :return:
         """
-        from .models import Simulation
+        from .models.simulation import Simulation
         from sqlalchemy.orm import joinedload
 
         sim_ids = self._get_sim_ids(constraints)
@@ -441,7 +447,8 @@ class Database:
 
         :return:
         """
-        from .models import Simulation, MetaData
+        from .models.simulation import Simulation
+        from .models.metadata import MetaData
         from sqlalchemy.orm import Bundle
         from sqlalchemy import desc, asc, func
 
@@ -500,7 +507,8 @@ class Database:
         return simulation
 
     def get_simulation_parents(self, simulation: "Simulation") -> List[dict]:
-        from .models import Simulation, File
+        from .models.simulation import Simulation
+        from .models.file import File
 
         subquery = (
             self.session.query(File.checksum)
@@ -517,7 +525,8 @@ class Database:
         return [{"uuid": r.uuid, "alias": r.alias} for r in query.all()]
 
     def get_simulation_children(self, simulation: "Simulation") -> List[dict]:
-        from .models import Simulation, File
+        from .models.simulation import Simulation
+        from .models.file import File
 
         subquery = (
             self.session.query(File.checksum)
@@ -540,7 +549,7 @@ class Database:
         :param file_uuid_str: The string representation of the file UUID.
         :return: The File.
         """
-        from .models import File
+        from .models.file import File
 
         try:
             file_uuid = uuid.UUID(file_uuid_str)
@@ -582,7 +591,7 @@ class Database:
         return self._find_simulation(sim_ref).watchers.all()
 
     def list_metadata_keys(self) -> List[dict]:
-        from ..database.models import MetaData
+        from .models.metadata import MetaData
 
         if self.engine.dialect.name == "postgresql":
             query = self.session.query(MetaData.element, MetaData.value).distinct(
@@ -595,7 +604,8 @@ class Database:
         return [{"name": row[0], "type": type(row[1]).__name__} for row in query.all()]
 
     def list_metadata_values(self, name: str) -> List[str]:
-        from ..database.models import MetaData, Simulation
+        from .models.metadata import MetaData
+        from .models.simulation import Simulation
 
         if name == "alias":
             query = self.session.query(Simulation.alias)
@@ -639,7 +649,7 @@ class Database:
             raise DatabaseError(str(err.orig))
 
     def get_aliases(self, prefix: Optional[str]) -> List[str]:
-        from .models import Simulation
+        from .models.simulation import Simulation
         from sqlalchemy.sql import column
 
         if prefix:

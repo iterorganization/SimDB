@@ -13,4 +13,11 @@ Contents
    :maxdepth: 2
 
    user_guide
+   cli
+   design
+   developer_guide
+   install_guide
+   iter_certificate
+   maintenance_guide
+   tutorial
    simdb

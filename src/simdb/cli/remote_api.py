@@ -20,9 +20,11 @@ from .manifest import DataObject
 from ..config import Config
 from ..json import CustomDecoder, CustomEncoder
 
+if TYPE_CHECKING:
+    from ..database.models import Simulation, Watcher, File
+
 if TYPE_CHECKING or "sphinx" in sys.modules:
     # Only importing these for type checking and documentation generation in order to speed up runtime startup.
-    from simdb.database.models import Simulation, Watcher, File
     import requests
     from requests.auth import AuthBase
 
@@ -297,7 +299,7 @@ class RemoteAPI:
         self, constraints: List[str], meta: List[str], limit=0
     ) -> List["Simulation"]:
         from ..database.models import Simulation
-        from simdb.remote.apis.v1_1.simulations import SimulationList
+        from ..remote.apis.v1_1.simulations import SimulationList
 
         params = {}
         for item in constraints:
