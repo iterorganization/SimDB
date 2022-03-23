@@ -137,8 +137,8 @@ def register(api, version, namespaces):
         @requires_auth()
         def get(self, user: User):
             from ...validation.validator import Validator
-
-            return jsonify(Validator.validation_schema())
+            config = current_app.simdb_config
+            return jsonify(Validator.validation_schemas(config, None))
 
 
 register(api_v1, "v1", namespaces_v1)

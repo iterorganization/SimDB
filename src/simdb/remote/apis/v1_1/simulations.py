@@ -44,7 +44,7 @@ Updated by {user}.
 def _validate(simulation, user) -> Dict:
     from ....validation import ValidationError, Validator
 
-    schemas = Validator.validation_schemas(current_app.simdb_config)
+    schemas = Validator.validation_schemas(current_app.simdb_config, simulation)
     try:
         for schema in schemas:
             Validator(schema).validate(simulation)

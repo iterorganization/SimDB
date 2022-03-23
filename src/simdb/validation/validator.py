@@ -145,7 +145,7 @@ class Validator:
         if path:
             paths.append(path)
         else:
-            path.append(root / "validation-schema.yaml")
+            paths.append(root / "validation-schema.yaml")
 
         sections = [sec for sec in config.sections() if sec.startswith("validation")]
         for section in sections:
@@ -159,8 +159,10 @@ class Validator:
                 raise ConfigError(f"Invalid validation section {section}")
 
         schemas = []
-        for path in path:
+        for path in paths:
             schemas.append(_load_schema(path))
+
+        return schemas
 
     def __init__(self, schema: Dict):
         try:

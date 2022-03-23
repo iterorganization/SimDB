@@ -1,4 +1,4 @@
-from flask import request, current_app, jsonify
+from flask import request, current_app, jsonify, send_file
 from flask_restx import Resource, Namespace
 from typing import Optional, List, Iterable, Dict
 from pathlib import Path
@@ -9,6 +9,7 @@ import uuid
 import json
 import gzip
 import itertools
+import magic
 
 from ...remote.core.auth import User, requires_auth
 from ...remote.core.path import secure_path
@@ -173,5 +174,19 @@ class File(Resource):
         try:
             file = current_app.db.get_file(file_uuid)
             return jsonify(file.data(recurse=True))
+        except DatabaseError as err:
+            return error(str(err))
+
+
+@api.route("/file/download/<string:file_uuid>")
+class FileDownload(Resource):
+    @requires_auth()
+    def get(self, file_uuid: str, user: User = Optional[None]):
+        try:
+            file: models.File = current_app.db.get_file(file_uuid)
+            if file.type != DataObject.Type.FILE:
+                return error("Invalid file type for download")
+            mimetype = magic.from_file(file.uri.path, mime=True)
+            return send_file(file.uri.path, mimetype=mimetype)
         except DatabaseError as err:
             return error(str(err))

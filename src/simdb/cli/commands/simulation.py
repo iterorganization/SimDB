@@ -1,6 +1,6 @@
 import click
 from pathlib import Path
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Any
 
 from . import pass_config
 from ...config.config import Config
@@ -62,11 +62,18 @@ def simulation_list(config: Config, meta: list, limit: int):
     print_simulations(simulations, verbose=config.verbose, metadata_names=meta)
 
 
+class NameValueOption(click.Option):
+    def type_cast_value(self, ctx: click.Context, value: Any) -> Any:
+        pass
+
+
 @simulation.command("modify")
 @pass_config
 @click.argument("sim_id")
-@click.option("-a", "--alias", help="New alias.")
-def simulation_modify(config: Config, sim_id: str, alias: str):
+@click.option("-a", "--alias", help="New alias.", metavar="ALIAS")
+@click.option("--set-meta", help="Add new meta or update existing.", metavar="NAME=VALUE")
+@click.option("--del-meta", help="Delete metadata entry.", metavar="NAME")
+def simulation_modify(config: Config, sim_id: str, alias: str, set_meta: str, del_meta: str):
     """Modify the ingested simulation."""
     from ...database import get_local_db
 
@@ -75,6 +82,23 @@ def simulation_modify(config: Config, sim_id: str, alias: str):
         simulation = db.get_simulation(sim_id)
         simulation.alias = alias
         db.session.commit()
+        click.echo("alias updated")
+    elif set_meta is not None:
+        try:
+            name, value = set_meta.split('=')
+        except ValueError:
+            raise click.BadParameter("set-meta argument must be of form NAME=VALUE")
+        db = get_local_db(config)
+        simulation = db.get_simulation(sim_id)
+        simulation.set_meta(name, value)
+        db.session.commit()
+        click.echo("metadata updated")
+    elif del_meta is not None:
+        db = get_local_db(config)
+        simulation = db.get_simulation(sim_id)
+        simulation.remove_meta(del_meta)
+        db.session.commit()
+        click.echo("metadata deleted")
     else:
         click.echo("nothing to do")
 

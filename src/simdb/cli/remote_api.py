@@ -33,6 +33,10 @@ class FailedConnection(RuntimeError):
     pass
 
 
+class RemoteError(RuntimeError):
+    pass
+
+
 def try_request(func: Callable) -> Callable:
     def wrapped_func(*args, **kwargs):
         import requests
@@ -86,7 +90,7 @@ def check_return(res: "requests.Response") -> None:
         except json.JSONDecodeError:
             data = {}
         if "error" in data:
-            raise RuntimeError(data["error"])
+            raise RemoteError(data["error"])
         else:
             res.raise_for_status()
 
@@ -266,7 +270,7 @@ class RemoteAPI:
         return data["api_version"]
 
     @try_request
-    def get_validation_schema(self) -> Dict:
+    def get_validation_schemas(self) -> Dict:
         res = self.get("validation_schema")
         return res.json()
 
@@ -457,14 +461,16 @@ class RemoteAPI:
 
         First we upload any files associated with the simulation, then push the simulation metadata.
 
-        :param simulation: Simulation to push to remote server
-        :param out_stream: IO stream to write messages to the user (default: stdout)
+        :param simulation: The Simulation to push to remote server
+        :param out_stream: The IO stream to write messages to the user (default: stdout)
         """
         from ..validation import Validator, ValidationError
 
-        schema = self.get_validation_schema()
+        schemas = self.get_validation_schemas()
         try:
-            Validator(schema).validate(simulation)
+            for schema in schemas:
+                print(schema)
+                Validator(schema).validate(simulation)
         except ValidationError as err:
             print("Warning: simulation does not validate.")
             print(f"Validation error: {err}.")
