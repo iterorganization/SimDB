@@ -7,10 +7,10 @@ import datetime
 import os
 import itertools
 
-from ....remote.core.auth import User, requires_auth
-from ....remote.core.cache import cache, cache_key
-from ....remote.core.errors import error
-from ....remote.core.path import secure_path
+from ...core.auth import User, requires_auth
+from ...core.cache import cache, clear_cache, cache_key
+from ...core.errors import error
+from ...core.path import secure_path
 from ....database import DatabaseError
 from ....database.models import simulation as models_sim
 from ....database.models import metadata as models_meta
@@ -248,7 +248,7 @@ class SimulationList(Resource):
                         current_app.db.insert_simulation(replaces_sim)
 
             current_app.db.insert_simulation(simulation)
-            cache.clear()
+            clear_cache()
 
             return jsonify(result)
         except (DatabaseError, ValueError) as err:
@@ -280,7 +280,7 @@ class Simulation(Resource):
             status = models_sim.Simulation.Status(data["status"])
             _update_simulation_status(simulation, status, user)
             current_app.db.insert_simulation(simulation)
-            cache.clear()
+            clear_cache()
             return {}
         except DatabaseError as err:
             return error(str(err))
@@ -289,7 +289,7 @@ class Simulation(Resource):
     def delete(self, sim_id: str, user: User):
         try:
             simulation = current_app.db.delete_simulation(sim_id)
-            cache.clear()
+            clear_cache()
             files = []
             for file in itertools.chain(simulation.inputs, simulation.outputs):
                 files.append("%s (%s)" % (file.uuid, file.file_name))
@@ -314,7 +314,7 @@ class ValidateSimulation(Resource):
             simulation = current_app.db.get_simulation(sim_id)
             result = _validate(simulation, user)
             current_app.db.insert_simulation(simulation)
-            cache.clear()
+            clear_cache()
             return jsonify(result)
         except DatabaseError as err:
             return error(str(err))
