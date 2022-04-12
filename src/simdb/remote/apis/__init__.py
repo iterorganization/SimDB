@@ -110,6 +110,7 @@ def register(api, version, namespaces):
             }
             return jsonify(ret)
 
+    @api.route("/staging_dir", defaults={'sim_hex': None})
     @api.route("/staging_dir/<string:sim_hex>")
     class StagingDirectory(Resource):
         @requires_auth()
@@ -121,6 +122,10 @@ def register(api, version, namespaces):
             if upload_dir is None:
                 upload_dir = current_app.simdb_config.get_option("server.upload_folder")
                 user_folder = False
+
+            if not sim_hex:
+                return jsonify({'staging_dir': upload_dir})
+
             staging_dir = (
                 Path(current_app.simdb_config.get_option("server.upload_folder"))
                 / sim_hex
