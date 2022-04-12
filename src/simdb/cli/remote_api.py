@@ -360,6 +360,11 @@ class RemoteAPI:
         res = self.delete("simulation/metadata/" + sim_id, {"key": key})
         return [data["value"] for data in res.json()]
 
+    @try_request
+    def get_directory(self) -> str:
+        res = self.get("staging_dir")
+        return res.json()["staging_dir"]
+
     def _push_file(
         self,
         file: "File",
