@@ -15,6 +15,11 @@ import gzip
 import io
 import sys
 import click
+import itertools
+import hashlib
+from pathlib import Path
+
+import uri
 
 from .manifest import DataObject
 from ..config import Config
@@ -29,11 +34,15 @@ if TYPE_CHECKING or "sphinx" in sys.modules:
     from requests.auth import AuthBase
 
 
-class FailedConnection(RuntimeError):
+class APIError(RuntimeError):
     pass
 
 
-class RemoteError(RuntimeError):
+class FailedConnection(APIError):
+    pass
+
+
+class RemoteError(APIError):
     pass
 
 
@@ -492,6 +501,62 @@ class RemoteAPI:
         print("Uploading simulation data ... ", file=out_stream, end="", flush=True)
         self.post("simulations", data={"simulation": sim_data})
         print("Success", file=out_stream, flush=True)
+
+    def _pull_file(
+        self,
+        file: "File",
+        path: Path,
+        out_stream: IO,
+    ):
+        if file.type == DataObject.Type.FILE:
+            print(f"Downloading file {file.uri.path} ", file=out_stream, end="")
+            r = self.get(f"file/download/{file.uuid.hex}")
+            bytes = r.content
+            os.makedirs(path.parent, exist_ok=True)
+            sha1 = hashlib.sha1()
+            sha1.update(bytes)
+            if sha1.hexdigest() != file.checksum:
+                raise APIError(f"Checksum failed for file {file.uri.path}")
+            open(path, 'wb').write(bytes)
+            print("Complete", file=out_stream, flush=True)
+        elif file.type == DataObject.Type.IMAS:
+            raise APIError("IMAS file types not yet supported for download")
+
+    @try_request
+    def pull_simulation(self, sim_id: str, directory: Path, out_stream: IO = sys.stdout) -> "Simulation":
+        """
+        Pull the simulation from the remote server.
+
+        This involves downloading all the files associated with the simulation into the provided simulation directory.
+
+        :param sim_id: The id of the Simulation to pull
+        :param directory: The local directory to use as the root directory of the simulation
+        :param out_stream: The IO stream to write messages to the user (default: stdout)
+        """
+        simulation = self.get_simulation(sim_id)
+        if simulation is None:
+            raise RemoteError(f"Failed to find simulation: {sim_id}")
+
+        common_root = os.path.commonpath(
+            [
+                f.uri.path
+                for f in itertools.chain(
+                    simulation.inputs, simulation.outputs
+                )
+            ]
+        )
+
+        for file in simulation.inputs:
+            path = directory / file.uri.path.relative_to(common_root)
+            self._pull_file(file, path, out_stream)
+            file.uri = uri.URI(file.uri, path=path)
+
+        for file in simulation.outputs:
+            path = directory / file.uri.path.relative_to(common_root)
+            self._pull_file(file, path, out_stream)
+            file.uri = uri.URI(file.uri, path=path)
+
+        return simulation
 
     @try_request
     def reset_database(self) -> None:

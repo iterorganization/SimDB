@@ -204,6 +204,48 @@ def simulation_push(
     click.echo(f"Successfully pushed simulation {simulation.uuid}")
 
 
+@simulation.command("pull", cls=CustomCommand)
+@pass_config
+@click.argument("remote", required=False)
+@click.argument("sim_id")
+@click.argument("directory", type=Path)
+@click.option("--username", help="Username used to authenticate with the remote.")
+@click.option("--password", help="Password used to authenticate with the remote.")
+def simulation_pull(
+    config: Config,
+    remote: Optional[str],
+    sim_id: str,
+    directory: Path,
+    username: Optional[str],
+    password: Optional[str],
+):
+    """Pull the simulation with the given SIM_ID (UUID or alias) from the REMOTE."""
+    from ...database import get_local_db, DatabaseError
+    from ..remote_api import RemoteAPI, RemoteError
+    import sys
+
+    api = RemoteAPI(remote, username, password, config)
+    db = get_local_db(config)
+
+    local_sim = None
+    try:
+        local_sim = db.get_simulation(sim_id)
+    except DatabaseError:
+        pass
+
+    if local_sim is not None:
+        raise click.ClickException(f"Simulation with sim_id {sim_id} already exists")
+
+    try:
+        simulation = api.pull_simulation(sim_id, directory, out_stream=sys.stdout)
+    except RemoteError as err:
+        raise click.ClickException(str(err))
+
+    db.insert_simulation(simulation)
+
+    click.echo(f"Successfully pulled simulation {simulation.uuid}")
+
+
 @simulation.command("query")
 @pass_config
 @click.argument("constraint", nargs=-1)
