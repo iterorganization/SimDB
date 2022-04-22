@@ -74,6 +74,9 @@ def is_empty(value) -> bool:
     "--get-default", is_flag=True, help="Print the currently set default remote."
 )
 @optgroup.option(
+    "--directory", is_flag=True, help="Print the storage directory of a remote."
+)
+@optgroup.option(
     "--new",
     type=(str, str),
     default=("", ""),
@@ -91,6 +94,7 @@ def remote(
     name: str,
     set_default: str,
     get_default: bool,
+    directory: bool,
     new: Tuple[str, str],
     delete: bool,
     list: bool,
@@ -123,6 +127,9 @@ def remote(
         elif delete:
             config.delete_section(f"remote.{name}")
             config.save()
+        elif directory:
+            api = RemoteAPI(name, username, password, config)
+            print(api.get_directory())
         elif ctx.invoked_subcommand:
             if ctx.invoked_subcommand == "token" and click.get_os_args()[-1] == "new":
                 ctx.obj = RemoteAPI(name, username, password, config, use_token=False)
