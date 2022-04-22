@@ -1,6 +1,6 @@
 appdirs~=1.4
 argcomplete~=2.0
-Flask~=2.0
+Flask==2.0.3
 numpy>=1.14.0
 python-dateutil>=2.6
 PyYAML>=3.13
