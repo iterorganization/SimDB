@@ -21,7 +21,7 @@ from ...checksum import sha1_checksum
 api = Namespace("files", path="/")
 
 
-def _verify_file(sim_uuid: uuid.UUID, sim_file: models.File, common_root: Path):
+def _verify_file(sim_uuid: uuid.UUID, sim_file: models.File, common_root: Optional[Path]):
     if current_app.simdb_config.get_option(
         "development.disable_checksum", default=False
     ):
@@ -70,7 +70,7 @@ def _stage_file_from_chunks(
     chunk_info: Dict,
     sim_uuid: uuid.UUID,
     sim_files: List[models.File],
-    common_root: Path,
+    common_root: Optional[Path],
 ) -> None:
     staging_dir = (
         Path(current_app.simdb_config.get_option("server.upload_folder")) / sim_uuid.hex
@@ -125,14 +125,13 @@ class FileList(Resource):
                         raise ValueError(
                             "file with uuid %s not found in simulation" % file_uuid
                         )
-                    common_root = os.path.commonpath(
-                        [
-                            f.uri.path
-                            for f in itertools.chain(
-                                simulation.inputs, simulation.outputs
-                            )
-                        ]
-                    )
+                    paths = [
+                        f.uri.path
+                        for f in itertools.chain(
+                            simulation.inputs, simulation.outputs
+                        )
+                    ]
+                    common_root = Path(os.path.commonpath(paths)) if len(paths) > 1 else None
                     _verify_file(simulation.uuid, sim_file, common_root)
                 return jsonify({})
 
@@ -153,7 +152,8 @@ class FileList(Resource):
                 return error("No files given")
 
             all_sim_files = list(itertools.chain(simulation.inputs, simulation.outputs))
-            common_root = Path(os.path.commonpath([f.uri.path for f in all_sim_files]))
+            paths = [f.uri.path for f in all_sim_files]
+            common_root = Path(os.path.commonpath(paths)) if len(paths) > 1 else None
 
             sim_files = (
                 simulation.inputs if file_type == "input" else simulation.outputs

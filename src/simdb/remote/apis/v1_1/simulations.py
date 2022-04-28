@@ -221,10 +221,11 @@ class SimulationList(Resource):
             )
 
             files = list(itertools.chain(simulation.inputs, simulation.outputs))
+            common_root = None
             if files:
-                common_root = os.path.commonpath([f.uri.path for f in files])
-            else:
-                common_root = ""
+                paths = [f.uri.path for f in files]
+                if len(paths) > 1:
+                    common_root = Path(os.path.commonpath(paths))
 
             for sim_file in files:
                 path = secure_path(sim_file.uri.path, common_root, staging_dir)
