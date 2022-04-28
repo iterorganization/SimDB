@@ -17,10 +17,10 @@ APPNAME=simdb
 USER=simdb
 PATH=/bin:/usr/bin:/sbin:/usr/sbin
 APPMODULE=simdb.remote.wsgi:app
-DAEMON=gunicorn
+DAEMON=/home/simdb/venv/bin/gunicorn
 BIND=unix:/var/run/simdb.sock
 PIDFILE=/var/run/simdb.pid
-LOGFILE=/var/log/$DAEMON.log
+LOGFILE=/var/log/simdb.log
 WORKERS=3
 
 
@@ -42,7 +42,7 @@ case "$1" in
     ;;
   stop)
         echo -n "Stopping deferred execution scheduler" "APPNAME"
-        killproc -p $PIDFILE $DAEMON
+        killproc -p $PIDFILE gunicorn
 	echo
         exit $?
     ;;
@@ -51,7 +51,7 @@ case "$1" in
     $0 start
     ;;
   status)
-    status -p $PIDFILE $DAEMON && exit 0 || exit $?
+    status -p $PIDFILE gunicorn && exit 0 || exit $?
     ;;
   *)
     echo "Usage: /etc/init.d/$APPNAME {start|stop|restart|force-reload|status}"

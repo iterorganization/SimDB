@@ -25,6 +25,8 @@ pip3 install -r requirements.txt
 pip3 install .
 ```
 
+**Note:** If you plan to run the server with a PostgreSQL database you will also need to install the `psycopg2-binary` library.
+
 You can test the SimDB installation by running:
 
 ```bash
@@ -32,6 +34,8 @@ simdb --version
 ```
 
 ## Running the server (using built-in http server)
+
+**Note:** Running the SimDB server using the built-in http server is for testing/development only and should not be used in production. In production you should run the SimDB server behind a dedicated web-server such as NGinx (see the [Running the server behind nginx & gunicorn](#running-the-server-behind-nginx--gunicorn) section below).
 
 Once simdb has been installed, before you can run the server you need to create the server configuration file. This file should be created in the application configuration directory which can be located by using:
 
@@ -110,7 +114,7 @@ user = test@email.com
 password = abc123
 ```
 
-Example of app.cfg for PostgreSQL:
+Example of app.cfg for PostgreSQL (see [Setting up PostgreSQL database](setting_up_postgres.md)):
 
 ```
 ...
@@ -146,7 +150,9 @@ And see some console output such as:
  * Running on http://0.0.0.0:5000/ (Press CTRL+C to quit)
 ```
 
-Follow the url in the output, and you should see the returned JSON data:
+**Note:** If it fails to run with an error stating that it cannot bind to a port then you will need to see check whatever service is running on port 5000 and shut this down if possible. If you need to modify the port you will need to edit the `simdb_server` script (which you can locate using `which simdb_server`), changing the port number.
+
+Follow the url in the output (you can do this using a browser or using curl, e.g. `curl http://0.0.0.0:5000`), and you should see the returned JSON data:
 
 ```
 { urls: [ "http://0.0.0.0:5000/api/v0.1.1" ] }
@@ -179,7 +185,7 @@ To run the server in production you should run it as wsgi service behind a dedic
 
 Copy the init.d script from `src/simdb/remote/scripts/simdb.initd` in the simdb install directory (i.e. `/usr/local/lib/python3.7/site-packages/simdb/remote`) as `/etc/init.d/simdb`.
 
-You will need to modify the line `USER=simdb` to change to user to whichever user you wish to run the simdb as (the gunicorn service will run as root but the workers will run in user space).
+You will need to modify the line `USER=simdb` to change to user to whichever user you wish to run the simdb as (the gunicorn service will run as root but the workers will run in user space). You will also need to modify the line `DAEMON=/home/simdb/venv/bin/gunicorn` to change the path to point towards the gunicorn installed in your virtual environment - you can find this path by running `which gunicorn` whilst the virtual environment is active.
 
 Once you have copied and modified the init.d script you can start the gunicorn service using:
 
@@ -195,7 +201,7 @@ service simdb status
 
 ### Set up nginx service
 
-Create a simdb.conf script in `/etc/nginx/sites-available/simdb.conf`
+Create a simdb.conf script in `/etc/nginx/conf.d/simdb.conf`
 
 ```
 server {
@@ -212,7 +218,7 @@ server {
 Alternatively, copy the script provided as `simdb/remote/simdb.nginx` (in the simdb installation directory, i.e. `/usr/local/lib/python3.7/site-packages/simdb/remote`) to:
 
 ```
-/etc/nginx/sites-available/simdb.conf
+/etc/nginx/conf.d/simdb.conf
 ```
 
 The `proxy_pass` line should point to the endpoint of the gunicorn service (set by the `BIND` variable in the init.d script).
@@ -226,13 +232,7 @@ proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 proxy_set_header X-Forwarded-Proto $scheme;
 ```
 
-Now sim-link the script into `/etc/nginx/sites-enabled`:
-
-```
-simdb.conf -> /etc/nginx/sites-available/simdb.conf
-```
-
-**Note:** check that the line `include /etc/nginx/sites-enabled/*.conf;` is defined in your `/etc/nginx/nginx.conf` script, if not you can add it inside the `http {}` section.
+**Note:** check that the line `include /etc/nginx/conf.d/*.conf;` is defined in your `/etc/nginx/nginx.conf` script, if not you can add it inside the `http {}` section.
 
 Now you can restart nginx using:
 

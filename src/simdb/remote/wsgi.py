@@ -5,7 +5,7 @@ from .app import create_app
 app = create_app()
 
 
-def run():
+def run(*, port=5000):
     # from werkzeug.middleware.profiler import ProfilerMiddleware
     # app.config['PROFILE'] = True
     # app.wsgi_app = ProfilerMiddleware(app.wsgi_app, restrictions=[50], sort_by=("cumtime",))
@@ -17,10 +17,10 @@ def run():
             certfile=config.get_option("server.ssl_cert_file"),
             keyfile=config.get_option("server.ssl_key_file"),
         )
-        app.run(host="0.0.0.0", port="5000", ssl_context=context)
+        app.run(host="0.0.0.0", port=port, ssl_context=context)
     else:
-        app.run(host="0.0.0.0", port="5000")
+        app.run(host="0.0.0.0", port=port)
 
 
 if __name__ == "__main__":
-    run()
+    run(port=5000)
