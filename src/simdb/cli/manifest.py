@@ -467,7 +467,8 @@ class Manifest:
                 raise InvalidManifest("badly formatted manifest - " + str(err))
 
         if isinstance(self._data, dict) and "metadata" in self._data:
-            for item in self._data["metadata"]:
+            metadata = self._data["metadata"] or []
+            for item in metadata:
                 if "path" in item:
                     path = Path(item["path"])
                     if not path.exists():
