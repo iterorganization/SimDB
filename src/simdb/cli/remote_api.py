@@ -394,26 +394,11 @@ class RemoteAPI:
                 read_bytes_in_chunks(path, compressed=True, chunk_size=chunk_size)
             ):
                 print(".", file=out_stream, end="", flush=True)
-                data = {
-                    "simulation": sim_data,
-                    "file_type": file_type,
-                    "chunk_info": {
-                        file.uuid.hex: {"chunk_size": chunk_size, "chunk": i}
-                    },
-                }
-                files: List[Tuple[str, Tuple[str, bytes, str]]] = [
-                    (
-                        "data",
-                        (
-                            "data",
-                            json.dumps(data, cls=CustomEncoder).encode(),
-                            "text/json",
-                        ),
-                    ),
-                    ("files", (file.uuid.hex, chunk, "application/octet-stream")),
-                ]
-                self.post("files", data={}, files=files)
+                self.send_chunk(i, chunk, chunk_size, file, file_type, sim_data)
                 num_chunks += 1
+            if num_chunks == 0:
+                # empty file
+                self.send_chunk(0, b'', chunk_size, file, file_type, sim_data)
             self.post(
                 "files",
                 data={
@@ -465,6 +450,27 @@ class RemoteAPI:
                 # While IMAS requires a local file copy we need to remove it if the remote validation fails.
                 shutil.rmtree(data["staging_dir"])
                 raise
+
+    def send_chunk(self, i, chunk, chunk_size, file, file_type, sim_data):
+        data = {
+            "simulation": sim_data,
+            "file_type": file_type,
+            "chunk_info": {
+                file.uuid.hex: {"chunk_size": chunk_size, "chunk": i}
+            },
+        }
+        files: List[Tuple[str, Tuple[str, bytes, str]]] = [
+            (
+                "data",
+                (
+                    "data",
+                    json.dumps(data, cls=CustomEncoder).encode(),
+                    "text/json",
+                ),
+            ),
+            ("files", (file.uuid.hex, chunk, "application/octet-stream")),
+        ]
+        self.post("files", data={}, files=files)
 
     @try_request
     def push_simulation(
