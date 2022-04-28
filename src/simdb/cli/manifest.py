@@ -361,6 +361,8 @@ class Manifest:
                 source = Source(self._path, i["uri"])
                 if source.type == DataObject.Type.FILE:
                     names = glob.glob(str(source.uri.path))
+                    if not names:
+                        raise InvalidManifest(f"No files found matching path {source.uri.path}")
                     for name in names:
                         sources.append(Source(self._path, "file://" + name))
                 else:
