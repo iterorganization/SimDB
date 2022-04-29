@@ -4,12 +4,14 @@ from pathlib import Path
 import datetime
 import jwt
 import os
+from semantic_version import SimpleSpec
 
 from ... import __version__
 from ..core.auth import User, requires_auth, AuthenticationError
 from ...database import Database
 from .v1 import api as api_v1, namespaces as namespaces_v1
 from .v1_1 import api as api_v1_1, namespaces as namespaces_v1_1
+from .v1_2 import api as api_v1_2, namespaces as namespaces_v1_2
 
 
 def error(message: str) -> Response:
@@ -110,33 +112,6 @@ def register(api, version, namespaces):
             }
             return jsonify(ret)
 
-    @api.route("/staging_dir", defaults={'sim_hex': None})
-    @api.route("/staging_dir/<string:sim_hex>")
-    class StagingDirectory(Resource):
-        @requires_auth()
-        def get(self, sim_hex: str, user: User):
-            upload_dir = current_app.simdb_config.get_option(
-                "server.user_upload_folder", default=None
-            )
-            user_folder = True
-            if upload_dir is None:
-                upload_dir = current_app.simdb_config.get_option("server.upload_folder")
-                user_folder = False
-
-            if not sim_hex:
-                return jsonify({'staging_dir': upload_dir})
-
-            staging_dir = (
-                Path(current_app.simdb_config.get_option("server.upload_folder"))
-                / sim_hex
-            )
-            os.makedirs(staging_dir, exist_ok=True)
-            # This needs to be done for ITER at the moment but should be removed once we can actually push IMAS data
-            # rather than having to do a local copy onto the server directory.
-            if user_folder:
-                os.chmod(staging_dir, 0o777)
-            return jsonify({"staging_dir": str(Path(upload_dir) / sim_hex)})
-
     @api.route("/validation_schema")
     class ValidationSchema(Resource):
         @requires_auth()
@@ -148,3 +123,7 @@ def register(api, version, namespaces):
 
 register(api_v1, "v1", namespaces_v1)
 register(api_v1_1, "v1.1", namespaces_v1_1)
+register(api_v1_2, "v1.2", namespaces_v1_2)
+
+# Compatibility scheme for the latest API version, i.e. anything with the same major and minor version
+COMPATIBILITY_SPEC = SimpleSpec("~=1.2.0")

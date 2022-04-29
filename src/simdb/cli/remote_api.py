@@ -18,12 +18,15 @@ import click
 import itertools
 import hashlib
 from pathlib import Path
+from semantic_version import Version
 
 import uri
 
 from .manifest import DataObject
 from ..config import Config
 from ..json import CustomDecoder, CustomEncoder
+from ..remote.apis import COMPATIBILITY_SPEC
+
 
 if TYPE_CHECKING:
     from ..database.models import Simulation, Watcher, File
@@ -129,9 +132,6 @@ class RemoteAPI:
         except KeyError:
             raise ValueError(f"Remote '{remote}' not found.")
 
-        # self._api_url: str = f'{self._url}/api/v{config.api_version}/'
-        self._api_url: str = f"{self._url}/v{config.api_version}/"
-
         if use_token is not None:
             self._use_token = use_token
         else:
@@ -160,7 +160,24 @@ class RemoteAPI:
         self._username = username
         self._password = password
 
-        self.get_api_version()
+        self._api_url: str = f"{self._url}/"
+
+        endpoints = self.get_endpoints()
+        endpoint_versions = [endpoint.split('/')[-1] for endpoint in endpoints]
+
+        compat_versions = [
+            v for v in endpoint_versions
+            if COMPATIBILITY_SPEC.match(Version.coerce(v.replace('v', '')))
+        ]
+        if not compat_versions:
+            raise RemoteError("No compatible API version found on remote")
+
+        latest_version = max(compat_versions)
+        if config.verbose:
+            print(f'Selected latest endpoint version {latest_version}')
+
+        self._api_url += f'{latest_version}/'
+        self.version = Version.coerce(self.get_api_version())
 
     @property
     def remote(self) -> str:
@@ -271,6 +288,12 @@ class RemoteAPI:
         res = self.get("token")
         data = res.json()
         return data["token"]
+
+    @try_request
+    def get_endpoints(self) -> List[str]:
+        res = self.get("", authenticate=False)
+        data = res.json()
+        return data["endpoints"]
 
     @try_request
     def get_api_version(self) -> int:

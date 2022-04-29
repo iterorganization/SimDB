@@ -6,6 +6,7 @@ import click
 from collections.abc import Iterable
 from click_option_group import optgroup, MutuallyExclusiveOptionGroup
 from typing import List, TYPE_CHECKING, Optional, Tuple
+from semantic_version import Version
 
 from ..remote_api import RemoteAPI
 from . import pass_config
@@ -129,6 +130,8 @@ def remote(
             config.save()
         elif directory:
             api = RemoteAPI(name, username, password, config)
+            if api.version < Version('1.2.0'):
+                raise click.ClickException('Command not available with this remote. Requires API version >= 1.2.')
             print(api.get_directory())
         elif ctx.invoked_subcommand:
             if ctx.invoked_subcommand == "token" and click.get_os_args()[-1] == "new":

@@ -11,7 +11,7 @@ from ..watchers import api as watcher_ns
 
 api = Api(
     title="SimDB REST API",
-    version="1.0",
+    version="1.2",
     description="SimDB REST API",
     authorizations={
         "basicAuth": {
@@ -31,6 +31,7 @@ api.add_namespace(sim_ns)
 namespaces = [metadata_ns, watcher_ns, file_ns, sim_ns]
 
 
+@api.route("/staging_dir", defaults={'sim_hex': None})
 @api.route("/staging_dir/<string:sim_hex>")
 class StagingDirectory(Resource):
     @requires_auth()
@@ -42,6 +43,9 @@ class StagingDirectory(Resource):
         if upload_dir is None:
             upload_dir = current_app.simdb_config.get_option("server.upload_folder")
             user_folder = False
+
+        if not sim_hex:
+            return jsonify({'staging_dir': upload_dir})
 
         staging_dir = (
                 Path(current_app.simdb_config.get_option("server.upload_folder"))
