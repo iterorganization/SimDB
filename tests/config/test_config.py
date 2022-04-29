@@ -1,3 +1,4 @@
+import re
 from unittest import mock
 from simdb.config import Config
 from io import StringIO
@@ -18,7 +19,8 @@ def test_load_config(user_config_dir, site_config_dir):
     user_config_dir.assert_called_once_with('simdb')
     site_config_dir.assert_called_once_with('simdb')
     assert config.list_options() == []
-    assert config.api_version == '1.1'
+    version_regex = re.compile(r'\d\.\d')
+    assert version_regex.match(config.api_version)
 
 
 @mock.patch('appdirs.site_config_dir')
@@ -41,4 +43,5 @@ def test_load_config_from_specified_file(user_config_dir, site_config_dir):
         'db.type: sqlite',
         'db.file: /tmp/simdb.db',
     ]
-    assert config.api_version == '1.1'
+    version_regex = re.compile(r'\d\.\d')
+    assert version_regex.match(config.api_version)

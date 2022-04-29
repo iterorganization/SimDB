@@ -108,7 +108,7 @@ class Config:
         self._parser.read(self._user_config_path)
 
     @property
-    def api_version(self) -> int:
+    def api_version(self) -> str:
         return self._api_version
 
     def load(self, file: TextIO = None) -> None:

@@ -296,7 +296,7 @@ class RemoteAPI:
         return data["endpoints"]
 
     @try_request
-    def get_api_version(self) -> int:
+    def get_api_version(self) -> str:
         res = self.get("", authenticate=False)
         data = res.json()
         return data["api_version"]

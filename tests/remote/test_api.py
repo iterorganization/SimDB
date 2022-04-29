@@ -51,7 +51,9 @@ def client():
 def test_get_root(client):
     rv = client.get("/")
     assert rv.status_code == 200
-    assert rv.json == {'endpoints': ['http://localhost/v1', 'http://localhost/v1.1']}
+    assert 'endpoints' in rv.json
+    assert len(rv.json['endpoints']) > 0
+    assert all(endpoint.startswith('http://localhost/v') for endpoint in rv.json['endpoints'])
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
