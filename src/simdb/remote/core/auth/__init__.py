@@ -1,27 +1,55 @@
 from flask import Response, current_app, request
 from typing import Optional
-from collections import namedtuple
 from functools import wraps
 import datetime
 import jwt
 
+from ._user import User
+from ._exceptions import AuthenticationError
 
-User = namedtuple("User", ("name", "email"))
-
+from .active_directory import ActiveDirectoryAuthenticator
+from .ldap import LdapAuthenticator
+from .no_authentication import NoopAuthenticator
 
 HEADER_NAME = "Authorization"
 
+Authenticators = {
+    ActiveDirectoryAuthenticator.Name.lower():  ActiveDirectoryAuthenticator,
+    LdapAuthenticator.Name.lower():             LdapAuthenticator,
+    NoopAuthenticator.Name.lower():             NoopAuthenticator,
+}
+
+
+def get_authenticator(name: str):
+    """
+    Find an authenticator class for the given name and return an object of that class.
+
+    @param name: The name of the authenticator to return.
+    @return: An instance of an Authenticator subclass.
+    """
+    try:
+        return object.__new__(Authenticators[name.lower()])
+    except KeyError:
+        raise AuthenticationError(f'Unknown authenticator {name} selected in configuration')
+
 
 def authenticate():
-    """Sends a 401 response that enables basic auth"""
+    """
+    Sends a 401 response that enables basic auth.
+    """
     return Response(
-        "Could not verify your access level for that URL. You have to login with proper credentials",
+        "Could not verify your access level for that URL. You have to login with proper credentials.",
         401,
         {"WWW-Authenticate": "Basic realm='Login Required'"},
     )
 
 
 def check_role(config, user: User, role: Optional[str]) -> bool:
+    """
+    This function is called to check if an authenticated user is a member of the specified role.
+
+    If no role is specified then the function always returns true.
+    """
     config = current_app.simdb_config
 
     if role:
@@ -38,29 +66,15 @@ def check_role(config, user: User, role: Optional[str]) -> bool:
 
 
 def check_auth(config, username, password) -> Optional[User]:
-    """This function is called to check if a username / password combination is valid."""
+    """
+    This function is called to check if a username / password combination is valid.
+    """
     if username == "admin" and password == config.get_option("server.admin_password"):
         return User("admin", None)
 
-    try:
-        from easyad import EasyAD
-        ad_config = {
-            "AD_SERVER": config.get_option("server.ad_server"),
-            "AD_DOMAIN": config.get_option("server.ad_domain"),
-        }
-        ad = EasyAD(ad_config)
-    except (KeyError, ImportError):
-        return None
-
-    user = ad.authenticate_user(username, password, json_safe=True)
-    if user:
-        return User(user["sAMAccountName"], user["mail"])
-    else:
-        return None
-
-
-class AuthenticationError(Exception):
-    pass
+    authentication_type = config.get_option("server.authentication_type")
+    authenticator = get_authenticator(authentication_type)
+    return authenticator.authenticate(username, password, config)
 
 
 class RequiresAuth:
