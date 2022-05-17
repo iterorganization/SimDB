@@ -25,7 +25,7 @@ import uri
 from .manifest import DataObject
 from ..config import Config
 from ..json import CustomDecoder, CustomEncoder
-from ..remote.apis import COMPATIBILITY_SPEC
+from ..remote import COMPATIBILITY_SPEC
 
 
 if TYPE_CHECKING:

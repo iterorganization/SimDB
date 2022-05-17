@@ -4,7 +4,6 @@ from pathlib import Path
 import datetime
 import jwt
 import os
-from semantic_version import SimpleSpec
 
 from ... import __version__
 from ..core.auth import User, requires_auth, AuthenticationError
@@ -124,6 +123,3 @@ def register(api, version, namespaces):
 register(api_v1, "v1", namespaces_v1)
 register(api_v1_1, "v1.1", namespaces_v1_1)
 register(api_v1_2, "v1.2", namespaces_v1_2)
-
-# Compatibility scheme for the latest API version, i.e. anything with the same major and minor version
-COMPATIBILITY_SPEC = SimpleSpec("~=1.2.0")
