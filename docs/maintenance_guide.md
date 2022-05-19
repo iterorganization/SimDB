@@ -261,7 +261,7 @@ You should now be able to check the simdb server is running by going to the http
 
 ### Using SSL with the Gunicorn/Nginx
 
-In production, you should be using HTTPS not HTTPS for the SimDB server. To do this with Nginx you can change the simdb.conf in the `/etc/nginx/sites-available` that you created in the previous section.
+In production, you should be using HTTPS not HTTP for the SimDB server. To do this with Nginx you can change the simdb.conf in the `/etc/nginx/sites-available` that you created in the previous section.
 
 Change this to be:
 
