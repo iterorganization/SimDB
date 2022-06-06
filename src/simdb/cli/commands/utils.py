@@ -9,14 +9,14 @@ else:
     Config = TypeVar("Config")
 
 
-def flatten_dict(values: Dict) -> List[Tuple[str, str]]:
+def _flatten_dict(values: Dict) -> List[Tuple[str, str]]:
     items = []
     for (k, v) in values.items():
         if type(v) == list:
             for n, i in enumerate(v):
                 items.append(("{}[{}]".format(k, n), i))
         elif type(v) == dict:
-            for i in flatten_dict(v):
+            for i in _flatten_dict(v):
                 items.append(("{}.{}".format(k, i[0]), i[1]))
         else:
             items.append((k, v))
@@ -28,6 +28,18 @@ def print_simulations(
     verbose: bool = False,
     metadata_names: List[str] = None,
 ) -> None:
+    """
+    Print a table of simulations to the console.
+
+    By default, only the simulation UUID and alias is printed on each row. If verbose is True
+    then the simulation datetime and status are also printed and metadata_names allows additional
+    columns to be specified.
+
+    @param simulations: The simulations to print.
+    @param verbose: Whether to print a more verbose table.
+    @param metadata_names: Additional metadata fields to print as extra columns.
+    @return: None
+    """
     if len(simulations) == 0:
         click.echo("No simulations found")
         return
@@ -110,7 +122,13 @@ def _print_trace_sim(trace_data: dict, indentation: int):
         _print_trace_sim(trace_data["replaces"], indentation + 2)
 
 
-def print_trace(trace_data, verbose: bool = False) -> None:
+def print_trace(trace_data: dict) -> None:
+    """
+    Print the simulation trace data to the console.
+
+    @param trace_data: A dictionary containing the simulation trace data.
+    @return: None
+    """
     if not trace_data:
         click.echo("No simulations trace found")
         return

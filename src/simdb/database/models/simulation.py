@@ -157,7 +157,7 @@ class Simulation(Base):
             )
         result += "metadata:\n"
         for meta in self.meta:
-            if isinstance(meta.value, Iterable) and "\n" in meta.value:
+            if isinstance(meta.value, Iterable) and not isinstance(meta.value, np.ndarray) and "\n" in meta.value:
                 first_line = True
                 for line in meta.value.split("\n"):
                     if first_line:

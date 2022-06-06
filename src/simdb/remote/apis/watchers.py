@@ -10,7 +10,7 @@ from ...database import DatabaseError, models
 api = Namespace("watchers", path="/")
 
 
-@api.route("/watchers/<string:sim_id>")
+@api.route("/watchers/<path:sim_id>")
 class Watcher(Resource):
     @requires_auth()
     def post(self, sim_id: str, user: User):
