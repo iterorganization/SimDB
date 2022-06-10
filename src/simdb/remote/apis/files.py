@@ -3,7 +3,6 @@ from flask_restx import Resource, Namespace
 from typing import Optional, List, Iterable, Dict
 from pathlib import Path
 from werkzeug.datastructures import FileStorage
-from uri import URI
 import os
 import uuid
 import json
@@ -17,6 +16,7 @@ from ...remote.core.errors import error
 from ...database import DatabaseError, models
 from ...cli.manifest import DataObject
 from ...checksum import sha1_checksum
+from ...uri import URI
 
 api = Namespace("files", path="/")
 

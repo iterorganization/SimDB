@@ -9,13 +9,13 @@ class Query:
     def __init__(self, query: str):
         for arg in query.split('&'):
             key, *value = arg.split('=')
-            if value:
+            if key and value:
                 self._args[key] = '='.join(value)
-            else:
+            elif key:
                 self._args[key] = None
 
     def __str__(self):
-        "&".join(f"{k}={v}" for k, v in self._args.items())
+        return "&".join(f"{k}={v}" for k, v in self._args.items())
 
     def __bool__(self):
         return len(self._args) > 0
@@ -39,7 +39,7 @@ class URI:
         if scheme is not None:
             self.scheme = scheme
         if path is not None:
-            self.path = path
+            self.path = Path(path)
         if not self.scheme:
             raise ValueError("No scheme specified")
 
@@ -48,10 +48,10 @@ class URI:
         uri = f"{self.scheme}:"
         if self.authority:
             path = ""
-            if self.path is not None:
+            if self.path and str(self.path) != '.':
                 path = self.path if self.path.is_absolute() else "/" / self.path
             uri += f"{self.authority}{path}"
-        elif self.path:
+        elif self.path and str(self.path) != '.':
             uri += f"{self.path}"
         if self.query:
             uri += f"?{self.query}"
@@ -64,3 +64,6 @@ class URI:
 
     def __str__(self):
         return self.uri
+
+    def __eq__(self, other):
+        return self.uri == other.uri

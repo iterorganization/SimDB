@@ -1,5 +1,6 @@
-from uri import URI
 from pathlib import Path
+
+from .uri import URI
 
 
 def sha1_checksum(uri: URI) -> str:

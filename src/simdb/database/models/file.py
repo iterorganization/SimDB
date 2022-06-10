@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import Dict, Optional
 from pathlib import Path
 
-import uri as urilib
 from dateutil import parser as date_parser
 from sqlalchemy import Column, types as sql_types
 
@@ -13,6 +12,7 @@ from .types import UUID, URI
 from ...docstrings import inherit_docstrings
 from ...config.config import Config
 from .utils import checked_get
+from ... import uri as urilib
 
 
 @inherit_docstrings

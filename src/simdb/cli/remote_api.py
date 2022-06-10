@@ -20,8 +20,6 @@ import hashlib
 from pathlib import Path
 from semantic_version import Version
 
-import uri
-
 from .manifest import DataObject
 from ..config import Config
 from ..json import CustomDecoder, CustomEncoder

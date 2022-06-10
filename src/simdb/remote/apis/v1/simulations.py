@@ -2,7 +2,6 @@ from flask import request, current_app, jsonify
 from flask_restx import Resource, Namespace
 from typing import Optional, List, Tuple, Dict
 from pathlib import Path
-from uri import URI
 import datetime
 import os
 import itertools
@@ -14,6 +13,7 @@ from ...core.path import secure_path
 from ....database import DatabaseError
 from ....database.models import simulation as models_sim
 from ....database.models import metadata as models_meta
+from ....uri import URI
 
 api = Namespace("simulations", path="/")
 

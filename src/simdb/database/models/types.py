@@ -2,9 +2,9 @@ import enum
 import uuid
 from enum import Enum
 from typing import Optional, Dict
-
-import uri as urilib
 from sqlalchemy import types as sql_types
+
+from ... import uri as urilib
 
 
 class UUID(sql_types.TypeDecorator):

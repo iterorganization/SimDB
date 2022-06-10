@@ -1,10 +1,10 @@
 import hashlib
 import struct
 import multiprocessing as mp
-from uri import URI
 from typing import cast
 
 from .utils import open_imas, list_idss
+from ..uri import URI
 
 
 IGNORED_FIELDS = ("data_dictionary", "access_layer", "access_layer_language")
