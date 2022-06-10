@@ -1,9 +1,10 @@
 import inspect
 import multiprocessing as mp
 from typing import List, Any
-from uri import URI
 from datetime import datetime
 from pathlib import Path
+
+from ..uri import URI
 
 
 class ImasError(Exception):

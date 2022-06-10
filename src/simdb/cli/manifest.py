@@ -7,8 +7,7 @@ from typing import Iterable, Union, Dict, List, Tuple, Optional, TextIO, TYPE_CH
 import glob
 from pathlib import Path
 
-if TYPE_CHECKING or "sphinx" in sys.modules:
-    from uri import URI
+from ..uri import URI
 
 
 class InvalidManifest(Exception):
@@ -33,21 +32,21 @@ def _expand_path(path: Path, base_path: Path) -> Path:
 
 
 def _to_uri(uri_str: str, base_path: Path) -> Tuple["DataObject.Type", "URI"]:
-    from uri import URI
+    from ..uri import URI
 
     uri = URI(uri_str)
     if uri.scheme is None:
-        raise ValueError("invalid uri: %s" % uri_str)
-    if uri.scheme.name == "file":
+        raise ValueError("invalid uri.py: %s" % uri_str)
+    if uri.scheme == "file":
         uri = URI(uri, path=_expand_path(uri.path, base_path))
         return DataObject.Type.FILE, uri
-    if uri.scheme.name == "imas":
+    if uri.scheme == "imas":
         return DataObject.Type.IMAS, uri
-    if uri.scheme.name == "uda":
+    if uri.scheme == "uda":
         return DataObject.Type.UDA, uri
-    if uri.scheme.name == "simdb":
+    if uri.scheme == "simdb":
         return DataObject.Type.UUID, uri
-    raise InvalidManifest("invalid uri " + uri_str)
+    raise InvalidManifest("invalid uri.py " + uri_str)
 
 
 class DataObject:
@@ -68,7 +67,7 @@ class DataObject:
         UDA = auto()
 
     type: Type = Type.UNKNOWN
-    uri: "URI" = None
+    uri: Union[URI, None] = None
 
     def __init__(self, base_path: Path, uri: str) -> None:
         (self.type, self.uri) = _to_uri(uri, base_path)
@@ -208,22 +207,22 @@ class DataObjectValidator(ListValuesValidator):
         if version == 0:
             expected_keys = ("uuid", "path", "imas", "uda")
         elif version > 0:
-            expected_keys = ("uri",)
+            expected_keys = ("uri.py",)
         else:
             raise KeyError("Invalid version.")
         super().__init__(version, section_name, expected_keys)
 
     def validate(self, values: Union[list, dict]) -> None:
-        from uri import URI
+        from ..uri import URI
 
         super().validate(values)
         if values is None:
             return
         for value in values:
             if self.version > 0:
-                uri = URI(value["uri"])
+                uri = URI(value["uri.py"])
                 if uri.scheme not in ("uda", "file", "imas"):
-                    raise InvalidManifest("unknown uri scheme: %s" % uri.scheme)
+                    raise InvalidManifest(f"unknown uri.py scheme: {uri.scheme}")
 
 
 class InputsValidator(DataObjectValidator):
@@ -358,7 +357,7 @@ class Manifest:
         sources = []
         if isinstance(self._data, dict) and self._data["inputs"]:
             for i in self._data["inputs"]:
-                source = Source(self._path, i["uri"])
+                source = Source(self._path, i["uri.py"])
                 if source.type == DataObject.Type.FILE:
                     names = glob.glob(str(source.uri.path))
                     if not names:
@@ -374,7 +373,7 @@ class Manifest:
         sinks = []
         if isinstance(self._data, dict) and self._data["outputs"]:
             for i in self._data["outputs"]:
-                sink = Sink(self._path, i["uri"])
+                sink = Sink(self._path, i["uri.py"])
                 if sink.type == DataObject.Type.FILE:
                     names = glob.glob(str(sink.uri.path))
                     for name in names:
@@ -437,7 +436,7 @@ class Manifest:
 
     @classmethod
     def _convert_files(cls, files: List[Dict[str, str]]) -> List[Dict[str, "URI"]]:
-        from uri import URI
+        from ..uri import URI
 
         scheme_map = {
             "uuid": "simdb",
@@ -449,7 +448,7 @@ class Manifest:
         new_files = []
         for file in files:
             for k, v in file.items():
-                new_files.append({"uri": URI(scheme=scheme_map[k], path=v)})
+                new_files.append({"uri.py": URI(scheme=scheme_map[k], path=v)})
         return new_files
 
     def load(self, file_path: Path) -> None:

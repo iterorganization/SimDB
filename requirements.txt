@@ -13,7 +13,6 @@ Werkzeug==2.0.3
 distro==1.6.0
 setuptools>=59
 pytest-cov~=3.0
-uri~=2.0
 email-validator~=1.1
 flask-mail~=0.9.1
 semantic-version>=2.8

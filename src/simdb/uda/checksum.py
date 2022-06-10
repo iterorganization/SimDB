@@ -13,7 +13,7 @@ def checksum(uri: urilib.URI) -> str:
     source = query.get("source")
     if signal is None or source is None:
         raise ValueError(
-            "UDA object must have uri uda:///?signal=<SIGNAL>&source=<SOURCE>"
+            "UDA object must have uri.py uda:///?signal=<SIGNAL>&source=<SOURCE>"
         )
 
     client = pyuda.Client()

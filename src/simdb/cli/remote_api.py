@@ -437,14 +437,14 @@ class RemoteAPI:
             )
             print("Complete", file=out_stream, flush=True)
         elif file.type == DataObject.Type.IMAS:
-            from uri import URI
+            from ..uri import URI
             from ..imas.utils import copy_imas
 
             res = self.get("staging_dir/{}".format(sim_data["uuid"].hex))
             data = res.json()
-            out_uri = URI(file.uri)
+            out_uri = URI(str(file.uri))
             out_uri.query.remove("user")
-            out_uri["path"] = data["staging_dir"]
+            out_uri.path = data["staging_dir"]
             print(
                 "Uploading IDS {} to {} ... ".format(file.uri, out_uri),
                 file=out_stream,
