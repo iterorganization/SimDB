@@ -7,10 +7,13 @@ from typing import List, Union, Dict, Any, TYPE_CHECKING, Optional
 from getpass import getuser
 from backports.datetime_fromisoformat import MonkeyPatch
 
-if "sphinx" not in sys.modules:
-    # This seems to break sphinx doc generation!
-    from sqlalchemy.orm import relationship
-    from sqlalchemy import Table, ForeignKey, Column, types as sql_types
+from sqlalchemy.orm import relationship
+from sqlalchemy import Table, ForeignKey, Column, types as sql_types
+
+if "sphinx" in sys.modules:
+    # Patch to allow sphix doc generation
+    from sqlalchemy.sql.elements import ClauseElement
+    ClauseElement.__bool__ = lambda self: True
 
 from .utils import flatten_dict, unflatten_dict, checked_get
 from .types import UUID
