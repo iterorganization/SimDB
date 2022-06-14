@@ -1,8 +1,11 @@
 import ssl
+import sys
 
 from .app import create_app
 
-app = create_app()
+if "sphinx" not in sys.modules:
+    # Do not create app when making docs as configuration file may not exist.
+    app = create_app()
 
 
 def run(*, port=5000):
