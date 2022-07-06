@@ -4,6 +4,9 @@ from typing import Dict, Union, Optional
 
 
 class Query:
+    """
+    Class representing the URI query parameters.
+    """
     _args: Dict[str, Union[None, str]] = {}
 
     def __init__(self, query: str):
@@ -22,6 +25,9 @@ class Query:
 
 
 class URI:
+    """
+    Class for parsing and representing a URI.
+    """
     scheme: Optional[str]
     query: Optional[Query]
     path: Optional[Path]
@@ -29,6 +35,13 @@ class URI:
     fragment: Optional[str]
 
     def __init__(self, uri: Union[str, "URI", None]=None, *, scheme=None, path=None):
+        """
+        Create a URI object by either parsing a URI string or copying from an existing URI object.
+
+        :param uri: A URI string, another URI to copy from or None for an empty URI.
+        :param scheme: The URI scheme. Takes precedence over any scheme found from the URI argument.
+        :param path: The URI path. Takes precedence over any path found from the URI argument.
+        """
         if uri is not None:
             result: ParseResult = urlparse(str(uri))
             self.scheme = result.scheme
@@ -44,7 +57,12 @@ class URI:
             raise ValueError("No scheme specified")
 
     @property
-    def uri(self):
+    def uri(self) -> str:
+        """
+        Return the URI object as a URI string.
+
+        :return: A string representation of the URI.
+        """
         uri = f"{self.scheme}:"
         if self.authority:
             path = ""

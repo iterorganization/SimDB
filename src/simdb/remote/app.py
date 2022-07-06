@@ -1,3 +1,4 @@
+import os
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
@@ -9,7 +10,8 @@ from ..json import CustomEncoder, CustomDecoder
 
 def create_app(config: Config = None, testing=False, debug=False, profile=False):
     if config is None:
-        config = Config("app.cfg")
+        config_file = os.environ.get("SIMDB_CONFIG_FILE", default="app.cfg")
+        config = Config(config_file)
         config.load()
     flask_options = [(k.upper(), v) for (k, v) in config.get_section("flask", [])]
 

@@ -24,8 +24,8 @@ def get_authenticator(name: str):
     """
     Find an authenticator class for the given name and return an object of that class.
 
-    @param name: The name of the authenticator to return.
-    @return: An instance of an Authenticator subclass.
+    :param name: The name of the authenticator to return.
+    :return: An instance of an Authenticator subclass.
     """
     try:
         return object.__new__(Authenticators[name.lower()])

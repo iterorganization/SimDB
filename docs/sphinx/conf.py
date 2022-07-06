@@ -21,7 +21,7 @@ import simdb
 # -- Project information -----------------------------------------------------
 
 project = 'ITER Simulation Database'
-copyright = '2018, J. Hollocombe, D. Muir'
+copyright = '2022, ITER Organization'
 author = 'J. Hollocombe, D. Muir'
 
 # The short X.Y version

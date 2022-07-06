@@ -18,9 +18,9 @@ class Authenticator(abc.ABC):
         Additional authentication options can be defined in the configuration specific to the type of authentication
         being performed - i.e. connection URI for LDAP server.
 
-        @param username: The username provided by the user.
-        @param password: The password provided by the user.
-        @param config: The SimDB configuration object.
-        @return: A User object if the user successfully authenticates, otherwise None.
+        :param username: The username provided by the user.
+        :param password: The password provided by the user.
+        :param config: The SimDB configuration object.
+        :return: A User object if the user successfully authenticates, otherwise None.
         """
         pass

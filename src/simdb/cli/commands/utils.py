@@ -35,10 +35,10 @@ def print_simulations(
     then the simulation datetime and status are also printed and metadata_names allows additional
     columns to be specified.
 
-    @param simulations: The simulations to print.
-    @param verbose: Whether to print a more verbose table.
-    @param metadata_names: Additional metadata fields to print as extra columns.
-    @return: None
+    :param simulations: The simulations to print.
+    :param verbose: Whether to print a more verbose table.
+    :param metadata_names: Additional metadata fields to print as extra columns.
+    :return: None
     """
     if len(simulations) == 0:
         click.echo("No simulations found")
@@ -126,8 +126,8 @@ def print_trace(trace_data: dict) -> None:
     """
     Print the simulation trace data to the console.
 
-    @param trace_data: A dictionary containing the simulation trace data.
-    @return: None
+    :param trace_data: A dictionary containing the simulation trace data.
+    :return: None
     """
     if not trace_data:
         click.echo("No simulations trace found")

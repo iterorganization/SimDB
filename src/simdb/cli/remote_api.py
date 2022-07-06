@@ -163,14 +163,10 @@ class RemoteAPI:
         endpoints = self.get_endpoints()
         endpoint_versions = [endpoint.split('/')[-1] for endpoint in endpoints]
 
-        compat_versions = [
-            v for v in endpoint_versions
-            if COMPATIBILITY_SPEC.match(Version.coerce(v.replace('v', '')))
-        ]
-        if not compat_versions:
+        if not endpoint_versions:
             raise RemoteError("No compatible API version found on remote")
 
-        latest_version = max(compat_versions)
+        latest_version = max(endpoint_versions)
         if config.verbose:
             print(f'Selected latest endpoint version {latest_version}')
 
