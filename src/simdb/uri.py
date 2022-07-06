@@ -28,11 +28,6 @@ class URI:
     """
     Class for parsing and representing a URI.
     """
-    scheme: Optional[str]
-    query: Optional[Query]
-    path: Optional[Path]
-    authority: Optional[str]
-    fragment: Optional[str]
 
     def __init__(self, uri: Union[str, "URI", None]=None, *, scheme=None, path=None):
         """
@@ -42,6 +37,12 @@ class URI:
         :param scheme: The URI scheme. Takes precedence over any scheme found from the URI argument.
         :param path: The URI path. Takes precedence over any path found from the URI argument.
         """
+        self.scheme: Optional[str] = None
+        self.query: Optional[Query] = None
+        self.path: Optional[Path] = None
+        self.authority: Optional[str] = None
+        self.fragment: Optional[str] = None
+
         if uri is not None:
             result: ParseResult = urlparse(str(uri))
             self.scheme = result.scheme

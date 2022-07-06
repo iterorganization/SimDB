@@ -1,4 +1,4 @@
-from flask import request, current_app, jsonify
+from flask import request, current_app, jsonify, send_file
 from flask_restx import Resource, Namespace
 from typing import Optional, List, Tuple, Dict
 from pathlib import Path
@@ -231,7 +231,7 @@ class SimulationList(Resource):
                 path = secure_path(sim_file.uri.path, common_root, staging_dir)
                 if not path.exists():
                     raise ValueError("simulation file %s not uploaded" % sim_file.uuid)
-                if sim_file.uri.scheme.name == "file":
+                if sim_file.uri.scheme == "file":
                     sim_file.uri = URI(scheme="file", path=path)
 
             result = {
@@ -425,5 +425,33 @@ class SimulationTrace(Resource):
         try:
             data = _build_trace(sim_id)
             return jsonify(data)
+        except DatabaseError as err:
+            return error(str(err))
+
+
+@api.route("/simulation/package/<path:sim_id>")
+class SimulationPackage(Resource):
+    @requires_auth()
+    def get(self, sim_id: str, user: User):
+        try:
+            simulation = current_app.db.get_simulation(sim_id)
+
+            if not simulation:
+                return error("Simulation not found")
+
+            staging_dir = (
+                Path(current_app.simdb_config.get_option("server.upload_folder"))
+                / simulation.uuid.hex
+            )
+
+            import tarfile
+            from io import BytesIO
+            mem_file = BytesIO()
+            tar = tarfile.open(mode='w:gz', fileobj=mem_file)
+            tar.add(staging_dir, arcname=simulation.uuid.hex)
+            tar.close()
+
+            mem_file.seek(0)
+            return send_file(mem_file, mimetype="application/x-gzip")
         except DatabaseError as err:
             return error(str(err))
