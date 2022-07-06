@@ -36,7 +36,7 @@ def _to_uri(uri_str: str, base_path: Path) -> Tuple["DataObject.Type", "URI"]:
 
     uri = URI(uri_str)
     if uri.scheme is None:
-        raise ValueError("invalid uri.py: %s" % uri_str)
+        raise ValueError(f"invalid uri: %{uri_str}")
     if uri.scheme == "file":
         uri = URI(uri, path=_expand_path(uri.path, base_path))
         return DataObject.Type.FILE, uri
@@ -46,7 +46,7 @@ def _to_uri(uri_str: str, base_path: Path) -> Tuple["DataObject.Type", "URI"]:
         return DataObject.Type.UDA, uri
     if uri.scheme == "simdb":
         return DataObject.Type.UUID, uri
-    raise InvalidManifest("invalid uri.py " + uri_str)
+    raise InvalidManifest(f"invalid uri: %{uri_str}")
 
 
 class DataObject:
@@ -207,7 +207,7 @@ class DataObjectValidator(ListValuesValidator):
         if version == 0:
             expected_keys = ("uuid", "path", "imas", "uda")
         elif version > 0:
-            expected_keys = ("uri.py",)
+            expected_keys = ("uri",)
         else:
             raise KeyError("Invalid version.")
         super().__init__(version, section_name, expected_keys)
@@ -220,9 +220,9 @@ class DataObjectValidator(ListValuesValidator):
             return
         for value in values:
             if self.version > 0:
-                uri = URI(value["uri.py"])
+                uri = URI(value["uri"])
                 if uri.scheme not in ("uda", "file", "imas"):
-                    raise InvalidManifest(f"unknown uri.py scheme: {uri.scheme}")
+                    raise InvalidManifest(f"unknown uri scheme: {uri.scheme}")
 
 
 class InputsValidator(DataObjectValidator):
@@ -357,7 +357,7 @@ class Manifest:
         sources = []
         if isinstance(self._data, dict) and self._data["inputs"]:
             for i in self._data["inputs"]:
-                source = Source(self._path, i["uri.py"])
+                source = Source(self._path, i["uri"])
                 if source.type == DataObject.Type.FILE:
                     names = glob.glob(str(source.uri.path))
                     if not names:
@@ -373,7 +373,7 @@ class Manifest:
         sinks = []
         if isinstance(self._data, dict) and self._data["outputs"]:
             for i in self._data["outputs"]:
-                sink = Sink(self._path, i["uri.py"])
+                sink = Sink(self._path, i["uri"])
                 if sink.type == DataObject.Type.FILE:
                     names = glob.glob(str(sink.uri.path))
                     for name in names:
@@ -448,7 +448,7 @@ class Manifest:
         new_files = []
         for file in files:
             for k, v in file.items():
-                new_files.append({"uri.py": URI(scheme=scheme_map[k], path=v)})
+                new_files.append({"uri": URI(scheme=scheme_map[k], path=v)})
         return new_files
 
     def load(self, file_path: Path) -> None:

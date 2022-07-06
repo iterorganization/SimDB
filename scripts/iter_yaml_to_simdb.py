@@ -78,7 +78,7 @@ def main(args):
     out_data = {
         'version': 1,
         'alias': in_data['reference_name'].replace(' ', '-'),
-        'outputs': [{'uri.py': to_uri(**in_data['characteristics'])}],
+        'outputs': [{'uri': to_uri(**in_data['characteristics'])}],
         'inputs': [],
         'metadata': [{'values': get_meta(in_data)}],
     }

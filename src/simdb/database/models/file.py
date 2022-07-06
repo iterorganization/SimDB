@@ -54,7 +54,7 @@ class File(Base):
         for name in (
             "uuid",
             "usage",
-            "uri.py",
+            "uri",
             "checksum",
             "type",
             "purpose",
@@ -112,7 +112,7 @@ class File(Base):
     @classmethod
     def from_data(cls, data: Dict) -> "File":
         data_type = checked_get(data, "type", str)
-        uri = checked_get(data, "uri.py", str)
+        uri = checked_get(data, "uri", str)
         file = File(
             DataObject.Type[data_type], urilib.URI(uri), perform_integrity_check=False
         )
