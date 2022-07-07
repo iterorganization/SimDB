@@ -1,6 +1,6 @@
 import click
 from pathlib import Path
-from typing import Optional, List, Tuple, Any
+from typing import Optional, List, Tuple, Any, Type
 
 from . import pass_config
 from ...config.config import Config
@@ -165,14 +165,18 @@ def simulation_ingest(config: Config, manifest_file: str, alias: str):
     click.echo(simulation.uuid)
 
 
-class CustomCommand(click.Command):
-    def parse_args(self, ctx, args):
-        if len(args) == 1:
-            args.insert(0, "")
-        super().parse_args(ctx, args)
+def n_required_args_adaptor(n) -> Type[click.Command]:
+    class NRequiredArgs(click.Command):
+        NArgs = n
+
+        def parse_args(self, ctx, args):
+            if len(args) == self.NArgs:
+                args.insert(0, "")
+            super().parse_args(ctx, args)
+    return NRequiredArgs
 
 
-@simulation.command("push", cls=CustomCommand)
+@simulation.command("push", cls=n_required_args_adaptor(1))
 @pass_config
 @click.argument("remote", required=False)
 @click.argument("sim_id")
@@ -204,7 +208,7 @@ def simulation_push(
     click.echo(f"Successfully pushed simulation {simulation.uuid}")
 
 
-@simulation.command("pull", cls=CustomCommand)
+@simulation.command("pull", cls=n_required_args_adaptor(2))
 @pass_config
 @click.argument("remote", required=False)
 @click.argument("sim_id")
@@ -312,7 +316,7 @@ def simulation_query(config: Config, constraint: str, meta: List[str]):
     print_simulations(simulations, verbose=config.verbose, metadata_names=names)
 
 
-@simulation.command("validate", cls=CustomCommand)
+@simulation.command("validate", cls=n_required_args_adaptor(1))
 @pass_config
 @click.argument("remote", required=False)
 @click.argument("sim_id")
