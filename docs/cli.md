@@ -111,6 +111,8 @@ Commands:
   new       Create an empty simulation in the database which can be updated...
   push      Push the simulation with the given SIM_ID (UUID or alias) to
             the...
+  pull      Pull the simulation with the given SIM_ID (UUID or alias) from
+            the...
 
   query     Query the simulations.
   validate  Validate the ingested simulation with given SIM_ID (UUID or...
@@ -202,7 +204,7 @@ Options:
 ```
 
 ```text
-Usage: simdb sim pull [OPTIONS] [REMOTE] SIM_ID DIRECTORY
+Usage: simdb simulation pull [OPTIONS] [REMOTE] SIM_ID DIRECTORY
 
   Pull the simulation with the given SIM_ID (UUID or alias) from the REMOTE.
 
