@@ -202,6 +202,17 @@ Options:
 ```
 
 ```text
+Usage: simdb sim pull [OPTIONS] [REMOTE] SIM_ID DIRECTORY
+
+  Pull the simulation with the given SIM_ID (UUID or alias) from the REMOTE.
+
+Options:
+  --username TEXT  Username used to authenticate with the remote.
+  --password TEXT  Password used to authenticate with the remote.
+  --help           Show this message and exit.
+```
+
+```text
 Usage: simdb simulation query [OPTIONS] [CONSTRAINT]...
 
   Query the simulations.
