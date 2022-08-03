@@ -23,11 +23,15 @@ class InvalidAlias(InvalidManifest):
 
 
 def _expand_path(path: Path, base_path: Path) -> Path:
-    path = Path(os.path.expandvars(path))
+    os.environ['MANIFEST_DIR'] = str(base_path)
+    path = Path(os.path.expanduser(os.path.expandvars(path)))
     if not path.is_absolute():
         if not base_path.is_absolute():
             raise ValueError("base_path must be absolute")
         return base_path / path
+    else:
+        # Expand any /./ and /../ in absolute path
+        path = os.path.abspath(path)
     return path
 
 
@@ -35,8 +39,10 @@ def _to_uri(uri_str: str, base_path: Path) -> Tuple["DataObject.Type", "URI"]:
     from ..uri import URI
 
     uri = URI(uri_str)
+    if uri.authority:
+        raise ValueError(f"invalid uri: {uri_str} - path must be absolute")
     if uri.scheme is None:
-        raise ValueError(f"invalid uri: %{uri_str}")
+        raise ValueError(f"invalid uri: {uri_str} - no scheme provided")
     if uri.scheme == "file":
         uri = URI(uri, path=_expand_path(uri.path, base_path))
         return DataObject.Type.FILE, uri
@@ -46,7 +52,7 @@ def _to_uri(uri_str: str, base_path: Path) -> Tuple["DataObject.Type", "URI"]:
         return DataObject.Type.UDA, uri
     if uri.scheme == "simdb":
         return DataObject.Type.UUID, uri
-    raise InvalidManifest(f"invalid uri: %{uri_str}")
+    raise InvalidManifest(f"invalid uri: {uri_str}")
 
 
 class DataObject:
@@ -355,15 +361,16 @@ class Manifest:
     @property
     def inputs(self) -> Iterable[Source]:
         sources = []
+        base_path = self._path.absolute().parent
         if isinstance(self._data, dict) and self._data["inputs"]:
             for i in self._data["inputs"]:
-                source = Source(self._path, i["uri"])
+                source = Source(base_path, i["uri"])
                 if source.type == DataObject.Type.FILE:
                     names = glob.glob(str(source.uri.path))
                     if not names:
                         raise InvalidManifest(f"No files found matching path {source.uri.path}")
                     for name in names:
-                        sources.append(Source(self._path, "file://" + name))
+                        sources.append(Source(base_path, "file://" + name))
                 else:
                     sources.append(source)
         return sources
@@ -371,13 +378,14 @@ class Manifest:
     @property
     def outputs(self) -> Iterable[Sink]:
         sinks = []
+        base_path = self._path.absolute().parent
         if isinstance(self._data, dict) and self._data["outputs"]:
             for i in self._data["outputs"]:
-                sink = Sink(self._path, i["uri"])
+                sink = Sink(base_path, i["uri"])
                 if sink.type == DataObject.Type.FILE:
                     names = glob.glob(str(sink.uri.path))
                     for name in names:
-                        sinks.append(Sink(self._path, "file://" + name))
+                        sinks.append(Sink(base_path, "file://" + name))
                 else:
                     sinks.append(sink)
         return sinks
