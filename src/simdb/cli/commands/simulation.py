@@ -279,11 +279,15 @@ def simulation_query(config: Config, constraint: str, meta: List[str]):
         lt: - This checks for values less than the given quantity.
         le: - This checks for values less than or equal to the given quantity.
 
+    For the following modifiers, VALUE should not be provided.
+        exist: - This returns simulations where metadata with NAME exists, regardless of the value.
+
     \b
     Modifier examples:
         responsible_name=foo        performs exact match
         responsible_name=in:foo     matches all names containing foo
         pulse=gt:1000               matches all pulses > 1000
+        sequence=exist:             matches all simulations that have "sequence" metadata values
 
     \b
     Any string comparisons are done in a case-insensitive manner. If multiple constraints are provided then simulations

@@ -389,7 +389,7 @@ class Database:
     def _get_sim_ids(
         self, constraints: List[Tuple[str, str, "QueryType"]]
     ) -> Iterable[int]:
-        from ..query import query_compare
+        from ..query import query_compare, QueryType
 
         rows = self._get_metadata(constraints)
 
@@ -401,10 +401,11 @@ class Database:
             for name, value, query_type in constraints:
                 if name in ("alias", "uuid"):
                     sim_id_sets[(name, query_type)].add(row.simulation.id)
-                if row.metadata.element == name and query_compare(
-                    query_type, name, row.metadata.value, value
-                ):
-                    sim_id_sets[(name, query_type)].add(row.simulation.id)
+                if row.metadata.element == name:
+                    if query_type == QueryType.EXIST:
+                        sim_id_sets[(name, query_type)].add(row.simulation.id)
+                    elif query_compare(query_type, name, row.metadata.value, value):
+                        sim_id_sets[(name, query_type)].add(row.simulation.id)
 
         if sim_id_sets:
             return set.intersection(*sim_id_sets.values())

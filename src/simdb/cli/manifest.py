@@ -25,6 +25,7 @@ class InvalidAlias(InvalidManifest):
 def _expand_path(path: Path, base_path: Path) -> Path:
     os.environ['MANIFEST_DIR'] = str(base_path)
     path = Path(os.path.expanduser(os.path.expandvars(path)))
+    path = Path(str(path).replace('//', '/'))
     if not path.is_absolute():
         if not base_path.is_absolute():
             raise ValueError("base_path must be absolute")

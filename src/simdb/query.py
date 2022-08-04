@@ -15,6 +15,7 @@ class QueryType(Enum):
     GE = auto()
     LT = auto()
     LE = auto()
+    EXIST = auto()
 
 
 def parse_query_arg(value: str) -> (str, QueryType):
