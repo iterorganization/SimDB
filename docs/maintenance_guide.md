@@ -103,6 +103,19 @@ Options for the server configuration are:
  | server  | ldap_query_base     | yes      | Base point to start the query from, i.e. "dc=eufus,dc=eu".                                                                                                               |
  | server  | ldap_query_filter   | yes      | Query filter used to find the user - this can contain {username} which will be replaced by the username of the user attempting to authenticate, i.e. "(uid={username})". |
 
+### Caching options
+
+| Section | Option          | Required | Description                                                                                                                                                                                                             |
+|---------|-----------------|----------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+ | cache   | type            | no       | Type of caching to use. Options include NullCache (default), SimpleCache, FileSystemCache. SimpleCache is a memory based cache and FileSystemCache caches using files. Configuration options for these are given below. |
+ | cache   | dir             | no       | Directory to store cache. Used only for FileSystemCache.                                                                                                                                                                |
+ | cache   | default_timeout | no       | The default timeout that is used if no timeout is specified. Unit of time is seconds.                                                                                                                                   |
+ | cache   | threshold       | no       | The maximum number of items the cache will store before it starts deleting some. Used only for SimpleCache and FileSystemCache                                                                                          |
+
+More caching options can be found in the [Flask-Caching documentation](https://flask-caching.readthedocs.io/en/latest/#built-in-cache-backends). You can convert the caching options for the library to SimDB configuration by removing the `CACHE_` prefix and converting to lowercase, i.e. `CACHE_ARGS` becomes `args` in the `[cache]` section.
+
+### Example configuration files
+
 Example of app.cfg for SQLite:
 
 ```
