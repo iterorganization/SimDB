@@ -1,11 +1,14 @@
 import os
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from flask_compress import Compress
 
 from .apis import blueprints
 from .core.cache import cache
 from ..config import Config
 from ..json import CustomEncoder, CustomDecoder
+
+compress = Compress()
 
 
 def create_app(config: Config = None, testing=False, debug=False, profile=False):
@@ -25,6 +28,7 @@ def create_app(config: Config = None, testing=False, debug=False, profile=False)
     app.config.from_mapping(flask_options)
     app.simdb_config = config
     cache.init_app(app)
+    compress.init_app(app)
 
     @app.route("/")
     def index():

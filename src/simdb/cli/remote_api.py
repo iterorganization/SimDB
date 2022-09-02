@@ -200,6 +200,7 @@ class RemoteAPI:
 
         params = params if params is not None else {}
         headers = headers if headers is not None else {}
+        headers['Accept-encoding'] = 'gzip'
         if authenticate:
             res = requests.get(
                 self._api_url + url,
