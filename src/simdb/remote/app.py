@@ -13,7 +13,7 @@ def create_app(config: Config = None, testing=False, debug=False, profile=False)
         config_file = os.environ.get("SIMDB_CONFIG_FILE", default="app.cfg")
         config = Config(config_file)
         config.load()
-    flask_options = [(k.upper(), v) for (k, v) in config.get_section("flask", [])]
+    flask_options = [(k.upper(), v) for (k, v) in config.get_section("flask", {}).items()]
 
     app = Flask(__name__)
     CORS(app, resources={r"/*": {"origins": "*"}})

@@ -37,13 +37,11 @@ def register(api, version, namespaces):
         db_type = config.get_option("database.type")
 
         if db_type == "postgres":
-            host = config.get_option("database.host")
-            port = config.get_option("database.port")
+            args = config.get_section("database")
             setup_state.app.db = Database(
                 Database.DBMS.POSTGRESQL,
                 scopefunc=_app_ctx_stack.__ident_func__,
-                host=host,
-                port=port,
+                **args,
             )
         elif db_type == "sqlite":
             import appdirs

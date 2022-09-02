@@ -4,7 +4,7 @@ import io
 import appdirs
 import os
 from pathlib import Path
-from typing import Tuple, List, Optional, TextIO, Union
+from typing import Tuple, List, Optional, TextIO, Union, Dict
 
 
 class ConfigError(Exception):
@@ -203,11 +203,11 @@ class Config:
         return self._parser.sections()
 
     def get_section(
-        self, name: str, default: Optional[List[Tuple[str, str]]] = None
-    ) -> List[Tuple[str, Union[int, float, bool, str]]]:
+        self, name: str, default: Optional[Dict[str, str]] = None
+    ) -> Dict[str, Union[int, float, bool, str]]:
         try:
             items = self._parser.items(name)
-            return [(k, _convert(v)) for (k, v) in items]
+            return {k: _convert(v) for (k, v) in items}
         except (configparser.NoSectionError,):
             if default is not None:
                 return default

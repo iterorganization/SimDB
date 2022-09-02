@@ -79,8 +79,11 @@ class Database:
             SQLITE:
                 file: the sqlite database file path
             POSTGRESQL:
-                host: the host to connect to
-                port: the port to connect to
+                host:       the host to connect to
+                port:       the port to connect to
+                user:       the user to connect as [optional, defaults to simdb]
+                password:   the password for the user [optional, defaults to simdb]
+                db_name:    the database name [optional, defaults to simdb]
         """
         if db_type == Database.DBMS.SQLITE:
             if "file" not in kwargs:
@@ -100,8 +103,11 @@ class Database:
                 raise ValueError("Missing host parameter for POSTGRESQL database")
             if "port" not in kwargs:
                 raise ValueError("Missing port parameter for POSTGRESQL database")
+            kwargs.setdefault('user', 'simdb')
+            kwargs.setdefault('password', 'simdb')
+            kwargs.setdefault('db_name', 'simdb')
             self.engine: "sqlalchemy.engine.Engine" = create_engine(
-                "postgresql://simdb:simdb@%(host)s:%(port)d/simdb" % kwargs
+                "postgresql://%(user)s:%(password)s@%(host)s:%(port)d/%(db_name)s" % kwargs
             )
             with contextlib.closing(self.engine.connect()) as con:
                 res: sqlalchemy.engine.ResultProxy = con.execute(
