@@ -340,7 +340,7 @@ class Manifest:
     """
 
     _data: Union[Dict, List, None] = None
-    _path: str = ""
+    _path: Path = Path()
     _metadata: Dict = {}
 
     @property
