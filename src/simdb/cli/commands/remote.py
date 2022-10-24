@@ -37,6 +37,8 @@ class RemoteGroup(click.Group):
             cmds.append(a)
         if cmds and cmds[0] in self.commands:
             args.insert(args.index(cmds[0]), "")
+        if "--help" in args:
+            args = ["--help"]
         super().parse_args(ctx, args)
 
 
@@ -107,7 +109,7 @@ def remote(
     """
     if not ctx.invoked_subcommand and not any(is_empty(i) for i in ctx.params.values()):
         click.echo(ctx.get_help())
-    elif "--help" not in click.get_os_args():
+    else:
         if get_default:
             click.echo(config.default_remote)
         elif set_default:
@@ -138,6 +140,8 @@ def remote(
                 ctx.obj = RemoteAPI(name, username, password, config, use_token=False)
             else:
                 ctx.obj = RemoteAPI(name, username, password, config)
+        else:
+            click.echo(ctx.get_help())
 
 
 @remote.group(cls=RemoteSubGroup)
