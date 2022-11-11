@@ -7,7 +7,7 @@ class Query:
     """
     Class representing the URI query parameters.
     """
-    _args: Dict[str, Union[None, str]] = {}
+    _args: Dict[str, Optional[str]] = {}
 
     def __init__(self, query: str):
         for arg in query.split('&'):
@@ -22,6 +22,9 @@ class Query:
 
     def __bool__(self):
         return len(self._args) > 0
+
+    def get(self, name: str, default: Optional[str]=None) -> Optional[str]:
+        return self._args.get(name) or default
 
 
 class URI:
