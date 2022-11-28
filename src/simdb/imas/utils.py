@@ -73,12 +73,14 @@ def list_idss(entry) -> List[str]:
 
 
 def check_time(entry, ids) -> None:
+    from imas import imasdef
+
     homo_time = entry.partial_get(ids, "ids_properties/homogeneous_time")
-    if homo_time:
+    if homo_time == imasdef.IDS_TIME_MODE_HOMOGENEOUS:
         time = entry.partial_get(ids, "time")
         if time is None or time.size == 0:
             raise ValueError(
-                f"IDS {ids} has homogeneous_time flag set but invalid time entry."
+                f"IDS {ids} has homogeneous_time flag set to IDS_TIME_MODE_HOMOGENEOUS but invalid time entry."
             )
 
 
