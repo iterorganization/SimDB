@@ -342,7 +342,7 @@ def simulation_validate(
     api = RemoteAPI(remote, username, password, config)
 
     click.echo("downloading validation schema ... ", nl=False)
-    schema = api.get_validation_schema()
+    schema = api.get_validation_schemas()
     click.echo("done")
 
     click.echo("validating ... ", nl=False)
