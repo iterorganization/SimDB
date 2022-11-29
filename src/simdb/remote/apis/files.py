@@ -130,6 +130,7 @@ class FileList(Resource):
                         for f in itertools.chain(
                             simulation.inputs, simulation.outputs
                         )
+                        if f.type == DataObject.Type.FILE
                     ]
                     common_root = Path(os.path.commonpath(paths)) if len(paths) > 1 else None
                     _verify_file(simulation.uuid, sim_file, common_root)
@@ -152,7 +153,11 @@ class FileList(Resource):
                 return error("No files given")
 
             all_sim_files = list(itertools.chain(simulation.inputs, simulation.outputs))
-            paths = [f.uri.path for f in all_sim_files]
+            paths = [
+                f.uri.path
+                for f in all_sim_files
+                if f.type == DataObject.Type.FILE
+            ]
             common_root = Path(os.path.commonpath(paths)) if len(paths) > 1 else None
 
             sim_files = (
