@@ -14,9 +14,9 @@ from .no_authentication import NoopAuthenticator
 HEADER_NAME = "Authorization"
 
 Authenticators = {
-    ActiveDirectoryAuthenticator.Name.lower():  ActiveDirectoryAuthenticator,
-    LdapAuthenticator.Name.lower():             LdapAuthenticator,
-    NoopAuthenticator.Name.lower():             NoopAuthenticator,
+    ActiveDirectoryAuthenticator.Name.lower(): ActiveDirectoryAuthenticator,
+    LdapAuthenticator.Name.lower(): LdapAuthenticator,
+    NoopAuthenticator.Name.lower(): NoopAuthenticator,
 }
 
 
@@ -30,7 +30,9 @@ def get_authenticator(name: str):
     try:
         return object.__new__(Authenticators[name.lower()])
     except KeyError:
-        raise AuthenticationError(f'Unknown authenticator {name} selected in configuration')
+        raise AuthenticationError(
+            f"Unknown authenticator {name} selected in configuration"
+        )
 
 
 def authenticate():

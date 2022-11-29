@@ -48,7 +48,9 @@ def _validate(simulation, user) -> Dict:
     try:
         for schema in schemas:
             Validator(schema).validate(simulation)
-            _update_simulation_status(simulation, models_sim.Simulation.Status.PASSED, user)
+            _update_simulation_status(
+                simulation, models_sim.Simulation.Status.PASSED, user
+            )
             return {
                 "passed": True,
             }
@@ -446,8 +448,9 @@ class SimulationPackage(Resource):
 
             import tarfile
             from io import BytesIO
+
             mem_file = BytesIO()
-            tar = tarfile.open(mode='w:gz', fileobj=mem_file)
+            tar = tarfile.open(mode="w:gz", fileobj=mem_file)
             tar.add(staging_dir, arcname=simulation.uuid.hex)
             tar.close()
 

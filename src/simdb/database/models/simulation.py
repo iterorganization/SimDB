@@ -13,6 +13,7 @@ from sqlalchemy import Table, ForeignKey, Column, types as sql_types
 if "sphinx" in sys.modules:
     # Patch to allow sphix doc generation
     from sqlalchemy.sql.elements import ClauseElement
+
     ClauseElement.__bool__ = lambda self: True
 
 from .utils import flatten_dict, unflatten_dict, checked_get
@@ -160,7 +161,11 @@ class Simulation(Base):
             )
         result += "metadata:\n"
         for meta in self.meta:
-            if isinstance(meta.value, Iterable) and not isinstance(meta.value, np.ndarray) and "\n" in meta.value:
+            if (
+                isinstance(meta.value, Iterable)
+                and not isinstance(meta.value, np.ndarray)
+                and "\n" in meta.value
+            ):
                 first_line = True
                 for line in meta.value.split("\n"):
                     if first_line:

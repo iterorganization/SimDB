@@ -21,7 +21,9 @@ from ...uri import URI
 api = Namespace("files", path="/")
 
 
-def _verify_file(sim_uuid: uuid.UUID, sim_file: models.File, common_root: Optional[Path]):
+def _verify_file(
+    sim_uuid: uuid.UUID, sim_file: models.File, common_root: Optional[Path]
+):
     if current_app.simdb_config.get_option(
         "development.disable_checksum", default=False
     ):
@@ -127,12 +129,12 @@ class FileList(Resource):
                         )
                     paths = [
                         f.uri.path
-                        for f in itertools.chain(
-                            simulation.inputs, simulation.outputs
-                        )
+                        for f in itertools.chain(simulation.inputs, simulation.outputs)
                         if f.type == DataObject.Type.FILE
                     ]
-                    common_root = Path(os.path.commonpath(paths)) if len(paths) > 1 else None
+                    common_root = (
+                        Path(os.path.commonpath(paths)) if len(paths) > 1 else None
+                    )
                     _verify_file(simulation.uuid, sim_file, common_root)
                 return jsonify({})
 
@@ -154,9 +156,7 @@ class FileList(Resource):
 
             all_sim_files = list(itertools.chain(simulation.inputs, simulation.outputs))
             paths = [
-                f.uri.path
-                for f in all_sim_files
-                if f.type == DataObject.Type.FILE
+                f.uri.path for f in all_sim_files if f.type == DataObject.Type.FILE
             ]
             common_root = Path(os.path.commonpath(paths)) if len(paths) > 1 else None
 

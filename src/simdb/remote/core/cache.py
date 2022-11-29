@@ -5,7 +5,9 @@ from ...config import Config
 
 config = Config("app.cfg")
 config.load()
-cache_options = {"CACHE_" + k.upper(): v for (k, v) in config.get_section("cache", {}).items()}
+cache_options = {
+    "CACHE_" + k.upper(): v for (k, v) in config.get_section("cache", {}).items()
+}
 
 cache = Cache(config=cache_options)
 

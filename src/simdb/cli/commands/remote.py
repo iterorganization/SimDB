@@ -132,8 +132,10 @@ def remote(
             config.save()
         elif directory:
             api = RemoteAPI(name, username, password, config)
-            if api.version < Version('1.2.0'):
-                raise click.ClickException('Command not available with this remote. Requires API version >= 1.2.')
+            if api.version < Version("1.2.0"):
+                raise click.ClickException(
+                    "Command not available with this remote. Requires API version >= 1.2."
+                )
             print(api.get_directory())
         elif ctx.invoked_subcommand:
             if ctx.invoked_subcommand == "token" and click.get_os_args()[-1] == "new":
@@ -444,3 +446,12 @@ def admin_del_meta(api: RemoteAPI, sim_id: str, key: str):
     """Remove a metadata value for the given simulation."""
     api.delete_metadata(sim_id, key)
     click.echo(f"Deleted {key} for simulation {sim_id}")
+
+
+@admin.command("delete")
+@pass_api
+@click.argument("sim_id")
+def admin_del_sim(api: RemoteAPI, sim_id: str):
+    """Delete a simulation."""
+    api.delete_simulation(sim_id)
+    click.echo(f"Deleted simulation {sim_id}")

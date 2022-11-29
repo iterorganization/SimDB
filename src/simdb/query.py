@@ -6,6 +6,7 @@ class QueryType(Enum):
     """
     SimDB query comparator options.
     """
+
     NONE = auto()
     EQ = auto()
     NE = auto()

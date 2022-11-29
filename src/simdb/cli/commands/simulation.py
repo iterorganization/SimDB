@@ -71,9 +71,13 @@ class NameValueOption(click.Option):
 @pass_config
 @click.argument("sim_id")
 @click.option("-a", "--alias", help="New alias.", metavar="ALIAS")
-@click.option("--set-meta", help="Add new meta or update existing.", metavar="NAME=VALUE")
+@click.option(
+    "--set-meta", help="Add new meta or update existing.", metavar="NAME=VALUE"
+)
 @click.option("--del-meta", help="Delete metadata entry.", metavar="NAME")
-def simulation_modify(config: Config, sim_id: str, alias: str, set_meta: str, del_meta: str):
+def simulation_modify(
+    config: Config, sim_id: str, alias: str, set_meta: str, del_meta: str
+):
     """Modify the ingested simulation."""
     from ...database import get_local_db
 
@@ -85,7 +89,7 @@ def simulation_modify(config: Config, sim_id: str, alias: str, set_meta: str, de
         click.echo("alias updated")
     elif set_meta is not None:
         try:
-            name, value = set_meta.split('=')
+            name, value = set_meta.split("=")
         except ValueError:
             raise click.BadParameter("set-meta argument must be of form NAME=VALUE")
         db = get_local_db(config)
@@ -173,6 +177,7 @@ def n_required_args_adaptor(n) -> Type[click.Command]:
             if len(args) == self.NArgs:
                 args.insert(0, "")
             super().parse_args(ctx, args)
+
     return NRequiredArgs
 
 

@@ -23,7 +23,6 @@ from semantic_version import Version
 from .manifest import DataObject
 from ..config import Config
 from ..json import CustomDecoder, CustomEncoder
-from ..remote import COMPATIBILITY_SPEC
 
 
 if TYPE_CHECKING:
@@ -161,16 +160,16 @@ class RemoteAPI:
         self._api_url: str = f"{self._url}/"
 
         endpoints = self.get_endpoints()
-        endpoint_versions = [endpoint.split('/')[-1] for endpoint in endpoints]
+        endpoint_versions = [endpoint.split("/")[-1] for endpoint in endpoints]
 
         if not endpoint_versions:
             raise RemoteError("No compatible API version found on remote")
 
         latest_version = max(endpoint_versions)
         if config.verbose:
-            print(f'Selected latest endpoint version {latest_version}')
+            print(f"Selected latest endpoint version {latest_version}")
 
-        self._api_url += f'{latest_version}/'
+        self._api_url += f"{latest_version}/"
         self.version = Version.coerce(self.get_api_version())
 
     @property
@@ -200,7 +199,7 @@ class RemoteAPI:
 
         params = params if params is not None else {}
         headers = headers if headers is not None else {}
-        headers['Accept-encoding'] = 'gzip'
+        headers["Accept-encoding"] = "gzip"
         if authenticate:
             res = requests.get(
                 self._api_url + url,
@@ -416,7 +415,7 @@ class RemoteAPI:
                 num_chunks += 1
             if num_chunks == 0:
                 # empty file
-                self.send_chunk(0, b'', chunk_size, file, file_type, sim_data)
+                self.send_chunk(0, b"", chunk_size, file, file_type, sim_data)
             self.post(
                 "files",
                 data={
@@ -473,9 +472,7 @@ class RemoteAPI:
         data = {
             "simulation": sim_data,
             "file_type": file_type,
-            "chunk_info": {
-                file.uuid.hex: {"chunk_size": chunk_size, "chunk": i}
-            },
+            "chunk_info": {file.uuid.hex: {"chunk_size": chunk_size, "chunk": i}},
         }
         files: List[Tuple[str, Tuple[str, bytes, str]]] = [
             (
@@ -541,13 +538,17 @@ class RemoteAPI:
             sha1.update(bytes)
             if sha1.hexdigest() != file.checksum:
                 raise APIError(f"Checksum failed for file {file.uri.path}")
-            open(path, 'wb').write(bytes)
+            open(path, "wb").write(bytes)
             print("Complete", file=out_stream, flush=True)
         elif file.type == DataObject.Type.IMAS:
             raise APIError("IMAS file types not yet supported for download")
 
     @try_request
-    def pull_simulation(self, sim_id: str, directory: Path, out_stream: IO = sys.stdout) -> "Simulation":
+    def pull_simulation(
+        self, sim_id: str, directory: Path, out_stream: IO = sys.stdout
+    ) -> "Simulation":
+        from ..uri import URI
+
         """
         Pull the simulation from the remote server.
 
@@ -562,23 +563,18 @@ class RemoteAPI:
             raise RemoteError(f"Failed to find simulation: {sim_id}")
 
         common_root = os.path.commonpath(
-            [
-                f.uri.path
-                for f in itertools.chain(
-                    simulation.inputs, simulation.outputs
-                )
-            ]
+            [f.uri.path for f in itertools.chain(simulation.inputs, simulation.outputs)]
         )
 
         for file in simulation.inputs:
             path = directory / file.uri.path.relative_to(common_root)
             self._pull_file(file, path, out_stream)
-            file.uri = uri.URI(file.uri, path=path)
+            file.uri = URI(file.uri, path=path)
 
         for file in simulation.outputs:
             path = directory / file.uri.path.relative_to(common_root)
             self._pull_file(file, path, out_stream)
-            file.uri = uri.URI(file.uri, path=path)
+            file.uri = URI(file.uri, path=path)
 
         return simulation
 

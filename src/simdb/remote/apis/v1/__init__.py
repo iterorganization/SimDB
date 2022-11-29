@@ -44,8 +44,7 @@ class StagingDirectory(Resource):
             user_folder = False
 
         staging_dir = (
-                Path(current_app.simdb_config.get_option("server.upload_folder"))
-                / sim_hex
+            Path(current_app.simdb_config.get_option("server.upload_folder")) / sim_hex
         )
         os.makedirs(staging_dir, exist_ok=True)
         # This needs to be done for ITER at the moment but should be removed once we can actually push IMAS data

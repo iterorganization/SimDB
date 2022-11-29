@@ -31,7 +31,7 @@ api.add_namespace(sim_ns)
 namespaces = [metadata_ns, watcher_ns, file_ns, sim_ns]
 
 
-@api.route("/staging_dir", defaults={'sim_hex': None})
+@api.route("/staging_dir", defaults={"sim_hex": None})
 @api.route("/staging_dir/<string:sim_hex>")
 class StagingDirectory(Resource):
     @requires_auth()
@@ -45,11 +45,10 @@ class StagingDirectory(Resource):
             user_folder = False
 
         if not sim_hex:
-            return jsonify({'staging_dir': upload_dir})
+            return jsonify({"staging_dir": upload_dir})
 
         staging_dir = (
-                Path(current_app.simdb_config.get_option("server.upload_folder"))
-                / sim_hex
+            Path(current_app.simdb_config.get_option("server.upload_folder")) / sim_hex
         )
         os.makedirs(staging_dir, exist_ok=True)
         # This needs to be done for ITER at the moment but should be removed once we can actually push IMAS data

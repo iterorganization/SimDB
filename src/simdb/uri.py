@@ -7,13 +7,14 @@ class Query:
     """
     Class representing the URI query parameters.
     """
+
     _args: Dict[str, Optional[str]] = {}
 
     def __init__(self, query: str):
-        for arg in query.split('&'):
-            key, *value = arg.split('=')
+        for arg in query.split("&"):
+            key, *value = arg.split("=")
             if key and value:
-                self._args[key] = '='.join(value)
+                self._args[key] = "=".join(value)
             elif key:
                 self._args[key] = None
 
@@ -23,7 +24,7 @@ class Query:
     def __bool__(self):
         return len(self._args) > 0
 
-    def get(self, name: str, default: Optional[str]=None) -> Optional[str]:
+    def get(self, name: str, default: Optional[str] = None) -> Optional[str]:
         return self._args.get(name) or default
 
 
@@ -32,7 +33,7 @@ class URI:
     Class for parsing and representing a URI.
     """
 
-    def __init__(self, uri: Union[str, "URI", None]=None, *, scheme=None, path=None):
+    def __init__(self, uri: Union[str, "URI", None] = None, *, scheme=None, path=None):
         """
         Create a URI object by either parsing a URI string or copying from an existing URI object.
 
@@ -70,10 +71,10 @@ class URI:
         uri = f"{self.scheme}:"
         if self.authority:
             path = ""
-            if self.path and str(self.path) != '.':
+            if self.path and str(self.path) != ".":
                 path = self.path if self.path.is_absolute() else "/" / self.path
             uri += f"{self.authority}{path}"
-        elif self.path and str(self.path) != '.':
+        elif self.path and str(self.path) != ".":
             uri += f"{self.path}"
         if self.query:
             uri += f"?{self.query}"

@@ -19,9 +19,11 @@ class LdapAuthenticator(Authenticator):
     ldap_query_filter   - the filter to apply to the LDAP query (formatted to replace {username} with username)
     """
 
-    Name = 'LDAP'
+    Name = "LDAP"
 
-    def authenticate(self, username: str, password: str, config: Config) -> Optional[User]:
+    def authenticate(
+        self, username: str, password: str, config: Config
+    ) -> Optional[User]:
         import ldap
 
         ldap_host = config.get_option("server.ldap_server")
@@ -52,10 +54,14 @@ class LdapAuthenticator(Authenticator):
 
         ldap_query_base = config.get_option("server.ldap_query_base")
         ldap_query_filter = config.get_option("server.ldap_query_filter")
-        results = conn.search_s(ldap_query_base, ldap.SCOPE_SUBTREE, ldap_query_filter.format(username=username))
+        results = conn.search_s(
+            ldap_query_base,
+            ldap.SCOPE_SUBTREE,
+            ldap_query_filter.format(username=username),
+        )
         try:
-            user = results[0][1]['uid'][0].decode()
-            mail = results[0][1]['mail'][0].decode()
+            user = results[0][1]["uid"][0].decode()
+            mail = results[0][1]["mail"][0].decode()
             return User(user, mail)
         except Exception:
             raise AuthenticationError("failed to find user in LDAP query")

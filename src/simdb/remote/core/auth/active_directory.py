@@ -14,9 +14,11 @@ class ActiveDirectoryAuthenticator(Authenticator):
     ad_domain   -   the AD domain
     """
 
-    Name = 'ActiveDirectory'
+    Name = "ActiveDirectory"
 
-    def authenticate(self, username: str, password: str, config: Config) -> Optional[User]:
+    def authenticate(
+        self, username: str, password: str, config: Config
+    ) -> Optional[User]:
         from easyad import EasyAD
 
         try:

@@ -1,5 +1,4 @@
 import configparser
-import io
 
 import appdirs
 import os

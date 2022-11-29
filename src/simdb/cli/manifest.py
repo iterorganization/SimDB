@@ -1,9 +1,8 @@
-import sys
 import re
 import os
 import urllib
 from enum import Enum, auto
-from typing import Iterable, Union, Dict, List, Tuple, Optional, TextIO, TYPE_CHECKING
+from typing import Iterable, Union, Dict, List, Tuple, Optional, TextIO
 import glob
 from pathlib import Path
 
@@ -23,9 +22,9 @@ class InvalidAlias(InvalidManifest):
 
 
 def _expand_path(path: Path, base_path: Path) -> Path:
-    os.environ['MANIFEST_DIR'] = str(base_path)
+    os.environ["MANIFEST_DIR"] = str(base_path)
     path = Path(os.path.expanduser(os.path.expandvars(path)))
-    path = Path(str(path).replace('//', '/'))
+    path = Path(str(path).replace("//", "/"))
     if not path.is_absolute():
         if not base_path.is_absolute():
             raise ValueError("base_path must be absolute")
@@ -369,7 +368,9 @@ class Manifest:
                 if source.type == DataObject.Type.FILE:
                     names = glob.glob(str(source.uri.path))
                     if not names:
-                        raise InvalidManifest(f"No files found matching path {source.uri.path}")
+                        raise InvalidManifest(
+                            f"No files found matching path {source.uri.path}"
+                        )
                     for name in names:
                         sources.append(Source(base_path, "file://" + name))
                 else:
