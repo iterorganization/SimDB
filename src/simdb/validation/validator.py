@@ -2,7 +2,7 @@ import cerberus
 import yaml
 import re
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from ..database.models.simulation import Simulation
 from ..config import Config, ConfigError
@@ -135,7 +135,7 @@ class Validator:
 
     @classmethod
     def validation_schemas(
-        cls, config: Config, simulation: Simulation, path=None
+        cls, config: Config, simulation: Optional[Simulation], path=None
     ) -> List[Dict]:
         root = Path(
             config.get_option("validation.path", default=str(config.config_directory))
@@ -147,16 +147,24 @@ class Validator:
         else:
             paths.append(root / "validation-schema.yaml")
 
-        sections = [sec for sec in config.sections() if sec.startswith("validation")]
-        for section in sections:
-            m = cls._section_re.match(section)
-            if m:
-                key = m.group(1)
-                # value = m.group(2)
-                for _ in simulation.find_meta(key):
-                    pass
-            elif section != "validation":
-                raise ConfigError(f"Invalid validation section {section}")
+        # Look for config sections like [validation "key=value"] and see if the simulation has metadata matching the
+        # given test. If matching, adding the "path" in this section to the paths.
+        if simulation is not None:
+            sections = [sec for sec in config.sections() if sec.startswith("validation")]
+            for section in sections:
+                if section == "validation":
+                    continue
+                match = cls._section_re.match(section)
+                if match:
+                    key = match.group(1)
+                    value = match.group(2)
+                    for meta in simulation.find_meta(key):
+                        if meta.value == value:
+                            path = config.get_section(section).get("path", default="")
+                            if path:
+                                paths.append(path)
+                elif section != "validation":
+                    raise ConfigError(f"Invalid validation section {section}")
 
         schemas = []
         for path in paths:
