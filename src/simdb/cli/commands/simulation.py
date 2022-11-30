@@ -76,7 +76,11 @@ class NameValueOption(click.Option):
 )
 @click.option("--del-meta", help="Delete metadata entry.", metavar="NAME")
 def simulation_modify(
-    config: Config, sim_id: str, alias: str, set_meta: str, del_meta: str
+    config: Config,
+    sim_id: str,
+    alias: Optional[str],
+    set_meta: Optional[str],
+    del_meta: Optional[str],
 ):
     """Modify the ingested simulation."""
     from ...database import get_local_db

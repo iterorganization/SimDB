@@ -16,6 +16,8 @@ class Watcher(Resource):
     def post(self, sim_id: str, user: User):
         try:
             data = request.get_json()
+            if data is None:
+                return error("No data provided")
 
             username = data["user"] if "user" in data else user.name
             email = data["email"] if "email" in data else user.email

@@ -113,7 +113,7 @@ class RemoteAPI:
         username: Optional[str],
         password: Optional[str],
         config: Config,
-        use_token: bool = None,
+        use_token: Optional[bool] = None,
     ) -> None:
         self._config: Config = config
         if not remote:
@@ -302,7 +302,7 @@ class RemoteAPI:
 
     @try_request
     def list_simulations(
-        self, meta: List[str] = None, limit: int = 0
+        self, meta: Optional[List[str]] = None, limit: int = 0
     ) -> List["Simulation"]:
         from ..database.models import Simulation
 

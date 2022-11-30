@@ -150,7 +150,9 @@ class Validator:
         # Look for config sections like [validation "key=value"] and see if the simulation has metadata matching the
         # given test. If matching, adding the "path" in this section to the paths.
         if simulation is not None:
-            sections = [sec for sec in config.sections() if sec.startswith("validation")]
+            sections = [
+                sec for sec in config.sections() if sec.startswith("validation")
+            ]
             for section in sections:
                 if section == "validation":
                     continue

@@ -105,12 +105,15 @@ def open_imas(uri: URI, create=False) -> Any:
     if uri.scheme != "imas":
         raise ValueError("invalid imas URI scheme: %s" % uri.scheme)
 
-    shot = uri.query.get("shot") or uri.query.get("pulse")
-    run = uri.query.get("run")
-    user = uri.query.get("user", os.environ.get("USER", None))
-    path = uri.query.get("path")
-    machine = uri.query.get("database") or uri.query.get("machine")
-    version = uri.query.get("version", "3")
+    if uri.query is not None:
+        shot = uri.query.get("shot") or uri.query.get("pulse")
+        run = uri.query.get("run")
+        user = uri.query.get("user", os.environ.get("USER", None))
+        path = uri.query.get("path")
+        machine = uri.query.get("database") or uri.query.get("machine")
+        version = uri.query.get("version", "3")
+    else:
+        raise KeyError("No query found in IMAS URI " + str(uri))
 
     if shot is None:
         raise KeyError("IDS pulse or shot not provided in URI " + str(uri))

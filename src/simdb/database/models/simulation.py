@@ -228,7 +228,7 @@ class Simulation(Base):
         return simulation
 
     def data(
-        self, recurse: bool = False, meta_keys: List[str] = None
+        self, recurse: bool = False, meta_keys: Optional[List[str]] = None
     ) -> Dict[str, Union[str, List]]:
         data = dict(
             uuid=self.uuid,

@@ -1,4 +1,4 @@
-from typing import List, Dict, Tuple, TYPE_CHECKING, TypeVar
+from typing import List, Dict, Tuple, TYPE_CHECKING, TypeVar, Optional
 from collections import OrderedDict
 import click
 
@@ -26,7 +26,7 @@ def _flatten_dict(values: Dict) -> List[Tuple[str, str]]:
 def print_simulations(
     simulations: List["Simulation"],
     verbose: bool = False,
-    metadata_names: List[str] = None,
+    metadata_names: Optional[List[str]] = None,
 ) -> None:
     """
     Print a table of simulations to the console.
@@ -45,7 +45,7 @@ def print_simulations(
         return
 
     lines = []
-    column_widths = OrderedDict(UUID=4, alias=5)
+    column_widths: Dict[str, int] = OrderedDict(UUID=4, alias=5)
     if verbose:
         column_widths["datetime"] = 8
         column_widths["status"] = 6
@@ -61,9 +61,9 @@ def print_simulations(
             line.append(sim.datetime)
             line.append(sim.status)
             column_widths["datetime"] = max(
-                column_widths["datetime"], len(sim.datetime)
+                column_widths["datetime"], len(str(sim.datetime))
             )
-            column_widths["status"] = max(column_widths["status"], len(sim.status))
+            column_widths["status"] = max(column_widths["status"], len(str(sim.status)))
 
         if metadata_names:
             for name in metadata_names:

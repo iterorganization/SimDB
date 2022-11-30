@@ -2,6 +2,7 @@ import os
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_compress import Compress
+from typing import Optional
 
 from .apis import blueprints
 from .core.cache import cache
@@ -11,7 +12,9 @@ from ..json import CustomEncoder, CustomDecoder
 compress = Compress()
 
 
-def create_app(config: Config = None, testing=False, debug=False, profile=False):
+def create_app(
+    config: Optional[Config] = None, testing=False, debug=False, profile=False
+):
     if config is None:
         config_file = os.environ.get("SIMDB_CONFIG_FILE", default="app.cfg")
         config = Config(config_file)

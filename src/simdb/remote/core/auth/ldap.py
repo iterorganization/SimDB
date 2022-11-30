@@ -53,7 +53,7 @@ class LdapAuthenticator(Authenticator):
             raise AuthenticationError("failed to bind to LDAP server for user query")
 
         ldap_query_base = config.get_option("server.ldap_query_base")
-        ldap_query_filter = config.get_option("server.ldap_query_filter")
+        ldap_query_filter = str(config.get_option("server.ldap_query_filter"))
         results = conn.search_s(
             ldap_query_base,
             ldap.SCOPE_SUBTREE,

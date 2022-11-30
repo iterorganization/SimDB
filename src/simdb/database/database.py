@@ -25,7 +25,7 @@ if TYPING:
     from ..query import QueryType
 
     class Session(scoped_session):
-        def query(self, obj: Base) -> Any:
+        def query(self, obj: Base, *args, **kwargs) -> Any:
             pass
 
         def commit(self):
@@ -34,7 +34,7 @@ if TYPING:
         def delete(self, obj: Base):
             pass
 
-        def add(self, obj: Base):
+        def add(self, obj: Base, *args, **kwargs):
             pass
 
         def rollback(self):

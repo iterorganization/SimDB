@@ -11,6 +11,14 @@ from .active_directory import ActiveDirectoryAuthenticator
 from .ldap import LdapAuthenticator
 from .no_authentication import NoopAuthenticator
 
+__all__ = [
+    User,
+    AuthenticationError,
+    ActiveDirectoryAuthenticator,
+    LdapAuthenticator,
+    NoopAuthenticator,
+]
+
 HEADER_NAME = "Authorization"
 
 Authenticators = {

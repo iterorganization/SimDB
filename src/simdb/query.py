@@ -121,3 +121,5 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str) ->
             return value <= compare
     else:
         raise ValueError(f"Unknown query type {query_type}.")
+
+    return False
