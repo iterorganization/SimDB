@@ -151,7 +151,7 @@ class SimulationList(Resource):
     @api.response(200, "Success")
     @api.response(401, "Unauthorized")
     @requires_auth()
-    @cache.cached(key_prefix=cache_key)
+    # @cache.cached(key_prefix=cache_key)
     def get(self, user: User):
         from ....query import QueryType, parse_query_arg
 
