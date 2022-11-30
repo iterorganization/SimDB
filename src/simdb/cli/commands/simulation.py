@@ -347,11 +347,12 @@ def simulation_validate(
     api = RemoteAPI(remote, username, password, config)
 
     click.echo("downloading validation schema ... ", nl=False)
-    schema = api.get_validation_schemas()
+    schemas = api.get_validation_schemas()
     click.echo("done")
 
     click.echo("validating ... ", nl=False)
-    Validator(schema).validate(simulation)
+    for schema in schemas:
+        Validator(schema).validate(simulation)
 
     for file in chain(simulation.inputs, simulation.outputs):
         if file.type == DataObject.Type.UDA:

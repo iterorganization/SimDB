@@ -296,7 +296,7 @@ class RemoteAPI:
         return data["api_version"]
 
     @try_request
-    def get_validation_schemas(self) -> Dict:
+    def get_validation_schemas(self) -> List[Dict]:
         res = self.get("validation_schema")
         return res.json()
 
