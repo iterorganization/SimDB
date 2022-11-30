@@ -27,6 +27,9 @@ class Query:
     def get(self, name: str, default: Optional[str] = None) -> Optional[str]:
         return self._args.get(name) or default
 
+    def remove(self, name: str) -> None:
+        del self._args[name]
+
 
 class URI:
     """

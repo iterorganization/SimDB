@@ -359,20 +359,7 @@ def simulation_validate(
         Validator(schema).validate(simulation)
 
     for file in chain(simulation.inputs, simulation.outputs):
-        if file.type == DataObject.Type.UDA:
-            from ...uda.checksum import checksum as uda_checksum
-
-            checksum = uda_checksum(file.uri)
-        elif file.type == DataObject.Type.IMAS:
-            from ...imas.checksum import checksum as imas_checksum
-
-            checksum = imas_checksum(file.uri)
-        elif file.type == DataObject.Type.FILE:
-            from ...checksum import sha1_checksum
-
-            checksum = sha1_checksum(file.uri)
-        else:
-            raise ValidationError("invalid checksum for file %s" % file.uri)
+        checksum = file.generate_checksum(config)
 
         if checksum != file.checksum:
             raise ValidationError("Checksum doest not match for file " + str(file))
