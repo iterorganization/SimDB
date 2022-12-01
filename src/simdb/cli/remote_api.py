@@ -437,10 +437,11 @@ class RemoteAPI:
             res = self.get("staging_dir/{}".format(sim_data["uuid"].hex))
             data = res.json()
             out_uri = URI(str(file.uri))
-            out_uri.query.remove("user")
-            out_uri.path = data["staging_dir"]
+            if "user" in out_uri.query:
+                out_uri.query.remove("user")
+            out_uri.query.set("path", data["staging_dir"])
             print(
-                "Uploading IDS {} to {} ... ".format(file.uri, out_uri),
+                "Uploading IDS {}\n           to {} ... ".format(file.uri, out_uri),
                 file=out_stream,
                 end="",
                 flush=True,

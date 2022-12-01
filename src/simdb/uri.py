@@ -24,8 +24,14 @@ class Query:
     def __bool__(self):
         return len(self._args) > 0
 
+    def __contains__(self, item) -> bool:
+        return item in self._args
+
     def get(self, name: str, default: Optional[str] = None) -> Optional[str]:
-        return self._args.get(name) or default
+        return self._args.get(name, default)
+
+    def set(self, name: str, value: str) -> None:
+        self._args[name] = value
 
     def remove(self, name: str) -> None:
         del self._args[name]
