@@ -1,19 +1,21 @@
-from flask import request, current_app, jsonify
-from flask_restx import Resource, Namespace
-from typing import Optional, List, Tuple, Dict
-from pathlib import Path
 import datetime
-import os
 import itertools
+import os
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
+from flask import current_app, jsonify, request
+from flask_restx import Namespace, Resource
+
+from ....database import DatabaseError
+from ....database.models import metadata as models_meta
+from ....database.models import simulation as models_sim
+from ....uri import URI
+from ...core.alias import create_alias_dir
 from ...core.auth import User, requires_auth
-from ...core.cache import cache, clear_cache, cache_key
+from ...core.cache import cache, cache_key, clear_cache
 from ...core.errors import error
 from ...core.path import secure_path
-from ....database import DatabaseError
-from ....database.models import simulation as models_sim
-from ....database.models import metadata as models_meta
-from ....uri import URI
 
 api = Namespace("simulations", path="/")
 
@@ -250,6 +252,11 @@ class SimulationList(Resource):
 
             current_app.db.insert_simulation(simulation)
             clear_cache()
+
+            try:
+                create_alias_dir(simulation)
+            except:
+                pass
 
             return jsonify(result)
         except (DatabaseError, ValueError) as err:
