@@ -1,5 +1,6 @@
-from uri import URI
 from pathlib import Path
+
+from .uri import URI
 
 
 def sha1_checksum(uri: URI) -> str:
@@ -15,9 +16,9 @@ def sha1_checksum(uri: URI) -> str:
     import hashlib
 
     if not path.exists():
-        raise ValueError('File does not exist')
+        raise ValueError("File does not exist")
     if not path.is_file():
-        raise ValueError('File appears to be a directory')
+        raise ValueError("File appears to be a directory")
 
     sha1 = hashlib.sha1()
     with open(path, "rb") as file:

@@ -2,4 +2,4 @@
 
 from simdb.remote.wsgi import run
 
-run()
+run(port=5000)

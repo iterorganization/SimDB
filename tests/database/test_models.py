@@ -1,7 +1,7 @@
 from unittest import mock
-from uri import URI
 from simdb.database.models import Simulation
 from simdb.cli.manifest import DataObject
+from simdb.uri import URI
 from pathlib import Path
 
 

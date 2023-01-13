@@ -165,6 +165,16 @@ simdb simulation push <SIM_ID>
 
 This will upload all the metadata associated with your simulation to the remote server as well as taking copies of all input and output data specified. The exact method of copying the file will depend on the type of the data URI, i.e. for `file` URIs the data is copied using an HTTP data transfer, whereas for `imas` URIs the IMAS API is used to copy the data.
 
+## Pulling simulations from a remote
+
+The mirror to pushing simulations is the `pull` command. This command will pull the simulation metadata from the SimDB remote to your local SimDB database and download the simulation data into a directory of your choosing. Once you have pulled a simulation it will appear in any local SimDB queries you perform. The comman looks as follows:
+
+```bash
+simdb simulation pull [REMOTE] <SIM_ID> <DIRECTORY>
+```
+
+The `REMOTE` argument is optional and if omitted will use your specified default remote. The `SIM_ID` is the alias or uuid of the simulation on the remote you wish to pull, and the `DIRECTORY` argument specifies the location you wish to download the data to.
+
 ## Querying remotes
 
 You can query all the simulations available from a remote SimDB server using:

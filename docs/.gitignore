@@ -1,2 +1,4 @@
 _build
 /sphinx/*.rst
+/sphinx/*.md
+/sphinx/*.svg

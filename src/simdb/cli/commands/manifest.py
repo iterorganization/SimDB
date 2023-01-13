@@ -3,17 +3,15 @@ import click
 
 @click.group()
 def manifest():
-    """Create/check manifest file.
-    """
+    """Create/check manifest file."""
     pass
 
 
 @manifest.command()
 @click.argument("file_name", type=click.Path(exists=True))
 def check(file_name):
-    """Check manifest FILE_NAME.
-    """
-    from ..manifest import (Manifest, InvalidManifest)
+    """Check manifest FILE_NAME."""
+    from ..manifest import Manifest, InvalidManifest
 
     manifest = Manifest()
     manifest.load(file_name)
@@ -27,8 +25,7 @@ def check(file_name):
 @manifest.command()
 @click.argument("manifest_file", type=click.File("w"))
 def create(manifest_file):
-    """Create a new MANIFEST_FILE.
-    """
+    """Create a new MANIFEST_FILE."""
     from ..manifest import Manifest
     from pathlib import Path
 

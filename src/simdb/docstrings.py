@@ -1,7 +1,8 @@
 def inherit_docstrings(cls):
-    """Inherit method docstrings from parent classes.
+    """
+    Inherit method docstrings from parent classes.
 
-    Class decorator which finds goes through all the methods defined on this class and if that method does not
+    Class decorator which goes through all the methods defined on this class and if that method does not
     already have a docstring then looks for one on the same method in the parent class hierarchy.
 
     :param cls: The class to decorate

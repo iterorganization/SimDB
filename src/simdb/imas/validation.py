@@ -9,7 +9,7 @@ from ..validation import TestParameters
 
 
 def ignore_entity(name):
-    ignore_list = ('base_path', 'idx')
+    ignore_list = ("base_path", "idx")
     return name in ignore_list
 
 
@@ -72,7 +72,9 @@ class TestReport:
         self.failures = defaultdict(lambda: [])
 
 
-def float_scalar_validation_tests(device: str, scenario: str, path: str, obj: Any, test_report: TestReport) -> None:
+def float_scalar_validation_tests(
+    device: str, scenario: str, path: str, obj: Any, test_report: TestReport
+) -> None:
     db = get_local_db()
 
     params = db.get_validation_parameters(device, scenario, path)
@@ -105,7 +107,9 @@ def float_scalar_validation_tests(device: str, scenario: str, path: str, obj: An
     return
 
 
-def float_scalar_save_validation_parameters(device: str, scenario: str, path: str, obj: Any) -> None:
+def float_scalar_save_validation_parameters(
+    device: str, scenario: str, path: str, obj: Any
+) -> None:
     db = get_local_db()
 
     test_params = TestParameters(False, (0, 0), (0, 0), (0, 0), (0, 0), [])
@@ -118,13 +122,18 @@ def float_scalar_save_validation_parameters(device: str, scenario: str, path: st
     else:
         test_params.mandatory = False
 
-    db.insert_validation_parameters(test_params.to_db_parameters(device, scenario, path))
+    db.insert_validation_parameters(
+        test_params.to_db_parameters(device, scenario, path)
+    )
 
     return
 
 
-def float_array_validation_tests(device: str, scenario: str, path: str, obj: Any, test_report: TestReport) -> None:
+def float_array_validation_tests(
+    device: str, scenario: str, path: str, obj: Any, test_report: TestReport
+) -> None:
     import numpy as np
+
     db = get_local_db()
 
     params = db.get_validation_parameters(device, scenario, path)
@@ -175,8 +184,11 @@ def float_array_validation_tests(device: str, scenario: str, path: str, obj: Any
     return
 
 
-def float_array_save_validation_parameters(device: str, scenario: str, path: str, obj: Any) -> None:
+def float_array_save_validation_parameters(
+    device: str, scenario: str, path: str, obj: Any
+) -> None:
     import numpy as np
+
     db = get_local_db()
 
     test_params = TestParameters(False, (0, 0), (0, 0), (0, 0), (0, 0), [])
@@ -197,12 +209,16 @@ def float_array_save_validation_parameters(device: str, scenario: str, path: str
         test_params.mandatory = False
         test_params.mandatory_tests = ["mandatory"]
 
-    db.insert_validation_parameters(test_params.to_db_parameters(device, scenario, path))
+    db.insert_validation_parameters(
+        test_params.to_db_parameters(device, scenario, path)
+    )
 
     return
 
 
-def string_scalar_validation_tests(device: str, scenario: str, path: str, obj: Any, test_report: TestReport) -> None:
+def string_scalar_validation_tests(
+    device: str, scenario: str, path: str, obj: Any, test_report: TestReport
+) -> None:
     db = get_local_db()
 
     params = db.get_validation_parameters(device, scenario, path)
@@ -229,7 +245,9 @@ def string_scalar_validation_tests(device: str, scenario: str, path: str, obj: A
     return
 
 
-def string_scalar_save_validation_parameters(device: str, scenario: str, path: str, obj: Any) -> None:
+def string_scalar_save_validation_parameters(
+    device: str, scenario: str, path: str, obj: Any
+) -> None:
     db = get_local_db()
 
     test_params = TestParameters(False, (0, 0), (0, 0), (0, 0), (0, 0), [])
@@ -239,16 +257,22 @@ def string_scalar_save_validation_parameters(device: str, scenario: str, path: s
     else:
         test_params.mandatory = False
 
-    db.insert_validation_parameters(test_params.to_db_parameters(device, scenario, path))
+    db.insert_validation_parameters(
+        test_params.to_db_parameters(device, scenario, path)
+    )
 
     return
 
 
-def int_scalar_validation_tests(device: str, scenario: str, path: str, obj: Any, test_report: TestReport) -> None:
+def int_scalar_validation_tests(
+    device: str, scenario: str, path: str, obj: Any, test_report: TestReport
+) -> None:
     return
 
 
-def int_array_validation_tests(device: str, scenario: str, path: str, obj: Any, test_report: TestReport) -> None:
+def int_array_validation_tests(
+    device: str, scenario: str, path: str, obj: Any, test_report: TestReport
+) -> None:
     return
 
 
@@ -257,32 +281,41 @@ class RunMode(Enum):
     SAVE = auto()
 
 
-def drilldown(device: str, scenario: str, parent_path: str, obj_name: str, obj: Any, test_report: TestReport,
-              mode: RunMode, out: IO):
+def drilldown(
+    device: str,
+    scenario: str,
+    parent_path: str,
+    obj_name: str,
+    obj: Any,
+    test_report: TestReport,
+    mode: RunMode,
+    out: IO,
+):
     import numpy as np
+
     if ignore_entity(obj_name):
         return
 
-    if obj_name.startswith('array['):  # strip out the array index value
-        path = parent_path + '/' + obj_name[6:]
+    if obj_name.startswith("array["):  # strip out the array index value
+        path = parent_path + "/" + obj_name[6:]
     else:
-        path = parent_path + '/' + obj_name
+        path = parent_path + "/" + obj_name
 
-    print('========', file=out)
-    print('DRILLDOWN:' + path, file=out)
+    print("========", file=out)
+    print("DRILLDOWN:" + path, file=out)
 
     dtype = type(obj).__name__
-    print('Type: [' + str(dtype) + '][' + str(type(obj)) + ']', file=out)
+    print("Type: [" + str(dtype) + "][" + str(type(obj)) + "]", file=out)
 
-    if dtype.startswith('int'):
-        print('Integer Object: ' + obj_name + ' = ' + str(obj), file=out)
+    if dtype.startswith("int"):
+        print("Integer Object: " + obj_name + " = " + str(obj), file=out)
         int_scalar_validation_tests(device, scenario, path, obj, test_report)
         return
 
-    if dtype.startswith('float'):
-        print('Float Object: ' + obj_name + ' = ' + str(obj), file=out)
+    if dtype.startswith("float"):
+        print("Float Object: " + obj_name + " = " + str(obj), file=out)
         if not not is_missing(obj):
-            print('Missing Value!', file=out)
+            print("Missing Value!", file=out)
         if mode == RunMode.TEST:
             float_scalar_validation_tests(device, scenario, path, obj, test_report)
         elif mode == RunMode.SAVE:
@@ -291,8 +324,8 @@ def drilldown(device: str, scenario: str, parent_path: str, obj_name: str, obj: 
             raise Exception("Uknown mode " + mode.name)
         return
 
-    if dtype.startswith('str'):
-        print('String Object: ' + obj_name + ' = ' + str(obj), file=out)
+    if dtype.startswith("str"):
+        print("String Object: " + obj_name + " = " + str(obj), file=out)
         if mode == RunMode.TEST:
             string_scalar_validation_tests(device, scenario, path, obj, test_report)
         elif mode == RunMode.SAVE:
@@ -301,85 +334,103 @@ def drilldown(device: str, scenario: str, parent_path: str, obj_name: str, obj: 
             raise Exception("Uknown mode " + mode.name)
         return
 
-    if dtype == 'ndarray':
+    if dtype == "ndarray":
         rank = obj.ndim
         shape = obj.shape
         size = obj.size
 
-        if dtype.startswith('int') or dtype.startswith('float'):
-            print('Atomic NUMPY Array Object: ' + obj_name, file=out)
-            print('Rank = ' + str(rank), file=out)  # Rank
-            print('Shape = ' + str(shape), file=out)  # Shape
-            print('Size = ' + str(size), file=out)  # Number of elements
-            print('Type = ' + str(dtype), file=out)  # Type
+        if dtype.startswith("int") or dtype.startswith("float"):
+            print("Atomic NUMPY Array Object: " + obj_name, file=out)
+            print("Rank = " + str(rank), file=out)  # Rank
+            print("Shape = " + str(shape), file=out)  # Shape
+            print("Size = " + str(size), file=out)  # Number of elements
+            print("Type = " + str(dtype), file=out)  # Type
 
             if size > 0:
                 print(str(obj))
-                print('Maximum Value: ' + str(np.max(obj)), file=out)
-                print('Minimum Value: ' + str(np.min(obj)), file=out)
-                print('Sum Value: ' + str(np.sum(obj)), file=out)
-                print('Std Value: ' + str(np.std(obj)), file=out)
-                print('Var Value: ' + str(np.var(obj)), file=out)
-                print('Mean Value: ' + str(np.mean(obj)), file=out)
-                if dtype[0:5] == 'float':
+                print("Maximum Value: " + str(np.max(obj)), file=out)
+                print("Minimum Value: " + str(np.min(obj)), file=out)
+                print("Sum Value: " + str(np.sum(obj)), file=out)
+                print("Std Value: " + str(np.std(obj)), file=out)
+                print("Var Value: " + str(np.var(obj)), file=out)
+                print("Mean Value: " + str(np.mean(obj)), file=out)
+                if dtype[0:5] == "float":
                     missing = False
                     for item in obj:
                         missing = is_missing(item)
                         if missing:
                             break
                     if missing:
-                        print('Missing Data in Float Array detected!', file=out)
+                        print("Missing Data in Float Array detected!", file=out)
 
                     if mode == RunMode.TEST:
-                        float_array_validation_tests(device, scenario, path, obj, test_report)
+                        float_array_validation_tests(
+                            device, scenario, path, obj, test_report
+                        )
                     elif mode == RunMode.SAVE:
-                        float_array_save_validation_parameters(device, scenario, path, obj)
+                        float_array_save_validation_parameters(
+                            device, scenario, path, obj
+                        )
                     else:
                         raise Exception("Uknown mode " + mode.name)
                 else:
                     if mode == RunMode.TEST:
-                        int_array_validation_tests(device, scenario, path, obj, test_report)
+                        int_array_validation_tests(
+                            device, scenario, path, obj, test_report
+                        )
                     elif mode == RunMode.SAVE:
                         pass
                     else:
                         raise Exception("Uknown mode " + mode.name)
             return
 
-        print('Array of NUMPY Structured Type: (' + obj_name + ') ' + str(dtype), file=out)
+        print(
+            "Array of NUMPY Structured Type: (" + obj_name + ") " + str(dtype), file=out
+        )
         return
 
-    print('Other Structured Type: (' + obj_name + ')  ' + str(dtype), file=out)
+    print("Other Structured Type: (" + obj_name + ")  " + str(dtype), file=out)
 
     s_mems = remove_methods(obj)
 
-    print('Structure Data Entity Count: ' + str(len(s_mems)), file=out)
+    print("Structure Data Entity Count: " + str(len(s_mems)), file=out)
     print(str(s_mems), file=out)
 
-    base_path = ''
+    base_path = ""
     for mem in s_mems:
-        if mem == 'base_path':
-            base_path = getattr(obj, 'base_path')  # the name of the parent object for drill down
-            print('Base Path = ' + base_path, file=out)
+        if mem == "base_path":
+            base_path = getattr(
+                obj, "base_path"
+            )  # the name of the parent object for drill down
+            print("Base Path = " + base_path, file=out)
             break
 
-    if base_path == '':
-        print('ERROR: BASE PATH NOT FOUND!', file=out)
+    if base_path == "":
+        print("ERROR: BASE PATH NOT FOUND!", file=out)
 
-    print('Parent = ' + parent_path + '   Base_Path = ' + base_path + '  Name = ' + obj_name, file=out)
+    print(
+        "Parent = "
+        + parent_path
+        + "   Base_Path = "
+        + base_path
+        + "  Name = "
+        + obj_name,
+        file=out,
+    )
 
-    if '__structure' in dtype or '__structArrayElement' in dtype or 'instance' in dtype:
-        print('Structure Object', file=out)
+    if "__structure" in dtype or "__structArrayElement" in dtype or "instance" in dtype:
+        print("Structure Object", file=out)
         for name in s_mems:
             child = getattr(obj, name)
             print(name, file=out)
             print(type(child).__name__, file=out)
             drilldown(device, scenario, path, name, child, test_report, mode, out)
 
-    elif '__structArray' in dtype:
-        print('Structure Array Object', file=out)
+    elif "__structArray" in dtype:
+        print("Structure Array Object", file=out)
 
         obj_count = len(obj)
-        print('Array Count: ' + str(obj_count), file=out)
+        print("Array Count: " + str(obj_count), file=out)
 
         for name in s_mems:
             children = getattr(obj, name)
@@ -387,23 +438,27 @@ def drilldown(device: str, scenario: str, parent_path: str, obj_name: str, obj: 
             print(type(children).__name__, file=out)
 
             ctype = type(children).__name__
-            if ctype in ['str', 'int', 'float', 'int32', 'float32', 'int64', 'float64']:
+            if ctype in ["str", "int", "float", "int32", "float32", "int64", "float64"]:
                 child_count = 0
-                drilldown(device, scenario, path, name, children, test_report, mode, out)
+                drilldown(
+                    device, scenario, path, name, children, test_report, mode, out
+                )
             else:
                 child_count = len(children)
-                print('Child Count: ' + str(child_count), file=out)
+                print("Child Count: " + str(child_count), file=out)
 
                 child_index = 0
                 for child in children:
-                    print('child[' + str(child_index) + ']: ' + name, file=out)
+                    print("child[" + str(child_index) + "]: " + name, file=out)
                     print(type(child).__name__, file=out)
-                    a_name = name + '[' + str(child_index) + ']'
-                    drilldown(device, scenario, path, a_name, child, test_report, mode, out)
+                    a_name = name + "[" + str(child_index) + "]"
+                    drilldown(
+                        device, scenario, path, a_name, child, test_report, mode, out
+                    )
                     child_index += 1
 
     else:
-        print('Unknown Object', file=out)
+        print("Unknown Object", file=out)
 
     return
 
@@ -411,12 +466,12 @@ def drilldown(device: str, scenario: str, parent_path: str, obj_name: str, obj: 
 def verify_equilibrium_cocos(imas_obj: Any) -> bool:
     # Verify the EQUILIBRIUM IDS is COCOS compliant
 
-    ids = getattr(imas_obj, 'equilibrium')
+    ids = getattr(imas_obj, "equilibrium")
     ids.get()
 
     ids_mems = remove_methods(ids)
 
-    print('Equilibrium IDS Data Entity Count: ' + str(len(ids_mems)))
+    print("Equilibrium IDS Data Entity Count: " + str(len(ids_mems)))
     print(str(ids_mems))
 
     time_slice = ids.time_slice
@@ -433,7 +488,7 @@ def verify_equilibrium_cocos(imas_obj: Any) -> bool:
             if ip < 0.0:
                 sigma_ip = -1
         else:
-            print('Unable to verify COCOS compliance: missing plasma current')
+            print("Unable to verify COCOS compliance: missing plasma current")
             compliance = False
             return compliance
 
@@ -458,7 +513,9 @@ def verify_equilibrium_cocos(imas_obj: Any) -> bool:
                     if b0_t < 0.0:
                         sigma_b0 = -1
             else:
-                print('Unable to verify COCOS compliance: missing toroidal magnetic field')
+                print(
+                    "Unable to verify COCOS compliance: missing toroidal magnetic field"
+                )
                 compliance = False
                 return compliance
 
@@ -470,7 +527,9 @@ def verify_equilibrium_cocos(imas_obj: Any) -> bool:
                     sign_f = -1
                     break
         else:
-            print('Unable to verify COCOS compliance: missing diamagentic function F profile')
+            print(
+                "Unable to verify COCOS compliance: missing diamagentic function F profile"
+            )
             compliance = False
             return compliance
 
@@ -482,7 +541,7 @@ def verify_equilibrium_cocos(imas_obj: Any) -> bool:
                     sign_phi = -1
                     break
         else:
-            print('Unable to verify COCOS compliance: missing toroidal flux profile')
+            print("Unable to verify COCOS compliance: missing toroidal flux profile")
             compliance = False
             return compliance
 
@@ -500,7 +559,9 @@ def verify_equilibrium_cocos(imas_obj: Any) -> bool:
                 if psi_bnd - psi_axis < 0.0:
                     sign_psi = -1
             else:
-                print('Unable to verify COCOS compliance: missing poloidal flux profile')
+                print(
+                    "Unable to verify COCOS compliance: missing poloidal flux profile"
+                )
                 compliance = False
                 return compliance
 
@@ -516,7 +577,7 @@ def verify_equilibrium_cocos(imas_obj: Any) -> bool:
             if sign_vote < 0:
                 sign_pprime = -1
         else:
-            print('Unable to verify COCOS compliance: missing pprime profile')
+            print("Unable to verify COCOS compliance: missing pprime profile")
             compliance = False
             return compliance
 
@@ -528,7 +589,9 @@ def verify_equilibrium_cocos(imas_obj: Any) -> bool:
                     sign_jtor = -1
                     break
         else:
-            print('Unable to verify COCOS compliance: missing toroidal current density profile')
+            print(
+                "Unable to verify COCOS compliance: missing toroidal current density profile"
+            )
             compliance = False
             return compliance
 
@@ -546,7 +609,7 @@ def verify_equilibrium_cocos(imas_obj: Any) -> bool:
                 if q_95 < 0.0:
                     sign_q = -1
             else:
-                print('Unable to verify COCOS compliance: missing q profile')
+                print("Unable to verify COCOS compliance: missing q profile")
                 compliance = False
                 return compliance
 
@@ -556,47 +619,51 @@ def verify_equilibrium_cocos(imas_obj: Any) -> bool:
 
         compliance = compliance and (sign_f == sigma_b0)
         if not compliance:
-            print('COCOS compliance failed on sign(f) == sigma_b0')
+            print("COCOS compliance failed on sign(f) == sigma_b0")
             return compliance
 
         compliance = compliance and (sign_phi == sigma_b0)
         if not compliance:
-            print('COCOS compliance failed on sign(phi) == sigma_b0')
+            print("COCOS compliance failed on sign(phi) == sigma_b0")
             return compliance
 
         compliance = compliance and (sign_jtor == sigma_ip)
         if not compliance:
-            print('COCOS compliance failed on sign(j) == sigma_ip')
+            print("COCOS compliance failed on sign(j) == sigma_ip")
             return compliance
 
         compliance = compliance and (sign_psi == sigma_ip * sigma_bp11)
         if not compliance:
-            print('COCOS compliance failed on sign(psi) == sigma_ip*sigma_bp11')
+            print("COCOS compliance failed on sign(psi) == sigma_ip*sigma_bp11")
             return compliance
 
         compliance = compliance and (sign_pprime == -sigma_ip * sigma_bp11)
         if not compliance:
-            print('COCOS compliance failed on sign(pprime) == -sigma_ip*sigma_bp11')
+            print("COCOS compliance failed on sign(pprime) == -sigma_ip*sigma_bp11")
             return compliance
 
-        compliance = compliance and (sign_q == sigma_ip * sigma_b0 * sigma_rho_theta_phi)
+        compliance = compliance and (
+            sign_q == sigma_ip * sigma_b0 * sigma_rho_theta_phi
+        )
         if not compliance:
-            print('COCOS compliance failed on sign(q) == sigma_ip*sigma_b0*sigma_rho_theta_phi')
+            print(
+                "COCOS compliance failed on sign(q) == sigma_ip*sigma_b0*sigma_rho_theta_phi"
+            )
             return compliance
 
         compliance = compliance and (sign_q > 0)
         if not compliance:
-            print('COCOS compliance failed on sign(q) > 0')
+            print("COCOS compliance failed on sign(q) > 0")
             return compliance
 
         compliance = compliance and (sign_pprime < 0)
         if not compliance:
-            print('COCOS compliance failed on sign(pprime) < 0')
+            print("COCOS compliance failed on sign(pprime) < 0")
             return compliance
 
         compliance = compliance and (psi_bnd > psi_axis)  # increasing psi
         if not compliance:
-            print('COCOS compliance failed on psi_bnd > psi_axis')
+            print("COCOS compliance failed on psi_bnd > psi_axis")
             return compliance
 
     return compliance
@@ -615,36 +682,46 @@ def find_IDSs(imas_obj):
 
 
 def ids_targets():
-    return ['*']  # ['bolometer'] #['equilibrium'] #['magnetics'] #[*]
+    return ["*"]  # ['bolometer'] #['equilibrium'] #['magnetics'] #[*]
 
 
 def ids_excludes():
-    return ['connected', 'expIdx', 'refRun', 'refShot', 'run', 'shot', 'treeName']
+    return ["connected", "expIdx", "refRun", "refShot", "run", "shot", "treeName"]
 
 
-def validate_ids(device: str, scenario: str, imas_obj: Any, ids_name: str, mode: RunMode,
-                 ids_names: Optional[List[str]], out: IO):
-    print('IDS: ' + ids_name, file=out)
+def validate_ids(
+    device: str,
+    scenario: str,
+    imas_obj: Any,
+    ids_name: str,
+    mode: RunMode,
+    ids_names: Optional[List[str]],
+    out: IO,
+):
+    print("IDS: " + ids_name, file=out)
 
     if ids_names and ids_name not in ids_names:
-        print('Excluding IDS: ' + ids_name + ' from Validation Testing', file=out)
+        print("Excluding IDS: " + ids_name + " from Validation Testing", file=out)
         return
 
     if ids_name in ids_excludes():
-        print('Excluding IDS: ' + ids_name + ' from Validation Testing', file=out)
+        print("Excluding IDS: " + ids_name + " from Validation Testing", file=out)
         return
 
     if ids_name in ids_targets() and "*" not in ids_targets():
-        print('IDS: ' + ids_name + ' is not a Targeted IDS for Validation Testing', file=out)
+        print(
+            "IDS: " + ids_name + " is not a Targeted IDS for Validation Testing",
+            file=out,
+        )
         return
 
-    print('Validating IDS: ' + ids_name, file=out)
+    print("Validating IDS: " + ids_name, file=out)
 
     try:
         ids = getattr(imas_obj, ids_name)
         ids.get()
     except AttributeError:
-        print('ERROR: Unable to read IDS: ' + ids_name, file=out)
+        print("ERROR: Unable to read IDS: " + ids_name, file=out)
         return
 
     # ------------------------------------------------------------------------------
@@ -652,47 +729,49 @@ def validate_ids(device: str, scenario: str, imas_obj: Any, ids_name: str, mode:
 
     ids_mems = remove_methods(ids)
 
-    print('IDS Data Entity Count: ' + str(len(ids_mems)), file=out)
+    print("IDS Data Entity Count: " + str(len(ids_mems)), file=out)
     print(str(ids_mems), file=out)
 
-    base_path = ''
+    base_path = ""
     for name in ids_mems:
-        if name == 'base_path':
-            base_path = getattr(ids, 'base_path')  # the name of the parent object for drill down
-            print('Base Path = ' + base_path, file=out)
+        if name == "base_path":
+            base_path = getattr(
+                ids, "base_path"
+            )  # the name of the parent object for drill down
+            print("Base Path = " + base_path, file=out)
             break
 
-    if base_path == '':
-        print('ERROR: BASE PATH NOT FOUND!', file=out)
+    if base_path == "":
+        print("ERROR: BASE PATH NOT FOUND!", file=out)
 
     test_report = TestReport()
 
     for ids_index, name in enumerate(ids_mems):
         # deconstruct each object into constituent data elements
 
-        print('\n', file=out)
-        print('[' + str(ids_index) + ']  ' + name, file=out)
+        print("\n", file=out)
+        print("[" + str(ids_index) + "]  " + name, file=out)
 
         obj = getattr(ids, name)
         dtype = type(obj).__name__
 
         # Scalar data in the IDS root
         if dtype.startswith("int"):
-            print('Integer Object: ' + name + ' = ' + str(obj), file=out)
+            print("Integer Object: " + name + " = " + str(obj), file=out)
             continue
         elif dtype.startswith("float"):
-            print('Float Object: ' + name + ' = ' + str(obj), file=out)
+            print("Float Object: " + name + " = " + str(obj), file=out)
             continue
         elif dtype.startswith("str"):
-            print('String Object: ' + name + ' = ' + str(obj), file=out)
+            print("String Object: " + name + " = " + str(obj), file=out)
             continue
-        elif dtype == 'ndarray':
+        elif dtype == "ndarray":
             rank = obj.ndim
             shape = obj.shape
             size = obj.size
             dtype = str(obj.dtype)
             if dtype.startswith("int") or dtype.startswith("float"):
-                print('Atomic Array Object: ' + name, file=out)
+                print("Atomic Array Object: " + name, file=out)
                 print(str(rank), file=out)  # Rank
                 print(str(shape), file=out)  # Shape
                 print(str(size), file=out)  # Number of elements
@@ -702,18 +781,18 @@ def validate_ids(device: str, scenario: str, imas_obj: Any, ids_name: str, mode:
                     print(str(obj), file=out)
                 continue
 
-            print('Array of Structured Type: (' + name + ')  ' + dtype, file=out)
+            print("Array of Structured Type: (" + name + ")  " + dtype, file=out)
             continue
 
-        print('Structured Type: (' + name + ')  ' + dtype, file=out)
+        print("Structured Type: (" + name + ")  " + dtype, file=out)
 
         drilldown(device, scenario, base_path, name, obj, test_report, mode, out)
 
     print("IDS:", ids_name)
     if test_report.failures:
-        print('Failures: %d' % len(test_report.failures), file=out)
+        print("Failures: %d" % len(test_report.failures), file=out)
         for (path, failures) in test_report.failures.items():
-            print('Path: ' + path, file=out)
+            print("Path: " + path, file=out)
     else:
         print("Success")
 
@@ -725,14 +804,19 @@ def validate_imas(device: str, scenario: str, imas_obj: Any):
             validate_ids(device, scenario, imas_obj, IDS, RunMode.TEST, None, f)
 
 
-def save_validation_parameters(device: str, scenario: str, imas_obj: Any, ids_names: List[str]):
+def save_validation_parameters(
+    device: str, scenario: str, imas_obj: Any, ids_names: List[str]
+):
     IDSs = find_IDSs(imas_obj)
     for IDS in IDSs:
-        validate_ids(device, scenario, imas_obj, IDS, RunMode.SAVE, ids_names, sys.stderr)
+        validate_ids(
+            device, scenario, imas_obj, IDS, RunMode.SAVE, ids_names, sys.stderr
+        )
 
 
 def load_imas(shot, run):
     import imas
+
     imas_obj = imas.ids(shot, run)
     imas_obj.open()
     return imas_obj

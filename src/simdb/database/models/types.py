@@ -2,9 +2,9 @@ import enum
 import uuid
 from enum import Enum
 from typing import Optional, Dict
-
-import uri as urilib
 from sqlalchemy import types as sql_types
+
+from ... import uri as urilib
 
 
 class UUID(sql_types.TypeDecorator):
@@ -13,6 +13,7 @@ class UUID(sql_types.TypeDecorator):
 
     Uses PostgreSQL's UUID type, otherwise uses CHAR(32), storing as stringified hex values.
     """
+
     impl = sql_types.CHAR
 
     cache_ok = True
@@ -59,6 +60,7 @@ class URI(sql_types.TypeDecorator):
     """
     UUID type for reading/writing to the ORM.
     """
+
     impl = sql_types.VARCHAR
 
     @property
@@ -70,7 +72,9 @@ class URI(sql_types.TypeDecorator):
             return value
         return str(value)
 
-    def process_result_value(self, value: Optional[str], dialect) -> Optional[urilib.URI]:
+    def process_result_value(
+        self, value: Optional[str], dialect
+    ) -> Optional[urilib.URI]:
         if value is None:
             return value
         return urilib.URI(value)
@@ -89,12 +93,12 @@ class ChoiceType(sql_types.TypeDecorator):
 
     def __init__(self, choices: Dict[Enum, str], enum_type: type, **kw):
         if type(enum_type) is not enum.EnumMeta:
-            raise ValueError('enum_type must be a class inheriting from enum.Enum.')
+            raise ValueError("enum_type must be a class inheriting from enum.Enum.")
         self._enum_type = enum_type
         self._choices_inverse = dict(choices)
         self._choices = {v: k for k, v in self._choices_inverse.items()}
         if len(self._choices) != len(self._choices_inverse):
-            raise TypeError('Values in choices dict must be unique')
+            raise TypeError("Values in choices dict must be unique")
         super().__init__(**kw)
 
     def process_bind_param(self, value: str, dialect):

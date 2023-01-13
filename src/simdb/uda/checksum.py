@@ -1,18 +1,20 @@
-import uri as urilib
+from ..uri import URI, Query
 
 
-def checksum(uri: urilib.URI) -> str:
+def checksum(uri: URI) -> str:
     if uri.scheme != "uda":
         raise ValueError("invalid scheme for UDA checksum: %s" % uri.scheme)
 
     import pyuda
     import hashlib
 
-    query: urilib.QSO = uri.query
-    signal = query.get('signal')
-    source = query.get('source')
+    query: Query = uri.query
+    signal = query.get("signal")
+    source = query.get("source")
     if signal is None or source is None:
-        raise ValueError('UDA object must have uri uda:///?signal=<SIGNAL>&source=<SOURCE>')
+        raise ValueError(
+            "UDA object must have uri uda:///?signal=<SIGNAL>&source=<SOURCE>"
+        )
 
     client = pyuda.Client()
     res = client.get(signal, source, raw=True)

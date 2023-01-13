@@ -21,8 +21,11 @@ source venv/bin/activate
 And install SimDB:
 
 ```bash
+pip3 install -r requirements.txt
 pip3 install .
 ```
+
+**Note:** If you plan to run the server with a PostgreSQL database you will also need to install the `psycopg2-binary` library.
 
 You can test the SimDB installation by running:
 
@@ -31,6 +34,8 @@ simdb --version
 ```
 
 ## Running the server (using built-in http server)
+
+**Note:** Running the SimDB server using the built-in http server is for testing/development only and should not be used in production. In production you should run the SimDB server behind a dedicated web-server such as NGinx (see the [Running the server behind nginx & gunicorn](#running-the-server-behind-nginx--gunicorn) section below).
 
 Once simdb has been installed, before you can run the server you need to create the server configuration file. This file should be created in the application configuration directory which can be located by using:
 
@@ -50,32 +55,66 @@ On macOS this would be:
 /Users/$USER/Library/Application Support/simdb
 ```
 
-In this directory you should create a file 'app.cfg' specifying the server configuration. Options for the server configuration are:
+In this directory you should create a file 'app.cfg' specifying the server configuration. This file must have permissions set to `0600` i.e. user read only.
 
-| Section | Option | Required | Description |
-| --- | --- | --- | --- |
-| database | type | yes | Database type [sqlite, postgres]. |
-| database | file | yes (type=sqlite) | Database file (for sqlite) - defaults to remote.db in the user data directory if not specified. |
-| database | host | yes (type=postgres) | Database host (for postgres). |
-| database | port | yes (type=postgres) | Database port (for postgres). |
-| database | name | yes (type=postgres) | Database name (for postgres). |
-| server | upload_folder | yes | Root directory where SimDB simulation files are stored. |
-| server | ssl_enabled | no | Flag [True, False] to specify whether the debug server uses SSL - this should be set to False for production servers behind dedicated webserver. Defaults to False. |
-| server | ssl_cert_file | yes (ssl_enabled=True) | Path to SSL certificate file if ssl_enabled is True. |
-| server | ssl_key_file | yes (ssl_enabled=True) | Path to SSL key file if ssl_enabled is True. |
-| server | admin_password | yes | Password for admin superuser. |
-| server | token_lifetime | no | Number of days generated tokens are valid for - defaults to 30 days. |
-| flask | flask_env | no | Flask server environment [development, production] - defaults to production. |
-| flask | debug | no | Flag [True, Flase] to specify whether Flask server is run with debug mode enabled - defaults to True if flask_env='development', otherwise False. |
-| flask | testing | no | Flag [True, False] to specify whether exceptions are propagated rather than being handled by Flask's error handlers - defaults to False. |
-| flask | secret_key | yes | Secret key used to encrypt server messages including authentication tokens - should be at least 20 characters long. |
-| flask | swagger_ui_doc_expansion | no | Default state of the Swagger UI documentations [none, list, full]. | 
-| validation | auto_validate | no | Flag [True, False] to set whether the server should run validation on uploaded simulation automatically. Defaults to False. |
-| validation | error_on_fail | no | Flag [True, False] to set whether simulations that fail validation should be rejected - auto_validate must be set to True if this flag is set to True. Defaults to False |
-| email | server | yes | SMTP server used to send emails from the SimDB server. |
-| email | port | yes | SMTP server port port. |
-| email | user | yes | SMTP server user to send emails from . |
-| email | password | yes | SMTP server user password. |
+Options for the server configuration are:
+
+| Section    | Option                   | Required               | Description                                                                                                                                                                                                                                        |
+|------------|--------------------------|------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| database   | type                     | yes                    | Database type [sqlite, postgres].                                                                                                                                                                                                                  |
+| database   | file                     | yes (type=sqlite)      | Database file (for sqlite) - defaults to remote.db in the user data directory if not specified.                                                                                                                                                    |
+| database   | host                     | yes (type=postgres)    | Database host (for postgres).                                                                                                                                                                                                                      |
+| database   | port                     | yes (type=postgres)    | Database port (for postgres).                                                                                                                                                                                                                      |
+| database   | name                     | yes (type=postgres)    | Database name (for postgres).                                                                                                                                                                                                                      |
+| server     | upload_folder            | yes                    | Root directory where SimDB simulation files are stored.                                                                                                                                                                                            |
+| server     | ssl_enabled              | no                     | Flag [True, False] to specify whether the debug server uses SSL - this should be set to False for production servers behind dedicated webserver. Defaults to False.                                                                                |
+| server     | ssl_cert_file            | yes (ssl_enabled=True) | Path to SSL certificate file if ssl_enabled is True.                                                                                                                                                                                               |
+| server     | ssl_key_file             | yes (ssl_enabled=True) | Path to SSL key file if ssl_enabled is True.                                                                                                                                                                                                       |
+| server     | admin_password           | yes                    | Password for admin superuser.                                                                                                                                                                                                                      |
+| server     | token_lifetime           | no                     | Number of days generated tokens are valid for - defaults to 30 days.                                                                                                                                                                               |
+ | server     | authentication_type      | yes                    | Name of the authentication method used by the server to authenticate users - current options are [ActiveDirectory, LDAP, None]. See sections below for details of extra options required for the Active Directory and LDAP authentication options. |
+| flask      | flask_env                | no                     | Flask server environment [development, production] - defaults to production.                                                                                                                                                                       |
+| flask      | debug                    | no                     | Flag [True, Flase] to specify whether Flask server is run with debug mode enabled - defaults to True if flask_env='development', otherwise False.                                                                                                  |
+| flask      | testing                  | no                     | Flag [True, False] to specify whether exceptions are propagated rather than being handled by Flask's error handlers - defaults to False.                                                                                                           |
+| flask      | secret_key               | yes                    | Secret key used to encrypt server messages including authentication tokens - should be at least 20 characters long.                                                                                                                                |
+| flask      | swagger_ui_doc_expansion | no                     | Default state of the Swagger UI documentations [none, list, full].                                                                                                                                                                                 | 
+| validation | auto_validate            | no                     | Flag [True, False] to set whether the server should run validation on uploaded simulation automatically. Defaults to False.                                                                                                                        |
+| validation | error_on_fail            | no                     | Flag [True, False] to set whether simulations that fail validation should be rejected - auto_validate must be set to True if this flag is set to True. Defaults to False                                                                           |
+| email      | server                   | yes                    | SMTP server used to send emails from the SimDB server.                                                                                                                                                                                             |
+| email      | port                     | yes                    | SMTP server port port.                                                                                                                                                                                                                             |
+| email      | user                     | yes                    | SMTP server user to send emails from .                                                                                                                                                                                                             |
+| email      | password                 | yes                    | SMTP server user password.                                                                                                                                                                                                                         |
+
+### Activate Directory authentication options
+
+| Section | Option    | Required | Description                                           |
+|---------|-----------|----------|-------------------------------------------------------|
+ | server  | ad_server | yes      | Active directory server used for user authentication. |
+ | server  | ad_domain | yes      | Active directory domain used for user authentication. |
+
+### LDAP authentication options
+
+| Section | Option              | Required | Description                                                                                                                                                              |
+|---------|---------------------|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+ | server  | ldap_server         | yes      | LDAP server URI.                                                                                                                                                         |
+ | server  | ldap_bind           | yes      | Bind string - this can contain {username} which will be replaced by the username of the user attempting to authenticate, i.e. "uid={username},ou=Users,dc=eufus,dc=eu".  |
+ | server  | ldap_query_user     | yes      | Bind user used to run LDAP queries, i.e. "uid=f2bind,ou=Users,dc=eufus,dc=eu"                                                                                            |
+ | server  | ldap_query_password | yes      | Password corresponding to ldap_query_user.                                                                                                                               |
+ | server  | ldap_query_base     | yes      | Base point to start the query from, i.e. "dc=eufus,dc=eu".                                                                                                               |
+ | server  | ldap_query_filter   | yes      | Query filter used to find the user - this can contain {username} which will be replaced by the username of the user attempting to authenticate, i.e. "(uid={username})". |
+
+### Caching options
+
+| Section | Option          | Required | Description                                                                                                                                                                                                             |
+|---------|-----------------|----------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+ | cache   | type            | no       | Type of caching to use. Options include NullCache (default), SimpleCache, FileSystemCache. SimpleCache is a memory based cache and FileSystemCache caches using files. Configuration options for these are given below. |
+ | cache   | dir             | no       | Directory to store cache. Used only for FileSystemCache.                                                                                                                                                                |
+ | cache   | default_timeout | no       | The default timeout that is used if no timeout is specified. Unit of time is seconds.                                                                                                                                   |
+ | cache   | threshold       | no       | The maximum number of items the cache will store before it starts deleting some. Used only for SimpleCache and FileSystemCache                                                                                          |
+
+More caching options can be found in the [Flask-Caching documentation](https://flask-caching.readthedocs.io/en/latest/#built-in-cache-backends). You can convert the caching options for the library to SimDB configuration by removing the `CACHE_` prefix and converting to lowercase, i.e. `CACHE_ARGS` becomes `args` in the `[cache]` section.
+
+### Example configuration files
 
 Example of app.cfg for SQLite:
 
@@ -105,7 +144,7 @@ user = test@email.com
 password = abc123
 ```
 
-Example of app.cfg for PostgreSQL:
+Example of app.cfg for PostgreSQL (see [Setting up PostgreSQL database](setting_up_postgres.md)):
 
 ```
 ...
@@ -141,7 +180,9 @@ And see some console output such as:
  * Running on http://0.0.0.0:5000/ (Press CTRL+C to quit)
 ```
 
-Follow the url in the output, and you should see the returned JSON data:
+**Note:** If it fails to run with an error stating that it cannot bind to a port then you will need to see check whatever service is running on port 5000 and shut this down if possible. If you need to modify the port you will need to edit the `simdb_server` script (which you can locate using `which simdb_server`), changing the port number.
+
+Follow the url in the output (you can do this using a browser or using curl, e.g. `curl http://0.0.0.0:5000`), and you should see the returned JSON data:
 
 ```
 { urls: [ "http://0.0.0.0:5000/api/v0.1.1" ] }
@@ -172,9 +213,9 @@ To run the server in production you should run it as wsgi service behind a dedic
 
 ### Set up gunicorn service
 
-Copy the init.d script from `simdb/remote/simdb.initd` in the simdb install directory (i.e. `/usr/local/lib/python3.7/site-packages/simdb/remote`) as `/etc/init.d/simdb`.
+Copy the init.d script from `src/simdb/remote/scripts/simdb.initd` in the simdb install directory (i.e. `/usr/local/lib/python3.7/site-packages/simdb/remote`) as `/etc/init.d/simdb`.
 
-You will need to modify the line `USER=simdb` to change to user to whichever user you wish to run the simdb as (the gunicorn service will run as root but the workers will run in user space).
+You will need to modify the line `USER=simdb` to change to user to whichever user you wish to run the simdb as (the gunicorn service will run as root but the workers will run in user space). You will also need to modify the line `DAEMON=/home/simdb/venv/bin/gunicorn` to change the path to point towards the gunicorn installed in your virtual environment - you can find this path by running `which gunicorn` whilst the virtual environment is active.
 
 Once you have copied and modified the init.d script you can start the gunicorn service using:
 
@@ -190,7 +231,7 @@ service simdb status
 
 ### Set up nginx service
 
-Create a simdb.conf script in `/etc/nginx/sites-available/simdb.conf`
+Create a simdb.conf script in `/etc/nginx/conf.d/simdb.conf`
 
 ```
 server {
@@ -207,7 +248,7 @@ server {
 Alternatively, copy the script provided as `simdb/remote/simdb.nginx` (in the simdb installation directory, i.e. `/usr/local/lib/python3.7/site-packages/simdb/remote`) to:
 
 ```
-/etc/nginx/sites-available/simdb.conf
+/etc/nginx/conf.d/simdb.conf
 ```
 
 The `proxy_pass` line should point to the endpoint of the gunicorn service (set by the `BIND` variable in the init.d script).
@@ -221,13 +262,7 @@ proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 proxy_set_header X-Forwarded-Proto $scheme;
 ```
 
-Now sim-link the script into `/etc/nginx/sites-enabled`:
-
-```
-simdb.conf -> /etc/nginx/sites-available/simdb.conf
-```
-
-**Note:** check that the line `include /etc/nginx/sites-enabled/*.conf;` is defined in your `/etc/nginx/nginx.conf` script, if not you can add it inside the `http {}` section.
+**Note:** check that the line `include /etc/nginx/conf.d/*.conf;` is defined in your `/etc/nginx/nginx.conf` script, if not you can add it inside the `http {}` section.
 
 Now you can restart nginx using:
 
@@ -239,7 +274,7 @@ You should now be able to check the simdb server is running by going to the http
 
 ### Using SSL with the Gunicorn/Nginx
 
-In production, you should be using HTTPS not HTTPS for the SimDB server. To do this with Nginx you can change the simdb.conf in the `/etc/nginx/sites-available` that you created in the previous section.
+In production, you should be using HTTPS not HTTP for the SimDB server. To do this with Nginx you can change the simdb.conf in the `/etc/nginx/sites-available` that you created in the previous section.
 
 Change this to be:
 

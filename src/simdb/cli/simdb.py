@@ -13,13 +13,12 @@ def recursive_help(cmd, parent=None):
     ctx = click.core.Context(cmd, info_name=cmd.name, parent=parent)
     click.echo(cmd.get_help(ctx))
     click.echo()
-    commands = getattr(cmd, 'commands', {})
+    commands = getattr(cmd, "commands", {})
     for sub in commands.values():
         recursive_help(sub, ctx)
 
 
 class AliasCommandGroup(click.Group):
-
     def __init__(self, name, **kwargs):
         super().__init__(name, **kwargs)
 
@@ -28,7 +27,7 @@ class AliasCommandGroup(click.Group):
         aliases = aliases if aliases is not None else []
         for alias in aliases:
             cmd = copy.copy(cmd)
-            cmd.short_help = f'Alias for {name}.'
+            cmd.short_help = f"Alias for {name}."
             self.commands[alias] = cmd
 
     def get_command(self, ctx, cmd_name):
@@ -42,7 +41,7 @@ class AliasCommandGroup(click.Group):
 @click.version_option(__version__)
 @click.option("-d", "--debug", is_flag=True, help="Run in debug mode.")
 @click.option("-v", "--verbose", is_flag=True, help="Run with verbose output.")
-@click.option("-c", "--config-file", type=click.File('r'), help="Config file to load.")
+@click.option("-c", "--config-file", type=click.File("r"), help="Config file to load.")
 @click.pass_context
 def cli(ctx, debug, verbose, config_file):
     if not ctx.obj:
@@ -70,7 +69,7 @@ def add_commands():
 
     cli.add_command(manifest)
     cli.add_command(alias)
-    cli.add_command(simulation, aliases=["sim"])
+    cli.add_command(simulation, aliases=["sim"], name="simulation")
     cli.add_command(config)
     cli.add_command(database)
     cli.add_command(remote)

@@ -1,6 +1,6 @@
 import click
 from pathlib import Path
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Any, Type
 
 from . import pass_config
 from ...config.config import Config
@@ -10,8 +10,7 @@ from .validators import validate_limit
 
 @click.group()
 def simulation():
-    """Manage ingested simulations.
-    """
+    """Manage ingested simulations."""
     pass
 
 
@@ -37,12 +36,24 @@ def simulation():
 
 @simulation.command("list")
 @pass_config
-@click.option("-m", "--meta-data", "meta", help="Additional meta-data field to print.", multiple=True, default=[])
-@click.option("-l", "--limit", help="Limit number of returned entries (use 0 for no limit).", default=100,
-              show_default=True, callback=validate_limit)
+@click.option(
+    "-m",
+    "--meta-data",
+    "meta",
+    help="Additional meta-data field to print.",
+    multiple=True,
+    default=[],
+)
+@click.option(
+    "-l",
+    "--limit",
+    help="Limit number of returned entries (use 0 for no limit).",
+    default=100,
+    show_default=True,
+    callback=validate_limit,
+)
 def simulation_list(config: Config, meta: list, limit: int):
-    """List ingested simulations.
-    """
+    """List ingested simulations."""
     from ...database import get_local_db
     from .utils import print_simulations
 
@@ -51,13 +62,27 @@ def simulation_list(config: Config, meta: list, limit: int):
     print_simulations(simulations, verbose=config.verbose, metadata_names=meta)
 
 
+class NameValueOption(click.Option):
+    def type_cast_value(self, ctx: click.Context, value: Any) -> Any:
+        pass
+
+
 @simulation.command("modify")
 @pass_config
 @click.argument("sim_id")
-@click.option("-a", "--alias", help="New alias.")
-def simulation_modify(config: Config, sim_id: str, alias: str):
-    """Modify the ingested simulation.
-    """
+@click.option("-a", "--alias", help="New alias.", metavar="ALIAS")
+@click.option(
+    "--set-meta", help="Add new meta or update existing.", metavar="NAME=VALUE"
+)
+@click.option("--del-meta", help="Delete metadata entry.", metavar="NAME")
+def simulation_modify(
+    config: Config,
+    sim_id: str,
+    alias: Optional[str],
+    set_meta: Optional[str],
+    del_meta: Optional[str],
+):
+    """Modify the ingested simulation."""
     from ...database import get_local_db
 
     if alias is not None:
@@ -65,6 +90,23 @@ def simulation_modify(config: Config, sim_id: str, alias: str):
         simulation = db.get_simulation(sim_id)
         simulation.alias = alias
         db.session.commit()
+        click.echo("alias updated")
+    elif set_meta is not None:
+        try:
+            name, value = set_meta.split("=")
+        except ValueError:
+            raise click.BadParameter("set-meta argument must be of form NAME=VALUE")
+        db = get_local_db(config)
+        simulation = db.get_simulation(sim_id)
+        simulation.set_meta(name, value)
+        db.session.commit()
+        click.echo("metadata updated")
+    elif del_meta is not None:
+        db = get_local_db(config)
+        simulation = db.get_simulation(sim_id)
+        simulation.remove_meta(del_meta)
+        db.session.commit()
+        click.echo("metadata deleted")
     else:
         click.echo("nothing to do")
 
@@ -73,8 +115,7 @@ def simulation_modify(config: Config, sim_id: str, alias: str):
 @pass_config
 @click.argument("sim_id")
 def simulation_delete(config: Config, sim_id: str):
-    """Delete the ingested simulation with given SIM_ID (UUID or alias).
-    """
+    """Delete the ingested simulation with given SIM_ID (UUID or alias)."""
     from ...database import get_local_db
 
     db = get_local_db(config)
@@ -87,8 +128,7 @@ def simulation_delete(config: Config, sim_id: str):
 @pass_config
 @click.argument("sim_id")
 def simulation_info(config: Config, sim_id: str):
-    """Print information on the simulation with given SIM_ID (UUID or alias).
-    """
+    """Print information on the simulation with given SIM_ID (UUID or alias)."""
     from ...database import get_local_db
 
     db = get_local_db(config)
@@ -101,10 +141,13 @@ def simulation_info(config: Config, sim_id: str):
 @simulation.command("ingest")
 @pass_config
 @click.argument("manifest_file", type=click.Path(exists=True))
-@click.option("-a", "--alias", help="Alias to give to simulation (overwrites any set in manifest).")
+@click.option(
+    "-a",
+    "--alias",
+    help="Alias to give to simulation (overwrites any set in manifest).",
+)
 def simulation_ingest(config: Config, manifest_file: str, alias: str):
-    """Ingest a MANIFEST_FILE.
-    """
+    """Ingest a MANIFEST_FILE."""
     import urllib.parse
     from ...database import get_local_db
     from ...database.models import Simulation
@@ -123,31 +166,41 @@ def simulation_ingest(config: Config, manifest_file: str, alias: str):
         simulation.alias = alias
 
     if simulation.alias and urllib.parse.quote(simulation.alias) != simulation.alias:
-        click.echo('warning: alias contains reserved characters')
+        click.echo("warning: alias contains reserved characters")
 
     db = get_local_db(config)
     db.insert_simulation(simulation)
     click.echo(simulation.uuid)
 
 
-class CustomCommand(click.Command):
-    def parse_args(self, ctx, args):
-        if len(args) == 1:
-            args.insert(0, '')
-        super().parse_args(ctx, args)
+def n_required_args_adaptor(n) -> Type[click.Command]:
+    class NRequiredArgs(click.Command):
+        NArgs = n
+
+        def parse_args(self, ctx, args):
+            if len(args) == self.NArgs:
+                args.insert(0, "")
+            super().parse_args(ctx, args)
+
+    return NRequiredArgs
 
 
-@simulation.command("push", cls=CustomCommand)
+@simulation.command("push", cls=n_required_args_adaptor(1))
 @pass_config
 @click.argument("remote", required=False)
 @click.argument("sim_id")
 @click.option("--username", help="Username used to authenticate with the remote.")
 @click.option("--password", help="Password used to authenticate with the remote.")
 @click.option("--replaces", help="SIM_ID of simulation to deprecate and replace.")
-def simulation_push(config: Config, remote: Optional[str], sim_id: str, username: Optional[str],
-                    password: Optional[str], replaces: Optional[str]):
-    """Push the simulation with the given SIM_ID (UUID or alias) to the REMOTE.
-    """
+def simulation_push(
+    config: Config,
+    remote: Optional[str],
+    sim_id: str,
+    username: Optional[str],
+    password: Optional[str],
+    replaces: Optional[str],
+):
+    """Push the simulation with the given SIM_ID (UUID or alias) to the REMOTE."""
     from ...database import get_local_db
     from ..remote_api import RemoteAPI
     import sys
@@ -164,10 +217,59 @@ def simulation_push(config: Config, remote: Optional[str], sim_id: str, username
     click.echo(f"Successfully pushed simulation {simulation.uuid}")
 
 
+@simulation.command("pull", cls=n_required_args_adaptor(2))
+@pass_config
+@click.argument("remote", required=False)
+@click.argument("sim_id")
+@click.argument("directory", type=Path)
+@click.option("--username", help="Username used to authenticate with the remote.")
+@click.option("--password", help="Password used to authenticate with the remote.")
+def simulation_pull(
+    config: Config,
+    remote: Optional[str],
+    sim_id: str,
+    directory: Path,
+    username: Optional[str],
+    password: Optional[str],
+):
+    """Pull the simulation with the given SIM_ID (UUID or alias) from the REMOTE."""
+    from ...database import get_local_db, DatabaseError
+    from ..remote_api import RemoteAPI, RemoteError
+    import sys
+
+    api = RemoteAPI(remote, username, password, config)
+    db = get_local_db(config)
+
+    local_sim = None
+    try:
+        local_sim = db.get_simulation(sim_id)
+    except DatabaseError:
+        pass
+
+    if local_sim is not None:
+        raise click.ClickException(f"Simulation with sim_id {sim_id} already exists")
+
+    try:
+        simulation = api.pull_simulation(sim_id, directory, out_stream=sys.stdout)
+    except RemoteError as err:
+        raise click.ClickException(str(err))
+
+    db.insert_simulation(simulation)
+
+    click.echo(f"Successfully pulled simulation {simulation.uuid}")
+
+
 @simulation.command("query")
 @pass_config
 @click.argument("constraint", nargs=-1)
-@click.option("-m", "--meta-data", "meta", help="Additional meta-data field to print.", multiple=True, default=[])
+@click.option(
+    "-m",
+    "--meta-data",
+    "meta",
+    help="Additional meta-data field to print.",
+    multiple=True,
+    default=[],
+)
 def simulation_query(config: Config, constraint: str, meta: List[str]):
     """Perform a metadata query to find matching local simulations.
 
@@ -186,11 +288,15 @@ def simulation_query(config: Config, constraint: str, meta: List[str]):
         lt: - This checks for values less than the given quantity.
         le: - This checks for values less than or equal to the given quantity.
 
+    For the following modifiers, VALUE should not be provided.
+        exist: - This returns simulations where metadata with NAME exists, regardless of the value.
+
     \b
     Modifier examples:
         responsible_name=foo        performs exact match
         responsible_name=in:foo     matches all names containing foo
         pulse=gt:1000               matches all pulses > 1000
+        sequence=exist:             matches all simulations that have "sequence" metadata values
 
     \b
     Any string comparisons are done in a case-insensitive manner. If multiple constraints are provided then simulations
@@ -211,9 +317,9 @@ def simulation_query(config: Config, constraint: str, meta: List[str]):
     constraints: List[Tuple[str, str, QueryType]] = []
     names = []
     for item in constraint:
-        if '=' not in item:
+        if "=" not in item:
             raise click.ClickException("Invalid constraint.")
-        key, value = item.split('=')
+        key, value = item.split("=")
         names.append(key)
         constraints.append((key,) + parse_query_arg(value))
     names += meta
@@ -223,15 +329,16 @@ def simulation_query(config: Config, constraint: str, meta: List[str]):
     print_simulations(simulations, verbose=config.verbose, metadata_names=names)
 
 
-@simulation.command("validate", cls=CustomCommand)
+@simulation.command("validate", cls=n_required_args_adaptor(1))
 @pass_config
 @click.argument("remote", required=False)
 @click.argument("sim_id")
 @click.option("--username", help="Username used to authenticate with the remote.")
 @click.option("--password", help="Password used to authenticate with the remote.")
-def simulation_validate(config: Config, remote: Optional[str], sim_id: str, username: str, password: str):
-    """Validate the ingested simulation with given SIM_ID (UUID or alias) using validation schema from REMOTE.
-    """
+def simulation_validate(
+    config: Config, remote: Optional[str], sim_id: str, username: str, password: str
+):
+    """Validate the ingested simulation with given SIM_ID (UUID or alias) using validation schema from REMOTE."""
     from itertools import chain
     from ...database import get_local_db
     from ...validation import ValidationError, Validator
@@ -243,25 +350,16 @@ def simulation_validate(config: Config, remote: Optional[str], sim_id: str, user
 
     api = RemoteAPI(remote, username, password, config)
 
-    click.echo('downloading validation schema ... ', nl=False)
-    schema = api.get_validation_schema()
-    click.echo('done')
+    click.echo("downloading validation schema ... ", nl=False)
+    schemas = api.get_validation_schemas()
+    click.echo("done")
 
-    click.echo('validating ... ', nl=False)
-    Validator(schema).validate(simulation)
+    click.echo("validating ... ", nl=False)
+    for schema in schemas:
+        Validator(schema).validate(simulation)
 
     for file in chain(simulation.inputs, simulation.outputs):
-        if file.type == DataObject.Type.UDA:
-            from ...uda.checksum import checksum as uda_checksum
-            checksum = uda_checksum(file.uri)
-        elif file.type == DataObject.Type.IMAS:
-            from ...imas.checksum import checksum as imas_checksum
-            checksum = imas_checksum(file.uri)
-        elif file.type == DataObject.Type.FILE:
-            from ...checksum import sha1_checksum
-            checksum = sha1_checksum(file.uri)
-        else:
-            raise ValidationError("invalid checksum for file %s" % file.uri)
+        checksum = file.generate_checksum(config)
 
         if checksum != file.checksum:
             raise ValidationError("Checksum doest not match for file " + str(file))

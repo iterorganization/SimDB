@@ -14,14 +14,14 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../..'))
+sys.path.insert(0, os.path.abspath('../../src'))
 import simdb
 
 
 # -- Project information -----------------------------------------------------
 
 project = 'ITER Simulation Database'
-copyright = '2018, J. Hollocombe, D. Muir'
+copyright = '2022, ITER Organization'
 author = 'J. Hollocombe, D. Muir'
 
 # The short X.Y version
@@ -45,6 +45,7 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
+    'myst_parser',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -53,11 +54,14 @@ templates_path = ['_templates']
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 #
-source_suffix = ['.rst', '.md']
-
-source_parsers = {
-   '.md': 'recommonmark.parser.CommonMarkParser',
+source_suffix = {
+    '.rst': 'restructuredtext',
+    '.md': 'markdown',
 }
+
+# source_parsers = {
+#    '.md': 'recommonmark.parser.CommonMarkParser',
+# }
 
 # The master toctree document.
 master_doc = 'index'
@@ -91,6 +95,10 @@ html_theme = 'alabaster'
 # documentation.
 #
 # html_theme_options = {}
+html_theme_options = {
+    'page_width': 'auto',
+    'body_max_width': 'auto',
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

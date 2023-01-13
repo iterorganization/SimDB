@@ -111,6 +111,8 @@ Commands:
   new       Create an empty simulation in the database which can be updated...
   push      Push the simulation with the given SIM_ID (UUID or alias) to
             the...
+  pull      Pull the simulation with the given SIM_ID (UUID or alias) from
+            the...
 
   query     Query the simulations.
   validate  Validate the ingested simulation with given SIM_ID (UUID or...
@@ -198,6 +200,17 @@ Options:
   --username TEXT  Username used to authenticate with the remote.
   --password TEXT  Password used to authenticate with the remote.
   --replaces TEXT  SIM_ID of simulation to deprecate and replace.
+  --help           Show this message and exit.
+```
+
+```text
+Usage: simdb simulation pull [OPTIONS] [REMOTE] SIM_ID DIRECTORY
+
+  Pull the simulation with the given SIM_ID (UUID or alias) from the REMOTE.
+
+Options:
+  --username TEXT  Username used to authenticate with the remote.
+  --password TEXT  Password used to authenticate with the remote.
   --help           Show this message and exit.
 ```
 

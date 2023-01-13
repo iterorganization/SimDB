@@ -23,3 +23,7 @@ test_manifest.yml
 /tests/cli/test.cfg
 /tests/cli/*.yaml
 .eggs
+.coverage
+*.xml
+simdb-coverage-report
+*.tar.gz

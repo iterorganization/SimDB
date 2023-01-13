@@ -1,0 +1,33 @@
+version: "3.9"
+services:
+  db:
+    image: postgres
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    environment:
+        POSTGRES_DB: simdb
+        POSTGRES_USER: simdb
+        POSTGRES_PASSWORD: simdb
+  simdb:
+    build: .
+    environment:
+      SIMDB_DATABASE_TYPE: postgres
+      SIMDB_DATABASE_HOST: db
+      SIMDB_DATABASE_PORT: 5432
+      SIMDB_SERVER_UPLOAD_FOLDER: /simulations
+    volumes:
+      - simulations:/simulations
+    depends_on:
+      - db
+  nginx:
+    image: nginx
+    ports:
+      - 80:80
+    depends_on:
+      - simdb
+    volumes:
+      - ./docker/proxy_params:/etc/nginx/proxy_params
+      - ./docker/simdb.nginx:/etc/nginx/conf.d/default.conf
+volumes:
+  db_data: {}
+  simulations: {}

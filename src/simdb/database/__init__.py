@@ -7,4 +7,4 @@ used with various types of databases including SQLite and PostgreSQL.
 
 from .database import Database, DatabaseError, get_local_db
 
-__all__ = ['Database', 'DatabaseError', 'get_local_db']
+__all__ = ["Database", "DatabaseError", "get_local_db"]

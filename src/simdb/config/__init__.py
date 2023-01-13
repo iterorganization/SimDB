@@ -5,6 +5,6 @@ The config module contains the code for reading the global and user configuratio
 the Config object passed to other parts of SimDB.
 """
 
-from .config import Config
+from .config import Config, ConfigError
 
-__all__ = ['Config']
+__all__ = ["Config", "ConfigError"]

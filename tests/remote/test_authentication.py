@@ -42,6 +42,7 @@ def test_check_auth(get_option):
 
     config = Config()
     get_option.side_effect = lambda a: {
+        'server.authentication_type': 'ActiveDirectory',
         'server.admin_password': 'abc123',
         'server.ad_server': 'test.server',
         'server.ad_domain': 'test.domain',
