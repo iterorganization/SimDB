@@ -58,13 +58,13 @@ def test_get_root(client):
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_api_root(client):
-    rv = client.get("/v1.1/", headers=HEADERS)
+    rv = client.get("/v1.2/", headers=HEADERS)
     assert rv.status_code == 200
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_simulations(client):
-    rv = client.get("/v1.1/simulations", headers=HEADERS)
+    rv = client.get("/v1.2/simulations", headers=HEADERS)
     assert rv.json['count'] == 100
     assert len(rv.json['results']) == len(SIMULATIONS)
     assert rv.status_code == 200
