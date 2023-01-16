@@ -58,8 +58,8 @@ def test_get_root(client):
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_api_root(client):
-    rv = client.get("/v1.2/", headers=HEADERS)
-    assert rv.status_code == 200
+    rv = client.get("/v1.2", headers=HEADERS)
+    assert rv.status_code == 308
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
