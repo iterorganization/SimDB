@@ -8,9 +8,10 @@ class Query:
     Class representing the URI query parameters.
     """
 
-    _args: Dict[str, Optional[str]] = {}
+    _args: Dict[str, Optional[str]]
 
     def __init__(self, query: str):
+        self._args = {}
         for arg in query.split("&"):
             key, *value = arg.split("=")
             if key and value:
@@ -26,6 +27,9 @@ class Query:
 
     def __contains__(self, item) -> bool:
         return item in self._args
+
+    def __getitem__(self, name):
+        return self._args[name]
 
     def get(self, name: str, default: Optional[str] = None) -> Optional[str]:
         return self._args.get(name, default)

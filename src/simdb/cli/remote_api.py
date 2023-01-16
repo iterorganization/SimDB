@@ -510,7 +510,6 @@ class RemoteAPI:
         schemas = self.get_validation_schemas()
         try:
             for schema in schemas:
-                print(schema)
                 Validator(schema).validate(simulation)
         except ValidationError as err:
             print("Warning: simulation does not validate.")
