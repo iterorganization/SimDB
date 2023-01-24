@@ -105,6 +105,12 @@ def check_return(res: "requests.Response") -> None:
 
 
 class RemoteAPI:
+    """
+    Class to represent connection to remote API.
+
+    This is used by the CLI to make all requests to the remote.
+    """
+
     _remote: str
 
     def __init__(
@@ -115,6 +121,19 @@ class RemoteAPI:
         config: Config,
         use_token: Optional[bool] = None,
     ) -> None:
+        """
+        Create a new RemoteAPI.
+
+        @param remote: the name of the remote - this is the name as created in the configuration file. If not provided
+        this will use the remote that has been marked as default.
+        @param username: the username to use to authenticate with the remote - optional if a token has been created for
+        the remote.
+        @param password: the password to used to authenticate with the remote - only required if username is also
+        provided.
+        @param config: the CLI configuration object.
+        @param use_token: override the default behaviour of only looking for a token if username and password are not
+        provided.
+        """
         self._config: Config = config
         if not remote:
             remote = config.default_remote
@@ -174,6 +193,9 @@ class RemoteAPI:
 
     @property
     def remote(self) -> str:
+        """
+        Return the name of the remote.
+        """
         return self._remote
 
     def _get_auth(self) -> Union["AuthBase", Tuple]:
@@ -193,8 +215,21 @@ class RemoteAPI:
             return self._username, self._password
 
     def get(
-        self, url: str, params: Dict = None, headers: Dict = None, authenticate=True
+        self,
+        url: str,
+        params: Dict = None,
+        headers: Dict = None,
+        authenticate: bool = True,
     ) -> "requests.Response":
+        """
+        Perform an HTTP GET request.
+
+        @param url: the URL of the request.
+        @param params: any additional parameters to send along with the request.
+        @param headers: additional headers to send with the request.
+        @param authenticate: True if we should send authentication headers with the request.
+        @return:
+        """
         import requests
 
         params = params if params is not None else {}
@@ -213,6 +248,14 @@ class RemoteAPI:
         return res
 
     def put(self, url: str, data: Dict, **kwargs) -> "requests.Response":
+        """
+        Perform an HTTP PUT request.
+
+        @param url: the URL of the request.
+        @param data: the PUT data to send.
+        @param kwargs: any additional keyword arguments to add to the request.
+        @return:
+        """
         import requests
 
         headers = {"Content-type": "application/json"}
@@ -227,6 +270,14 @@ class RemoteAPI:
         return res
 
     def post(self, url: str, data: Dict, **kwargs) -> "requests.Response":
+        """
+        Perform an HTTP POST request.
+
+        @param url: the URL of the request.
+        @param data: the POST data to send.
+        @param kwargs: any additional keyword arguments to add to the request.
+        @return:
+        """
         import requests
 
         if "files" in kwargs:
@@ -247,6 +298,14 @@ class RemoteAPI:
         return res
 
     def patch(self, url: str, data: Dict, **kwargs) -> "requests.Response":
+        """
+        Perform an HTTP PATCH request.
+
+        @param url: the URL of the request.
+        @param data: the PATCH data to send.
+        @param kwargs: any additional keyword arguments to add to the request.
+        @return:
+        """
         import requests
 
         headers = {"Content-type": "application/json"}
@@ -261,6 +320,14 @@ class RemoteAPI:
         return res
 
     def delete(self, url: str, data: Dict, **kwargs) -> "requests.Response":
+        """
+        Perform an HTTP DELETE request.
+
+        @param url: the URL of the request.
+        @param data: the DELETE data to send.
+        @param kwargs: any additional keyword arguments to add to the request.
+        @return:
+        """
         import requests
 
         headers = {"Content-type": "application/json"}

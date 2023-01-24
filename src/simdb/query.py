@@ -8,18 +8,18 @@ class QueryType(Enum):
     """
 
     NONE = auto()
-    EQ = auto()     # Equal
-    NE = auto()     # Not Equal
-    IN = auto()     # Containing
-    NI = auto()     # Not containing
-    GT = auto()     # Greater than
-    GE = auto()     # Greater than or equal
-    LT = auto()     # Less than
-    LE = auto()     # Less than or equal
-    AGT = auto()    # Any greater than
-    AGE = auto()    # Any greater than or equal
-    ALT = auto()    # Any less than
-    ALE = auto()    # Any less than or equal
+    EQ = auto()  # Equal
+    NE = auto()  # Not Equal
+    IN = auto()  # Containing
+    NI = auto()  # Not containing
+    GT = auto()  # Greater than
+    GE = auto()  # Greater than or equal
+    LT = auto()  # Less than
+    LE = auto()  # Less than or equal
+    AGT = auto()  # Any greater than
+    AGE = auto()  # Any greater than or equal
+    ALT = auto()  # Any less than
+    ALE = auto()  # Any less than or equal
     EXIST = auto()
 
 
