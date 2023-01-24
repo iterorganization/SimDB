@@ -287,7 +287,7 @@ class SimulationList(Resource):
 
             try:
                 create_alias_dir(simulation)
-            except:
+            except OSError:
                 pass
 
             return jsonify(result)

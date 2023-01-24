@@ -98,51 +98,31 @@ def remove_methods(obj) -> List[str]:
 
 
 def open_imas(uri: URI, create=False) -> Any:
-    import os
     import imas
-    from imas import imasdef
 
     if uri.scheme != "imas":
-        raise ValueError("invalid imas URI scheme: %s" % uri.scheme)
+        raise ValueError(f"invalid imas URI: {uri} - invalid scheme")
+
+    entry = imas.DBEntry()
 
     if uri.query is not None:
-        shot = uri.query.get("shot") or uri.query.get("pulse")
-        run = uri.query.get("run")
-        user = uri.query.get("user", os.environ.get("USER", None))
-        path = uri.query.get("path")
-        machine = uri.query.get("database") or uri.query.get("machine")
-        version = uri.query.get("version", "3")
+        try:
+            path = uri.query.get("path")
+        except KeyError:
+            raise ValueError(f"invalid imas URI: {uri} - no path found in query")
     else:
-        raise KeyError("No query found in IMAS URI " + str(uri))
+        raise ValueError(f"invalid imas URI: {uri} - no query found in URI")
 
-    if shot is None:
-        raise KeyError("IDS pulse or shot not provided in URI " + str(uri))
-    if run is None:
-        raise KeyError("IDS run not provided in URI " + str(uri))
-    if machine is None:
-        raise KeyError("IDS database or machine not provided in URI " + str(uri))
-
-    shot = int(shot)
-    run = int(run)
-
-    entry = imas.DBEntry(
-        imasdef.MDSPLUS_BACKEND,
-        machine,
-        shot,
-        run,
-        user_name=(path or user),
-        data_version=version,
-    )
     if create:
-        if Path(path).exists():
-            (Path(path) / machine / "3" / "0").mkdir(parents=True, exist_ok=True)
+        if not Path(path).exists():
+            Path(path).mkdir(parents=True, exist_ok=True)
         (status, _) = entry.create()
         if status != 0:
-            raise ImasError("failed to create IMAS data with URI {}".format(uri))
+            raise ImasError(f"failed to create IMAS data with URI {uri}")
     else:
-        (status, _) = entry.open()
+        (status, _) = entry.open_new(uri)
         if status != 0:
-            raise ImasError("failed to open IMAS data with URI {}".format(uri))
+            raise ImasError(f"failed to open IMAS data with URI {uri}")
     return entry
 
 

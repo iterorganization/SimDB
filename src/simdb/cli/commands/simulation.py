@@ -342,7 +342,6 @@ def simulation_validate(
     from itertools import chain
     from ...database import get_local_db
     from ...validation import ValidationError, Validator
-    from ..manifest import DataObject
     from ..remote_api import RemoteAPI
 
     db = get_local_db(config)
