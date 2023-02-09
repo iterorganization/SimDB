@@ -1,5 +1,6 @@
 import os
 import json
+import uuid
 from typing import (
     List,
     Dict,
@@ -217,9 +218,9 @@ class RemoteAPI:
     def get(
         self,
         url: str,
-        params: Dict = None,
-        headers: Dict = None,
-        authenticate: bool = True,
+        params: Optional[Dict] = None,
+        headers: Optional[Dict] = None,
+        authenticate: Optional[bool] = True,
     ) -> "requests.Response":
         """
         Perform an HTTP GET request.
@@ -448,7 +449,7 @@ class RemoteAPI:
         return [(d["username"], d["email"], d["notification"]) for d in res.json()]
 
     @try_request
-    def set_metadata(self, sim_id: str, key: str, value: str) -> List[str]:
+    def set_metadata(self, sim_id: str, key: str, value: Union[str, uuid.UUID, int, float]) -> List[str]:
         res = self.patch("simulation/metadata/" + sim_id, {"key": key, "value": value})
         return [data["value"] for data in res.json()]
 
@@ -506,7 +507,8 @@ class RemoteAPI:
             out_uri = URI(str(file.uri))
             if "user" in out_uri.query:
                 out_uri.query.remove("user")
-            out_uri.query.set("path", data["staging_dir"])
+            path = Path(data["staging_dir"]) / file.uuid.hex
+            out_uri.query.set("path", path)
             print(
                 "Uploading IDS {}\n           to {} ... ".format(file.uri, out_uri),
                 file=out_stream,

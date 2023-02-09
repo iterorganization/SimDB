@@ -1,4 +1,4 @@
-from flask import request, current_app, jsonify, send_file
+from flask import request, current_app, jsonify, send_file, Response
 from flask_restx import Resource, Namespace
 from typing import Optional, List, Iterable, Dict
 from pathlib import Path
@@ -101,6 +101,61 @@ def _stage_file_from_chunks(
         _save_chunked_file(file, file_chunk_info, path)
 
 
+def _check_file_is_in_simulation(
+    simulation: models.Simulation, file_uuid: uuid.UUID, file_type: str
+) -> models.File:
+    sim_files = simulation.inputs if file_type == "input" else simulation.outputs
+    sim_file = next((f for f in sim_files if f.uuid == file_uuid), None)
+    if sim_file is None:
+        raise ValueError("file with uuid %s not found in simulation" % file_uuid)
+    return sim_file
+
+
+def _process_simulation_data(data: dict) -> Response:
+    simulation = models.Simulation.from_data(data["simulation"])
+    sim_file_paths = [
+        f.uri.path
+        for f in itertools.chain(simulation.inputs, simulation.outputs)
+        if f.type == DataObject.Type.FILE
+    ]
+    common_root = (
+        Path(os.path.commonpath(sim_file_paths)) if len(sim_file_paths) > 1 else None
+    )
+    for file in data["files"]:
+        sim_file = _check_file_is_in_simulation(
+            simulation, uuid.UUID(file["file_uuid"]), file["file_type"]
+        )
+        _verify_file(simulation.uuid, sim_file, common_root)
+    return jsonify({})
+
+
+def _handle_file_upload() -> Response:
+    from ...json import CustomDecoder
+
+    data: dict = json.load(request.files["data"], cls=CustomDecoder)
+
+    if "simulation" not in data:
+        return error("Simulation data not provided")
+
+    simulation = models.Simulation.from_data(data["simulation"])
+
+    chunk_info = data.get("chunk_info", {})
+    file_type = data["file_type"]
+
+    files = request.files.getlist("files")
+    if not files:
+        return error("No files given")
+
+    all_sim_files = list(itertools.chain(simulation.inputs, simulation.outputs))
+    paths = [f.uri.path for f in all_sim_files if f.type == DataObject.Type.FILE]
+    common_root = Path(os.path.commonpath(paths)) if len(paths) > 1 else None
+
+    sim_files = simulation.inputs if file_type == "input" else simulation.outputs
+    _stage_file_from_chunks(files, chunk_info, simulation.uuid, sim_files, common_root)
+
+    return jsonify({})
+
+
 @api.route("/files")
 class FileList(Resource):
     @requires_auth()
@@ -109,65 +164,13 @@ class FileList(Resource):
         return jsonify([file.data() for file in files])
 
     @requires_auth()
-    def post(self, user: User):
+    def post(self, _user: User):
         try:
             data = request.get_json()
             if data:
-                simulation = models.Simulation.from_data(data["simulation"])
-                for file in data["files"]:
-                    file_uuid = uuid.UUID(file["file_uuid"])
-                    file_type = file["file_type"]
-                    sim_files = (
-                        simulation.inputs
-                        if file_type == "input"
-                        else simulation.outputs
-                    )
-                    sim_file = next((f for f in sim_files if f.uuid == file_uuid), None)
-                    if sim_file is None:
-                        raise ValueError(
-                            "file with uuid %s not found in simulation" % file_uuid
-                        )
-                    paths = [
-                        f.uri.path
-                        for f in itertools.chain(simulation.inputs, simulation.outputs)
-                        if f.type == DataObject.Type.FILE
-                    ]
-                    common_root = (
-                        Path(os.path.commonpath(paths)) if len(paths) > 1 else None
-                    )
-                    _verify_file(simulation.uuid, sim_file, common_root)
-                return jsonify({})
+                return _process_simulation_data(data)
+            return _handle_file_upload()
 
-            from ...json import CustomDecoder
-
-            data = json.load(request.files["data"], cls=CustomDecoder)
-
-            if "simulation" not in data:
-                return error("Simulation data not provided")
-
-            simulation = models.Simulation.from_data(data["simulation"])
-
-            chunk_info = data.get("chunk_info", {})
-            file_type = data["file_type"]
-
-            files = request.files.getlist("files")
-            if not files:
-                return error("No files given")
-
-            all_sim_files = list(itertools.chain(simulation.inputs, simulation.outputs))
-            paths = [
-                f.uri.path for f in all_sim_files if f.type == DataObject.Type.FILE
-            ]
-            common_root = Path(os.path.commonpath(paths)) if len(paths) > 1 else None
-
-            sim_files = (
-                simulation.inputs if file_type == "input" else simulation.outputs
-            )
-            _stage_file_from_chunks(
-                files, chunk_info, simulation.uuid, sim_files, common_root
-            )
-
-            return jsonify({})
         except ValueError as err:
             return error(str(err))
 

@@ -202,7 +202,7 @@ class Config:
         return self._parser.sections()
 
     def get_section(
-        self, name: str, default: Optional[Dict[str, str]] = None
+        self, name: str, default: Optional[Dict[str, Union[int, float, bool, str]]] = None
     ) -> Dict[str, Union[int, float, bool, str]]:
         try:
             items = self._parser.items(name)

@@ -10,7 +10,8 @@ from flask_restx import Namespace, Resource
 from ....database import DatabaseError
 from ....database.models import metadata as models_meta
 from ....database.models import simulation as models_sim
-from ....uri import URI
+from ....uri import URI, Authority
+from ....cli.manifest import DataObject
 from ...core.alias import create_alias_dir
 from ...core.auth import User, requires_auth
 from ...core.cache import cache, cache_key, clear_cache
@@ -225,18 +226,29 @@ class SimulationList(Resource):
             )
 
             files = list(itertools.chain(simulation.inputs, simulation.outputs))
-            common_root = None
-            if files:
-                paths = [f.uri.path for f in files]
-                if len(paths) > 1:
-                    common_root = Path(os.path.commonpath(paths))
+            sim_file_paths = [
+                f.uri.path
+                for f in itertools.chain(simulation.inputs, simulation.outputs)
+                if f.type == DataObject.Type.FILE
+            ]
+            common_root = (
+                Path(os.path.commonpath(sim_file_paths)) if len(sim_file_paths) > 1 else None
+            )
 
             for sim_file in files:
-                path = secure_path(sim_file.uri.path, common_root, staging_dir)
-                if not path.exists():
-                    raise ValueError("simulation file %s not uploaded" % sim_file.uuid)
                 if sim_file.uri.scheme == "file":
+                    path = secure_path(sim_file.uri.path, common_root, staging_dir)
+                    if not path.exists():
+                        raise ValueError("simulation file %s not uploaded" % sim_file.uuid)
                     sim_file.uri = URI(scheme="file", path=path)
+                elif sim_file.uri.scheme == "imas":
+                    # Translate locale IMAS URI (imas:<backend>?path=<path>) to remote access URI
+                    # (imas://<imas_remote_host>:<imas_remote_port>/uda?path=<path>&backend=<backend>)
+                    host = current_app.simdb_config.get_option("server.imas_remote_host", default=None)
+                    port = current_app.simdb_config.get_option("server.imas_remote_port", default=None)
+                    sim_file.uri.authority = Authority(host, port, None)
+                    sim_file.uri.query.set("backend", sim_file.uri.path)
+                    sim_file.uri.path = "uda"
 
             result = {
                 "ingested": simulation.uuid.hex,

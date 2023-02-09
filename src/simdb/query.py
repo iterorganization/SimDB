@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from typing import Any
+from typing import Any, Tuple
 
 
 class QueryType(Enum):
@@ -23,7 +23,7 @@ class QueryType(Enum):
     EXIST = auto()
 
 
-def parse_query_arg(value: str) -> (str, QueryType):
+def parse_query_arg(value: str) -> Tuple[str, QueryType]:
     """
     Parse the second half of a SimDB query argument and return the comparator type and value to be compared.
 
