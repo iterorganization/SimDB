@@ -369,6 +369,11 @@ class RemoteAPI:
         return res.json()
 
     @try_request
+    def get_upload_options(self) -> List[Dict]:
+        res = self.get("upload_options")
+        return res.json()
+
+    @try_request
     def list_simulations(
         self, meta: Optional[List[str]] = None, limit: int = 0
     ) -> List["Simulation"]:
@@ -579,14 +584,22 @@ class RemoteAPI:
             print("Warning: simulation does not validate.")
             print(f"Validation error: {err}.")
 
+        options: dict = {}
+        try:
+            options = self.get_upload_options()
+        except FailedConnection:
+            pass
+
         sim_data = simulation.data(recurse=True)
-        chunk_size = 10 * 1024 * 1024  # 10 MB
 
-        for file in simulation.inputs:
-            self._push_file(file, "input", sim_data, chunk_size, out_stream)
+        if options.get('copy_files', True):
+            chunk_size = 10 * 1024 * 1024  # 10 MB
 
-        for file in simulation.outputs:
-            self._push_file(file, "output", sim_data, chunk_size, out_stream)
+            for file in simulation.inputs:
+                self._push_file(file, "input", sim_data, chunk_size, out_stream)
+
+            for file in simulation.outputs:
+                self._push_file(file, "output", sim_data, chunk_size, out_stream)
 
         print("Uploading simulation data ... ", file=out_stream, end="", flush=True)
         self.post("simulations", data={"simulation": sim_data})
