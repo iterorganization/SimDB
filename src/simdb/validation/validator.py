@@ -138,7 +138,7 @@ class Validator:
         cls, config: Config, simulation: Optional[Simulation], path=None
     ) -> List[Dict]:
         root = Path(
-            config.get_option("validation.path", default=str(config.config_directory))
+            str(config.get_option("validation.path", default=str(config.config_directory)))
         )
 
         paths = []

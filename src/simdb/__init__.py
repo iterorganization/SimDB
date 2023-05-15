@@ -22,4 +22,4 @@ try:
     __licence__: str = pkg_resources.require("simdb")[0].get_metadata("LICENCE")
 except FileNotFoundError:
     # When installing with 'pip -e' in development environment
-    __licence__: str = "see LICENCE"
+    __licence__ = "see LICENCE"

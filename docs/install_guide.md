@@ -6,7 +6,8 @@ Installing from source:
 
 ```
 git clone ssh://git@git.iter.org/imex/simdb.git
-pip3 install ./simdb
+cd simdb
+pip3 install .
 ```
 
 Installing directly from git:

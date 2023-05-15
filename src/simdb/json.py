@@ -8,7 +8,7 @@ except ImportError:
     import json
 
 
-def _custom_hook(obj: Dict) -> Any:
+def _custom_hook(obj: Dict[str, str]) -> Any:
     import numpy as np
     import uuid
 
@@ -36,7 +36,7 @@ class CustomEncoder(json.JSONEncoder):
         import uuid
 
         if isinstance(obj, np.ndarray):
-            bytes = base64.b64encode(obj).decode()
+            bytes = base64.b64encode(obj.data).decode()
             return {"_type": "numpy.ndarray", "dtype": obj.dtype.name, "bytes": bytes}
         elif isinstance(obj, uuid.UUID):
             return {"_type": "uuid.UUID", "hex": obj.hex}

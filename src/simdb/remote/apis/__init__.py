@@ -79,6 +79,7 @@ def register(api, version, namespaces):
                         request.url + "files",
                         request.url + "validation_schema",
                         request.url + "metadata",
+                        request.url + "upload_options",
                     ],
                     "documentation": request.url + "docs",
                 }
@@ -117,6 +118,16 @@ def register(api, version, namespaces):
 
             config = current_app.simdb_config
             return jsonify(Validator.validation_schemas(config, None))
+
+    @api.route("/upload_options")
+    class UploadOptions(Resource):
+        @requires_auth()
+        def get(self, user: User):
+            config = current_app.simdb_config
+            options = dict(
+                copy_files=config.get_option("server.copy_files", default=True)
+            )
+            return jsonify(options)
 
 
 register(api_v1, "v1", namespaces_v1)

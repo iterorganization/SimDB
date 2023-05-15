@@ -5,7 +5,7 @@ import uuid
 import click
 from collections.abc import Iterable
 from click_option_group import optgroup, MutuallyExclusiveOptionGroup
-from typing import List, TYPE_CHECKING, Optional, Tuple
+from typing import List, TYPE_CHECKING, Optional, Tuple, Union
 from semantic_version import Version
 
 from ..remote_api import RemoteAPI
@@ -425,17 +425,18 @@ def admin():
 )
 def admin_set_meta(api: RemoteAPI, sim_id: str, key: str, value: str, type: str):
     """Add or update a metadata value for the given simulation."""
+    new_value: Union[str, uuid.UUID, int, float] = value
     if type == "UUID":
-        value = uuid.UUID(value)
+        new_value = uuid.UUID(value)
     elif type == "int":
-        value = int(value)
+        new_value = int(value)
     elif type == "float":
-        value = float(value)
-    old_value = api.set_metadata(sim_id, key, value)
+        new_value = float(value)
+    old_value = api.set_metadata(sim_id, key, new_value)
     if old_value:
-        click.echo(f"Update {key} for simulation {sim_id}: {old_value} -> {value}")
+        click.echo(f"Update {key} for simulation {sim_id}: {old_value} -> {new_value}")
     else:
-        click.echo(f"Added {key} for simulation {sim_id} with value '{value}'")
+        click.echo(f"Added {key} for simulation {sim_id} with value '{new_value}'")
 
 
 @admin.command("del-meta")

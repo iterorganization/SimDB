@@ -40,13 +40,17 @@ def _to_uri(uri_str: str, base_path: Path) -> Tuple["DataObject.Type", "URI"]:
 
     uri = URI(uri_str)
     if uri.authority:
-        raise ValueError(f"invalid uri: {uri_str} - path must be absolute")
+        raise InvalidManifest(f"invalid uri: {uri_str} - path must be absolute")
     if uri.scheme is None:
-        raise ValueError(f"invalid uri: {uri_str} - no scheme provided")
+        raise InvalidManifest(f"invalid uri: {uri_str} - no scheme provided")
     if uri.scheme == "file":
         uri = URI(uri, path=_expand_path(uri.path, base_path))
         return DataObject.Type.FILE, uri
     if uri.scheme == "imas":
+        if "path" not in uri.query:
+            raise InvalidManifest(
+                f"invalid uri: {uri_str} - no path provided in IMAS uri"
+            )
         return DataObject.Type.IMAS, uri
     if uri.scheme == "uda":
         return DataObject.Type.UDA, uri
