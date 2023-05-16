@@ -106,6 +106,8 @@ class Simulation(Base):
         for input in manifest.inputs:
             self.inputs.append(File(input.type, input.uri, config=config))
 
+        all_idss = []
+
         for output in manifest.outputs:
             self.outputs.append(File(output.type, output.uri, config=config))
             if output.type == DataObject.Type.IMAS:
@@ -117,7 +119,7 @@ class Simulation(Base):
                 for ids in idss:
                     check_time(entry, ids)
 
-                self.meta.append(MetaData("ids", "[%s]" % ", ".join(idss)))
+                all_idss += idss
 
                 meta = load_metadata(entry)
                 flattened_meta: Dict[str, str] = {}
@@ -125,6 +127,8 @@ class Simulation(Base):
 
                 for key, value in flattened_meta.items():
                     self.meta.append(MetaData(key, value))
+
+        self.meta.append(MetaData("ids", "[%s]" % ", ".join(all_idss)))
 
         flattened_dict: Dict[str, str] = {}
         flatten_dict(flattened_dict, manifest.metadata)
