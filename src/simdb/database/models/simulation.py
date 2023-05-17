@@ -2,6 +2,7 @@ from enum import Enum
 import uuid
 import sys
 from collections.abc import Iterable
+from collections import defaultdict
 from datetime import datetime
 from typing import List, Union, Dict, Any, TYPE_CHECKING, Optional
 from getpass import getuser
@@ -139,6 +140,8 @@ class Simulation(Base):
         if not self.find_meta("status"):
             self.set_meta("status", Simulation.Status.NOT_VALIDATED.value)
 
+        self.validate_meta()
+
     @property
     def status(self) -> Optional["Simulation.Status"]:
         result = self.find_meta("status")
@@ -206,6 +209,21 @@ class Simulation(Base):
                 break
         else:
             self.meta.append(MetaData(name, value))
+
+    def validate_meta(self) -> None:
+        """
+        Check the metadata elements for duplicates, throwing and exception if found.
+
+        Duplicates should not be possible but if there is an issue causing them to arise then at least it will be
+        caught early rather than causing an SQL constraint failure later.
+        """
+        names = [m.element for m in self.meta]
+        counts = defaultdict(lambda: 0)
+        for name in names:
+            counts[name] += 1
+        duplicates = [k for (k, v) in counts.items() if v > 1]
+        if len(duplicates) > 0:
+            raise ValueError(f"Duplicate metadata elements {duplicates} found for simulation {self.uuid}")
 
     @classmethod
     def from_data(cls, data: Dict[str, Union[str, Dict, List]]) -> "Simulation":
