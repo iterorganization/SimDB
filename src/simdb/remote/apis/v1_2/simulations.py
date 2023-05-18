@@ -251,7 +251,16 @@ class SimulationList(Resource):
                         port = current_app.simdb_config.get_option("server.imas_remote_port", default=None)
                         sim_file.uri.authority = Authority(host, port, None)
                         sim_file.uri.query.set("backend", sim_file.uri.path)
-                        sim_file.uri.path = "uda"
+                        sim_file.uri.path = Path("uda")
+            elif current_app.simdb_config.get_option("server.imas_remote_host", default=None):
+                for sim_file in files:
+                    # Translate locale IMAS URI (imas:<backend>?path=<path>) to remote access URI
+                    # (imas://<imas_remote_host>:<imas_remote_port>/uda?path=<path>&backend=<backend>)
+                    host = current_app.simdb_config.get_option("server.imas_remote_host", default=None)
+                    port = current_app.simdb_config.get_option("server.imas_remote_port", default=None)
+                    sim_file.uri.authority = Authority(host, port, None)
+                    sim_file.uri.query.set("backend", sim_file.uri.path)
+                    sim_file.uri.path = Path("uda")
 
             result = {
                 "ingested": simulation.uuid.hex,
@@ -352,15 +361,17 @@ class Simulation(Resource):
             clear_cache()
             files = []
             for file in itertools.chain(simulation.inputs, simulation.outputs):
-                files.append("%s (%s)" % (file.uuid, file.uri.path.name))
-                os.remove(file.uri.path)
+                if file.uri.scheme == "file":
+                    files.append("%s (%s)" % (file.uuid, file.uri.path.name))
+                    os.remove(file.uri.path)
             if simulation.inputs or simulation.outputs:
                 directory = (
                     simulation.inputs[0].uri.path.parent
                     if simulation.inputs
                     else simulation.outputs[0].uri.path.parent
                 )
-                os.rmdir(directory)
+                if directory != Path() and directory != Path("/"):
+                    os.rmdir(directory)
             return jsonify({"deleted": {"simulation": simulation.uuid, "files": files}})
         except DatabaseError as err:
             return error(str(err))

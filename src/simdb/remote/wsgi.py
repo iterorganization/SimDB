@@ -4,8 +4,10 @@ import sys
 from .app import create_app
 
 if "sphinx" not in sys.modules:
+    from werkzeug.middleware.proxy_fix import ProxyFix
     # Do not create app when making docs as configuration file may not exist.
     app = create_app()
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_prefix=1)
 
 
 def run(*, port=5000):

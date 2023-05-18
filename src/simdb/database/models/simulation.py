@@ -129,7 +129,8 @@ class Simulation(Base):
                 for key, value in flattened_meta.items():
                     self.meta.append(MetaData(key, value))
 
-        self.meta.append(MetaData("ids", "[%s]" % ", ".join(all_idss)))
+        if all_idss:
+            self.meta.append(MetaData("ids", "[%s]" % ", ".join(all_idss)))
 
         flattened_dict: Dict[str, str] = {}
         flatten_dict(flattened_dict, manifest.metadata)

@@ -347,6 +347,8 @@ class Database:
         simulation = self._find_simulation(sim_ref)
         for file in simulation.inputs:
             self.session.delete(file)
+        for file in simulation.outputs:
+            self.session.delete(file)
         self.session.delete(simulation)
         self.session.commit()
         return simulation
