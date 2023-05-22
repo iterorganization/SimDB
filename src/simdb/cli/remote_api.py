@@ -54,7 +54,13 @@ def try_request(func: Callable) -> Callable:
         try:
             return func(*args, **kwargs)
         except requests.ConnectionError as ex:
-            raise FailedConnection(f"Connection failed to {ex.request.url}.")
+            raise FailedConnection(
+                f"""\
+Connection failed to {ex.request.url}
+
+Please check that the URL is valid and that SIMDB_REQUESTS_CA_BUNDLE is set if required.
+                """
+            )
 
     return wrapped_func
 
