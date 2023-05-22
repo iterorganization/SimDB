@@ -91,7 +91,8 @@ yaml.add_representer(Literal, literal_presenter)
 
 
 def to_uri(**kwargs):
-    return 'imas:?database={machine}&user=public&shot={shot}&run={run}'.format(**kwargs)
+    return 'imas:hdf5?path=/work/imas/shared/imasdb/ITER/3/{shot}/{run}'.format(**kwargs)
+    #return 'imas:?database={machine}&user=public&shot={shot}&run={run}'.format(**kwargs)
 
 
 def main(args):

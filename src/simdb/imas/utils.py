@@ -103,8 +103,6 @@ def open_imas(uri: URI, create=False) -> Any:
     if uri.scheme != "imas":
         raise ValueError(f"invalid imas URI: {uri} - invalid scheme")
 
-    entry = imas.DBEntry()
-
     if uri.query is not None:
         try:
             path = uri.query.get("path")
@@ -113,6 +111,8 @@ def open_imas(uri: URI, create=False) -> Any:
     else:
         raise ValueError(f"invalid imas URI: {uri} - no query found in URI")
 
+    entry = imas.DBEntry(str(uri))
+
     if create:
         if not Path(path).exists():
             Path(path).mkdir(parents=True, exist_ok=True)
@@ -120,7 +120,7 @@ def open_imas(uri: URI, create=False) -> Any:
         if status != 0:
             raise ImasError(f"failed to create IMAS data with URI {uri}")
     else:
-        (status, _) = entry.open_new(uri)
+        (status, _) = entry.open()
         if status != 0:
             raise ImasError(f"failed to open IMAS data with URI {uri}")
     return entry
