@@ -35,10 +35,12 @@ class RemoteGroup(click.Group):
                 skip_next = False
                 continue
             cmds.append(a)
-        if cmds and cmds[0] in self.commands:
-            args.insert(args.index(cmds[0]), "")
         if "--help" in args:
+            if cmds and cmds[0] in self.commands:
+                ctx.command = self.commands[cmds[0]]
             args = ["--help"]
+        elif cmds and cmds[0] in self.commands:
+            args.insert(args.index(cmds[0]), "")
         super().parse_args(ctx, args)
 
 
@@ -46,7 +48,7 @@ class RemoteSubGroup(click.Group):
     def format_usage(self, ctx, formatter):
         pieces = self.collect_usage_pieces(ctx)
         formatter.write_usage(
-            ctx.command_path.replace("remote", "remote [NAME]"), " ".join(pieces)
+            ctx.command_path.replace("remote", f"remote [NAME] {self.name}"), " ".join(pieces)
         )
 
 
@@ -54,7 +56,7 @@ class RemoteSubCommand(click.Command):
     def format_usage(self, ctx, formatter):
         pieces = self.collect_usage_pieces(ctx)
         formatter.write_usage(
-            ctx.command_path.replace("remote", "remote [NAME]"), " ".join(pieces)
+            ctx.command_path.replace("remote", f"remote [NAME] {self.name}"), " ".join(pieces)
         )
 
 
@@ -385,6 +387,9 @@ def token():
 @pass_api
 @pass_config
 def token_new(config: "Config", api: RemoteAPI):
+    """
+    Create a new token for the given remote.
+    """
     token = api.get_token()
     config.set_option(f"remote.{api.remote}.token", token)
     config.save()
@@ -395,6 +400,9 @@ def token_new(config: "Config", api: RemoteAPI):
 @pass_api
 @pass_config
 def token_delete(config: "Config", api: RemoteAPI):
+    """
+    Delete the existing token for the given remote.
+    """
     try:
         config.delete_option(f"remote.{api.remote}.token")
         config.save()
