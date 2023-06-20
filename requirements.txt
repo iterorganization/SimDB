@@ -26,3 +26,4 @@ flask-cors>=3
 backports-datetime-fromisoformat~=1.0.0
 python-magic~=0.4
 flask-compress~=1.12
+simplejson~=3.0
