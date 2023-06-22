@@ -18,6 +18,10 @@ import sys
 import click
 import itertools
 import hashlib
+import appdirs
+import pickle
+import getpass
+from urllib.parse import urlparse
 from pathlib import Path
 from semantic_version import Version
 
@@ -59,6 +63,14 @@ def try_request(func: Callable) -> Callable:
 Connection failed to {ex.request.url}
 
 Please check that the URL is valid and that SIMDB_REQUESTS_CA_BUNDLE is set if required.
+                """
+            )
+        except requests.JSONDecodeError as ex:
+            raise FailedConnection(
+                f"""\
+Invalid JSON returned from request endpoint
+
+This might indicate an invalid SimDB URL or the existence of a firewall.
                 """
             )
 
@@ -149,30 +161,40 @@ class RemoteAPI:
                 "Remote name not provided and no default remote found in config."
             )
         self._remote = remote
-        self._url: str = config.get_option(f'remote.{remote}.url')
-        self._api_url: str = f'{self._url}/api/v{config.api_version}/'
-
         try:
             self._url: str = config.get_option(f"remote.{remote}.url")
         except KeyError:
-            raise ValueError(f"Remote '{remote}' not found.")
+            raise ValueError(
+                f"Remote '{remote}' not found. Use `simdb remote config add` to add it."
+            )
+
+        self._api_url: str = f"{self._url}/v{config.api_version}/"
+        self._firewall: Optional[str] = config.get_option(
+            f"remote.{remote}.firewall", default=None
+        )
+
+        if not username:
+            username = config.get_option(f"remote.{remote}.username", default="")
 
         if use_token is not None:
             self._use_token = use_token
         else:
-            self._use_token = not username and not password
-
-        if not username:
-            username = config.get_option(f"remote.{remote}.username", default="")
+            token = config.get_option(f"remote.{remote}.token", default="")
+            self._use_token = token or (not username and not password)
 
         if password and not username:
             raise ValueError(
                 "Password given but no username given or found in configuration."
             )
 
+        self._cookies = {}
+        if self._firewall is not None:
+            self._load_cookies(remote, username, password)
+
         if not self._use_token:
+            print('here')
             if not username:
-                username = click.prompt("Username", default=os.environ.get("USER", ""))
+                username = click.prompt("Username", default=getpass.getuser())
             if not password:
                 password = click.prompt(
                     f"Password for user {username}", hide_input=True
@@ -199,6 +221,64 @@ class RemoteAPI:
 
         self._api_url += f"{latest_version}/"
         self.version = Version.coerce(self.get_api_version())
+
+    def _load_cookies(
+        self, remote: str, username: Optional[str], password: Optional[str]
+    ) -> None:
+        if self._firewall == "F5":
+            import requests
+
+            cookies_file = f"{remote}-cookies.pkl"
+            cookies_path = Path(appdirs.user_config_dir("simdb")) / cookies_file
+            parsed_url = urlparse(self._url)
+            base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
+
+            cookies = None
+            if os.path.exists(cookies_path):
+                with open(cookies_path, "rb") as f:
+                    cookies = pickle.load(f)
+                r = requests.get(f'{self._url}/', cookies=cookies)
+                try:
+                    # check to see if the cookies are still valid by trying a simple request
+                    r.json()
+                except requests.JSONDecodeError:
+                    cookies = None
+
+            if cookies is None:
+                if not username:
+                    username = click.prompt("Username", default=getpass.getuser())
+                if not password:
+                    password = click.prompt(
+                        f"Password for user {username}", hide_input=True
+                    )
+                with requests.Session() as s:
+                    s.get(base_url)
+                    payload = {
+                        "username": username,
+                        "password": password,
+                        "vhost": "standard",
+                    }
+                    p = s.post(f"{base_url}/my.policy", data=payload)
+                    if p.status_code != 200:
+                        raise RuntimeError(
+                            "Failed to get firewall authentication cookies"
+                        )
+                    cookies = s.cookies
+
+                os.umask(0)
+                descriptor = os.open(
+                    path=cookies_path,
+                    flags=os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+                    mode=0o600,
+                )
+                with open(descriptor, "wb") as f:
+                    pickle.dump(cookies, f)
+
+            if not cookies:
+                raise RuntimeError("Failed to get firewall authentication cookies")
+            self._cookies = cookies
+        else:
+            raise ValueError(f"Unknown firewall option {self._firewall}")
 
     @property
     def remote(self) -> str:
@@ -250,9 +330,15 @@ class RemoteAPI:
                 params=params,
                 auth=self._get_auth(),
                 headers=headers,
+                cookies=self._cookies,
             )
         else:
-            res = requests.get(self._api_url + url, params=params, headers=headers)
+            res = requests.get(
+                self._api_url + url,
+                params=params,
+                headers=headers,
+                cookies=self._cookies,
+            )
         check_return(res)
         return res
 
@@ -386,8 +472,9 @@ class RemoteAPI:
         self, meta: Optional[List[str]] = None, limit: int = 0
     ) -> List["Simulation"]:
         from ..database.models import Simulation
-        args = '?' + '&'.join(meta) if meta else ''
-        headers = {'simdb-result-limit': str(limit)}
+
+        args = "?" + "&".join(meta) if meta else ""
+        headers = {"simdb-result-limit": str(limit)}
         res = self.get("simulations" + args, headers=headers)
         data = res.json(cls=CustomDecoder)
         return [Simulation.from_data(sim) for sim in data["results"]]
@@ -461,7 +548,9 @@ class RemoteAPI:
         return [(d["username"], d["email"], d["notification"]) for d in res.json()]
 
     @try_request
-    def set_metadata(self, sim_id: str, key: str, value: Union[str, uuid.UUID, int, float]) -> List[str]:
+    def set_metadata(
+        self, sim_id: str, key: str, value: Union[str, uuid.UUID, int, float]
+    ) -> List[str]:
         res = self.patch("simulation/metadata/" + sim_id, {"key": key, "value": value})
         return [data["value"] for data in res.json()]
 
@@ -528,11 +617,11 @@ class RemoteAPI:
                 end="",
                 flush=True,
             )
-            if (Path(data['staging_dir']) / file.uri['database'] / '3' / '0').exists():
-                print('already exists', file=out_stream, flush=True)
+            if (Path(data["staging_dir"]) / file.uri["database"] / "3" / "0").exists():
+                print("already exists", file=out_stream, flush=True)
             else:
                 copy_imas(file.uri, out_uri)
-                print('success', file=out_stream, flush=True)
+                print("success", file=out_stream, flush=True)
             files = sim_data["outputs"] if file_type == "output" else sim_data["inputs"]
             file_data = next((f for f in files if f["uuid"] == file.uuid), None)
             if file_data:
@@ -603,7 +692,7 @@ class RemoteAPI:
 
         sim_data = simulation.data(recurse=True)
 
-        if options.get('copy_files', True):
+        if options.get("copy_files", True):
             chunk_size = 10 * 1024 * 1024  # 10 MB
 
             for file in simulation.inputs:

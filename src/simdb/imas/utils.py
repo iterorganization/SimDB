@@ -12,7 +12,6 @@ class ImasError(Exception):
 
 
 def get_metadata(imas_obj) -> dict:
-
     ids = getattr(imas_obj, "dataset_description")
     ids.get()
 
@@ -166,7 +165,7 @@ def copy_imas(from_uri: URI, to_uri: URI):
     to_entry.close()
 
     for ids in idss:
-        print(f'Copying {ids}', flush=True)
+        print(f"Copying {ids}", flush=True)
         p = mp.Process(target=_copy_imas, args=(from_uri, to_uri, ids))
         p.start()
         p.join()

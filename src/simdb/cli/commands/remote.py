@@ -37,7 +37,13 @@ class RemoteGroup(click.Group):
             cmds.append(a)
         if "--help" in args:
             if cmds and cmds[0] in self.commands:
-                ctx.command = self.commands[cmds[0]]
+                cmd = self.commands[cmds[0]]
+                for c in cmds[1:]:
+                    if c in cmd.commands:
+                        cmd = cmd.commands[c]
+                    else:
+                        raise click.ClickException(f"Unknown subcommand {c}")
+                ctx.command = cmd
             args = ["--help"]
         elif cmds and cmds[0] in self.commands:
             args.insert(args.index(cmds[0]), "")
@@ -48,7 +54,8 @@ class RemoteSubGroup(click.Group):
     def format_usage(self, ctx, formatter):
         pieces = self.collect_usage_pieces(ctx)
         formatter.write_usage(
-            ctx.command_path.replace("remote", f"remote [NAME] {self.name}"), " ".join(pieces)
+            ctx.command_path.replace("remote", f"remote [NAME] {self.name}"),
+            " ".join(pieces),
         )
 
 
@@ -56,7 +63,8 @@ class RemoteSubCommand(click.Command):
     def format_usage(self, ctx, formatter):
         pieces = self.collect_usage_pieces(ctx)
         formatter.write_usage(
-            ctx.command_path.replace("remote", f"remote [NAME] {self.name}"), " ".join(pieces)
+            ctx.command_path.replace("remote", f"remote [NAME] {self.name}"),
+            " ".join(pieces),
         )
 
 
@@ -69,40 +77,13 @@ def is_empty(value) -> bool:
 @pass_config
 @click.option("--username", help="Username used to authenticate with the remote.")
 @click.option("--password", help="Password used to authenticate with the remote.")
-@optgroup.group(
-    "Remote options",
-    cls=MutuallyExclusiveOptionGroup,
-    help="Commands for managing remotes",
-)
-@optgroup.option("--set-default", help="Set the remote as the default.", metavar="NAME")
-@optgroup.option(
-    "--get-default", is_flag=True, help="Print the currently set default remote."
-)
-@optgroup.option(
-    "--directory", is_flag=True, help="Print the storage directory of a remote."
-)
-@optgroup.option(
-    "--new",
-    type=(str, str),
-    default=("", ""),
-    help="Create a new default.",
-    metavar="NAME URL",
-)
-@optgroup.option("--delete", is_flag=True, help="Delete a registered remote.")
-@optgroup.option("--list", is_flag=True, help="List all registered remotes.")
 @click.argument("name", required=False)
 def remote(
     config: "Config",
     ctx: "Context",
-    username: str,
-    password: str,
+    username: Optional[str],
+    password: Optional[str],
     name: str,
-    set_default: str,
-    get_default: bool,
-    directory: bool,
-    new: Tuple[str, str],
-    delete: bool,
-    list: bool,
 ):
     """Interact with the remote SimDB service.
 
@@ -112,40 +93,142 @@ def remote(
     if not ctx.invoked_subcommand and not any(is_empty(i) for i in ctx.params.values()):
         click.echo(ctx.get_help())
     else:
-        if get_default:
-            click.echo(config.default_remote)
-        elif set_default:
-            config.default_remote = set_default
-            config.save()
-        elif new[0] or new[1]:
-            config.set_option(f"remote.{new[0]}.url", new[1])
-            config.save()
-        elif list:
-            r = re.compile(r"remote\.(.*)\.url: (.*)")
-            for option in config.list_options():
-                m = r.match(option)
-                if m:
-                    click.echo(
-                        f"{m[1]}: {m[2]}"
-                        + (" (default)" if m[1] == config.default_remote else "")
-                    )
-        elif delete:
-            config.delete_section(f"remote.{name}")
-            config.save()
-        elif directory:
-            api = RemoteAPI(name, username, password, config)
-            if api.version < Version("1.2.0"):
-                raise click.ClickException(
-                    "Command not available with this remote. Requires API version >= 1.2."
-                )
-            print(api.get_directory())
+        if ctx.invoked_subcommand in ["config"]:
+            pass
         elif ctx.invoked_subcommand:
-            if ctx.invoked_subcommand == "token" and click.get_os_args()[-1] == "new":
+            if ctx.invoked_subcommand == "token" and sys.argv[-1] == "new":
                 ctx.obj = RemoteAPI(name, username, password, config, use_token=False)
             else:
                 ctx.obj = RemoteAPI(name, username, password, config)
         else:
             click.echo(ctx.get_help())
+
+
+@remote.command("test", cls=RemoteSubCommand)
+@pass_api
+def remote_test(api: RemoteAPI):
+    """
+    Test that the remote is valid.
+    """
+    remote_version = api.get_api_version()
+    print(f"Remote is valid (remote API version: {remote_version}")
+
+
+@remote.command("directory", cls=RemoteSubCommand)
+@pass_api
+def remote_directory(api: RemoteAPI):
+    """
+    Print the storage directory of the remote.
+    """
+    if api.version < Version("1.2.0"):
+        raise click.ClickException(
+            "Command not available with this remote. Requires API version >= 1.2."
+        )
+    print(api.get_directory())
+
+
+@remote.group("config", cls=RemoteSubGroup)
+def remote_config():
+    """
+    Configure the available remotes.
+    """
+    pass
+
+
+@remote_config.command("default")
+@pass_config
+def config_default(config: "Config"):
+    """
+    Print the default remote.
+    """
+    click.echo(config.default_remote)
+
+
+@remote_config.command("list")
+@pass_config
+def config_list(config: "Config"):
+    """
+    List available remotes.
+    """
+    r = re.compile(r"remote\.(.*)\.url: (.*)")
+    for option in config.list_options():
+        m = r.match(option)
+        if m:
+            options = {
+                "firewall": config.get_option(f"remote.{m[1]}.firewall", default=None),
+                "username": config.get_option(f"remote.{m[1]}.username", default=None),
+            }
+            options_str = ", ".join(
+                f"{k}: {v}" for k, v in options.items() if v is not None
+            )
+            click.echo(
+                f"{m[1]}: {m[2]}"
+                + (f" [{options_str}]" if options_str else "")
+                + (" (default)" if m[1] == config.default_remote else "")
+            )
+
+
+@remote_config.command("new")
+@pass_config
+@click.argument("name", required=True)
+@click.argument("url", required=True)
+@click.option(
+    "--firewall",
+    help="Specify the remote is behind a login firewall and what type it is.",
+    type=click.Choice(["F5"], case_sensitive=False),
+)
+@click.option("--username", help="Username to use for remote.", type=str)
+def config_new(
+    config: "Config",
+    name: str,
+    url: str,
+    firewall: Optional[str],
+    username: Optional[str],
+):
+    """
+    Add a new remote.
+    """
+    config.set_option(f"remote.{name}.url", url)
+    if firewall is not None:
+        config.set_option(f"remote.{name}.firewall", firewall)
+    if username is not None:
+        config.set_option(f"remote.{name}.username", username)
+    config.save()
+
+
+@remote_config.command("delete")
+@pass_config
+@click.argument("name", required=True)
+def config_delete(config: "Config", name: str):
+    """
+    Delete a remote.
+    """
+    config.delete_section(f"remote.{name}")
+    config.save()
+
+
+@remote_config.command("set-default")
+@pass_config
+@click.argument("name", required=True)
+def config_set_default(config: "Config", name: str):
+    """
+    Set a remote as default.
+    """
+    config.default_remote = name
+    config.save()
+
+
+@remote_config.command("set-option")
+@pass_config
+@click.argument("name", required=True)
+@click.argument("option", required=True)
+@click.argument("value", required=True)
+def config_set_option(config: "Config", name: str, option: str, value: str):
+    """
+    Set a configuration option for a given remote.
+    """
+    config.set_option(f"remote.{name}.{option}", value)
+    config.save()
 
 
 @remote.group(cls=RemoteSubGroup)

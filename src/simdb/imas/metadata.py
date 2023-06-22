@@ -54,7 +54,7 @@ def walk_imas(ids_node) -> Dict:
 
 def walk_dict(d: Dict, node, depth: int, read_values: ReadValues) -> Dict:
     meta = {}
-    for (k, v) in d.items():
+    for k, v in d.items():
         if depth == 0:
             ids = node.get(k)
             meta[k] = walk_dict(d[k], ids, depth + 1, read_values)
@@ -84,7 +84,7 @@ def walk_dict(d: Dict, node, depth: int, read_values: ReadValues) -> Dict:
             child = getattr(node, k)
             if "structArray" in str(type(child)):
                 values = []
-                for (i, el) in enumerate(child):
+                for i, el in enumerate(child):
                     values.append(walk_dict(d[k], el, depth + 1, read_values))
                 meta[k] = values
             else:
@@ -100,11 +100,11 @@ def load_metadata(entry):
     #
     # data = yaml.safe_load(text)
     data_to_read = {
-        'summary': {
-            'values': 'all',
+        "summary": {
+            "values": "all",
         },
-        'dataset_description': {
-            'values': 'all',
+        "dataset_description": {
+            "values": "all",
         },
     }
     meta = walk_dict(data_to_read, entry, 0, ReadValues.SELECTED)

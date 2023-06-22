@@ -84,6 +84,7 @@ class URI:
     """
     Class for parsing and representing a URI.
     """
+
     __slots__ = ("scheme", "query", "path", "authority", "fragment")
 
     def __init__(self, uri: Union[str, "URI", None] = None, *, scheme=None, path=None):
@@ -109,7 +110,11 @@ class URI:
             self.query = Query(result.query)
             self.authority = Authority(result.host, result.port, result.auth)
             if result.path is not None:
-                if self.scheme == 'imas' and not self.authority and result.path.startswith("/"):
+                if (
+                    self.scheme == "imas"
+                    and not self.authority
+                    and result.path.startswith("/")
+                ):
                     self.path = Path(result.path[1:])
                 else:
                     self.path = Path(result.path)

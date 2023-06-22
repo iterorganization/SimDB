@@ -41,7 +41,7 @@ def _platform_details() -> PlatformDetails:
 
 def _environmental_vars() -> EnvironmentDetails:
     env_vars = EnvironmentDetails({})
-    for (k, v) in os.environ.items():
+    for k, v in os.environ.items():
         if "PATH" in k:
             env_vars[k] = [i for i in v.split(os.pathsep) if i]
         else:

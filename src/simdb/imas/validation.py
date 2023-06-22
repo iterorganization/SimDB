@@ -479,7 +479,6 @@ def verify_equilibrium_cocos(imas_obj: Any) -> bool:
     compliance = True
 
     for a_index in range(len(time_slice)):
-
         # if a_index == 0: print(time_slice[a_index])
 
         ip = time_slice[a_index].global_quantities.ip
@@ -791,7 +790,7 @@ def validate_ids(
     print("IDS:", ids_name)
     if test_report.failures:
         print("Failures: %d" % len(test_report.failures), file=out)
-        for (path, failures) in test_report.failures.items():
+        for path, failures in test_report.failures.items():
             print("Path: " + path, file=out)
     else:
         print("Success")

@@ -48,7 +48,7 @@ def alias(config: "Config", ctx: "Context", remote, username, password):
     """Query remote and local aliases."""
     if not ctx.invoked_subcommand and not any(is_empty(i) for i in ctx.params.values()):
         click.echo(ctx.get_help())
-    elif "--help" not in click.get_os_args():
+    elif "--help" not in sys.argv:
         if ctx.invoked_subcommand:
             ctx.obj = RemoteAPI(remote, username, password, config)
 

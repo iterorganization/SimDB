@@ -101,7 +101,7 @@ class Config:
         ):
             raise Exception(
                 f"""
-            User configuration file {self._user_config_path} has incorrect permissions (must have 0600 permissions).
+User configuration file {self._user_config_path} has incorrect permissions (must have 0600 permissions).
             """
             )
         self._parser.read(self._user_config_path)
@@ -194,15 +194,22 @@ class Config:
 
     def save(self) -> None:
         os.makedirs(self._user_config_dir, exist_ok=True)
-        with open(self._user_config_path, "w") as file:
+        os.umask(0)
+        descriptor = os.open(
+            path=self._user_config_path,
+            flags=os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+            mode=0o600,
+        )
+        with open(descriptor, "w") as file:
             self._parser.write(file)
-        self._user_config_path.chmod(0o600)
 
     def sections(self) -> List[str]:
         return self._parser.sections()
 
     def get_section(
-        self, name: str, default: Optional[Dict[str, Union[int, float, bool, str]]] = None
+        self,
+        name: str,
+        default: Optional[Dict[str, Union[int, float, bool, str]]] = None,
     ) -> Dict[str, Union[int, float, bool, str]]:
         try:
             items = self._parser.items(name)

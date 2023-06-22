@@ -11,7 +11,7 @@ else:
 
 def _flatten_dict(values: Dict) -> List[Tuple[str, str]]:
     items = []
-    for (k, v) in values.items():
+    for k, v in values.items():
         if type(v) == list:
             for n, i in enumerate(v):
                 items.append(("{}[{}]".format(k, n), i))

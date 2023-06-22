@@ -227,7 +227,9 @@ class SimulationList(Resource):
                 if f.type == DataObject.Type.FILE
             ]
             common_root = (
-                Path(os.path.commonpath(sim_file_paths)) if len(sim_file_paths) > 1 else None
+                Path(os.path.commonpath(sim_file_paths))
+                if len(sim_file_paths) > 1
+                else None
             )
 
             config = current_app.simdb_config
@@ -242,22 +244,34 @@ class SimulationList(Resource):
                     if sim_file.uri.scheme == "file":
                         path = secure_path(sim_file.uri.path, common_root, staging_dir)
                         if not path.exists():
-                            raise ValueError("simulation file %s not uploaded" % sim_file.uuid)
+                            raise ValueError(
+                                "simulation file %s not uploaded" % sim_file.uuid
+                            )
                         sim_file.uri = URI(scheme="file", path=path)
                     elif sim_file.uri.scheme == "imas":
                         # Translate locale IMAS URI (imas:<backend>?path=<path>) to remote access URI
                         # (imas://<imas_remote_host>:<imas_remote_port>/uda?path=<path>&backend=<backend>)
-                        host = current_app.simdb_config.get_option("server.imas_remote_host", default=None)
-                        port = current_app.simdb_config.get_option("server.imas_remote_port", default=None)
+                        host = current_app.simdb_config.get_option(
+                            "server.imas_remote_host", default=None
+                        )
+                        port = current_app.simdb_config.get_option(
+                            "server.imas_remote_port", default=None
+                        )
                         sim_file.uri.authority = Authority(host, port, None)
                         sim_file.uri.query.set("backend", sim_file.uri.path)
                         sim_file.uri.path = Path("uda")
-            elif current_app.simdb_config.get_option("server.imas_remote_host", default=None):
+            elif current_app.simdb_config.get_option(
+                "server.imas_remote_host", default=None
+            ):
                 for sim_file in files:
                     # Translate locale IMAS URI (imas:<backend>?path=<path>) to remote access URI
                     # (imas://<imas_remote_host>:<imas_remote_port>/uda?path=<path>&backend=<backend>)
-                    host = current_app.simdb_config.get_option("server.imas_remote_host", default=None)
-                    port = current_app.simdb_config.get_option("server.imas_remote_port", default=None)
+                    host = current_app.simdb_config.get_option(
+                        "server.imas_remote_host", default=None
+                    )
+                    port = current_app.simdb_config.get_option(
+                        "server.imas_remote_port", default=None
+                    )
                     sim_file.uri.authority = Authority(host, port, None)
                     sim_file.uri.query.set("backend", sim_file.uri.path)
                     sim_file.uri.path = Path("uda")

@@ -31,11 +31,10 @@ class CustomDecoder(json.JSONDecoder):
 
 
 class CustomEncoder(json.JSONEncoder):
-
     def __init__(self, *args, **kwargs):
-        kwargs['allow_nan'] = False
-        if json.__name__ == 'simplejson':
-            kwargs['ignore_nan'] = True
+        kwargs["allow_nan"] = False
+        if json.__name__ == "simplejson":
+            kwargs["ignore_nan"] = True
         super().__init__(*args, **kwargs)
 
     def default(self, obj: Any) -> Any:

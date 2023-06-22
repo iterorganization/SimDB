@@ -84,7 +84,6 @@ class URI(sql_types.TypeDecorator):
 
 
 class ChoiceType(sql_types.TypeDecorator):
-
     impl = sql_types.CHAR
 
     @property

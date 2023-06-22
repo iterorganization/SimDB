@@ -6,6 +6,7 @@ class BaseModel:
     """
     Base model for ORM classes.
     """
+
     __allow_unmapped__ = True
 
     def __str__(self):

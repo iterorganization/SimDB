@@ -1,6 +1,7 @@
 import copy
 import sys
 import click
+from trogon import tui
 
 from ..config import Config
 from .. import __version__
@@ -37,6 +38,7 @@ class AliasCommandGroup(click.Group):
         return sorted(self.commands)
 
 
+@tui()
 @click.group("simdb", cls=AliasCommandGroup)
 @click.version_option(__version__)
 @click.option("-d", "--debug", is_flag=True, help="Run in debug mode.")

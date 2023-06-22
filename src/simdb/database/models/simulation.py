@@ -98,7 +98,7 @@ class Simulation(Base):
             return
         self.uuid = uuid.uuid1()
         self.datetime = datetime.now()
-        #self.status = Simulation.Status.NOT_VALIDATED
+        # self.status = Simulation.Status.NOT_VALIDATED
         self.user = getuser()
 
         if manifest.alias:
@@ -224,7 +224,9 @@ class Simulation(Base):
             counts[name] += 1
         duplicates = [k for (k, v) in counts.items() if v > 1]
         if len(duplicates) > 0:
-            raise ValueError(f"Duplicate metadata elements {duplicates} found for simulation {self.uuid}")
+            raise ValueError(
+                f"Duplicate metadata elements {duplicates} found for simulation {self.uuid}"
+            )
 
     @classmethod
     def from_data(cls, data: Dict[str, Union[str, Dict, List]]) -> "Simulation":

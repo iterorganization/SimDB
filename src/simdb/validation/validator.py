@@ -129,7 +129,6 @@ def _load_schema(path: Path):
 
 
 class Validator:
-
     _validator: cerberus.Validator
     _section_re = re.compile(r"\S+ \"(\S+)=(\S+)\"")
 
@@ -138,7 +137,11 @@ class Validator:
         cls, config: Config, simulation: Optional[Simulation], path=None
     ) -> List[Dict]:
         root = Path(
-            str(config.get_option("validation.path", default=str(config.config_directory)))
+            str(
+                config.get_option(
+                    "validation.path", default=str(config.config_directory)
+                )
+            )
         )
 
         paths = []
