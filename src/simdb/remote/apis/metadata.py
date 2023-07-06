@@ -1,6 +1,7 @@
-from flask import current_app, jsonify
+from flask import jsonify
 from flask_restx import Resource, Namespace
 
+from ..core.typing import current_app
 from ...remote.core.errors import error
 from ...database import DatabaseError
 from ...remote.core.cache import cache, cache_key

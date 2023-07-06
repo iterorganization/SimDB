@@ -65,9 +65,9 @@ Connection failed to {ex.request.url}
 Please check that the URL is valid and that SIMDB_REQUESTS_CA_BUNDLE is set if required.
                 """
             )
-        except requests.JSONDecodeError as ex:
+        except requests.JSONDecodeError:
             raise FailedConnection(
-                f"""\
+                """\
 Invalid JSON returned from request endpoint
 
 This might indicate an invalid SimDB URL or the existence of a firewall.
@@ -192,7 +192,7 @@ class RemoteAPI:
             self._load_cookies(remote, username, password)
 
         if not self._use_token:
-            print('here')
+            print("here")
             if not username:
                 username = click.prompt("Username", default=getpass.getuser())
             if not password:
@@ -237,7 +237,7 @@ class RemoteAPI:
             if os.path.exists(cookies_path):
                 with open(cookies_path, "rb") as f:
                     cookies = pickle.load(f)
-                r = requests.get(f'{self._url}/', cookies=cookies)
+                r = requests.get(f"{self._url}/", cookies=cookies)
                 try:
                     # check to see if the cookies are still valid by trying a simple request
                     r.json()

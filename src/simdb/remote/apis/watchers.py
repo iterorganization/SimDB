@@ -1,6 +1,7 @@
-from flask import request, current_app, jsonify
+from flask import request, jsonify
 from flask_restx import Resource, Namespace
 
+from ..core.typing import current_app
 from ..core.auth import User, requires_auth
 from ..core.errors import error
 from ..core.cache import clear_cache

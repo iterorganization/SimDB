@@ -1,4 +1,4 @@
-from flask import Response, current_app, request
+from flask import Response, request
 from typing import Optional
 from functools import wraps
 import datetime
@@ -10,6 +10,9 @@ from ._exceptions import AuthenticationError
 from .active_directory import ActiveDirectoryAuthenticator
 from .ldap import LdapAuthenticator
 from .no_authentication import NoopAuthenticator
+from ..errors import error
+from ..typing import current_app
+from ....config import Config
 
 __all__ = [
     User,
@@ -19,7 +22,7 @@ __all__ = [
     NoopAuthenticator,
 ]
 
-HEADER_NAME = "Authorization"
+TOKEN_HEADER_NAME: str = "Authorization"
 
 Authenticators = {
     ActiveDirectoryAuthenticator.Name.lower(): ActiveDirectoryAuthenticator,
@@ -54,14 +57,12 @@ def authenticate():
     )
 
 
-def check_role(config, user: User, role: Optional[str]) -> bool:
+def check_role(config: Config, user: User, role: Optional[str]) -> bool:
     """
     This function is called to check if an authenticated user is a member of the specified role.
 
     If no role is specified then the function always returns true.
     """
-    config = current_app.simdb_config
-
     if role:
         import csv
 
@@ -82,7 +83,7 @@ def check_auth(config, username, password) -> Optional[User]:
     if username == "admin" and password == config.get_option("server.admin_password"):
         return User("admin", None)
 
-    authentication_type = config.get_option("server.authentication_type")
+    authentication_type = config.get_option("authentication.type")
     authenticator = get_authenticator(authentication_type)
     return authenticator.authenticate(username, password, config)
 
@@ -98,9 +99,11 @@ class RequiresAuth:
             auth = request.authorization
             user: Optional[User] = None
             if not auth:
-                if request.headers.get(HEADER_NAME, ""):
+                if request.headers.get(TOKEN_HEADER_NAME, ""):
                     try:
-                        (name, token) = request.headers[HEADER_NAME].split(" ")
+                        (name, token) = request.headers[TOKEN_HEADER_NAME].split(
+                            " "
+                        )
                         if name != "JWT-Token":
                             raise AuthenticationError("Invalid token")
                         payload = jwt.decode(
@@ -115,6 +118,18 @@ class RequiresAuth:
                             raise AuthenticationError("Token expired")
                     except (IndexError, KeyError, jwt.exceptions.PyJWTError) as ex:
                         raise AuthenticationError(f"Invalid token: {ex}")
+                elif config.get_option("authentication.firewall_auth", default=False):
+                    firewall_header = config.get_option(
+                        "authentication.firewall_header", default=None
+                    )
+                    if not firewall_header:
+                        return error(
+                            "Firewall auth enabled but no firewall header name defined"
+                        )
+                    try:
+                        user = User(request.headers[firewall_header], "")
+                    except KeyError:
+                        raise AuthenticationError(f"Header {firewall_header} not found")
             else:
                 user = check_auth(config, auth.username, auth.password)
             if not user:

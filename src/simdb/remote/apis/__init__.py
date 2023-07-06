@@ -1,4 +1,4 @@
-from flask import request, current_app, jsonify, Blueprint, _app_ctx_stack, Response
+from flask import request, jsonify, Blueprint, _app_ctx_stack, Response
 from flask_restx import Resource
 from pathlib import Path
 import datetime
@@ -6,6 +6,7 @@ import jwt
 import os
 
 from ... import __version__
+from ..core.typing import current_app
 from ..core.auth import User, requires_auth, AuthenticationError
 from ...database import Database
 from .v1 import api as api_v1, namespaces as namespaces_v1

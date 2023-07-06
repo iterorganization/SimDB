@@ -1,6 +1,6 @@
 import os
 
-from flask import current_app
+from ..core.typing import current_app
 
 
 def create_alias_dir(simulation):

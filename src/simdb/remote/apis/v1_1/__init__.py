@@ -1,9 +1,10 @@
 import os
 from pathlib import Path
 from flask_restx import Api, Resource
-from flask import jsonify, current_app
+from flask import jsonify
 
-from ...core.auth import HEADER_NAME, requires_auth, User
+from ...core.typing import current_app
+from ...core.auth import TOKEN_HEADER_NAME, requires_auth, User
 from .simulations import api as sim_ns
 from ..files import api as file_ns
 from ..metadata import api as metadata_ns
@@ -21,7 +22,7 @@ api = Api(
         "apiToken": {
             "type": "apiKey",
             "in": "header",
-            "name": HEADER_NAME,
+            "name": TOKEN_HEADER_NAME,
         },
     },
     security=["basicAuth", "apiToken"],

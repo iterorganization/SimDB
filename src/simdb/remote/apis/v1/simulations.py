@@ -4,13 +4,14 @@ import os
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from flask import current_app, jsonify, request
+from flask import jsonify, request
 from flask_restx import Namespace, Resource
 
 from ....database import DatabaseError
 from ....database.models import metadata as models_meta
 from ....database.models import simulation as models_sim
 from ....uri import URI
+from ...core.typing import current_app
 from ...core.alias import create_alias_dir
 from ...core.auth import User, requires_auth
 from ...core.cache import cache, cache_key, clear_cache

@@ -1,4 +1,4 @@
-from flask import request, current_app, jsonify, send_file, Response
+from flask import request, jsonify, send_file, Response
 from flask_restx import Resource, Namespace
 from typing import Optional, List, Iterable, Dict
 from pathlib import Path
@@ -10,6 +10,7 @@ import gzip
 import itertools
 import magic
 
+from ..core.typing import current_app
 from ...remote.core.auth import User, requires_auth
 from ...remote.core.path import secure_path
 from ...remote.core.errors import error
@@ -164,7 +165,7 @@ class FileList(Resource):
         return jsonify([file.data() for file in files])
 
     @requires_auth()
-    def post(self, _user: User):
+    def post(self, user: User):
         try:
             data = request.get_json()
             if data:
