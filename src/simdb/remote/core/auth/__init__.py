@@ -101,9 +101,7 @@ class RequiresAuth:
             if not auth:
                 if request.headers.get(TOKEN_HEADER_NAME, ""):
                     try:
-                        (name, token) = request.headers[TOKEN_HEADER_NAME].split(
-                            " "
-                        )
+                        (name, token) = request.headers[TOKEN_HEADER_NAME].split(" ")
                         if name != "JWT-Token":
                             raise AuthenticationError("Invalid token")
                         payload = jwt.decode(
@@ -119,17 +117,27 @@ class RequiresAuth:
                     except (IndexError, KeyError, jwt.exceptions.PyJWTError) as ex:
                         raise AuthenticationError(f"Invalid token: {ex}")
                 elif config.get_option("authentication.firewall_auth", default=False):
-                    firewall_header = config.get_option(
-                        "authentication.firewall_header", default=None
+                    firewall_user = config.get_option(
+                        "authentication.firewall_user", default=None
                     )
-                    if not firewall_header:
+                    firewall_email = config.get_option(
+                        "authentication.firewall_email", default=None
+                    )
+                    if not firewall_user:
                         return error(
-                            "Firewall auth enabled but no firewall header name defined"
+                            "Firewall auth enabled but authentication.firewall_user not defined"
                         )
-                    try:
-                        user = User(request.headers[firewall_header], "")
-                    except KeyError:
-                        raise AuthenticationError(f"Header {firewall_header} not found")
+                    if not firewall_email:
+                        return error(
+                            "Firewall auth enabled but authentication.firewall_email not defined"
+                        )
+                    if firewall_user not in request.headers:
+                        raise AuthenticationError(f"Header {firewall_user} not found")
+                    if firewall_email not in request.headers:
+                        raise AuthenticationError(f"Header {firewall_email} not found")
+                    user = User(
+                        request.headers[firewall_user], request.headers[firewall_email]
+                    )
             else:
                 user = check_auth(config, auth.username, auth.password)
             if not user:

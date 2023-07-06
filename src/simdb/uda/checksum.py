@@ -8,6 +8,11 @@ def checksum(uri: URI) -> str:
     import pyuda
     import hashlib
 
+    if uri.query is None:
+        raise ValueError(
+            "UDA object must have uri uda:///?signal=<SIGNAL>&source=<SOURCE>"
+        )
+
     query: Query = uri.query
     signal = query.get("signal")
     source = query.get("source")

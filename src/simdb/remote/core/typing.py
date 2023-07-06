@@ -1,10 +1,9 @@
 from flask import Flask
 from flask import current_app as _current_app
-from typing import cast
+from typing import cast, Type
 
 from ...config import Config
 from ...database import Database
-
 
 class SimDBApp(Flask):
     """

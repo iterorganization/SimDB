@@ -37,11 +37,13 @@ class RemoteGroup(click.Group):
         if "--help" in args:
             if cmds and cmds[0] in self.commands:
                 cmd = self.commands[cmds[0]]
-                for c in cmds[1:]:
-                    if c in cmd.commands:
-                        cmd = cmd.commands[c]
-                    else:
-                        raise click.ClickException(f"Unknown subcommand {c}")
+                if isinstance(cmd, click.Group):
+                    grp = cmd
+                    for c in cmds[1:]:
+                        if c in grp.commands:
+                            cmd = grp.commands[c]
+                        else:
+                            raise click.ClickException(f"Unknown subcommand {c}")
                 ctx.command = cmd
             args = ["--help"]
         elif cmds and cmds[0] in self.commands:
@@ -258,7 +260,7 @@ def list_watchers(api: RemoteAPI, sim_id: str):
 def remove_watcher(config: "Config", api: RemoteAPI, sim_id: str, user: str):
     """Remove a user from list of watchers on a simulation with given SIM_ID (UUID or alias)."""
     if not user:
-        user = config.get_option("user.name")
+        user = config.get_string_option("user.name")
     if not user:
         raise click.ClickException(
             "User not provided and user.name not found in config."
@@ -290,13 +292,13 @@ def add_watcher(
 ):
     """Register a user as a watcher for a simulation with given SIM_ID (UUID or alias)."""
     if not user:
-        user = config.get_option("user.name", default=None)
+        user = config.get_string_option("user.name", default=None)
     if not user:
         raise click.ClickException(
             "User not provided and user.name not found in config."
         )
     if not email:
-        email = config.get_option("user.email", default=None)
+        email = config.get_string_option("user.email", default=None)
     if not email:
         raise click.ClickException(
             "Email not provided and user.email not found in config."

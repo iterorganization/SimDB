@@ -3,7 +3,7 @@ import configparser
 import appdirs
 import os
 from pathlib import Path
-from typing import Tuple, List, Optional, TextIO, Union, Dict
+from typing import Tuple, List, Optional, TextIO, Union, Dict, cast
 
 
 class ConfigError(Exception):
@@ -54,10 +54,10 @@ def _convert(value: str) -> Union[int, float, str, bool]:
 
 
 class Config:
-    class Nothing:
+    class _NothingSentinel:
         pass
 
-    NOTHING = Nothing()
+    NOTHING = _NothingSentinel()
     CONFIG_FILE_NAME: str = "simdb.cfg"
 
     _parser: configparser.ConfigParser
@@ -110,7 +110,7 @@ User configuration file {self._user_config_path} has incorrect permissions (must
     def api_version(self) -> str:
         return self._api_version
 
-    def load(self, file: TextIO = None) -> None:
+    def load(self, file: Optional[TextIO] = None) -> None:
         """
         Load the configuration.
 
@@ -128,12 +128,12 @@ User configuration file {self._user_config_path} has incorrect permissions (must
         self._load_environmental_vars()
 
         # Import configuration options from files defined by environment variables
-        path = self.get_option("user.config-path", default="")
+        path = self.get_string_option("user.config-path", default="")
         if path:
             self._user_config_path = Path(path)
             self._user_config_dir = self._user_config_path.parent
 
-        path = self.get_option("site.config-path", default="")
+        path = self.get_string_option("site.config-path", default="")
         if path:
             self._site_config_path = Path(path)
             self._site_config_dir = self._site_config_path.parent
@@ -148,13 +148,23 @@ User configuration file {self._user_config_path} has incorrect permissions (must
 
     @property
     def debug(self) -> bool:
+        """
+        Returns the debug status flag.
+        """
         return self._debug
 
-    def set_debug(self, debug: bool) -> None:
+    @debug.setter
+    def debug(self, debug: bool) -> None:
+        """
+        Set the debug status flag.
+        """
         self._debug = debug
 
     @property
     def default_remote(self) -> Optional[str]:
+        """
+        Returns the default remote used by the SimDB client.
+        """
         remotes = [
             section
             for section in self._parser.sections()
@@ -167,6 +177,9 @@ User configuration file {self._user_config_path} has incorrect permissions (must
 
     @default_remote.setter
     def default_remote(self, default: str):
+        """
+        Set the default remote used by the SimDB client.
+        """
         remotes = [
             section
             for section in self._parser.sections()
@@ -183,16 +196,30 @@ User configuration file {self._user_config_path} has incorrect permissions (must
 
     @property
     def config_directory(self) -> Path:
+        """
+        Returns the directory that the local user configuration file is loaded from.
+        @return:
+        """
         return self._user_config_dir
 
     @property
     def verbose(self) -> bool:
+        """
+        Returns the SimDB client verbosity flag.
+        """
         return self._verbose
 
-    def set_verbose(self, verbose: bool) -> None:
+    @verbose.setter
+    def verbose(self, verbose: bool) -> None:
+        """
+        Sets the SimDB client verbosity flag.
+        """
         self._verbose = verbose
 
     def save(self) -> None:
+        """
+        Save the current state of the configuration to a configuration file in the users configuration directory.
+        """
         os.makedirs(self._user_config_dir, exist_ok=True)
         os.umask(0)
         descriptor = os.open(
@@ -204,6 +231,9 @@ User configuration file {self._user_config_path} has incorrect permissions (must
             self._parser.write(file)
 
     def sections(self) -> List[str]:
+        """
+        Return all sections in the configuration.
+        """
         return self._parser.sections()
 
     def get_section(
@@ -211,6 +241,14 @@ User configuration file {self._user_config_path} has incorrect permissions (must
         name: str,
         default: Optional[Dict[str, Union[int, float, bool, str]]] = None,
     ) -> Dict[str, Union[int, float, bool, str]]:
+        """
+        Returns the section from the configuration with the given name.
+
+        @param name: the name of the section to find
+        @param default: a dictionary that will be returned if the section is not found
+        @return: the section corresponding to the given name, or the default if given and the section is not found
+        @raise KeyError if the section is not found and no default is given
+        """
         try:
             items = self._parser.items(name)
             return {k: _convert(v) for (k, v) in items}
@@ -220,17 +258,44 @@ User configuration file {self._user_config_path} has incorrect permissions (must
             raise KeyError(f"Section {name} not found in configuration")
 
     def get_option(
-        self, name: str, default: Optional[str] = NOTHING
+        self, name: str, default: Union[int, float, bool, str, None, _NothingSentinel] = NOTHING
     ) -> Union[int, float, bool, str]:
+        """
+        Returns the value for the option with the given name from the configuration.
+
+        @param name: the name of the option to return
+        @param default: the value to return if the option is not found in the configuration
+        @return: the value of the found option, or the default if given and the option is not found
+        @raise KeyError if the option is not found and no default is given
+        """
         section, option = _parse_name(name)
         try:
             return _convert(self._parser.get(section, option))
         except (configparser.NoSectionError, configparser.NoOptionError):
             if default is not Config.NOTHING:
-                return default
+                value = cast(Union[int, float, bool, str], default)
+                return value
             raise KeyError(f"Option {name} not found in configuration")
 
+    def get_string_option(self, name: str, default: Union[str, None, _NothingSentinel] = NOTHING) -> str:
+        """
+        Returns the value for the option with the given name from the configuration but also ensures the resulting
+        value is a string.
+
+        @see get_option
+        @raise TypeError if the found value was not a string
+        """
+        value = self.get_option(name, default)
+        if not isinstance(value, str):
+            raise TypeError(f"Invalid type of option {name}: expected str, got {type(value)}")
+        return value
+
     def delete_option(self, name: str) -> None:
+        """
+        Delete the option with the given name from the configuration.
+
+        @param name: the name of the option to delete
+        """
         section, option = _parse_name(name)
         try:
             self._parser.remove_option(section, option)
@@ -238,19 +303,37 @@ User configuration file {self._user_config_path} has incorrect permissions (must
             raise KeyError(f"Option {name} not found in configuration")
 
     def delete_section(self, name: str) -> None:
+        """
+        Delete the section with the given name from the configuration.
+
+        This will also delete all options contained in this section.
+
+        @param name: the name of the section to delete
+        """
         section = _parse_section(name)
         try:
             self._parser.remove_section(section)
         except configparser.NoSectionError:
             raise KeyError(f"Section {name} not found in configuration")
 
-    def set_option(self, name: str, value: str) -> None:
+    def set_option(self, name: str, value: Union[int, float, bool, str]) -> None:
+        """
+        Set the option with the given name to the given value.
+
+        @param name: the name of the option to set
+        @param value: the value to set the option to
+        """
         section, option = _parse_name(name)
         if not self._parser.has_section(section) and section != "DEFAULT":
             self._parser.add_section(section)
-        self._parser.set(section, option, value)
+        self._parser.set(section, option, str(value))
 
     def list_options(self) -> List[str]:
+        """
+        List all the options found in the configuration.
+
+        @return: the values found as a list of "name: value" strings
+        """
         options = []
         for section in self._parser.sections():
             for option in self._parser.options(section):

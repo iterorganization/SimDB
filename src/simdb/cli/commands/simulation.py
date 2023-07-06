@@ -52,7 +52,7 @@ def simulation():
     show_default=True,
     callback=validate_limit,
 )
-def simulation_list(config: Config, meta: list, limit: int):
+def simulation_list(config: Config, meta: list[str], limit: int):
     """List ingested simulations."""
     from ...database import get_local_db
     from .utils import print_simulations

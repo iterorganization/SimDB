@@ -49,8 +49,8 @@ def cli(ctx, debug, verbose, config_file):
     if not ctx.obj:
         ctx.obj = Config()
         ctx.obj.load(config_file)
-        ctx.obj.set_debug(debug)
-        ctx.obj.set_verbose(verbose)
+        ctx.obj.debug = debug
+        ctx.obj.verbose = verbose
     global g_debug
     g_debug = debug
 

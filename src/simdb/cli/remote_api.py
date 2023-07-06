@@ -11,6 +11,7 @@ from typing import (
     Optional,
     Union,
     TYPE_CHECKING,
+    Any,
 )
 import gzip
 import io
@@ -414,7 +415,7 @@ class RemoteAPI:
         check_return(res)
         return res
 
-    def delete(self, url: str, data: Dict, **kwargs) -> "requests.Response":
+    def delete(self, url: str, data: dict[Any, Any], **kwargs) -> "requests.Response":
         """
         Perform an HTTP DELETE request.
 
@@ -664,7 +665,7 @@ class RemoteAPI:
 
     @try_request
     def push_simulation(
-        self, simulation: "Simulation", out_stream: IO = sys.stdout
+        self, simulation: "Simulation", out_stream: IO[str] = sys.stdout
     ) -> None:
         """
         Push the local simulation to the remote server.
@@ -684,7 +685,7 @@ class RemoteAPI:
             print("Warning: simulation does not validate.")
             print(f"Validation error: {err}.")
 
-        options: dict = {}
+        options: dict[str, bool] = {}
         try:
             options = self.get_upload_options()
         except FailedConnection:
@@ -709,7 +710,7 @@ class RemoteAPI:
         self,
         file: "File",
         path: Path,
-        out_stream: IO,
+        out_stream: IO[str],
     ):
         if file.type == DataObject.Type.FILE:
             print(f"Downloading file {file.uri.path} ", file=out_stream, end="")
@@ -727,7 +728,7 @@ class RemoteAPI:
 
     @try_request
     def pull_simulation(
-        self, sim_id: str, directory: Path, out_stream: IO = sys.stdout
+        self, sim_id: str, directory: Path, out_stream: IO[str] = sys.stdout
     ) -> "Simulation":
         from ..uri import URI
 
