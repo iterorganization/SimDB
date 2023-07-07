@@ -415,7 +415,7 @@ class RemoteAPI:
         check_return(res)
         return res
 
-    def delete(self, url: str, data: dict[Any, Any], **kwargs) -> "requests.Response":
+    def delete(self, url: str, data: Dict[Any, Any], **kwargs) -> "requests.Response":
         """
         Perform an HTTP DELETE request.
 
@@ -685,7 +685,7 @@ class RemoteAPI:
             print("Warning: simulation does not validate.")
             print(f"Validation error: {err}.")
 
-        options: dict[str, bool] = {}
+        options: Dict[str, bool] = {}
         try:
             options = self.get_upload_options()
         except FailedConnection:
