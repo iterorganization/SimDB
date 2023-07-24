@@ -10,6 +10,8 @@ class Authenticator(abc.ABC):
     Base class for SimDB server authenticators.
     """
 
+    Name = NotImplemented
+
     @abc.abstractmethod
     def authenticate(
         self, username: str, password: str, config: Config
@@ -25,4 +27,4 @@ class Authenticator(abc.ABC):
         :param config: The SimDB configuration object.
         :return: A User object if the user successfully authenticates, otherwise None.
         """
-        pass
+        ...

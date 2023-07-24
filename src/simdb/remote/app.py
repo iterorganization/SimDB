@@ -8,6 +8,7 @@ from flask.json import JSONEncoder, JSONDecoder
 from .apis import blueprints
 from .core.cache import cache
 from .core.typing import SimDBApp
+from .core.auth import get_authenticator
 from ..config import Config
 from ..json import CustomEncoder, CustomDecoder
 
@@ -42,7 +43,9 @@ def create_app(
         endpoints = []
         for ver in blueprints:
             endpoints.append(f"{request.url}{ver}")
-        return jsonify({"endpoints": endpoints})
+        authentication_type = config.get_option("authentication.type")
+        authenticator = get_authenticator(authentication_type)
+        return jsonify({"endpoints": endpoints, "authentication": type(authenticator).Name})
 
     for version, blueprint in blueprints.items():
         app.register_blueprint(blueprint, url_prefix=f"/{version}")

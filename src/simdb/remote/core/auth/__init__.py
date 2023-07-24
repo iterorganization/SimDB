@@ -6,6 +6,7 @@ import jwt
 
 from ._user import User
 from ._exceptions import AuthenticationError
+from ._authenticator import Authenticator
 
 from .active_directory import ActiveDirectoryAuthenticator
 from .ldap import LdapAuthenticator
@@ -31,7 +32,7 @@ Authenticators = {
 }
 
 
-def get_authenticator(name: str):
+def get_authenticator(name: str) -> Authenticator:
     """
     Find an authenticator class for the given name and return an object of that class.
 
