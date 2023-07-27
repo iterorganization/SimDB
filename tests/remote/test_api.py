@@ -30,6 +30,7 @@ def client():
     config.set_option("database.type", "sqlite")
     config.set_option("database.file", db_file)
     config.set_option("server.admin_password", TEST_PASSWORD)
+    config.set_option("authentication.type", "None")
     app = create_app(config=config, testing=True, debug=True)
     app.testing = True
 
