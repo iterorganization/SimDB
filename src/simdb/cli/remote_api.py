@@ -696,10 +696,18 @@ class RemoteAPI:
         if options.get("copy_files", True):
             chunk_size = 10 * 1024 * 1024  # 10 MB
 
+            copy_ids = options.get("copy_ids", True)
+
             for file in simulation.inputs:
+                if file.type == DataObject.Type.IMAS and not copy_ids:
+                    print(f"Skipping IDS data {file}", file=out_stream, flush=True)
+                    continue
                 self._push_file(file, "input", sim_data, chunk_size, out_stream)
 
             for file in simulation.outputs:
+                if file.type == DataObject.Type.IMAS and not copy_ids:
+                    print(f"Skipping IDS data {file}", file=out_stream, flush=True)
+                    continue
                 self._push_file(file, "output", sim_data, chunk_size, out_stream)
 
         print("Uploading simulation data ... ", file=out_stream, end="", flush=True)

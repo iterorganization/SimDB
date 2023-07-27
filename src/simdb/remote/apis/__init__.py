@@ -126,7 +126,8 @@ def register(api, version, namespaces):
         def get(self, user: User):
             config = current_app.simdb_config
             options = dict(
-                copy_files=config.get_option("server.copy_files", default=True)
+                copy_files=config.get_option("server.copy_files", default=True),
+                copy_ids=config.get_option("server.copy_ids", default=True),
             )
             return jsonify(options)
 
