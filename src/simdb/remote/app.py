@@ -22,9 +22,7 @@ def create_app(
         config_file = os.environ.get("SIMDB_CONFIG_FILE", default="app.cfg")
         config = Config(config_file)
         config.load()
-    flask_options = {
-        k.upper(): v for (k, v) in config.get_section("flask", {}).items()
-    }
+    flask_options = {k.upper(): v for (k, v) in config.get_section("flask", {}).items()}
 
     app = cast(SimDBApp, Flask(__name__))
     CORS(app, resources={r"/*": {"origins": "*"}})
@@ -45,7 +43,9 @@ def create_app(
             endpoints.append(f"{request.url}{ver}")
         authentication_type = config.get_option("authentication.type")
         authenticator = get_authenticator(authentication_type)
-        return jsonify({"endpoints": endpoints, "authentication": type(authenticator).Name})
+        return jsonify(
+            {"endpoints": endpoints, "authentication": type(authenticator).Name}
+        )
 
     for version, blueprint in blueprints.items():
         app.register_blueprint(blueprint, url_prefix=f"/{version}")

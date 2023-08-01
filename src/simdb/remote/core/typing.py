@@ -5,6 +5,7 @@ from typing import cast, Type
 from ...config import Config
 from ...database import Database
 
+
 class SimDBApp(Flask):
     """
     Wrapper class for typing of SimDB Flask app with additional fields to hold configuration and database.

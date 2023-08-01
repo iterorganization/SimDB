@@ -258,7 +258,9 @@ User configuration file {self._user_config_path} has incorrect permissions (must
             raise KeyError(f"Section {name} not found in configuration")
 
     def get_option(
-        self, name: str, default: Union[int, float, bool, str, None, _NothingSentinel] = NOTHING
+        self,
+        name: str,
+        default: Union[int, float, bool, str, None, _NothingSentinel] = NOTHING,
     ) -> Union[int, float, bool, str]:
         """
         Returns the value for the option with the given name from the configuration.
@@ -277,7 +279,9 @@ User configuration file {self._user_config_path} has incorrect permissions (must
                 return value
             raise KeyError(f"Option {name} not found in configuration")
 
-    def get_string_option(self, name: str, default: Union[str, None, _NothingSentinel] = NOTHING) -> str:
+    def get_string_option(
+        self, name: str, default: Union[str, None, _NothingSentinel] = NOTHING
+    ) -> str:
         """
         Returns the value for the option with the given name from the configuration but also ensures the resulting
         value is a string.
@@ -287,7 +291,9 @@ User configuration file {self._user_config_path} has incorrect permissions (must
         """
         value = self.get_option(name, default)
         if not isinstance(value, str):
-            raise TypeError(f"Invalid type of option {name}: expected str, got {type(value)}")
+            raise TypeError(
+                f"Invalid type of option {name}: expected str, got {type(value)}"
+            )
         return value
 
     def delete_option(self, name: str) -> None:
