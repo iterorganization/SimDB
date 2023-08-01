@@ -6,7 +6,8 @@ from collections import defaultdict
 from datetime import datetime
 from typing import List, Union, Dict, Any, TYPE_CHECKING, Optional
 from getpass import getuser
-from backports.datetime_fromisoformat import MonkeyPatch
+if sys.version_info < (3, 11):
+    from backports.datetime_fromisoformat import MonkeyPatch
 
 from sqlalchemy.orm import relationship
 from sqlalchemy import Table, ForeignKey, Column, types as sql_types
@@ -26,7 +27,8 @@ from ...docstrings import inherit_docstrings
 from ...config.config import Config
 
 
-MonkeyPatch.patch_fromisoformat()
+if sys.version_info < (3, 11):
+    MonkeyPatch.patch_fromisoformat()
 
 
 if TYPE_CHECKING:
