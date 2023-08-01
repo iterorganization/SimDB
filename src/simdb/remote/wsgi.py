@@ -12,9 +12,11 @@ if "sphinx" not in sys.modules:
 
 
 def run(*, port=5000):
+    from werkzeug.middleware.proxy_fix import ProxyFix
     # from werkzeug.middleware.profiler import ProfilerMiddleware
     # app.config['PROFILE'] = True
     # app.wsgi_app = ProfilerMiddleware(app.wsgi_app, restrictions=[50], sort_by=("cumtime",))
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_prefix=1)
     config = app.simdb_config
 
     if config.get_option("server.ssl_enabled"):
