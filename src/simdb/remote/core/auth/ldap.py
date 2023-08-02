@@ -26,42 +26,46 @@ class LdapAuthenticator(Authenticator):
     ) -> Optional[User]:
         import ldap
 
-        ldap_host = config.get_option("server.ldap_server")
+        ldap_host = config.get_option("authentication.ldap_server")
         try:
             conn = ldap.initialize(ldap_host)
         except ldap.LDAPError:
             raise AuthenticationError("failed to connect to ldap server")
 
-        ldap_bind = config.get_option("server.ldap_bind")
+        ldap_bind = config.get_option("authentication.ldap_bind")
         try:
             conn.simple_bind_s(ldap_bind.format(username=username), password)
         except ldap.INVALID_CREDENTIALS:
             return None
 
-        conn.unbind_s()
-        try:
-            conn = ldap.initialize(ldap_host)
-        except ldap.LDAPError:
-            raise AuthenticationError("failed to connect to ldap server")
+        ldap_query_user = config.get_option("authentication.ldap_query_user", default=None)
+        ldap_query_password = config.get_option("authentication.ldap_query_password", default=None)
 
-        ldap_query_user = config.get_option("server.ldap_query_user")
-        ldap_query_password = config.get_option("server.ldap_query_password")
+        if ldap_query_user is not None:
+            conn.unbind_s()
+            try:
+                conn = ldap.initialize(ldap_host)
+            except ldap.LDAPError:
+                raise AuthenticationError("failed to connect to ldap server")
 
-        try:
-            conn.simple_bind_s(ldap_query_user, ldap_query_password)
-        except ldap.INVALID_CREDENTIALS:
-            raise AuthenticationError("failed to bind to LDAP server for user query")
+            try:
+                conn.simple_bind_s(ldap_query_user, ldap_query_password)
+            except ldap.INVALID_CREDENTIALS:
+                raise AuthenticationError("failed to bind to LDAP server for user query")
 
-        ldap_query_base = config.get_option("server.ldap_query_base")
-        ldap_query_filter = str(config.get_option("server.ldap_query_filter"))
+        ldap_query_base = config.get_option("authentication.ldap_query_base")
+        ldap_query_filter = str(config.get_option("authentication.ldap_query_filter"))
+        ldap_query_uid = config.get_option("authentication.ldap_query_uid", default="uid")
+        ldap_query_mail = config.get_option("authentication.ldap_query_mail", default="mail")
+
         results = conn.search_s(
             ldap_query_base,
             ldap.SCOPE_SUBTREE,
             ldap_query_filter.format(username=username),
         )
         try:
-            user = results[0][1]["uid"][0].decode()
-            mail = results[0][1]["mail"][0].decode()
+            user = results[0][1][ldap_query_uid][0].decode()
+            mail = results[0][1][ldap_query_mail][0].decode()
             return User(user, mail)
         except Exception:
             raise AuthenticationError("failed to find user in LDAP query")

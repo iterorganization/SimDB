@@ -23,8 +23,8 @@ class ActiveDirectoryAuthenticator(Authenticator):
 
         try:
             ad_config = {
-                "AD_SERVER": config.get_option("server.ad_server"),
-                "AD_DOMAIN": config.get_option("server.ad_domain"),
+                "AD_SERVER": config.get_option("authentication.ad_server"),
+                "AD_DOMAIN": config.get_option("authentication.ad_domain"),
             }
             ad = EasyAD(ad_config)
         except (KeyError, ImportError):
