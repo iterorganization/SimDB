@@ -265,17 +265,18 @@ class SimulationList(Resource):
                 "server.imas_remote_host", default=None
             ):
                 for sim_file in files:
-                    # Translate locale IMAS URI (imas:<backend>?path=<path>) to remote access URI
-                    # (imas://<imas_remote_host>:<imas_remote_port>/uda?path=<path>&backend=<backend>)
-                    host = current_app.simdb_config.get_option(
-                        "server.imas_remote_host", default=None
-                    )
-                    port = current_app.simdb_config.get_option(
-                        "server.imas_remote_port", default=None
-                    )
-                    sim_file.uri.authority = Authority(host, port, None)
-                    sim_file.uri.query.set("backend", sim_file.uri.path)
-                    sim_file.uri.path = Path("uda")
+                    if sim_file.uri.scheme == "imas":
+                        # Translate locale IMAS URI (imas:<backend>?path=<path>) to remote access URI
+                        # (imas://<imas_remote_host>:<imas_remote_port>/uda?path=<path>&backend=<backend>)
+                        host = current_app.simdb_config.get_option(
+                            "server.imas_remote_host", default=None
+                        )
+                        port = current_app.simdb_config.get_option(
+                            "server.imas_remote_port", default=None
+                        )
+                        sim_file.uri.authority = Authority(host, port, None)
+                        sim_file.uri.query.set("backend", sim_file.uri.path)
+                        sim_file.uri.path = Path("uda")
 
             result = {
                 "ingested": simulation.uuid.hex,
