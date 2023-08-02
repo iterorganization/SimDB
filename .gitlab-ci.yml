@@ -52,14 +52,14 @@ before_script:
     - *collect_deps_manually
     - *print_debugging
       # Now we install dependencies manually
-    - pip install --use-feature=2020-resolver --upgrade $BUILD_DEPS # Install build deps manually
+    - pip install --upgrade $BUILD_DEPS # Install build deps manually
     - python setup.py --version # Print setuptools found version
     - python -m pip freeze > $PYTHONTOOLS_DIR/pre_install_packages.txt
     - for file in $RUN_DEP_FILES; do echo Installing $file; pip install -r $file; done; # Install run deps manually
       # Install from wheel
       # Should install almost nothing, as we installed most of it ourselves
       # Install without extras here. We installed these manually.
-    - pip install --use-feature=2020-resolver --no-build-isolation --upgrade --editable . # Install local folder in editable mode
+    - pip install ---no-build-isolation --upgrade --editable . # Install local folder in editable mode
     - pip freeze > $PYTHONTOOLS_DIR/post_install_packages.txt
       # Do basic sanity checking
     - mkdir tmp && cd tmp
