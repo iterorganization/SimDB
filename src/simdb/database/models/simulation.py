@@ -35,6 +35,7 @@ if sys.version_info < (3, 11):
 if TYPE_CHECKING:
     # Only importing these for type checking and documentation generation in order to speed up runtime startup.
     from .metadata import MetaData
+    from .watcher import Watcher
 
 simulation_input_files = Table(
     "simulation_input_files",
@@ -85,7 +86,9 @@ class Simulation(Base):
     meta: List["MetaData"] = relationship(
         "MetaData", lazy="raise", cascade="all, delete-orphan"
     )
-    watchers = relationship("Watcher", secondary=simulation_watchers, lazy="dynamic")
+    watchers: List["Watcher"] = relationship(
+        "Watcher", secondary=simulation_watchers, lazy="dynamic"
+    )
 
     def __init__(
         self, manifest: Union[Manifest, None], config: Optional[Config] = None

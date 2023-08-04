@@ -10,6 +10,7 @@ from flask_restx import Namespace, Resource
 from ....database import DatabaseError
 from ....database.models import metadata as models_meta
 from ....database.models import simulation as models_sim
+from ....database.models import watcher as models_watcher
 from ....uri import URI, Authority
 from ....cli.manifest import DataObject
 from ...core.typing import current_app
@@ -209,6 +210,11 @@ class SimulationList(Resource):
 
             simulation = models_sim.Simulation.from_data(data["simulation"])
             simulation.meta.append(models_meta.MetaData("uploaded_by", user.name))
+            simulation.watchers.append(
+                models_watcher.Watcher(
+                    user.name, user.email, models_watcher.Notification.ALL
+                )
+            )
 
             if "alias" in data["simulation"]:
                 alias = data["simulation"]["alias"]
