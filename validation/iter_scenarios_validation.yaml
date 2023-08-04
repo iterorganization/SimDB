@@ -1,10 +1,10 @@
 alias:
   type: string
   regex: '^[a-zA-Z0-9_/-]+$'
-  noneof:
-    - regex: '^[0-9]/.*$' # does not start with a digit and /
-    - regex: '^/.*$'      # does not start with /
-    - regex: '^.*/$'      # does not end with /
+  noneof_regex:
+    - '^[0-9]/.*$' # does not start with a single digit and /
+    - '^/.*$'      # does not start with /
+    - '^.*/$'      # does not end with /
 
 device:
   required: true

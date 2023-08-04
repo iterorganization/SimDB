@@ -38,8 +38,12 @@ class LdapAuthenticator(Authenticator):
         except ldap.INVALID_CREDENTIALS:
             return None
 
-        ldap_query_user = config.get_option("authentication.ldap_query_user", default=None)
-        ldap_query_password = config.get_option("authentication.ldap_query_password", default=None)
+        ldap_query_user = config.get_option(
+            "authentication.ldap_query_user", default=None
+        )
+        ldap_query_password = config.get_option(
+            "authentication.ldap_query_password", default=None
+        )
 
         if ldap_query_user is not None:
             conn.unbind_s()
@@ -51,12 +55,18 @@ class LdapAuthenticator(Authenticator):
             try:
                 conn.simple_bind_s(ldap_query_user, ldap_query_password)
             except ldap.INVALID_CREDENTIALS:
-                raise AuthenticationError("failed to bind to LDAP server for user query")
+                raise AuthenticationError(
+                    "failed to bind to LDAP server for user query"
+                )
 
         ldap_query_base = config.get_option("authentication.ldap_query_base")
         ldap_query_filter = str(config.get_option("authentication.ldap_query_filter"))
-        ldap_query_uid = config.get_option("authentication.ldap_query_uid", default="uid")
-        ldap_query_mail = config.get_option("authentication.ldap_query_mail", default="mail")
+        ldap_query_uid = config.get_option(
+            "authentication.ldap_query_uid", default="uid"
+        )
+        ldap_query_mail = config.get_option(
+            "authentication.ldap_query_mail", default="mail"
+        )
 
         results = conn.search_s(
             ldap_query_base,

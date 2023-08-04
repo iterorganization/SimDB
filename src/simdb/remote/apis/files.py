@@ -182,13 +182,28 @@ class File(Resource):
     def get(self, file_uuid: str, user: User = Optional[None]):
         try:
             file = current_app.db.get_file(file_uuid)
-            return jsonify(file.data(recurse=True))
+            data = file.data(recurse=True)
+            if file.type == DataObject.Type.FILE:
+                data["files"] = [
+                    {
+                        "path": str(file.uri.path),
+                        "checksum": file.checksum,
+                    }
+                ]
+            else:
+                from ...imas.utils import imas_files
+
+                data["files"] = [
+                    {"path": str(path), "checksum": sha1_checksum(URI(f"file:{path}"))}
+                    for path in imas_files(file.uri)
+                ]
+            return jsonify(data)
         except DatabaseError as err:
             return error(str(err))
 
 
 @api.route("/file/download/<string:file_uuid>")
-class FileDownload(Resource):
+class NonIMASFileDownload(Resource):
     @requires_auth()
     def get(self, file_uuid: str, user: User = Optional[None]):
         try:
@@ -197,5 +212,31 @@ class FileDownload(Resource):
                 return error("Invalid file type for download")
             mimetype = magic.from_file(file.uri.path, mime=True)
             return send_file(file.uri.path, mimetype=mimetype)
+        except DatabaseError as err:
+            return error(str(err))
+
+
+@api.route("/file/download/<string:file_uuid>/<int:file_index>")
+class FileDownload(Resource):
+    @requires_auth()
+    def get(self, file_uuid: str, file_index: int, user: User = Optional[None]):
+        try:
+            file: models.File = current_app.db.get_file(file_uuid)
+            if file.type == DataObject.Type.FILE:
+                if file_index != 0:
+                    return error(f"invalid file_index for file {file.uri}")
+                mimetype = magic.from_file(file.uri.path, mime=True)
+                return send_file(file.uri.path, mimetype=mimetype)
+            else:
+                from ...imas.utils import imas_files
+
+                file: models.File = current_app.db.get_file(file_uuid)
+                paths = imas_files(file.uri)
+
+                if file_index < 0 or file_index >= len(paths):
+                    return error(f"invalid file_index for file {file.uri}")
+
+                mimetype = magic.from_file(paths[file_index], mime=True)
+                return send_file(file.uri.path, mimetype=mimetype)
         except DatabaseError as err:
             return error(str(err))
