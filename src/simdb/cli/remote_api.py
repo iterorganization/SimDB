@@ -713,7 +713,7 @@ class RemoteAPI:
         self.post("simulations", data={"simulation": sim_data})
         print("Success", file=out_stream, flush=True)
 
-    def _get_file_info(self, uuid: uuid.UUID) -> list[tuple[Path, str]]:
+    def _get_file_info(self, uuid: uuid.UUID) -> List[Tuple[Path, str]]:
         r = self.get(f"file/{uuid.hex}")
         data = r.json()
         files = data["files"]
