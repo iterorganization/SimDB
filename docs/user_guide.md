@@ -111,28 +111,34 @@ The SimDB CLI is able to interact with remote SimDB servers to push local simula
 simdb remote --help
 ```
 
+Configuring of SimDB remotes is done via the `config` subcommand:
+
+```bash
+simdb remote config --help
+```
+
 To see which remotes are available you can use the following:
 
 ```bash
-simdb remote --list
+simdb remote config list
 ```
 
 To add a new remote you can use:
 
 ```bash
-simdb remote --new <NAME> <URL>
+simdb remote config new <NAME> <URL>
 ```
 
 i.e.
 
 ```bash
-simdb remote --new ITER https://simdb.iter.org
+simdb remote config new ITER https://simdb.iter.org
 ```
 
 In order to not have to specify the remote name when using any of the SimDB CLI remote subcommands you can set a remote to be default. The default remote will be used whenever the remote name is not explicitly passed to a remote subcommand. Setting a default remote can be done using:
 
 ```bash
-simdb remote --set-default <NAME>
+simdb remote config set-default <NAME>
 ```
 
 ### Authentication
@@ -163,11 +169,11 @@ Once you have ingested your simulation locally and are happy with the metadata t
 simdb simulation push <SIM_ID>
 ```
 
-This will upload all the metadata associated with your simulation to the remote server as well as taking copies of all input and output data specified. The exact method of copying the file will depend on the type of the data URI, i.e. for `file` URIs the data is copied using an HTTP data transfer, whereas for `imas` URIs the IMAS API is used to copy the data.
+This will upload all the metadata associated with your simulation to the remote server as well as taking copies of all input and output data specified. For non-IMAS data the `file` URIs will be used to locate the files to transfer, whereas for `imas` URIs SimDB will discover which files need to be transferred based on the IMAS backend specified in the URI. The files are copied to the server using an HTTP data transfer.
 
 ## Pulling simulations from a remote
 
-The mirror to pushing simulations is the `pull` command. This command will pull the simulation metadata from the SimDB remote to your local SimDB database and download the simulation data into a directory of your choosing. Once you have pulled a simulation it will appear in any local SimDB queries you perform. The comman looks as follows:
+The mirror to pushing simulations is the `pull` command. This command will pull the simulation metadata from the SimDB remote to your local SimDB database and download the simulation data into a directory of your choosing. Once you have pulled a simulation it will appear in any local SimDB queries you perform. The command looks as follows:
 
 ```bash
 simdb simulation pull [REMOTE] <SIM_ID> <DIRECTORY>

@@ -290,7 +290,7 @@ User configuration file {self._user_config_path} has incorrect permissions (must
         @raise TypeError if the found value was not a string
         """
         value = self.get_option(name, default)
-        if not isinstance(value, str):
+        if value is not None and not isinstance(value, str):
             raise TypeError(
                 f"Invalid type of option {name}: expected str, got {type(value)}"
             )
