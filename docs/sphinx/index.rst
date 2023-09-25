@@ -1,4 +1,4 @@
-ITER Simulation Database Version |version|
+ITER Simulation Database Management Tool Version |version|
 ==========================================
 
 SimDB is the ITER simulation database management tool designed to track, manage and validate simulations and allow for
