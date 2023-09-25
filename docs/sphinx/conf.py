@@ -20,7 +20,7 @@ import simdb
 
 # -- Project information -----------------------------------------------------
 
-project = 'ITER Simulation Database'
+project = 'ITER Simulation Database Management Tool'
 copyright = '2022, ITER Organization'
 author = 'J. Hollocombe, D. Muir'
 
