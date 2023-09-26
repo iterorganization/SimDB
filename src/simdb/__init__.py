@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """SimDB.
 
-SimDB is the ITER simulation database management tool designed to track, manage and validate simulations and allow for
+SimDB is the IMAS simulation database management tool designed to track, manage and validate simulations and allow for
 these simulations to be sent for remote archiving and verification.
 
 The tool comes in two parts:

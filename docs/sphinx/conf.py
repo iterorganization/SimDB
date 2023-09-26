@@ -20,7 +20,7 @@ import simdb
 
 # -- Project information -----------------------------------------------------
 
-project = 'ITER Simulation Database Management Tool'
+project = 'IMAS Simulation Database Management Tool'
 copyright = '2022, ITER Organization'
 author = 'J. Hollocombe, D. Muir'
 
@@ -148,7 +148,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'simdb.tex', 'ITER Simulation Database Documentation',
+    (master_doc, 'simdb.tex', 'IMAS Simulation Database Documentation',
      'J. Hollocombe, D. Muir', 'manual'),
 ]
 
@@ -158,7 +158,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'simdb', 'ITER Simulation Database Documentation',
+    (master_doc, 'simdb', 'IMAS Simulation Database Documentation',
      [author], 1)
 ]
 
@@ -169,7 +169,7 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'simdb', 'ITER Simulation Database Documentation',
+    (master_doc, 'simdb', 'IMAS Simulation Database Documentation',
      author, 'simdb', 'One line description of project.',
      'Miscellaneous'),
 ]
