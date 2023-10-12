@@ -21,7 +21,7 @@ import simdb
 # -- Project information -----------------------------------------------------
 
 project = 'IMAS Simulation Database Management Tool'
-copyright = '2022, ITER Organization'
+copyright = '2018-2023, ITER Organization'
 author = 'J. Hollocombe, D. Muir'
 
 # The short X.Y version
