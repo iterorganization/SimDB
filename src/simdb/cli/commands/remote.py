@@ -237,6 +237,15 @@ def config_set_default(config: "Config", name: str):
     config.save()
 
 
+@remote_config.command("get-default")
+@pass_config
+def config_get_default(config: "Config"):
+    """
+    Get the name of the default remote.
+    """
+    click.echo(config.default_remote)
+
+
 @remote_config.command("set-option")
 @pass_config
 @click.argument("name", required=True)
