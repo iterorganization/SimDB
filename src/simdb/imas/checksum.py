@@ -37,13 +37,13 @@ def walk_imas(imas_obj, check: Hash, path="") -> None:
                 elif attr.dtype == np.float64:
                     attr[np.isnan(attr)] = imasdef.EMPTY_DOUBLE
                 check.update(attr.tobytes())
-        elif type(attr) == int:
+        elif isinstance(attr, int):
             if attr != imasdef.EMPTY_INT:
                 check.update(struct.pack("<l", attr))
-        elif type(attr) == str:
+        elif isinstance(attr, str):
             if attr and attr[0] != chr(0):
                 check.update(attr.encode())
-        elif type(attr) == float:
+        elif isinstance(attr, float):
             if attr != imasdef.EMPTY_FLOAT:
                 check.update(struct.pack("f", attr))
         elif "__structure" in str(type(attr)):

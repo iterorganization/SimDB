@@ -11,7 +11,7 @@ from ....database import DatabaseError
 from ....database.models import metadata as models_meta
 from ....database.models import simulation as models_sim
 from ....database.models import watcher as models_watcher
-from ....uri import URI, Authority
+from ....uri import URI
 from ....cli.manifest import DataObject
 from ...core.typing import current_app
 from ...core.alias import create_alias_dir
@@ -208,13 +208,17 @@ class SimulationList(Resource):
             if "simulation" not in data:
                 return error("Simulation data not provided")
 
+            add_watcher = data.get("add_watcher", default=True)
+
             simulation = models_sim.Simulation.from_data(data["simulation"])
             simulation.meta.append(models_meta.MetaData("uploaded_by", user.name))
-            simulation.watchers.append(
-                models_watcher.Watcher(
-                    user.name, user.email, models_watcher.Notification.ALL
+
+            if add_watcher:
+                simulation.watchers.append(
+                    models_watcher.Watcher(
+                        user.name, user.email, models_watcher.Notification.ALL
+                    )
                 )
-            )
 
             if "alias" in data["simulation"]:
                 alias = data["simulation"]["alias"]

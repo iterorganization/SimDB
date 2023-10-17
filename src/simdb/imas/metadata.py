@@ -33,13 +33,13 @@ def walk_imas(ids_node) -> Dict:
         if "numpy.ndarray" in str(type(attr)):
             if attr.size != 0:
                 meta[name] = attr
-        elif type(attr) == int:
+        elif isinstance(attr, int):
             if attr != imasdef.EMPTY_INT:
                 meta[name] = attr
-        elif type(attr) == str:
+        elif isinstance(attr, str):
             if attr:
                 meta[name] = attr
-        elif type(attr) == float:
+        elif isinstance(attr, float):
             if attr != imasdef.EMPTY_FLOAT:
                 meta[name] = attr
         elif "__structure" in str(type(attr)):

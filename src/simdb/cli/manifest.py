@@ -329,7 +329,7 @@ class WorkflowValidator(DictValuesValidator):
 def _update_dict(old: Dict, new: Dict) -> None:
     for k, v in new.items():
         if k in old:
-            if type(old[k]) == list:
+            if isinstance(old[k], list):
                 old[k].append(v)
             else:
                 old[k] = [old[k], v]

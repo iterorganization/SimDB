@@ -192,6 +192,11 @@ def n_required_args_adaptor(n) -> Type[click.Command]:
 @click.option("--username", help="Username used to authenticate with the remote.")
 @click.option("--password", help="Password used to authenticate with the remote.")
 @click.option("--replaces", help="SIM_ID of simulation to deprecate and replace.")
+@click.option(
+    "--add-watcher",
+    is_flag=True,
+    help="Add the current user as a watcher of the simulation.",
+)
 def simulation_push(
     config: Config,
     remote: Optional[str],
@@ -199,6 +204,7 @@ def simulation_push(
     username: Optional[str],
     password: Optional[str],
     replaces: Optional[str],
+    add_watcher: bool,
 ):
     """Push the simulation with the given SIM_ID (UUID or alias) to the REMOTE."""
     from ...database import get_local_db
@@ -212,7 +218,7 @@ def simulation_push(
         raise click.ClickException(f"Failed to find simulation: {sim_id}")
     if replaces:
         simulation.set_meta("replaces", replaces)
-    api.push_simulation(simulation, out_stream=sys.stdout)
+    api.push_simulation(simulation, out_stream=sys.stdout, add_watcher=add_watcher)
 
     click.echo(f"Successfully pushed simulation {simulation.uuid}")
 

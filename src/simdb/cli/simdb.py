@@ -1,6 +1,7 @@
 import copy
 import sys
 import click
+from typing import IO
 
 # from trogon import tui
 
@@ -46,7 +47,7 @@ class AliasCommandGroup(click.Group):
 @click.option("-v", "--verbose", is_flag=True, help="Run with verbose output.")
 @click.option("-c", "--config-file", type=click.File("r"), help="Config file to load.")
 @click.pass_context
-def cli(ctx, debug, verbose, config_file):
+def cli(ctx, debug: bool, verbose: bool, config_file: IO):
     if not ctx.obj:
         ctx.obj = Config()
         ctx.obj.load(config_file)

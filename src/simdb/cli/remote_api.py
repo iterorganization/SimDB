@@ -637,7 +637,10 @@ class RemoteAPI:
 
     @try_request
     def push_simulation(
-        self, simulation: "Simulation", out_stream: IO[str] = sys.stdout
+        self,
+        simulation: "Simulation",
+        out_stream: IO[str] = sys.stdout,
+        add_watcher: bool = True,
     ) -> None:
         """
         Push the local simulation to the remote server.
@@ -646,6 +649,7 @@ class RemoteAPI:
 
         :param simulation: The Simulation to push to remote server
         :param out_stream: The IO stream to write messages to the user (default: stdout)
+        :param add_watcher: Add the current user as a watcher of the simulation on the remote server
         """
         from ..validation import Validator, ValidationError
         from ..imas.utils import imas_files
@@ -710,7 +714,9 @@ class RemoteAPI:
                     )
 
         print("Uploading simulation data ... ", file=out_stream, end="", flush=True)
-        self.post("simulations", data={"simulation": sim_data})
+        self.post(
+            "simulations", data={"simulation": sim_data, "add_watcher": add_watcher}
+        )
         print("Success", file=out_stream, flush=True)
 
     def _get_file_info(self, uuid: uuid.UUID) -> List[Tuple[Path, str]]:
@@ -744,7 +750,6 @@ class RemoteAPI:
         self, sim_id: str, directory: Path, out_stream: IO[str] = sys.stdout
     ) -> "Simulation":
         from ..uri import URI
-        from ..imas.utils import imas_files
 
         """
         Pull the simulation from the remote server.

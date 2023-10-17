@@ -1,6 +1,6 @@
 from flask import Flask
 from flask import current_app as _current_app
-from typing import cast, Type
+from typing import cast
 
 from ...config import Config
 from ...database import Database

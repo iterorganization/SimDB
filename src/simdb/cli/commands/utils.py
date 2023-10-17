@@ -12,10 +12,10 @@ else:
 def _flatten_dict(values: Dict) -> List[Tuple[str, str]]:
     items = []
     for k, v in values.items():
-        if type(v) == list:
+        if isinstance(v, list):
             for n, i in enumerate(v):
                 items.append(("{}[{}]".format(k, n), i))
-        elif type(v) == dict:
+        elif isinstance(v, dict):
             for i in _flatten_dict(v):
                 items.append(("{}.{}".format(k, i[0]), i[1]))
         else:
