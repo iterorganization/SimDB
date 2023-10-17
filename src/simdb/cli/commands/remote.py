@@ -66,7 +66,9 @@ class _RemoteCommand(click.Command):
         pieces = self.collect_usage_pieces(ctx)
         if self.subgroup:
             formatter.write_usage(
-                ctx.command_path.replace("remote", f"remote [NAME] {self.subgroup} {self.name}"),
+                ctx.command_path.replace(
+                    "remote", f"remote [NAME] {self.subgroup} {self.name}"
+                ),
                 " ".join(pieces),
             )
         else:
@@ -81,9 +83,7 @@ def remote_command_cls(subgroup: str = "") -> Type:
     Customise the RemoteCommand class to hold the name of the subgroup if provided. This is required to properly format
     the help string for subgroup commands.
     """
-    sub_command_cls = type("SubCommandCls", (_RemoteCommand,), {
-        "subgroup": subgroup
-    })
+    sub_command_cls = type("SubCommandCls", (_RemoteCommand,), {"subgroup": subgroup})
     return sub_command_cls
 
 
@@ -98,11 +98,11 @@ def is_empty(value) -> bool:
 @click.option("--password", help="Password used to authenticate with the remote.")
 @click.argument("name", required=False)
 def remote(
-        config: "Config",
-        ctx: "Context",
-        username: Optional[str],
-        password: Optional[str],
-        name: str,
+    config: "Config",
+    ctx: "Context",
+    username: Optional[str],
+    password: Optional[str],
+    name: str,
 ):
     """Interact with the remote SimDB service.
 
@@ -198,11 +198,11 @@ def config_list(config: "Config"):
 )
 @click.option("--username", help="Username to use for remote.", type=str)
 def config_new(
-        config: "Config",
-        name: str,
-        url: str,
-        firewall: Optional[str],
-        username: Optional[str],
+    config: "Config",
+    name: str,
+    url: str,
+    firewall: Optional[str],
+    username: Optional[str],
 ):
     """
     Add a new remote.
@@ -301,12 +301,12 @@ def remove_watcher(config: "Config", api: RemoteAPI, sim_id: str, user: str):
     show_default=True,
 )
 def add_watcher(
-        config: "Config",
-        api: RemoteAPI,
-        sim_id: str,
-        user: Optional[str],
-        email: Optional[str],
-        notification: str,
+    config: "Config",
+    api: RemoteAPI,
+    sim_id: str,
+    user: Optional[str],
+    email: Optional[str],
+    notification: str,
 ):
     """Register a user as a watcher for a simulation with given SIM_ID (UUID or alias)."""
     if not user:
@@ -397,11 +397,11 @@ def remote_trace(api: RemoteAPI, sim_id: str):
     callback=validate_limit,
 )
 def remote_query(
-        config: "Config",
-        api: RemoteAPI,
-        constraints: List[str],
-        meta: Tuple[str],
-        limit: int,
+    config: "Config",
+    api: RemoteAPI,
+    constraints: List[str],
+    meta: Tuple[str],
+    limit: int,
 ):
     """Perform a metadata query to find matching remote simulations.
 
@@ -552,8 +552,12 @@ def admin_set_meta(api: RemoteAPI, sim_id: str, key: str, value: str, type: str)
 @admin.command("set-status", cls=remote_command_cls("admin"))
 @pass_api
 @click.argument("sim_id")
-@click.argument("value",
-                type=click.Choice([str(i).replace('Status.', '') for i in Simulation.Status], case_sensitive=False))
+@click.argument(
+    "value",
+    type=click.Choice(
+        [str(i).replace("Status.", "") for i in Simulation.Status], case_sensitive=False
+    ),
+)
 def admin_set_status(api: RemoteAPI, sim_id: str, value: str):
     """Update the status metadata value for the given simulation."""
     old_value = api.set_metadata(sim_id, "status", value)
