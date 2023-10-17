@@ -4,7 +4,7 @@ import uuid
 
 import click
 from collections.abc import Iterable
-from typing import List, TYPE_CHECKING, Optional, Tuple, Union
+from typing import List, TYPE_CHECKING, Optional, Tuple, Union, Type
 from semantic_version import Version
 
 from ..remote_api import RemoteAPI
@@ -12,10 +12,9 @@ from . import pass_config
 from .utils import print_simulations, print_trace
 from ...notifications import Notification
 from .validators import validate_limit
-
+from ...database.models.simulation import Simulation
 
 pass_api = click.make_pass_decorator(RemoteAPI)
-
 
 if TYPE_CHECKING or "sphinx" in sys.modules:
     from ...config import Config
@@ -60,13 +59,32 @@ class RemoteSubGroup(click.Group):
         )
 
 
-class RemoteSubCommand(click.Command):
+class _RemoteCommand(click.Command):
+    subgroup: str = ""
+
     def format_usage(self, ctx, formatter):
         pieces = self.collect_usage_pieces(ctx)
-        formatter.write_usage(
-            ctx.command_path.replace("remote", f"remote [NAME] {self.name}"),
-            " ".join(pieces),
-        )
+        if self.subgroup:
+            formatter.write_usage(
+                ctx.command_path.replace("remote", f"remote [NAME] {self.subgroup} {self.name}"),
+                " ".join(pieces),
+            )
+        else:
+            formatter.write_usage(
+                ctx.command_path.replace("remote", f"remote [NAME] {self.name}"),
+                " ".join(pieces),
+            )
+
+
+def remote_command_cls(subgroup: str = "") -> Type:
+    """
+    Customise the RemoteCommand class to hold the name of the subgroup if provided. This is required to properly format
+    the help string for subgroup commands.
+    """
+    sub_command_cls = type("SubCommandCls", (_RemoteCommand,), {
+        "subgroup": subgroup
+    })
+    return sub_command_cls
 
 
 def is_empty(value) -> bool:
@@ -80,11 +98,11 @@ def is_empty(value) -> bool:
 @click.option("--password", help="Password used to authenticate with the remote.")
 @click.argument("name", required=False)
 def remote(
-    config: "Config",
-    ctx: "Context",
-    username: Optional[str],
-    password: Optional[str],
-    name: str,
+        config: "Config",
+        ctx: "Context",
+        username: Optional[str],
+        password: Optional[str],
+        name: str,
 ):
     """Interact with the remote SimDB service.
 
@@ -105,7 +123,7 @@ def remote(
             click.echo(ctx.get_help())
 
 
-@remote.command("test", cls=RemoteSubCommand)
+@remote.command("test", cls=remote_command_cls())
 @pass_api
 def remote_test(api: RemoteAPI):
     """
@@ -115,7 +133,7 @@ def remote_test(api: RemoteAPI):
     print(f"Remote is valid (remote API version: {remote_version}")
 
 
-@remote.command("directory", cls=RemoteSubCommand)
+@remote.command("directory", cls=remote_command_cls())
 @pass_api
 def remote_directory(api: RemoteAPI):
     """
@@ -180,11 +198,11 @@ def config_list(config: "Config"):
 )
 @click.option("--username", help="Username to use for remote.", type=str)
 def config_new(
-    config: "Config",
-    name: str,
-    url: str,
-    firewall: Optional[str],
-    username: Optional[str],
+        config: "Config",
+        name: str,
+        url: str,
+        firewall: Optional[str],
+        username: Optional[str],
 ):
     """
     Add a new remote.
@@ -283,12 +301,12 @@ def remove_watcher(config: "Config", api: RemoteAPI, sim_id: str, user: str):
     show_default=True,
 )
 def add_watcher(
-    config: "Config",
-    api: RemoteAPI,
-    sim_id: str,
-    user: Optional[str],
-    email: Optional[str],
-    notification: str,
+        config: "Config",
+        api: RemoteAPI,
+        sim_id: str,
+        user: Optional[str],
+        email: Optional[str],
+        notification: str,
 ):
     """Register a user as a watcher for a simulation with given SIM_ID (UUID or alias)."""
     if not user:
@@ -307,7 +325,7 @@ def add_watcher(
     click.echo(f"Watcher successfully added for simulation {sim_id}")
 
 
-@remote.command("list", cls=RemoteSubCommand)
+@remote.command("list", cls=remote_command_cls())
 @pass_api
 @pass_config
 @click.option(
@@ -333,7 +351,7 @@ def remote_list(config: "Config", api: RemoteAPI, meta: List[str], limit: int):
     print_simulations(simulations, verbose=config.verbose, metadata_names=meta)
 
 
-@remote.command("info", cls=RemoteSubCommand)
+@remote.command("info", cls=remote_command_cls())
 @pass_api
 @click.argument("sim_id")
 def remote_info(api: RemoteAPI, sim_id: str):
@@ -342,7 +360,7 @@ def remote_info(api: RemoteAPI, sim_id: str):
     click.echo(str(simulation))
 
 
-@remote.command("trace", cls=RemoteSubCommand)
+@remote.command("trace", cls=remote_command_cls())
 @pass_api
 @click.argument("sim_id")
 def remote_trace(api: RemoteAPI, sim_id: str):
@@ -358,7 +376,7 @@ def remote_trace(api: RemoteAPI, sim_id: str):
     print_trace(trace_data)
 
 
-@remote.command("query", cls=RemoteSubCommand)
+@remote.command("query", cls=remote_command_cls())
 @pass_api
 @pass_config
 @click.argument("constraints", nargs=-1)
@@ -379,11 +397,11 @@ def remote_trace(api: RemoteAPI, sim_id: str):
     callback=validate_limit,
 )
 def remote_query(
-    config: "Config",
-    api: RemoteAPI,
-    constraints: List[str],
-    meta: Tuple[str],
-    limit: int,
+        config: "Config",
+        api: RemoteAPI,
+        constraints: List[str],
+        meta: Tuple[str],
+        limit: int,
 ):
     """Perform a metadata query to find matching remote simulations.
 
@@ -427,7 +445,7 @@ def remote_query(
     print_simulations(simulations, verbose=config.verbose, metadata_names=names)
 
 
-@remote.command("update", cls=RemoteSubCommand)
+@remote.command("update", cls=remote_command_cls())
 @pass_api
 @click.argument("sim_id")
 @click.argument(
@@ -467,7 +485,7 @@ def token():
     pass
 
 
-@token.command("new")
+@token.command("new", cls=remote_command_cls("token"))
 @pass_api
 @pass_config
 def token_new(config: "Config", api: RemoteAPI):
@@ -480,7 +498,7 @@ def token_new(config: "Config", api: RemoteAPI):
     click.echo(f"Token added for remote {api.remote}.")
 
 
-@token.command("delete")
+@token.command("delete", cls=remote_command_cls("token"))
 @pass_api
 @pass_config
 def token_delete(config: "Config", api: RemoteAPI):
@@ -504,7 +522,7 @@ def admin():
     pass
 
 
-@admin.command("set-meta")
+@admin.command("set-meta", cls=remote_command_cls("admin"))
 @pass_api
 @click.argument("sim_id")
 @click.argument("key")
@@ -531,7 +549,21 @@ def admin_set_meta(api: RemoteAPI, sim_id: str, key: str, value: str, type: str)
         click.echo(f"Added {key} for simulation {sim_id} with value '{new_value}'")
 
 
-@admin.command("del-meta")
+@admin.command("set-status", cls=remote_command_cls("admin"))
+@pass_api
+@click.argument("sim_id")
+@click.argument("value",
+                type=click.Choice([str(i).replace('Status.', '') for i in Simulation.Status], case_sensitive=False))
+def admin_set_status(api: RemoteAPI, sim_id: str, value: str):
+    """Update the status metadata value for the given simulation."""
+    old_value = api.set_metadata(sim_id, "status", value)
+    if old_value:
+        click.echo(f"Update status for simulation {sim_id}: {old_value} -> {value}")
+    else:
+        click.echo(f"Added status for simulation {sim_id} with value '{value}'")
+
+
+@admin.command("del-meta", cls=remote_command_cls("admin"))
 @pass_api
 @click.argument("sim_id")
 @click.argument("key")
@@ -541,7 +573,7 @@ def admin_del_meta(api: RemoteAPI, sim_id: str, key: str):
     click.echo(f"Deleted {key} for simulation {sim_id}")
 
 
-@admin.command("delete")
+@admin.command("delete", cls=remote_command_cls("admin"))
 @pass_api
 @click.argument("sim_id")
 def admin_del_sim(api: RemoteAPI, sim_id: str):

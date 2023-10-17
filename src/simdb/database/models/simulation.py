@@ -71,6 +71,7 @@ class Simulation(Base):
         FAILED = "failed"
         PASSED = "passed"
         DEPRECATED = "deprecated"
+        DELETED = "deleted"
 
     __tablename__ = "simulations"
     id = Column(sql_types.Integer, primary_key=True)
