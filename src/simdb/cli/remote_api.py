@@ -73,10 +73,10 @@ Please check that the URL is valid and that SIMDB_REQUESTS_CA_BUNDLE is set if r
 HTTP error {ex.response.status_code} returned from endpoint {ex.request.url}
                 """
             )
-        except requests.JSONDecodeError as ex:
+        except requests.JSONDecodeError:
             raise FailedConnection(
                 f"""\
-Invalid JSON returned from request endpoint {ex.request.url}
+Invalid JSON returned from request endpoint
 
 This might indicate an invalid SimDB URL or the existence of a firewall.
                 """
