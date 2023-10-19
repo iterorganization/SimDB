@@ -1,0 +1,32 @@
+# SimDB CLI commands
+
+{{ }}
+
+## Alias
+
+{{ alias }}
+
+## Config
+
+{{ config }}
+
+## Database
+
+{{ database }}
+
+## Manifest
+
+{{ manifest }}
+
+## Provenance
+
+{{ provenance }}
+
+## Remote
+
+{{ remote }}
+
+## Simulation
+
+{{ simulation }}
+

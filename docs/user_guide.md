@@ -98,10 +98,23 @@ simdb simulation info <SIM_ID>
 
 ### IMAS URI schema
 
-The IMAS URI is used to locate a IMAS data entry. Currently, the query arguments are mapped to the existing DBEntry arguments.
+The IMAS remote data URI is used to locate a remote IMAS data entry. The IMAS URI schema for remote data looks like:
 ```
-imas:?database=<DATABASE>&pulse=<SHOT>&run=<RUN>&user=<USER>
+imas://<server>:<port>/uda?path=<path>&backend=<backend>
 ```
+
+Where
+
+| Argument | Description                                               |
+|----------|-----------------------------------------------------------|
+| Server   | The name of the remote data server i.e. uda.iter.org      |
+| Port     | The port to connect to on the remote data server          |
+| Path     | The path to the data files on the remote server           |
+| Backend  | The backend to use to open the files on the remote server |
+
+An example URI is
+
+`imas://io-ls-uda01.iter.org:56565/uda?path=/work/imas/shared/imasdb/ITER/3/131024/51&backend=hdf5`
 
 ## Remote SimDB servers
 
@@ -189,7 +202,7 @@ You can query all the simulations available from a remote SimDB server using:
 simdb remote list
 ```
 
-and you can see all of the stored metadata against a remote simulation using:
+and you can see all the stored metadata against a remote simulation using:
 
 ```bash
 simdb remote info <SIM_ID>

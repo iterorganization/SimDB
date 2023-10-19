@@ -1,5 +1,6 @@
 # SimDB CLI commands
 
+
 ```text
 Usage: simdb [OPTIONS] COMMAND [ARGS]...
 
@@ -14,228 +15,66 @@ Commands:
   alias       Query remote and local aliases.
   config      Query/update application configuration.
   database    Manage local simulation database.
-  dump-help
   manifest    Create/check manifest file.
   provenance  Create the PROVENANCE_FILE from the current system.
   remote      Interact with the remote SimDB service.
+  sim         Alias for simulation.
   simulation  Manage ingested simulations.
 ```
+    
+## Alias
 
-## Manifest
-
-```text
-Usage: simdb manifest [OPTIONS] COMMAND [ARGS]...
-
-  Create/check manifest file.
-
-Options:
-  --help  Show this message and exit.
-
-Commands:
-  check   Check manifest FILE_NAME.
-  create  Create a new MANIFEST_FILE.
-```
 
 ```text
-Usage: simdb manifest check [OPTIONS] FILE_NAME
-
-  Check manifest FILE_NAME.
-
-Options:
-  --help  Show this message and exit.
-```
-
-```text
-Usage: simdb manifest create [OPTIONS] MANIFEST_FILE
-
-  Create a new MANIFEST_FILE.
-
-Options:
-  --help  Show this message and exit.
-```
-
-## Alias 
-
-```text
-Usage: simdb alias [OPTIONS] COMMAND [ARGS]...
+Usage: simdb alias [OPTIONS] [REMOTE] COMMAND [ARGS]...
 
   Query remote and local aliases.
 
 Options:
-  --help  Show this message and exit.
-
-Commands:
-  list    List aliases from the local database and the REMOTE (if...
-  search  Search the REMOTE for all aliases that contain the given VALUE.
-```
-
-```text
-Usage: simdb alias search [OPTIONS] [REMOTE] VALUE
-
-  Search the REMOTE for all aliases that contain the given VALUE.
-
-Options:
   --username TEXT  Username used to authenticate with the remote.
   --password TEXT  Password used to authenticate with the remote.
   --help           Show this message and exit.
+
+Commands:
+  list         List aliases from the local database and the REMOTE (if...
+  make-unique  Make the given alias unique, checking locally stored...
+  search       Search the REMOTE for all aliases that contain the given...
 ```
+    
 
 ```text
-Usage: simdb alias list [OPTIONS] [REMOTE]
+Usage: simdb alias [REMOTE] list [OPTIONS]
 
   List aliases from the local database and the REMOTE (if specified).
 
 Options:
-  --username TEXT  Username used to authenticate with the remote.
-  --password TEXT  Password used to authenticate with the remote.
-  --help           Show this message and exit.
+  --local  Only list the local aliases.
+  --help   Show this message and exit.
 ```
-
-## Simulation
+    
 
 ```text
-Usage: simdb simulation [OPTIONS] COMMAND [ARGS]...
+Usage: simdb alias [REMOTE] make-unique [OPTIONS] ALIAS
 
-  Manage ingested simulations.
-
-Options:
-  --help  Show this message and exit.
-
-Commands:
-  alias     Generate a unique alias with the given PREFIX.
-  delete    Delete the ingested simulation with given SIM_ID (UUID or...
-  info      Print information on the simulation with given SIM_ID (UUID or...
-  ingest    Ingest a MANIFEST_FILE.
-  list      List ingested simulations.
-  modify    Modify the ingested simulation.
-  new       Create an empty simulation in the database which can be updated...
-  push      Push the simulation with the given SIM_ID (UUID or alias) to
-            the...
-  pull      Pull the simulation with the given SIM_ID (UUID or alias) from
-            the...
-
-  query     Query the simulations.
-  validate  Validate the ingested simulation with given SIM_ID (UUID or...
-```
-
-```text
-Usage: simdb simulation new [OPTIONS]
-
-  Create an empty simulation in the database which can be updated later.
-
-Options:
-  -a, --alias TEXT  Alias of to assign to the simulation.
-  -u, --uuid-only   Return a new UUID but do not insert the new simulation
-                    into the database.
-
-  --help            Show this message and exit.
-```
-
-```text
-Usage: simdb simulation alias [OPTIONS]
-
-  Generate a unique alias with the given PREFIX.
-
-Options:
-  -p, --prefix TEXT  Prefix to use for the alias.  [default: sim]
-  --help             Show this message and exit.
-```
-
-```text
-Usage: simdb simulation list [OPTIONS]
-
-  List ingested simulations.
-
-Options:
-  -m, --meta-data TEXT  Additional meta-data field to print.
-  --help                Show this message and exit.
-```
-
-```text
-Usage: simdb simulation modify [OPTIONS] SIM_ID
-
-  Modify the ingested simulation.
-
-Options:
-  -a, --alias TEXT  New alias.
-  --help            Show this message and exit.
-```
-
-```text
-Usage: simdb simulation delete [OPTIONS] SIM_ID
-
-  Delete the ingested simulation with given SIM_ID (UUID or alias).
+  Make the given alias unique, checking locally stored simulations and the
+  remote.
 
 Options:
   --help  Show this message and exit.
 ```
+    
 
 ```text
-Usage: simdb simulation info [OPTIONS] SIM_ID
+Usage: simdb alias [REMOTE] search [OPTIONS] ALIAS
 
-  Print information on the simulation with given SIM_ID (UUID or alias).
+  Search the REMOTE for all aliases that contain the given VALUE.
 
 Options:
   --help  Show this message and exit.
 ```
-
-```text
-Usage: simdb simulation ingest [OPTIONS] MANIFEST_FILE
-
-  Ingest a MANIFEST_FILE.
-
-Options:
-  -a, --alias TEXT  Alias to give to simulation (overwrites any set in
-                    manifest).
-
-  --help            Show this message and exit.
-```
-
-```text
-Usage: simdb simulation push [OPTIONS] [REMOTE] SIM_ID
-
-  Push the simulation with the given SIM_ID (UUID or alias) to the REMOTE.
-
-Options:
-  --username TEXT  Username used to authenticate with the remote.
-  --password TEXT  Password used to authenticate with the remote.
-  --replaces TEXT  SIM_ID of simulation to deprecate and replace.
-  --help           Show this message and exit.
-```
-
-```text
-Usage: simdb simulation pull [OPTIONS] [REMOTE] SIM_ID DIRECTORY
-
-  Pull the simulation with the given SIM_ID (UUID or alias) from the REMOTE.
-
-Options:
-  --username TEXT  Username used to authenticate with the remote.
-  --password TEXT  Password used to authenticate with the remote.
-  --help           Show this message and exit.
-```
-
-```text
-Usage: simdb simulation query [OPTIONS] [CONSTRAINT]...
-
-  Query the simulations.
-
-Options:
-  --help  Show this message and exit.
-```
-
-```text
-Usage: simdb simulation validate [OPTIONS] [REMOTE] SIM_ID
-
-  Validate the ingested simulation with given SIM_ID (UUID or alias) using
-  validation schema from REMOTE.
-
-Options:
-  --username TEXT  Username used to authenticate with the remote.
-  --password TEXT  Password used to authenticate with the remote.
-  --help           Show this message and exit.
-```
-
+    
 ## Config
+
 
 ```text
 Usage: simdb config [OPTIONS] COMMAND [ARGS]...
@@ -249,26 +88,10 @@ Commands:
   delete  Delete the OPTION.
   get     Get the OPTION.
   list    List all configurations OPTIONS set.
+  path    Print the location of the user configuration file.
   set     Set the OPTION to the given VALUE.
 ```
-
-```text
-Usage: simdb config get [OPTIONS] OPTION
-
-  Get the OPTION.
-
-Options:
-  --help  Show this message and exit.
-```
-
-```text
-Usage: simdb config set [OPTIONS] OPTION VALUE
-
-  Set the OPTION to the given VALUE.
-
-Options:
-  --help  Show this message and exit.
-```
+    
 
 ```text
 Usage: simdb config delete [OPTIONS] OPTION
@@ -278,6 +101,17 @@ Usage: simdb config delete [OPTIONS] OPTION
 Options:
   --help  Show this message and exit.
 ```
+    
+
+```text
+Usage: simdb config get [OPTIONS] OPTION
+
+  Get the OPTION.
+
+Options:
+  --help  Show this message and exit.
+```
+    
 
 ```text
 Usage: simdb config list [OPTIONS]
@@ -287,8 +121,29 @@ Usage: simdb config list [OPTIONS]
 Options:
   --help  Show this message and exit.
 ```
+    
 
+```text
+Usage: simdb config path [OPTIONS]
+
+  Print the location of the user configuration file.
+
+Options:
+  --help  Show this message and exit.
+```
+    
+
+```text
+Usage: simdb config set [OPTIONS] OPTION VALUE
+
+  Set the OPTION to the given VALUE.
+
+Options:
+  --help  Show this message and exit.
+```
+    
 ## Database
+
 
 ```text
 Usage: simdb database [OPTIONS] COMMAND [ARGS]...
@@ -301,6 +156,7 @@ Options:
 Commands:
   clear  Clear the database.
 ```
+    
 
 ```text
 Usage: simdb database clear [OPTIONS]
@@ -310,16 +166,65 @@ Usage: simdb database clear [OPTIONS]
 Options:
   --help  Show this message and exit.
 ```
+    
+## Manifest
 
+
+```text
+Usage: simdb manifest [OPTIONS] COMMAND [ARGS]...
+
+  Create/check manifest file.
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  check   Check manifest FILE_NAME.
+  create  Create a new MANIFEST_FILE.
+```
+    
+
+```text
+Usage: simdb manifest check [OPTIONS] FILE_NAME
+
+  Check manifest FILE_NAME.
+
+Options:
+  --help  Show this message and exit.
+```
+    
+
+```text
+Usage: simdb manifest create [OPTIONS] MANIFEST_FILE
+
+  Create a new MANIFEST_FILE.
+
+Options:
+  --help  Show this message and exit.
+```
+    
+## Provenance
+
+
+```text
+Usage: simdb provenance [OPTIONS] PROVENANCE_FILE
+
+  Create the PROVENANCE_FILE from the current system.
+
+Options:
+  --help  Show this message and exit.
+```
+    
 ## Remote
+
 
 ```text
 Usage: simdb remote [OPTIONS] [NAME] COMMAND [ARGS]...
 
   Interact with the remote SimDB service.
 
-  If NAME is provided this determines which remote server to communicate
-  with, otherwise the server in the config file with default=True is used.
+  If NAME is provided this determines which remote server to communicate with,
+  otherwise the server in the config file with default=True is used.
 
 Options:
   --username TEXT  Username used to authenticate with the remote.
@@ -327,13 +232,316 @@ Options:
   --help           Show this message and exit.
 
 Commands:
-  info     Print information about simulation with given SIM_ID (UUID or...
-  list     List simulations available on remote.
-  query    Perform a metadata query to find matching simulation from remote.
-  token    Manage user authentication tokens.
-  update   Mark remote simulation as published.
-  watcher  Manage simulation watchers on REMOTE SimDB server.
+  admin      Run admin commands on REMOTE SimDB server (requires admin...
+  config     Configure the available remotes.
+  directory  Print the storage directory of the remote.
+  info       Print information about simulation with given SIM_ID (UUID...
+  list       List simulations available on remote.
+  query      Perform a metadata query to find matching remote simulations.
+  test       Test that the remote is valid.
+  token      Manage user authentication tokens.
+  trace      Print provenance trace of simulation with given SIM_ID (UUID...
+  update     Mark remote simulation as published.
+  watcher    Manage simulation watchers on REMOTE SimDB server.
 ```
+    
+
+```text
+Usage: simdb remote [NAME] admin [OPTIONS] COMMAND [ARGS]...
+
+  Run admin commands on REMOTE SimDB server (requires admin privileges).
+
+  Requires user to have admin privileges on remote.
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  del-meta    Remove a metadata value for the given simulation.
+  delete      Delete a simulation.
+  set-meta    Add or update a metadata value for the given simulation.
+  set-status  Update the status metadata value for the given simulation.
+```
+    
+
+```text
+Usage: simdb remote [NAME] admin del-meta [OPTIONS] SIM_ID KEY
+
+  Remove a metadata value for the given simulation.
+
+Options:
+  --help  Show this message and exit.
+```
+    
+
+```text
+Usage: simdb remote [NAME] admin delete [OPTIONS] SIM_ID
+
+  Delete a simulation.
+
+Options:
+  --help  Show this message and exit.
+```
+    
+
+```text
+Usage: simdb remote [NAME] admin set-meta [OPTIONS] SIM_ID KEY VALUE
+
+  Add or update a metadata value for the given simulation.
+
+Options:
+  -t, --type [string|UUID|int|float]
+  --help                          Show this message and exit.
+```
+    
+
+```text
+Usage: simdb remote [NAME] admin set-status [OPTIONS] SIM_ID {NOT_VALIDATED|AC
+                                            CEPTED|FAILED|PASSED|DEPRECATED|DE
+                                            LETED}
+
+  Update the status metadata value for the given simulation.
+
+Options:
+  --help  Show this message and exit.
+```
+    
+
+```text
+Usage: simdb remote [NAME] config [OPTIONS] COMMAND [ARGS]...
+
+  Configure the available remotes.
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  default      Print the default remote.
+  delete       Delete a remote.
+  get-default  Get the name of the default remote.
+  list         List available remotes.
+  new          Add a new remote.
+  set-default  Set a remote as default.
+  set-option   Set a configuration option for a given remote.
+```
+    
+
+```text
+Usage: simdb remote [OPTIONS]
+
+  Print the default remote.
+
+Options:
+  --help  Show this message and exit.
+```
+    
+
+```text
+Usage: simdb remote [OPTIONS] NAME
+
+  Delete a remote.
+
+Options:
+  --help  Show this message and exit.
+```
+    
+
+```text
+Usage: simdb remote [OPTIONS]
+
+  Get the name of the default remote.
+
+Options:
+  --help  Show this message and exit.
+```
+    
+
+```text
+Usage: simdb remote [OPTIONS]
+
+  List available remotes.
+
+Options:
+  --help  Show this message and exit.
+```
+    
+
+```text
+Usage: simdb remote [OPTIONS] NAME URL
+
+  Add a new remote.
+
+Options:
+  --firewall [F5]  Specify the remote is behind a login firewall and what type
+                   it is.
+  --username TEXT  Username to use for remote.
+  --help           Show this message and exit.
+```
+    
+
+```text
+Usage: simdb remote [OPTIONS] NAME
+
+  Set a remote as default.
+
+Options:
+  --help  Show this message and exit.
+```
+    
+
+```text
+Usage: simdb remote [OPTIONS] NAME OPTION VALUE
+
+  Set a configuration option for a given remote.
+
+Options:
+  --help  Show this message and exit.
+```
+    
+
+```text
+Usage: simdb remote [NAME] directory [OPTIONS]
+
+  Print the storage directory of the remote.
+
+Options:
+  --help  Show this message and exit.
+```
+    
+
+```text
+Usage: simdb remote [NAME] info [OPTIONS] SIM_ID
+
+  Print information about simulation with given SIM_ID (UUID or alias) from
+  remote.
+
+Options:
+  --help  Show this message and exit.
+```
+    
+
+```text
+Usage: simdb remote [NAME] list [OPTIONS]
+
+  List simulations available on remote.
+
+Options:
+  -m, --meta-data NAME  Additional meta-data field to print.
+  -l, --limit INTEGER   Limit number of returned entries (use 0 for no limit).
+                        [default: 100]
+  --help                Show this message and exit.
+```
+    
+
+```text
+Usage: simdb remote [NAME] query [OPTIONS] [CONSTRAINTS]...
+
+  Perform a metadata query to find matching remote simulations.
+
+  Each constraint must be in the form:
+      NAME=[mod]VALUE
+
+  Where `[mod]` is an optional query modifier. Available query modifiers are:
+      eq: - This checks for equality (this is the same behaviour as not providing any modifier).
+      in: - This searches inside the value instead of looking for exact matches.
+      gt: - This checks for values greater than the given quantity.
+      ge: - This checks for values greater than or equal to the given quantity.
+      lt: - This checks for values less than the given quantity.
+      le: - This checks for values less than or equal to the given quantity.
+
+  Modifier examples:
+      responsible_name=foo        performs exact match
+      responsible_name=in:foo     matches all names containing foo
+      pulse=gt:1000               matches all pulses > 1000
+
+  Any string comparisons are done in a case-insensitive manner. If multiple constraints are provided then simulations
+  are returned that match all given constraints.
+
+  Examples:
+      sim remote query workflow.name=in:test       finds all simulations where workflow.name contains test
+                                                       (case-insensitive)
+      sim remote query pulse=gt:1000 run=0         finds all simulations where pulse is > 1000 and run = 0
+
+Options:
+  -m, --meta-data TEXT  Additional meta-data field to print.
+  -l, --limit INTEGER   Limit number of returned entries (use 0 for no limit).
+                        [default: 100]
+  --help                Show this message and exit.
+```
+    
+
+```text
+Usage: simdb remote [NAME] test [OPTIONS]
+
+  Test that the remote is valid.
+
+Options:
+  --help  Show this message and exit.
+```
+    
+
+```text
+Usage: simdb remote [NAME] token [OPTIONS] COMMAND [ARGS]...
+
+  Manage user authentication tokens.
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  delete  Delete the existing token for the given remote.
+  new     Create a new token for the given remote.
+```
+    
+
+```text
+Usage: simdb remote [NAME] token delete [OPTIONS]
+
+  Delete the existing token for the given remote.
+
+Options:
+  --help  Show this message and exit.
+```
+    
+
+```text
+Usage: simdb remote [NAME] token new [OPTIONS]
+
+  Create a new token for the given remote.
+
+Options:
+  --help  Show this message and exit.
+```
+    
+
+```text
+Usage: simdb remote [NAME] trace [OPTIONS] SIM_ID
+
+  Print provenance trace of simulation with given SIM_ID (UUID or alias) from
+  remote.
+
+  This shows a history of simulations that this simulation has replaced or
+  been replaced by and what those simulations replaced or where replaced by
+  and so on.
+
+  If the outputs of this simulation are used as inputs of other simulations or
+  if the inputs are generated by other simulations then these dependencies are
+  also reported.
+
+Options:
+  --help  Show this message and exit.
+```
+    
+
+```text
+Usage: simdb remote [NAME] update [OPTIONS] SIM_ID {validate|accept|deprecate}
+
+  Mark remote simulation as published.
+
+Options:
+  --help  Show this message and exit.
+```
+    
 
 ```text
 Usage: simdb remote [NAME] watcher [OPTIONS] COMMAND [ARGS]...
@@ -348,29 +556,10 @@ Commands:
   list    List watchers for simulation with given SIM_ID (UUID or alias).
   remove  Remove a user from list of watchers on a simulation with given...
 ```
+    
 
 ```text
-Usage: simdb remote watcher list [OPTIONS] SIM_ID
-
-  List watchers for simulation with given SIM_ID (UUID or alias).
-
-Options:
-  --help  Show this message and exit.
-```
-
-```text
-Usage: simdb remote watcher remove [OPTIONS] SIM_ID
-
-  Remove a user from list of watchers on a simulation with given SIM_ID
-  (UUID or alias).
-
-Options:
-  -u, --user TEXT  Name of the user to remove as a watcher.
-  --help           Show this message and exit.
-```
-
-```text
-Usage: simdb remote watcher add [OPTIONS] SIM_ID
+Usage: simdb remote [OPTIONS] SIM_ID
 
   Register a user as a watcher for a simulation with given SIM_ID (UUID or
   alias).
@@ -382,80 +571,188 @@ Options:
                                   [default: ALL]
   --help                          Show this message and exit.
 ```
+    
 
 ```text
-Usage: simdb remote [NAME] list [OPTIONS]
+Usage: simdb remote [OPTIONS] SIM_ID
 
-  List simulations available on remote.
-
-Options:
-  -m, --meta-data TEXT  Additional meta-data field to print.
-  --help                Show this message and exit.
-```
-
-```text
-Usage: simdb remote [NAME] info [OPTIONS] SIM_ID
-
-  Print information about simulation with given SIM_ID (UUID or alias) from
-  remote.
+  List watchers for simulation with given SIM_ID (UUID or alias).
 
 Options:
   --help  Show this message and exit.
 ```
+    
 
 ```text
-Usage: simdb remote [NAME] query [OPTIONS] [CONSTRAINTS]...
+Usage: simdb remote [OPTIONS] SIM_ID
 
-  Perform a metadata query to find matching simulation from remote.
+  Remove a user from list of watchers on a simulation with given SIM_ID (UUID
+  or alias).
 
 Options:
-  -m, --meta-data TEXT  Additional meta-data field to print.
-  --help                Show this message and exit.
+  -u, --user TEXT  Name of the user to remove as a watcher.
+  --help           Show this message and exit.
 ```
+    
+## Simulation
+
 
 ```text
-Usage: simdb remote [NAME] update [OPTIONS] SIM_ID [validate|accept|deprecate]
+Usage: simdb simulation [OPTIONS] COMMAND [ARGS]...
 
-  Mark remote simulation as published.
-
-Options:
-  --help  Show this message and exit.
-```
-
-```text
-Usage: simdb remote [NAME] token [OPTIONS] COMMAND [ARGS]...
-
-  Manage user authentication tokens.
+  Manage ingested simulations.
 
 Options:
   --help  Show this message and exit.
 
 Commands:
-  delete
-  new
+  delete    Delete the ingested simulation with given SIM_ID (UUID or...
+  info      Print information on the simulation with given SIM_ID (UUID...
+  ingest    Ingest a MANIFEST_FILE.
+  list      List ingested simulations.
+  modify    Modify the ingested simulation.
+  pull      Pull the simulation with the given SIM_ID (UUID or alias)...
+  push      Push the simulation with the given SIM_ID (UUID or alias) to...
+  query     Perform a metadata query to find matching local simulations.
+  validate  Validate the ingested simulation with given SIM_ID (UUID or...
 ```
+    
 
 ```text
-Usage: simdb remote token new [OPTIONS]
+Usage: simdb simulation delete [OPTIONS] SIM_ID
+
+  Delete the ingested simulation with given SIM_ID (UUID or alias).
 
 Options:
   --help  Show this message and exit.
 ```
+    
 
 ```text
-Usage: simdb remote token delete [OPTIONS]
+Usage: simdb simulation info [OPTIONS] SIM_ID
+
+  Print information on the simulation with given SIM_ID (UUID or alias).
 
 Options:
   --help  Show this message and exit.
 ```
-
-## Provenance
+    
 
 ```text
-Usage: simdb provenance [OPTIONS] PROVENANCE_FILE
+Usage: simdb simulation ingest [OPTIONS] MANIFEST_FILE
 
-  Create the PROVENANCE_FILE from the current system.
+  Ingest a MANIFEST_FILE.
 
 Options:
-  --help  Show this message and exit.
+  -a, --alias TEXT  Alias to give to simulation (overwrites any set in
+                    manifest).
+  --help            Show this message and exit.
 ```
+    
+
+```text
+Usage: simdb simulation list [OPTIONS]
+
+  List ingested simulations.
+
+Options:
+  -m, --meta-data TEXT  Additional meta-data field to print.
+  -l, --limit INTEGER   Limit number of returned entries (use 0 for no limit).
+                        [default: 100]
+  --help                Show this message and exit.
+```
+    
+
+```text
+Usage: simdb simulation modify [OPTIONS] SIM_ID
+
+  Modify the ingested simulation.
+
+Options:
+  -a, --alias ALIAS      New alias.
+  --set-meta NAME=VALUE  Add new meta or update existing.
+  --del-meta NAME        Delete metadata entry.
+  --help                 Show this message and exit.
+```
+    
+
+```text
+Usage: simdb simulation pull [OPTIONS] [REMOTE] SIM_ID DIRECTORY
+
+  Pull the simulation with the given SIM_ID (UUID or alias) from the REMOTE.
+
+Options:
+  --username TEXT  Username used to authenticate with the remote.
+  --password TEXT  Password used to authenticate with the remote.
+  --help           Show this message and exit.
+```
+    
+
+```text
+Usage: simdb simulation push [OPTIONS] [REMOTE] SIM_ID
+
+  Push the simulation with the given SIM_ID (UUID or alias) to the REMOTE.
+
+Options:
+  --username TEXT  Username used to authenticate with the remote.
+  --password TEXT  Password used to authenticate with the remote.
+  --replaces TEXT  SIM_ID of simulation to deprecate and replace.
+  --add-watcher    Add the current user as a watcher of the simulation.
+  --help           Show this message and exit.
+```
+    
+
+```text
+Usage: simdb simulation query [OPTIONS] [CONSTRAINT]...
+
+  Perform a metadata query to find matching local simulations.
+
+  Each constraint must be in the form:
+      NAME=[mod]VALUE
+
+  Where `[mod]` is an optional query modifier. Available query modifiers are:
+      eq: - This checks for equality (this is the same behaviour as not providing any modifier).
+      ne: - This checks for value that do not equal.
+      in: - This searches inside the value instead of looking for exact matches.
+      ni: - This searches inside the value for elements that do not match.
+      gt: - This checks for values greater than the given quantity.
+      ge: - This checks for values greater than or equal to the given quantity.
+      lt: - This checks for values less than the given quantity.
+      le: - This checks for values less than or equal to the given quantity.
+
+  For the following modifiers, VALUE should not be provided.     exist: - This
+  returns simulations where metadata with NAME exists, regardless of the
+  value.
+
+  Modifier examples:
+      responsible_name=foo        performs exact match
+      responsible_name=in:foo     matches all names containing foo
+      pulse=gt:1000               matches all pulses > 1000
+      sequence=exist:             matches all simulations that have "sequence" metadata values
+
+  Any string comparisons are done in a case-insensitive manner. If multiple constraints are provided then simulations
+  are returned that match all given constraints.
+
+  Examples:
+      sim simulation query workflow.name=in:test       finds all simulations where workflow.name contains test
+                                                       (case-insensitive)
+      sim simulation query pulse=gt:1000 run=0         finds all simulations where pulse is > 1000 and run = 0
+
+Options:
+  -m, --meta-data TEXT  Additional meta-data field to print.
+  --help                Show this message and exit.
+```
+    
+
+```text
+Usage: simdb simulation validate [OPTIONS] [REMOTE] SIM_ID
+
+  Validate the ingested simulation with given SIM_ID (UUID or alias) using
+  validation schema from REMOTE.
+
+Options:
+  --username TEXT  Username used to authenticate with the remote.
+  --password TEXT  Password used to authenticate with the remote.
+  --help           Show this message and exit.
+```
+    
