@@ -207,7 +207,6 @@ class RemoteAPI:
             self._load_cookies(remote, username, password)
 
         if not self._use_token:
-            print("here")
             if not username:
                 username = click.prompt("Username", default=getpass.getuser())
             if not password:

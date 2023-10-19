@@ -17,6 +17,7 @@ Contents
    design
    developer_guide
    install_guide
+   iter_remotes
    iter_certificate
    maintenance_guide
    tutorial
