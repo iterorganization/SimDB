@@ -3,7 +3,7 @@ from typing import List, Any
 from datetime import datetime
 from pathlib import Path
 
-from ..uri import URI, Authority
+from ..uri import URI
 from ..config import Config
 
 
@@ -207,7 +207,7 @@ def _get_path_for_legacy_uri(uri: URI) -> Path:
     version = uri.query.get("version", default="3")
     shot = uri.query.get("shot", default=None)
     run = uri.query.get("run", default=None)
-    backend = uri.query.get('backend', default='mdsplus')
+    backend = uri.query.get("backend", default="mdsplus")
     if any(x is None for x in [user, database, shot, run]):
         raise ValueError(f"Invalid legacy URI {uri}")
     if user == "public":
@@ -223,7 +223,7 @@ def _get_path_for_legacy_uri(uri: URI) -> Path:
         path = Path(f"~{user}").expanduser() / "public" / "imasdb" / database / version
     else:
         path = Path.home() / "public" / "imasdb" / database / version
-    if backend == 'mdsplus':
+    if backend == "mdsplus":
         return path
     else:
         return path / shot / run
@@ -256,7 +256,7 @@ def imas_files(uri: URI) -> List[Path]:
     backend = uri.path
     is_legacy_uri = False
 
-    if 'path' not in uri.query:
+    if "path" not in uri.query:
         backend = uri.query.get("backend", default="mdsplus")
         is_legacy_uri = True
 
@@ -306,5 +306,5 @@ def convert_uri(uri: URI, config: Config) -> URI:
     path = uri.query.get("path", default=None)
     if path is None:
         path = _get_path_for_legacy_uri(uri)
-    backend = uri.query.get('backend', default='mdsplus')
-    return URI(f'imas://{host}:{port}/uda?path={path}&backend={backend}')
+    backend = uri.query.get("backend", default="mdsplus")
+    return URI(f"imas://{host}:{port}/uda?path={path}&backend={backend}")
