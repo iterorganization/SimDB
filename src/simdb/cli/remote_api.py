@@ -75,7 +75,7 @@ HTTP error {ex.response.status_code} returned from endpoint {ex.request.url}
             )
         except requests.JSONDecodeError:
             raise FailedConnection(
-                f"""\
+                """\
 Invalid JSON returned from request endpoint
 
 This might indicate an invalid SimDB URL or the existence of a firewall.

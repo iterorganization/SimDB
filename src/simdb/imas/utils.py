@@ -1,4 +1,3 @@
-import multiprocessing as mp
 import os
 from typing import List, Any
 from datetime import datetime
@@ -95,12 +94,56 @@ def check_time(entry: DBEntry, ids: str) -> None:
             )
 
 
-def open_imas(uri: URI, create=False) -> DBEntry:
+def _is_al5() -> bool:
+    import semantic_version
+
+    version = semantic_version.Version(os.environ.get("AL_VERSION", default="5.0.0"))
+    return version >= semantic_version.Version("5.0.0")
+
+
+def _open_legacy(uri: URI) -> DBEntry:
+    import imas
+
+    path = uri.query.get("path", default=None)
+    if path is not None:
+        raise ImasError(f"cannot open AL5 URI {uri} with AL4")
+
+    backend_ids = {
+        "mdsplus": imas.imasdef.MDSPLUS_BACKEND,
+        "hdf5": imas.imasdef.HDF5_BACKEND,
+        "ascii": imas.imasdef.ASCII_BACKEND,
+        "memory": imas.imasdef.MEMORY_BACKEND,
+        "uda": imas.imasdef.UDA_BACKEND,
+    }
+
+    backend = uri.query.get("backend", default="mdsplus")
+    user = uri.query.get("user", default=None)
+    database = uri.query.get("database", default=None)
+    version = uri.query.get("version", default="3")
+    shot = uri.query.get("shot", default=None)
+    run = uri.query.get("run", default=None)
+
+    backend_id = backend_ids[backend]
+
+    if user is not None:
+        entry = imas.DBEntry(
+            backend_id, database, shot, run, user_name=user, data_version=version
+        )
+    else:
+        entry = imas.DBEntry(backend_id, database, shot, run, data_version=version)
+
+    (status, _) = entry.open()
+    if status != 0:
+        raise ImasError(f"failed to open IMAS data with URI {uri}")
+
+    return entry
+
+
+def open_imas(uri: URI) -> DBEntry:
     """
     Open an IMAS URI and return the IMAS entry object.
 
     @param uri: the IMAS URI to open
-    @param create: whether to open the file in 'open' mode (False) or 'create' mode (True)
     @return: the IMAS data entry object
     """
     import imas
@@ -108,26 +151,24 @@ def open_imas(uri: URI, create=False) -> DBEntry:
     if uri.scheme != "imas":
         raise ValueError(f"invalid imas URI: {uri} - invalid scheme")
 
-    if uri.query is not None:
-        try:
-            path = uri.query.get("path")
-        except KeyError:
-            raise ValueError(f"invalid imas URI: {uri} - no path found in query")
-    else:
+    if uri.query is None:
         raise ValueError(f"invalid imas URI: {uri} - no query found in URI")
 
-    entry = imas.DBEntry(str(uri))
+    if not _is_al5():
+        return _open_legacy(uri)
 
-    if create:
-        if not Path(path).exists():
-            Path(path).mkdir(parents=True, exist_ok=True)
-        (status, _) = entry.create()
-        if status != 0:
-            raise ImasError(f"failed to create IMAS data with URI {uri}")
-    else:
-        (status, _) = entry.open()
-        if status != 0:
-            raise ImasError(f"failed to open IMAS data with URI {uri}")
+    path = uri.query.get("path", default=None)
+    if path is None:
+        path = _get_path_for_legacy_uri(uri)
+        backend = uri.query.get("backend", default="mdsplus")
+        uri = f"imas:{backend}&path={path}"
+
+    entry = imas.DBEntry(str(uri), "r")
+
+    (status, _) = entry.open()
+    if status != 0:
+        raise ImasError(f"failed to open IMAS data with URI {uri}")
+
     return entry
 
 
@@ -160,41 +201,13 @@ def imas_timestamp(uri: URI) -> datetime:
     return timestamp
 
 
-def _copy_imas(from_uri, to_uri, ids_name):
-    from_entry = open_imas(from_uri)
-    to_entry = open_imas(to_uri)
-    ids = from_entry.get(ids_name)
-    to_entry.put(ids)
-    from_entry.close()
-    to_entry.close()
-
-
-def copy_imas(from_uri: URI, to_uri: URI):
-    """
-    Copy data from one IMAS URI to another.
-
-    @param from_uri: the URI to copy from
-    @param to_uri: the URI to copy to
-    """
-    from_entry = open_imas(from_uri)
-    to_entry = open_imas(to_uri, create=True)
-    idss = list_idss(from_entry)
-    from_entry.close()
-    to_entry.close()
-
-    for ids in idss:
-        print(f"Copying {ids}", flush=True)
-        p = mp.Process(target=_copy_imas, args=(from_uri, to_uri, ids))
-        p.start()
-        p.join()
-
-
 def _get_path_for_legacy_uri(uri: URI) -> Path:
     user = uri.query.get("user", default=None)
     database = uri.query.get("database", default=None)
     version = uri.query.get("version", default="3")
     shot = uri.query.get("shot", default=None)
     run = uri.query.get("run", default=None)
+    backend = uri.query.get('backend', default='mdsplus')
     if any(x is None for x in [user, database, shot, run]):
         raise ValueError(f"Invalid legacy URI {uri}")
     if user == "public":
@@ -206,9 +219,14 @@ def _get_path_for_legacy_uri(uri: URI) -> Path:
         path = Path(imas_home) / "shared" / "imasdb" / database / version
     elif user.startswith("/"):
         path = Path(user) / database / version
+    elif user is not None:
+        path = Path(f"~{user}").expanduser() / "public" / "imasdb" / database / version
     else:
         path = Path.home() / "public" / "imasdb" / database / version
-    return path / shot / run
+    if backend == 'mdsplus':
+        return path
+    else:
+        return path / shot / run
 
 
 def _get_path(uri: URI) -> Path:
@@ -236,22 +254,39 @@ def imas_files(uri: URI) -> List[Path]:
     @return: a list of files which contains the IDS data for the backend specified in the URI
     """
     backend = uri.path
+    is_legacy_uri = False
+
+    if 'path' not in uri.query:
+        backend = uri.query.get("backend", default="mdsplus")
+        is_legacy_uri = True
+
     path = _get_path(uri)
+
     if backend == "hdf5":
         return list(p.absolute() for p in path.glob("*.h5"))
     elif backend == "mdsplus":
-        return [
-            path / "ids_001.characteristics",
-            path / "ids_001.datafile",
-            path / "ids_001.tree",
-        ]
+        if is_legacy_uri:
+            shot = uri.query.get("shot")
+            run = uri.query.get("run")
+            file_name = f"ids_{shot}{run:04}"
+            return [
+                path / f"{file_name}.characteristics",
+                path / f"{file_name}.datafile",
+                path / f"{file_name}.tree",
+            ]
+        else:
+            return [
+                path / "ids_001.characteristics",
+                path / "ids_001.datafile",
+                path / "ids_001.tree",
+            ]
     elif backend == "ascii":
         return list(p.absolute() for p in path.glob("*.ids"))
     else:
         raise ValueError(f"Unknown IMAS backend {backend}")
 
 
-def convert_uri(uri: URI, config: Config) -> None:
+def convert_uri(uri: URI, config: Config) -> URI:
     """
     Converts a local IMAS URI to a remote access IMAS URI based on the server.imas_remote_host configuration option.
 
@@ -268,9 +303,8 @@ def convert_uri(uri: URI, config: Config) -> None:
             "Cannot process IMAS data as server.imas_remote_host configuration option not set"
         )
     port = config.get_option("server.imas_remote_port", default=None)
-    uri.authority = Authority(host, port, None)
-    uri.query.set("backend", uri.path)
-    uri.path = Path("uda")
-    if uri.query.get("path", default=None) is None:
+    path = uri.query.get("path", default=None)
+    if path is None:
         path = _get_path_for_legacy_uri(uri)
-        uri.query.set("path", str(path))
+    backend = uri.query.get('backend', default='mdsplus')
+    return URI(f'imas://{host}:{port}/uda?path={path}&backend={backend}')

@@ -262,13 +262,13 @@ class SimulationList(Resource):
                     elif sim_file.uri.scheme == "imas":
                         from simdb.imas.utils import convert_uri
 
-                        convert_uri(sim_file.uri, config)
+                        sim_file.uri = convert_uri(sim_file.uri, config)
             elif config.get_option("server.imas_remote_host", default=None):
                 for sim_file in files:
                     if sim_file.uri.scheme == "imas":
                         from simdb.imas.utils import convert_uri
 
-                        convert_uri(sim_file.uri, config)
+                        sim_file.uri = convert_uri(sim_file.uri, config)
 
             result = {
                 "ingested": simulation.uuid.hex,
