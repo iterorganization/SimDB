@@ -41,9 +41,9 @@ version: 1
 alias: my-simulation
 inputs:
 - uri: file:///my/input/file
-- uri: imas:?shot=1000&run=0
+- uri: imas:hdf5?path=/path/to/imas/data
 outputs:
-- uri: imas:?shot=1000&run=1
+- uri: imas:hdf5?path=/path/to/more/data
 meta:
 - values:
     workflow:
@@ -98,12 +98,43 @@ simdb simulation info <SIM_ID>
 
 ### IMAS URI schema
 
+> **Note**
+> 
+> All use of IMAS URIs require IMAS AL5 to be installed and available from SimDB. If using IMAS AL4 you'll need to use
+> legacy URI syntax see below.
+
+IMAS URIs specified in the manifest can either be in the form of remote data URIs or local data URIS.
+
+The IMAS local data URI is used to locate an IMAS data entry accessible from the machine where the client
+is being run. The URI schema looks like:
+
+```
+imas:<backend>?path=<path>
+```
+
+Where:
+
+| Argument | Description                                               |
+|----------|-----------------------------------------------------------|
+| Backend  | The backend to use to open the files on the remote server |
+| Path     | The path to the folder containing the IMAS data files     |
+
+Some examples of local URIs are:
+
+```text
+imas:mdsplus?path=/work/imas/shared/imasdb/iter/3/135011/2
+imas:hdf5?path=/work/imas/shared/imasdb/ITER_SCENARIOS/3/131002/60
+```
+
+When a local IMAS URI is pushed to the server the URI will be transformed into a remote data URI
+so that it can be accessed from machines remote from the server.
+
 The IMAS remote data URI is used to locate a remote IMAS data entry. The IMAS URI schema for remote data looks like:
 ```
 imas://<server>:<port>/uda?path=<path>&backend=<backend>
 ```
 
-Where
+Where:
 
 | Argument | Description                                               |
 |----------|-----------------------------------------------------------|
@@ -115,6 +146,30 @@ Where
 An example URI is
 
 `imas://io-ls-uda01.iter.org:56565/uda?path=/work/imas/shared/imasdb/ITER/3/131024/51&backend=hdf5`
+
+> **Legacy IMAS URIs**
+> 
+> If only IMAS AL4 is available on the machine where the SimDB client is running it is
+> still possible to ingest IMAS data created with the HDF5 backend. When this data is pushed
+> to the server the URI will be converted into an AL5 remote data access URI.
+> 
+> The URI syntax for legacy data is:
+> ```
+> imas:?shot=<shot>&run=<run>&user=<user>&database=<database>&version=<version>&backend=<backend>
+> ```
+> 
+> | Argument | Description                                                                                                               |
+> |----------|---------------------------------------------------------------------------------------------------------------------------|
+> | Shot     | The IMAS shot number                                                                                                      |
+> | Run      | The IMAS run number                                                                                                       |
+> | User     | The user that the database lives in (or 'public' for the `$IMAS_HOME` database, defaults to current user if not provided) |
+> | Database | The name of the database                                                                                                  |
+> | Version  | The IMAS version number (defaults to 3 if not provided)                                                                   |
+> | Backend  | The backend which is used to read the file                                                                                |
+> 
+> An example legacy URI is:
+> 
+> ```imas:?shot=30420&run=1&user=public&database=iter&version=3&backend=hdf5```
 
 ## Remote SimDB servers
 

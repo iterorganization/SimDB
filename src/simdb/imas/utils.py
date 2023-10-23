@@ -109,19 +109,18 @@ def _open_legacy(uri: URI) -> DBEntry:
         raise ImasError(f"cannot open AL5 URI {uri} with AL4")
 
     backend_ids = {
-        "mdsplus": imas.imasdef.MDSPLUS_BACKEND,
         "hdf5": imas.imasdef.HDF5_BACKEND,
-        "ascii": imas.imasdef.ASCII_BACKEND,
-        "memory": imas.imasdef.MEMORY_BACKEND,
-        "uda": imas.imasdef.UDA_BACKEND,
     }
 
-    backend = uri.query.get("backend", default="mdsplus")
+    backend = uri.query.get("backend", default=None)
     user = uri.query.get("user", default=None)
     database = uri.query.get("database", default=None)
     version = uri.query.get("version", default="3")
     shot = uri.query.get("shot", default=None)
     run = uri.query.get("run", default=None)
+
+    if backend not in backend_ids:
+        raise ImasError(f"backend {backend} is not supported for legacy IMAS, please use AL5")
 
     backend_id = backend_ids[backend]
 
