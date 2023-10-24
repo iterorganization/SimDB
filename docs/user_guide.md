@@ -150,22 +150,22 @@ An example URI is
 > **Legacy IMAS URIs**
 > 
 > If only IMAS AL4 is available on the machine where the SimDB client is running it is
-> still possible to ingest IMAS data created with the HDF5 backend. When this data is pushed
-> to the server the URI will be converted into an AL5 remote data access URI.
+> still possible to ingest IMAS data created with the HDF5 backend (HDF5 is the only supported backend).
+> When this data is pushed to the server the URI will be converted into an AL5 remote data access URI.
 > 
 > The URI syntax for legacy data is:
 > ```
 > imas:?shot=<shot>&run=<run>&user=<user>&database=<database>&version=<version>&backend=<backend>
 > ```
 > 
-> | Argument | Description                                                                                                               |
-> |----------|---------------------------------------------------------------------------------------------------------------------------|
-> | Shot     | The IMAS shot number                                                                                                      |
-> | Run      | The IMAS run number                                                                                                       |
-> | User     | The user that the database lives in (or 'public' for the `$IMAS_HOME` database, defaults to current user if not provided) |
-> | Database | The name of the database                                                                                                  |
-> | Version  | The IMAS version number (defaults to 3 if not provided)                                                                   |
-> | Backend  | The backend which is used to read the file                                                                                |
+> | Argument | Description                                                                                                                                   |
+> |----------|-----------------------------------------------------------------------------------------------------------------------------------------------|
+> | Shot     | The IMAS shot number                                                                                                                          |
+> | Run      | The IMAS run number                                                                                                                           |
+> | User     | The user (or path to imasdb) that the database lives in (or 'public' for the `$IMAS_HOME` database, defaults to current user if not provided) |
+> | Database | The name of the database                                                                                                                      |
+> | Version  | The IMAS version number (defaults to 3 if not provided)                                                                                       |
+> | Backend  | The backend which is used to read the file                                                                                                    |
 > 
 > An example legacy URI is:
 > 
