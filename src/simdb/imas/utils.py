@@ -130,10 +130,10 @@ def _open_legacy(uri: URI) -> DBEntry:
 
     if user is not None:
         entry = imas.DBEntry(
-            backend_id, database, shot, run, user_name=user, data_version=version
+            backend_id, database, int(shot), int(run), user_name=user, data_version=version
         )
     else:
-        entry = imas.DBEntry(backend_id, database, shot, run, data_version=version)
+        entry = imas.DBEntry(backend_id, database, int(shot), int(run), data_version=version)
 
     (status, _) = entry.open()
     if status != 0:
