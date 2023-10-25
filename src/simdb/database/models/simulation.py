@@ -59,13 +59,13 @@ simulation_watchers = Table(
 )
 
 
-def update_legacy_uri(data_object: DataObject):
+def _update_legacy_uri(data_object: DataObject):
     from ...imas.utils import get_path_for_legacy_uri
     from ...uri import URI
 
     path = get_path_for_legacy_uri(data_object.uri)
     backend = data_object.uri.query.get("backend", default="hdf5")
-    data_object.uri = URI(f"imas:{backend}?path={path}")
+    return URI(f"imas:{backend}?path={path}")
 
 
 @inherit_docstrings
@@ -121,9 +121,10 @@ class Simulation(Base):
             self.alias = manifest.alias
 
         for input in manifest.inputs:
+            file = File(input.type, input.uri, config=config)
             if input.type == DataObject.Type.IMAS and "path" not in input.uri.query:
-                update_legacy_uri(input)
-            self.inputs.append(File(input.type, input.uri, config=config))
+                file.uri = _update_legacy_uri(input)
+            self.inputs.append(file)
 
         all_idss = []
 
@@ -146,10 +147,10 @@ class Simulation(Base):
                 for key, value in flattened_meta.items():
                     self.meta.append(MetaData(key, value))
 
-                if "path" not in output.uri.query:
-                    update_legacy_uri(output)
-
-            self.outputs.append(File(output.type, output.uri, config=config))
+            file = File(output.type, output.uri, config=config)
+            if output.type == DataObject.Type.IMAS and "path" not in output.uri.query:
+                file.uri = _update_legacy_uri(output)
+            self.outputs.append(file)
 
         if all_idss:
             self.meta.append(MetaData("ids", "[%s]" % ", ".join(all_idss)))
