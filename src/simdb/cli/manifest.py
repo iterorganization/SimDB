@@ -65,7 +65,8 @@ class DataObject:
 
     UUID: simdb:///<UUID>
     PATH: file:///<PATH>
-    IMAS: imas:///?shot=<SHOT>&run=<RUN>&machine=<MACHINE>&user=<USER>
+    IMAS: AL4 imas:///?shot=<SHOT>&run=<RUN>&machine=<MACHINE>&user=<USER>&backend=<BACKEND>
+          AL5 imas:///<BACKEND>?path=<PATH>
     UDA:  uda:///?signal=<SIGNAL>&source=<SOURCE>
     """
 

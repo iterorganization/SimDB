@@ -158,7 +158,7 @@ def open_imas(uri: URI) -> DBEntry:
 
     path = uri.query.get("path", default=None)
     if path is None:
-        path = _get_path_for_legacy_uri(uri)
+        path = get_path_for_legacy_uri(uri)
         backend = uri.query.get("backend", default="mdsplus")
         uri = f"imas:{backend}&path={path}"
 
@@ -200,14 +200,14 @@ def imas_timestamp(uri: URI) -> datetime:
     return timestamp
 
 
-def _get_path_for_legacy_uri(uri: URI) -> Path:
+def get_path_for_legacy_uri(uri: URI) -> Path:
     user = uri.query.get("user", default=None)
     database = uri.query.get("database", default=None)
     version = uri.query.get("version", default="3")
     shot = uri.query.get("shot", default=None)
     run = uri.query.get("run", default=None)
-    backend = uri.query.get("backend", default="mdsplus")
-    if any(x is None for x in [user, database, shot, run]):
+    backend = uri.query.get("backend", default="hdf5")
+    if any(x is None for x in [database, shot, run]):
         raise ValueError(f"Invalid legacy URI {uri}")
     if user == "public":
         imas_home = os.environ.get("IMAS_HOME", default=None)
@@ -235,11 +235,11 @@ def _get_path(uri: URI) -> Path:
     @param uri: a valid IMAS URI
     @return: the path of the IDS data for the given IMAS URI
     """
-    path = uri.query.get("path", default=None)
+    path = Path(uri.query.get("path", default=None))
     if path is None:
-        path = _get_path_for_legacy_uri(uri)
-    else:
-        path = Path(path)
+        raise ValueError(f"Invalid IMAS URI - path not found in query arguments")
+
+    path = Path(path)
     if not path.exists():
         raise ValueError(f"URI path {path} does not exist")
     return path
@@ -253,32 +253,16 @@ def imas_files(uri: URI) -> List[Path]:
     @return: a list of files which contains the IDS data for the backend specified in the URI
     """
     backend = uri.path
-    is_legacy_uri = False
-
-    if "path" not in uri.query:
-        backend = uri.query.get("backend", default="mdsplus")
-        is_legacy_uri = True
-
     path = _get_path(uri)
 
     if backend == "hdf5":
         return list(p.absolute() for p in path.glob("*.h5"))
     elif backend == "mdsplus":
-        if is_legacy_uri:
-            shot = uri.query.get("shot")
-            run = uri.query.get("run")
-            file_name = f"ids_{shot}{run:04}"
-            return [
-                path / f"{file_name}.characteristics",
-                path / f"{file_name}.datafile",
-                path / f"{file_name}.tree",
-            ]
-        else:
-            return [
-                path / "ids_001.characteristics",
-                path / "ids_001.datafile",
-                path / "ids_001.tree",
-            ]
+        return [
+            path / "ids_001.characteristics",
+            path / "ids_001.datafile",
+            path / "ids_001.tree",
+        ]
     elif backend == "ascii":
         return list(p.absolute() for p in path.glob("*.ids"))
     else:
@@ -289,8 +273,7 @@ def convert_uri(uri: URI, config: Config) -> URI:
     """
     Converts a local IMAS URI to a remote access IMAS URI based on the server.imas_remote_host configuration option.
 
-    Translate locale IMAS URI (imas:<backend>?path=<path>) or legacy IMAS URI
-    (imas:<backend>?user=<user>&database=<database>&shot=<shot>&run=<run>&version=<version>) to remote access URI
+    Translate locale IMAS URI (imas:<backend>?path=<path>) to remote access URI
     (imas://<imas_remote_host>:<imas_remote_port>/uda?path=<path>&backend=<backend>)
 
     @param uri: The URI to convert
@@ -304,6 +287,8 @@ def convert_uri(uri: URI, config: Config) -> URI:
     port = config.get_option("server.imas_remote_port", default=None)
     path = uri.query.get("path", default=None)
     if path is None:
-        path = _get_path_for_legacy_uri(uri)
+        raise ValueError(
+            "Invalid IMAS URI - path not found in query arguments"
+        )
     backend = uri.query.get("backend", default="mdsplus")
     return URI(f"imas://{host}:{port}/uda?path={path}&backend={backend}")
