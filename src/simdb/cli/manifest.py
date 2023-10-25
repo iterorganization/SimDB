@@ -47,9 +47,11 @@ def _to_uri(uri_str: str, base_path: Path) -> Tuple["DataObject.Type", "URI"]:
         uri = URI(uri, path=_expand_path(uri.path, base_path))
         return DataObject.Type.FILE, uri
     if uri.scheme == "imas":
-        if "path" not in uri.query:
+        if "path" not in uri.query and not all(
+            ("shot" in uri.query, "run" in uri.query, "database" in uri.query)
+        ):
             raise InvalidManifest(
-                f"invalid uri: {uri_str} - no path provided in IMAS uri"
+                f"invalid uri: {uri_str} - no path or (shot, run, database) provided in IMAS uri"
             )
         return DataObject.Type.IMAS, uri
     if uri.scheme == "uda":

@@ -120,7 +120,9 @@ def _open_legacy(uri: URI) -> DBEntry:
     run = uri.query.get("run", default=None)
 
     if backend not in backend_ids:
-        raise ImasError(f"backend {backend} is not supported for legacy IMAS, please use AL5")
+        raise ImasError(
+            f"backend {backend} is not supported for legacy IMAS, please use AL5"
+        )
 
     backend_id = backend_ids[backend]
 
@@ -237,7 +239,7 @@ def _get_path(uri: URI) -> Path:
     """
     path = Path(uri.query.get("path", default=None))
     if path is None:
-        raise ValueError(f"Invalid IMAS URI - path not found in query arguments")
+        raise ValueError("Invalid IMAS URI - path not found in query arguments")
 
     path = Path(path)
     if not path.exists():
@@ -287,8 +289,6 @@ def convert_uri(uri: URI, config: Config) -> URI:
     port = config.get_option("server.imas_remote_port", default=None)
     path = uri.query.get("path", default=None)
     if path is None:
-        raise ValueError(
-            "Invalid IMAS URI - path not found in query arguments"
-        )
+        raise ValueError("Invalid IMAS URI - path not found in query arguments")
     backend = uri.query.get("backend", default="mdsplus")
     return URI(f"imas://{host}:{port}/uda?path={path}&backend={backend}")

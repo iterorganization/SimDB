@@ -62,6 +62,7 @@ simulation_watchers = Table(
 def update_legacy_uri(data_object: DataObject):
     from ...imas.utils import get_path_for_legacy_uri
     from ...uri import URI
+
     path = get_path_for_legacy_uri(data_object.uri)
     backend = data_object.uri.query.get("backend", default="hdf5")
     data_object.uri = URI(f"imas:{backend}?path={path}")
