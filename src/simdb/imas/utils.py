@@ -97,7 +97,9 @@ def check_time(entry: DBEntry, ids: str) -> None:
 def _is_al5() -> bool:
     import semantic_version
 
-    version = semantic_version.Version(os.environ.get("AL_VERSION", default="5.0.0"))
+    version = semantic_version.Version(os.environ.get("AL_VERSION", default=None))
+    if version is None:
+        version = semantic_version.Version(os.environ.get("UAL_VERSION", default="5.0.0"))
     return version >= semantic_version.Version("5.0.0")
 
 
