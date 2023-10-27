@@ -341,7 +341,7 @@ class RemoteAPI:
         headers = headers if headers is not None else {}
         headers["Accept-encoding"] = "gzip"
 
-        if self._server_auth != "None" and authenticate:
+        if authenticate and self._server_auth != "None":
             res = requests.get(
                 self._api_url + url,
                 params=params,
@@ -520,7 +520,7 @@ class RemoteAPI:
     def get_server_authentication(self) -> Optional[str]:
         res = self.get("", authenticate=False)
         data = res.json()
-        return data.get("authentication", default=None)
+        return data.get("authentication")
 
     @try_request
     def get_api_version(self) -> str:
