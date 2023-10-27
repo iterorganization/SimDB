@@ -1,3 +1,4 @@
+import logging
 import os
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -35,6 +36,10 @@ def create_app(
     app.simdb_config = config
     cache.init_app(app)
     compress.init_app(app)
+
+    gunicorn_logger = logging.getLogger("gunicorn.error")
+    app.logger.handlers.extend(gunicorn_logger.handlers)
+    app.logger.setLevel(gunicorn_logger.level)
 
     @app.route("/")
     def index():

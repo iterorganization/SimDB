@@ -99,7 +99,9 @@ def _is_al5() -> bool:
 
     version = semantic_version.Version(os.environ.get("AL_VERSION", default=None))
     if version is None:
-        version = semantic_version.Version(os.environ.get("UAL_VERSION", default="5.0.0"))
+        version = semantic_version.Version(
+            os.environ.get("UAL_VERSION", default="5.0.0")
+        )
     return version >= semantic_version.Version("5.0.0")
 
 
@@ -130,10 +132,17 @@ def _open_legacy(uri: URI) -> DBEntry:
 
     if user is not None:
         entry = imas.DBEntry(
-            backend_id, database, int(shot), int(run), user_name=user, data_version=version
+            backend_id,
+            database,
+            int(shot),
+            int(run),
+            user_name=user,
+            data_version=version,
         )
     else:
-        entry = imas.DBEntry(backend_id, database, int(shot), int(run), data_version=version)
+        entry = imas.DBEntry(
+            backend_id, database, int(shot), int(run), data_version=version
+        )
 
     (status, _) = entry.open()
     if status != 0:
@@ -226,7 +235,7 @@ def get_path_for_legacy_uri(uri: URI) -> Path:
         path = Path(f"~{user}").expanduser() / "public" / "imasdb" / database / version
     else:
         path = Path.home() / "public" / "imasdb" / database / version
-    if backend == "mdsplus":
+    if str(backend) == "mdsplus":
         return path
     else:
         return path / shot / run
@@ -259,15 +268,15 @@ def imas_files(uri: URI) -> List[Path]:
     backend = uri.path
     path = _get_path(uri)
 
-    if backend == "hdf5":
+    if str(backend) == "hdf5":
         return list(p.absolute() for p in path.glob("*.h5"))
-    elif backend == "mdsplus":
+    elif str(backend) == "mdsplus":
         return [
             path / "ids_001.characteristics",
             path / "ids_001.datafile",
             path / "ids_001.tree",
         ]
-    elif backend == "ascii":
+    elif str(backend) == "ascii":
         return list(p.absolute() for p in path.glob("*.ids"))
     else:
         raise ValueError(f"Unknown IMAS backend {backend}")

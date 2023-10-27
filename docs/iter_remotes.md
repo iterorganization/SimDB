@@ -26,7 +26,7 @@ simdb remote config set-default iter
 You may also want to add your ITER username to remote configuration which you can do with:
 
 ```shell
-simdb remote config set-option username <ITER_USERNAME>
+simdb remote config set-option iter username <ITER_USERNAME>
 ```
 
 ## Testing the ITER remote

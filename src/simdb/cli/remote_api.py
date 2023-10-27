@@ -226,6 +226,8 @@ class RemoteAPI:
         endpoints = self.get_endpoints()
         endpoint_versions = [endpoint.split("/")[-1] for endpoint in endpoints]
 
+        self._server_auth = self.get_server_authentication()
+
         if not endpoint_versions:
             raise RemoteError("No compatible API version found on remote")
 
@@ -338,7 +340,8 @@ class RemoteAPI:
         params = params if params is not None else {}
         headers = headers if headers is not None else {}
         headers["Accept-encoding"] = "gzip"
-        if authenticate:
+
+        if self._server_auth != "None" and authenticate:
             res = requests.get(
                 self._api_url + url,
                 params=params,
@@ -353,6 +356,7 @@ class RemoteAPI:
                 headers=headers,
                 cookies=self._cookies,
             )
+
         check_return(res)
         return res
 
@@ -368,13 +372,25 @@ class RemoteAPI:
         import requests
 
         headers = {"Content-type": "application/json"}
-        res = requests.put(
-            self._api_url + url,
-            data=json.dumps(data, cls=CustomEncoder),
-            headers=headers,
-            auth=self._get_auth(),
-            **kwargs,
-        )
+
+        if self._server_auth != "None":
+            res = requests.put(
+                self._api_url + url,
+                data=json.dumps(data, cls=CustomEncoder),
+                headers=headers,
+                auth=self._get_auth(),
+                cookies=self._cookies,
+                **kwargs,
+            )
+        else:
+            res = requests.put(
+                self._api_url + url,
+                data=json.dumps(data, cls=CustomEncoder),
+                headers=headers,
+                cookies=self._cookies,
+                **kwargs,
+            )
+
         check_return(res)
         return res
 
@@ -396,13 +412,25 @@ class RemoteAPI:
         else:
             headers = {"Content-type": "application/json"}
         post_data = json.dumps(data, cls=CustomEncoder, indent=2) if data else {}
-        res = requests.post(
-            self._api_url + url,
-            data=post_data,
-            headers=headers,
-            auth=self._get_auth(),
-            **kwargs,
-        )
+
+        if self._server_auth != "None":
+            res = requests.post(
+                self._api_url + url,
+                data=post_data,
+                headers=headers,
+                auth=self._get_auth(),
+                cookies=self._cookies,
+                **kwargs,
+            )
+        else:
+            res = requests.post(
+                self._api_url + url,
+                data=post_data,
+                headers=headers,
+                cookies=self._cookies,
+                **kwargs,
+            )
+
         check_return(res)
         return res
 
@@ -418,13 +446,25 @@ class RemoteAPI:
         import requests
 
         headers = {"Content-type": "application/json"}
-        res = requests.patch(
-            self._api_url + url,
-            data=json.dumps(data, cls=CustomEncoder),
-            headers=headers,
-            auth=self._get_auth(),
-            **kwargs,
-        )
+
+        if self._server_auth != "None":
+            res = requests.patch(
+                self._api_url + url,
+                data=json.dumps(data, cls=CustomEncoder),
+                headers=headers,
+                auth=self._get_auth(),
+                cookies=self._cookies,
+                **kwargs,
+            )
+        else:
+            res = requests.patch(
+                self._api_url + url,
+                data=json.dumps(data, cls=CustomEncoder),
+                headers=headers,
+                cookies=self._cookies,
+                **kwargs,
+            )
+
         check_return(res)
         return res
 
@@ -440,13 +480,24 @@ class RemoteAPI:
         import requests
 
         headers = {"Content-type": "application/json"}
-        res = requests.delete(
-            self._api_url + url,
-            data=json.dumps(data, cls=CustomEncoder),
-            headers=headers,
-            auth=self._get_auth(),
-            **kwargs,
-        )
+
+        if self._server_auth != "None":
+            res = requests.delete(
+                self._api_url + url,
+                data=json.dumps(data, cls=CustomEncoder),
+                headers=headers,
+                auth=self._get_auth(),
+                cookies=self._cookies,
+                **kwargs,
+            )
+        else:
+            res = requests.delete(
+                self._api_url + url,
+                data=json.dumps(data, cls=CustomEncoder),
+                headers=headers,
+                cookies=self._cookies,
+                **kwargs,
+            )
         check_return(res)
         return res
 
@@ -464,6 +515,12 @@ class RemoteAPI:
         res = self.get("", authenticate=False)
         data = res.json()
         return data["endpoints"]
+
+    @try_request
+    def get_server_authentication(self) -> Optional[str]:
+        res = self.get("", authenticate=False)
+        data = res.json()
+        return data.get("authentication", default=None)
 
     @try_request
     def get_api_version(self) -> str:
@@ -686,6 +743,10 @@ class RemoteAPI:
                         print(f"Skipping IDS data {file}", file=out_stream, flush=True)
                         continue
                     for path in imas_files(file.uri):
+                        sim_file = next(
+                            (f for f in sim_data["inputs"] if f["uuid"] == file.uuid)
+                        )
+                        sim_file["uri"] = f"file:{path}"
                         self._push_file(
                             path, file.uuid, "input", sim_data, chunk_size, out_stream
                         )
@@ -705,6 +766,10 @@ class RemoteAPI:
                         print(f"Skipping IDS data {file}", file=out_stream, flush=True)
                         continue
                     for path in imas_files(file.uri):
+                        sim_file = next(
+                            (f for f in sim_data["outputs"] if f["uuid"] == file.uuid)
+                        )
+                        sim_file["uri"] = f"file:{path}"
                         self._push_file(
                             path, file.uuid, "output", sim_data, chunk_size, out_stream
                         )
@@ -717,6 +782,8 @@ class RemoteAPI:
                         chunk_size,
                         out_stream,
                     )
+
+        sim_data = simulation.data(recurse=True)
 
         print("Uploading simulation data ... ", file=out_stream, end="", flush=True)
         self.post(
