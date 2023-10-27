@@ -262,13 +262,20 @@ class SimulationList(Resource):
                     elif sim_file.uri.scheme == "imas":
                         from simdb.imas.utils import convert_uri
 
-                        sim_file.uri = convert_uri(sim_file.uri, config)
+                        path = secure_path(Path(sim_file.uri.query["path"]), common_root, staging_dir)
+                        sim_file.uri = convert_uri(sim_file.uri, path, config)
             elif config.get_option("server.imas_remote_host", default=None):
+                staging_dir = (
+                    Path(config.get_option("server.upload_folder"))
+                    / simulation.uuid.hex
+                )
+
                 for sim_file in files:
                     if sim_file.uri.scheme == "imas":
                         from simdb.imas.utils import convert_uri
 
-                        sim_file.uri = convert_uri(sim_file.uri, config)
+                        path = secure_path(Path(sim_file.uri.query["path"]), common_root, staging_dir)
+                        sim_file.uri = convert_uri(sim_file.uri, path, config)
 
             result = {
                 "ingested": simulation.uuid.hex,

@@ -97,11 +97,9 @@ def check_time(entry: DBEntry, ids: str) -> None:
 def _is_al5() -> bool:
     import semantic_version
 
-    version = semantic_version.Version(os.environ.get("AL_VERSION", default=None))
-    if version is None:
-        version = semantic_version.Version(
-            os.environ.get("UAL_VERSION", default="5.0.0")
-        )
+    al_env = os.environ.get("AL_VERSION", default=None)
+    ual_env = os.environ.get("UAL_VERSION", default="5.0.0")
+    version = semantic_version.Version(al_env) if al_env is not None else semantic_version.Version(ual_env)
     return version >= semantic_version.Version("5.0.0")
 
 
@@ -282,7 +280,7 @@ def imas_files(uri: URI) -> List[Path]:
         raise ValueError(f"Unknown IMAS backend {backend}")
 
 
-def convert_uri(uri: URI, config: Config) -> URI:
+def convert_uri(uri: URI, path: Path, config: Config) -> URI:
     """
     Converts a local IMAS URI to a remote access IMAS URI based on the server.imas_remote_host configuration option.
 
@@ -297,9 +295,9 @@ def convert_uri(uri: URI, config: Config) -> URI:
         raise ValueError(
             "Cannot process IMAS data as server.imas_remote_host configuration option not set"
         )
-    port = config.get_option("server.imas_remote_port", default=None)
-    path = uri.query.get("path", default=None)
-    if path is None:
-        raise ValueError("Invalid IMAS URI - path not found in query arguments")
-    backend = uri.query.get("backend", default="mdsplus")
-    return URI(f"imas://{host}:{port}/uda?path={path}&backend={backend}")
+    port = int(config.get_option("server.imas_remote_port", default=None))
+    backend = uri.path
+    if port is None:
+        return URI(f"imas://{host}/uda?path={path}&backend={backend}")
+    else:
+        return URI(f"imas://{host}:{port}/uda?path={path}&backend={backend}")
