@@ -206,7 +206,9 @@ class RemoteAPI:
         if self._firewall is not None:
             self._load_cookies(remote, username, password)
 
-        if not self._use_token:
+        self._server_auth = self.get_server_authentication()
+
+        if self._server_auth != 'None' and not self._use_token:
             if not username:
                 username = click.prompt("Username", default=getpass.getuser())
             if not password:
@@ -225,8 +227,6 @@ class RemoteAPI:
 
         endpoints = self.get_endpoints()
         endpoint_versions = [endpoint.split("/")[-1] for endpoint in endpoints]
-
-        self._server_auth = self.get_server_authentication()
 
         if not endpoint_versions:
             raise RemoteError("No compatible API version found on remote")
