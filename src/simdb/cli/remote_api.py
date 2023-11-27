@@ -208,6 +208,8 @@ class RemoteAPI:
 
         self._api_url: str = f"{self._url}/"
         self._server_auth = self.get_server_authentication()
+        if self._firewall:
+            self._server_auth = 'None'
 
         if self._server_auth != 'None' and not self._use_token:
             if not username:
