@@ -2,8 +2,8 @@ import unittest
 from simdb.uri import URI
 from pathlib import Path
 
-class URITests(unittest.TestCase):
 
+class URITests(unittest.TestCase):
     def test_empty_uri(self):
         uri = URI("imas:")
         self.assertEqual(uri.scheme, "imas")
@@ -31,7 +31,7 @@ class URITests(unittest.TestCase):
 
     def test_uri_with_authority_with_auth(self):
         uri = URI("imas://user:passwd@uda.iter.org/hdf5?path=foo")
-        self.assertEqual(uri.authority.auth, 'user:passwd')
+        self.assertEqual(uri.authority.auth, "user:passwd")
 
     def test_get_query_argument_with_default(self):
         uri = URI("imas:hdf5")

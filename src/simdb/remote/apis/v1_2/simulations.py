@@ -262,7 +262,9 @@ class SimulationList(Resource):
                     elif sim_file.uri.scheme == "imas":
                         from simdb.imas.utils import convert_uri
 
-                        path = secure_path(Path(sim_file.uri.query["path"]), common_root, staging_dir)
+                        path = secure_path(
+                            Path(sim_file.uri.query["path"]), common_root, staging_dir
+                        )
                         sim_file.uri = convert_uri(sim_file.uri, path, config)
             elif config.get_option("server.imas_remote_host", default=None):
                 staging_dir = (
@@ -274,7 +276,9 @@ class SimulationList(Resource):
                     if sim_file.uri.scheme == "imas":
                         from simdb.imas.utils import convert_uri
 
-                        path = secure_path(Path(sim_file.uri.query["path"]), common_root, staging_dir)
+                        path = secure_path(
+                            Path(sim_file.uri.query["path"]), common_root, staging_dir
+                        )
                         sim_file.uri = convert_uri(sim_file.uri, path, config)
 
             result = {

@@ -8,7 +8,7 @@ url = http://0.0.0.0:5000/
 default = True
 token = 123ABC
 """
-    config_file = Path(__file__).parent / 'test.cfg'
+    config_file = Path(__file__).parent / "test.cfg"
     config_file.write_text(config)
     return config_file
 
@@ -42,7 +42,7 @@ metadata:
             git: ssh://git@git.iter.org/eq/code.git
             commit: 079e84d5ae8a0eec6dcf3819c98f3c05f48e952f
 """
-    manifest_file = Path(__file__).parent / 'manifest.yaml'
+    manifest_file = Path(__file__).parent / "manifest.yaml"
     manifest_file.write_text(manifest)
     return manifest_file
 
