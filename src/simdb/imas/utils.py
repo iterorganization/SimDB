@@ -2,6 +2,7 @@ import os
 from typing import List, Any
 from datetime import datetime
 from pathlib import Path
+from dateutil import parser
 
 from ..uri import URI
 from ..config import Config
@@ -192,18 +193,9 @@ def imas_timestamp(uri: URI) -> datetime:
     entry = open_imas(uri)
     creation = entry.partial_get("summary", "ids_properties/creation_date")
     if creation:
-        formats = [
-            "%Y-%m-%d %H:%M:%S.%f",
-            "%d/%m/%Y %H:%M",
-            "%Y%m%d %H%M%S.%f %z",
-        ]
-        for format in formats:
-            try:
-                timestamp = datetime.strptime(creation, format)
-                break
-            except ValueError:
-                pass
-        else:
+        try:
+            timestamp = parser.parse(creation)
+        except parser.ParserError:
             raise ValueError(f"invalid IMAS creation time {creation}")
     else:
         timestamp = datetime.now()
