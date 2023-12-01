@@ -209,9 +209,9 @@ class RemoteAPI:
         self._api_url: str = f"{self._url}/"
         self._server_auth = self.get_server_authentication()
         if self._firewall:
-            self._server_auth = 'None'
+            self._server_auth = "None"
 
-        if self._server_auth != 'None' and not self._use_token:
+        if self._server_auth != "None" and not self._use_token:
             if not username:
                 username = click.prompt("Username", default=getpass.getuser())
             if not password:
@@ -220,7 +220,7 @@ class RemoteAPI:
                 )
 
         self._token = config.get_option(f"remote.{remote}.token", default="")
-        if self._server_auth != 'None' and (self._use_token and not self._token):
+        if self._server_auth != "None" and (self._use_token and not self._token):
             raise ValueError("No username or password given and no token found.")
 
         self._username = username

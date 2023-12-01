@@ -99,7 +99,11 @@ def _is_al5() -> bool:
 
     al_env = os.environ.get("AL_VERSION", default=None)
     ual_env = os.environ.get("UAL_VERSION", default="5.0.0")
-    version = semantic_version.Version(al_env) if al_env is not None else semantic_version.Version(ual_env)
+    version = (
+        semantic_version.Version(al_env)
+        if al_env is not None
+        else semantic_version.Version(ual_env)
+    )
     return version >= semantic_version.Version("5.0.0")
 
 

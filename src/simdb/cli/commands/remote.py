@@ -8,7 +8,7 @@ from typing import List, TYPE_CHECKING, Optional, Tuple, Union, Type
 from semantic_version import Version
 
 from ..remote_api import RemoteAPI
-from . import pass_config
+from . import pass_config, check_meta_args
 from .utils import print_simulations, print_trace
 from ...notifications import Notification
 from .validators import validate_limit
@@ -356,6 +356,7 @@ def add_watcher(
 )
 def remote_list(config: "Config", api: RemoteAPI, meta: List[str], limit: int):
     """List simulations available on remote."""
+    check_meta_args(meta)
     simulations = api.list_simulations(meta, limit)
     print_simulations(simulations, verbose=config.verbose, metadata_names=meta)
 
@@ -443,6 +444,14 @@ def remote_query(
                                                          (case-insensitive)
         sim remote query pulse=gt:1000 run=0         finds all simulations where pulse is > 1000 and run = 0
     """
+    if not constraints:
+        raise click.ClickException("At least one constraint must be provided.")
+
+    check_meta_args(meta)
+    for constraint in constraints:
+        if "=" not in constraint:
+            raise click.ClickException(f"Invalid constraint {constraint}.")
+
     simulations = api.query_simulations(constraints, meta, limit)
 
     names: List[str] = []

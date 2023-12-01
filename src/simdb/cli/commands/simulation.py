@@ -2,7 +2,7 @@ import click
 from pathlib import Path
 from typing import Optional, List, Tuple, Any, Type
 
-from . import pass_config
+from . import pass_config, check_meta_args
 from ...config.config import Config
 from ...query import QueryType, parse_query_arg
 from .validators import validate_limit
@@ -57,6 +57,7 @@ def simulation_list(config: Config, meta: List[str], limit: int):
     from ...database import get_local_db
     from .utils import print_simulations
 
+    check_meta_args(meta)
     db = get_local_db(config)
     simulations = db.list_simulations(meta_keys=meta, limit=limit)
     print_simulations(simulations, verbose=config.verbose, metadata_names=meta)
@@ -276,7 +277,7 @@ def simulation_pull(
     multiple=True,
     default=[],
 )
-def simulation_query(config: Config, constraint: str, meta: List[str]):
+def simulation_query(config: Config, constraints: List[str], meta: List[str]):
     """Perform a metadata query to find matching local simulations.
 
     \b
@@ -314,18 +315,20 @@ def simulation_query(config: Config, constraint: str, meta: List[str]):
                                                          (case-insensitive)
         sim simulation query pulse=gt:1000 run=0         finds all simulations where pulse is > 1000 and run = 0
     """
-    if not constraint:
+    if not constraints:
         raise click.ClickException("At least one constraint must be provided.")
+
+    check_meta_args(meta)
 
     from ...database import get_local_db
     from .utils import print_simulations
 
     constraints: List[Tuple[str, str, QueryType]] = []
     names = []
-    for item in constraint:
-        if "=" not in item:
-            raise click.ClickException("Invalid constraint.")
-        key, value = item.split("=")
+    for constraint in constraints:
+        if "=" not in constraint:
+            raise click.ClickException(f"Invalid constraint {constraint}.")
+        key, value = constraint.split("=")
         names.append(key)
         constraints.append((key,) + parse_query_arg(value))
     names += meta
