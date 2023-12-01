@@ -144,24 +144,21 @@ class ListValuesValidator(ManifestValidator):
             return
         if isinstance(values, dict):
             raise InvalidManifest(
-                "badly formatted manifest - %s should be provided as a list"
-                % self.section_name
+                f"badly formatted manifest - {self.section_name} should be provided as a list"
             )
         for item in values:
             if not isinstance(item, dict) or len(item) > 1:
                 raise InvalidManifest(
-                    "badly formatted manifest - %s values should be a name value pair"
-                    % self.section_name
+                    f"badly formatted manifest - {self.section_name} values should be a name value pair"
                 )
             name = next(iter(item))
             if isinstance(self.expected_keys, tuple) and name not in self.expected_keys:
                 raise InvalidManifest(
-                    "unknown %s entry in manifest: %s" % (self.section_name, name)
+                    f"unknown {self.section_name} entry in manifest: {name}"
                 )
             if isinstance(self.required_keys, tuple) and name not in self.required_keys:
                 raise InvalidManifest(
-                    "required %s key not found in manifest: %s"
-                    % (self.section_name, name)
+                    f"required {self.section_name} key not found in manifest: {name}"
                 )
 
 
@@ -185,8 +182,7 @@ class DictValuesValidator(ManifestValidator):
     def validate(self, values: Union[list, dict]) -> None:
         if isinstance(values, list):
             raise InvalidManifest(
-                "badly formatted manifest - %s should be provided as a dict"
-                % self.section_name
+                f"badly formatted manifest - {self.section_name} should be provided as a dict"
             )
 
         for key in values.keys():
@@ -195,19 +191,17 @@ class DictValuesValidator(ManifestValidator):
                     for code_key in values[key]:
                         if code_key not in ("name", "repo", "commit"):
                             raise InvalidManifest(
-                                "unknown %s.%s key in manifest: %s"
-                                % (self.section_name, key, code_key)
+                                f"unknown {self.section_name}.{key} key in manifest: {code_key}"
                             )
                 else:
                     raise InvalidManifest(
-                        "unknown %s key in manifest: %s" % (self.section_name, key)
+                        f"unknown {self.section_name} key in manifest: {key}"
                     )
 
         for key in self.required_keys:
             if isinstance(self.expected_keys, list) and key not in values.keys():
                 raise InvalidManifest(
-                    "required %s key not found in manifest: %s"
-                    % (self.section_name, key)
+                    f"required {self.section_name} key not found in manifest: {key}"
                 )
 
 
@@ -281,7 +275,7 @@ class AliasValidator(ManifestValidator):
         if not isinstance(value, str):
             raise InvalidManifest("alias must be a string")
         if urllib.parse.quote(value) != value:
-            raise InvalidAlias("illegal characters in alias: %s" % value)
+            raise InvalidAlias(f"illegal characters in alias: {value}")
 
 
 class DescriptionValidator(ManifestValidator):
@@ -297,10 +291,23 @@ class MetaDataValidator(ListValuesValidator):
     Validator for the manifest Metadata list.
     """
 
+    forbidden_characters = (":", "=", "#")
+
     def __init__(self, version: int) -> None:
         section_name = "metadata"
         expected_keys = ("path", "values")
         super().__init__(version, section_name, expected_keys)
+
+    def validate(self, values: Union[list, dict]) -> None:
+        super().validate(values)
+
+        for item in values:
+            name = next(iter(item))
+            for char in MetaDataValidator.forbidden_characters:
+                if char in name:
+                    raise InvalidManifest(
+                        f"invalid metadata field name {name}- contains forbidden character {char}"
+                    )
 
 
 class WorkflowValidator(DictValuesValidator):
