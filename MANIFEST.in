@@ -1,0 +1,2 @@
+include versioneer.py
+include src/simdb/_version.py

@@ -25,7 +25,7 @@ no_implicit_reexport = true
 [tool.versioneer]
 VCS = "git"
 style = "pep440"
-versionfile_source = "simdb/_version.py"
+versionfile_source = "src/simdb/_version.py"
 versionfile_build = "simdb/_version.py"
 tag_prefix = ""
 parentdir_prefix = ""
