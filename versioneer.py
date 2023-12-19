@@ -1219,6 +1219,10 @@ def git_get_keywords(versionfile_abs: str) -> Dict[str, str]:
                             if len(words)==2:
                                 version_string = words[1].replace('"','').strip()
                             # print('Version found :', version_string)
+                            if "-" in version_string:
+                                version_string = version_string.replace("-", "+",1 ) 
+                            if "-" in version_string:
+                                version_string = version_string.replace("-", ".",1 ) 
                             mo_describe = '(, tag: '+ version_string +',,'+ keywords["refnames"] + ')'
                             keywords["refnames"] = mo_describe
                 if line.strip().startswith("git_full ="):

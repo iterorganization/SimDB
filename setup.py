@@ -1,9 +1,14 @@
+import os
+
 import setuptools
-import versioneer
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
+    
+import sys
 
+sys.path.append(os.getcwd())
+import versioneer
 
 setuptools.setup(
     version=versioneer.get_version(),
