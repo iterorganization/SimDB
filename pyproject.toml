@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=42.0", "wheel", "setuptools_git_versioning==1.5"]
+requires = ["setuptools>=42.0", "wheel", "versioneer[toml]"]
 build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
@@ -21,3 +21,11 @@ warn_return_any = true
 warn_unreachable = true
 warn_unused_configs = true
 no_implicit_reexport = true
+
+[tool.versioneer]
+VCS = "git"
+style = "pep440"
+versionfile_source = "simdb/_version.py"
+versionfile_build = "simdb/_version.py"
+tag_prefix = ""
+parentdir_prefix = ""

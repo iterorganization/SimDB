@@ -13,8 +13,9 @@ The tool comes in two parts:
 
 import pkg_resources
 from typing import Tuple, cast
-
-__version__: str = pkg_resources.require("simdb")[0].version
+from . import _version
+__version__ = _version.get_versions()['version']
+# __version__: str = pkg_resources.require("simdb")[0].version
 __version_info__: Tuple[str, str, str] = cast(
     Tuple[str, str, str], tuple(__version__.split("."))
 )
