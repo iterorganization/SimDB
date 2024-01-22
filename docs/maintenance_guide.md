@@ -72,7 +72,6 @@ Options for the server configuration are:
 | server     | ssl_key_file             | yes (ssl_enabled=True) | Path to SSL key file if ssl_enabled is True.                                                                                                                                                                                                       |
 | server     | admin_password           | yes                    | Password for admin superuser.                                                                                                                                                                                                                      |
 | server     | token_lifetime           | no                     | Number of days generated tokens are valid for - defaults to 30 days.                                                                                                                                                                               |
- | server     | authentication_type      | yes                    | Name of the authentication method used by the server to authenticate users - current options are [ActiveDirectory, LDAP, None]. See sections below for details of extra options required for the Active Directory and LDAP authentication options. |
 | server     | imas_remote_host         | no                     | Host name to set on ingested IMAS URIs which will be used to fetch the data via the specified IMAS remote access server. I.e. imas:hdf5?path=foo becomes imas://<imas_remote_host>:<imas_remote_port>/uda?path=foo&backend=hdf5 on ingest.         |
 | server     | imas_remote_port         | no                     | Port to set on ingested IMAS URIs on ingest. See imas_remote_host for more details.                                                                                                                                                                |
 | flask      | flask_env                | no                     | Flask server environment [development, production] - defaults to production.                                                                                                                                                                       |
@@ -87,32 +86,43 @@ Options for the server configuration are:
 | email      | user                     | yes                    | SMTP server user to send emails from .                                                                                                                                                                                                             |
 | email      | password                 | yes                    | SMTP server user password.                                                                                                                                                                                                                         |
 
+### Authentication options
+
+| Section        | Option         | Required | Description                                                                                                                                                                                                                                        |
+|----------------|----------------|----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| authentication | type           | yes      | Name of the authentication method used by the server to authenticate users - current options are [ActiveDirectory, LDAP, None]. See sections below for details of extra options required for the Active Directory and LDAP authentication options. |
+| authentication | firewall_auth  | no       | Flag [True, False] to specify that the server is being run behind a firewall and that the authentication should be read from the firewall headers.                                                                                                 |
+| authentication | firewall_user  | no       | Name of the firewall header to use for the user name. Required if firewall_auth is True.                                                                                                                                                           |
+| authentication | firewall_email | no       | Name of the firewall header to use for the user's email. Required if firewall_auth is True.                                                                                                                                                        |
+
 ### Activate Directory authentication options
 
-| Section | Option    | Required | Description                                           |
-|---------|-----------|----------|-------------------------------------------------------|
- | server  | ad_server | yes      | Active directory server used for user authentication. |
- | server  | ad_domain | yes      | Active directory domain used for user authentication. |
+| Section        | Option    | Required | Description                                           |
+|----------------|-----------|----------|-------------------------------------------------------|
+| authentication | ad_server | yes      | Active directory server used for user authentication. |
+| authentication | ad_domain | yes      | Active directory domain used for user authentication. |
 
 ### LDAP authentication options
 
-| Section | Option              | Required | Description                                                                                                                                                              |
-|---------|---------------------|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
- | server  | ldap_server         | yes      | LDAP server URI.                                                                                                                                                         |
- | server  | ldap_bind           | yes      | Bind string - this can contain {username} which will be replaced by the username of the user attempting to authenticate, i.e. "uid={username},ou=Users,dc=eufus,dc=eu".  |
- | server  | ldap_query_user     | yes      | Bind user used to run LDAP queries, i.e. "uid=f2bind,ou=Users,dc=eufus,dc=eu"                                                                                            |
- | server  | ldap_query_password | yes      | Password corresponding to ldap_query_user.                                                                                                                               |
- | server  | ldap_query_base     | yes      | Base point to start the query from, i.e. "dc=eufus,dc=eu".                                                                                                               |
- | server  | ldap_query_filter   | yes      | Query filter used to find the user - this can contain {username} which will be replaced by the username of the user attempting to authenticate, i.e. "(uid={username})". |
+| Section        | Option              | Required | Description                                                                                                                                                              |
+|----------------|---------------------|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| authentication | ldap_server         | yes      | LDAP server URI.                                                                                                                                                         |
+| authentication | ldap_bind           | yes      | Bind string - this can contain {username} which will be replaced by the username of the user attempting to authenticate, i.e. "uid={username},ou=Users,dc=eufus,dc=eu".  |
+| authentication | ldap_query_user     | no       | Bind user used to run LDAP queries, i.e. "uid=f2bind,ou=Users,dc=eufus,dc=eu" - if not provided the queries are run as the authenticated user.                           |
+| authentication | ldap_query_password | no       | Password corresponding to ldap_query_user. Only required if ldap_query_user is specified.                                                                                |
+| authentication | ldap_query_base     | yes      | Base point to start the query from, i.e. "dc=eufus,dc=eu".                                                                                                               |
+| authentication | ldap_query_filter   | yes      | Query filter used to find the user - this can contain {username} which will be replaced by the username of the user attempting to authenticate, i.e. "(uid={username})". |
+| authentication | ldap_query_uid      | no       | Name of the user parameter in the LDAP search query - defaults to 'uid'.                                                                                                 |
+| authentication | ldap_query_mail     | no       | Name of the email parameter in the LDAP search query - defaults to 'mail'.                                                                                               |
 
 ### Caching options
 
 | Section | Option          | Required | Description                                                                                                                                                                                                             |
 |---------|-----------------|----------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
- | cache   | type            | no       | Type of caching to use. Options include NullCache (default), SimpleCache, FileSystemCache. SimpleCache is a memory based cache and FileSystemCache caches using files. Configuration options for these are given below. |
- | cache   | dir             | no       | Directory to store cache. Used only for FileSystemCache.                                                                                                                                                                |
- | cache   | default_timeout | no       | The default timeout that is used if no timeout is specified. Unit of time is seconds.                                                                                                                                   |
- | cache   | threshold       | no       | The maximum number of items the cache will store before it starts deleting some. Used only for SimpleCache and FileSystemCache                                                                                          |
+| cache   | type            | no       | Type of caching to use. Options include NullCache (default), SimpleCache, FileSystemCache. SimpleCache is a memory based cache and FileSystemCache caches using files. Configuration options for these are given below. |
+| cache   | dir             | no       | Directory to store cache. Used only for FileSystemCache.                                                                                                                                                                |
+| cache   | default_timeout | no       | The default timeout that is used if no timeout is specified. Unit of time is seconds.                                                                                                                                   |
+| cache   | threshold       | no       | The maximum number of items the cache will store before it starts deleting some. Used only for SimpleCache and FileSystemCache                                                                                          |
 
 More caching options can be found in the [Flask-Caching documentation](https://flask-caching.readthedocs.io/en/latest/#built-in-cache-backends). You can convert the caching options for the library to SimDB configuration by removing the `CACHE_` prefix and converting to lowercase, i.e. `CACHE_ARGS` becomes `args` in the `[cache]` section.
 
