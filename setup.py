@@ -1,19 +1,16 @@
-import setuptools
 import os
+
+import setuptools
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
+    
+import sys
 
-
-# version read from easybuild when not installed from git repo
-version = os.environ.get('EBVERSIONSIMDB', '0.0.1')
-
+sys.path.append(os.getcwd())
+import versioneer
 
 setuptools.setup(
-    version_config={
-        'version_callback': version,
-        'template': '{tag}',
-        'dev_template': '{tag}.{ccount}+git.{sha}',
-        'dirty_template': '{tag}.{ccount}+git.{sha}.dirty',
-    },
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(), 
 )
