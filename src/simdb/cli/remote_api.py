@@ -568,7 +568,7 @@ class RemoteAPI:
         self, constraints: List[str], meta: List[str], limit=0
     ) -> List["Simulation"]:
         from ..database.models import Simulation
-        from ..remote.apis.v1_1.simulations import SimulationList
+        from ..remote import APIConstants
 
         params = {}
         for item in constraints:
@@ -576,8 +576,8 @@ class RemoteAPI:
             params[key] = value
         args = "?" + "&".join(meta) if meta else ""
         headers = {
-            SimulationList.LIMIT_HEADER: str(limit),
-            SimulationList.PAGE_HEADER: str(1),
+            APIConstants.LIMIT_HEADER: str(limit),
+            APIConstants.PAGE_HEADER: str(1),
         }
         res = self.get("simulations" + args, params, headers=headers)
         data = res.json(cls=CustomDecoder)

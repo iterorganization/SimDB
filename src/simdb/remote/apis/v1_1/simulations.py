@@ -11,6 +11,7 @@ from ....database import DatabaseError
 from ....database.models import metadata as models_meta
 from ....database.models import simulation as models_sim
 from ....uri import URI
+from ... import APIConstants
 from ...core.typing import current_app
 from ...core.alias import create_alias_dir
 from ...core.auth import User, requires_auth
@@ -122,29 +123,24 @@ def _build_trace(sim_id: str) -> dict:
 
 @api.route("/simulations")
 class SimulationList(Resource):
-    LIMIT_HEADER = "simdb-result-limit"
-    PAGE_HEADER = "simdb-page"
-    SORT_BY_HEADER = "simdb-sort-by"
-    SORT_ASC_HEADER = "simdb-sort-asc"
-
     parser = api.parser()
     parser.add_argument(
-        LIMIT_HEADER, location="headers", type=int, help="Limit returned results"
+        APIConstants.LIMIT_HEADER, location="headers", type=int, help="Limit returned results"
     )
     parser.add_argument(
-        PAGE_HEADER,
+        APIConstants.PAGE_HEADER,
         location="headers",
         type=int,
         help="Specify the page of results to return",
     )
     parser.add_argument(
-        SORT_BY_HEADER,
+        APIConstants.SORT_BY_HEADER,
         location="headers",
         type=str,
         help="Specify the field to sort the results by",
     )
     parser.add_argument(
-        SORT_ASC_HEADER,
+        APIConstants.SORT_ASC_HEADER,
         location="headers",
         type=bool,
         help="Specify if the results are sorted ascending or descending",
