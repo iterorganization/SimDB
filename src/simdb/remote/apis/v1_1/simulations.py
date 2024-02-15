@@ -125,7 +125,10 @@ def _build_trace(sim_id: str) -> dict:
 class SimulationList(Resource):
     parser = api.parser()
     parser.add_argument(
-        APIConstants.LIMIT_HEADER, location="headers", type=int, help="Limit returned results"
+        APIConstants.LIMIT_HEADER,
+        location="headers",
+        type=int,
+        help="Limit returned results",
     )
     parser.add_argument(
         APIConstants.PAGE_HEADER,
