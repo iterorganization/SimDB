@@ -839,7 +839,7 @@ class RemoteAPI:
 
         files = itertools.chain(simulation.inputs, simulation.outputs)
         info = itertools.chain.from_iterable(
-            self._get_file_info(file) for file in files
+            self._get_file_info(file.uuid) for file in files
         )
         paths = [path for (path, _) in info]
 

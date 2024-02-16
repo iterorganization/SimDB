@@ -242,7 +242,7 @@ def _get_path(uri: URI) -> Path:
     @param uri: a valid IMAS URI
     @return: the path of the IDS data for the given IMAS URI
     """
-    path = Path(uri.query.get("path", default=None))
+    path = uri.query.get("path", default=None)
     if path is None:
         raise ValueError("Invalid IMAS URI - path not found in query arguments")
 
