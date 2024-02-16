@@ -77,7 +77,7 @@ def check_role(config: Config, user: User, role: Optional[str]) -> bool:
     return True
 
 
-def check_auth(config, username, password) -> Optional[User]:
+def check_auth(config: Config, username: Optional[str], password: Optional[str]) -> Optional[User]:
     """
     This function is called to check if a username / password combination is valid.
     """
@@ -139,6 +139,8 @@ class RequiresAuth:
                     user = User(
                         request.headers[firewall_user], request.headers[firewall_email]
                     )
+                else:
+                    user = check_auth(config, None, None)
             else:
                 user = check_auth(config, auth.username, auth.password)
             if not user:

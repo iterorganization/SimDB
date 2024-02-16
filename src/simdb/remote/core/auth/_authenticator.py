@@ -14,7 +14,7 @@ class Authenticator(abc.ABC):
 
     @abc.abstractmethod
     def authenticate(
-        self, username: str, password: str, config: Config
+        self, username: Optional[str], password: Optional[str], config: Config
     ) -> Optional[User]:
         """
         Authenticate the user using the given username and password.
