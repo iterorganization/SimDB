@@ -1,4 +1,4 @@
-from flask import request, jsonify, send_file, Response
+from flask import request, jsonify, send_file, Response, stream_with_context
 from flask_restx import Resource, Namespace
 from typing import Optional, List, Iterable, Dict
 from pathlib import Path
@@ -211,7 +211,11 @@ class NonIMASFileDownload(Resource):
             if file.type != DataObject.Type.FILE:
                 return error("Invalid file type for download")
             mimetype = magic.from_file(file.uri.path, mime=True)
-            return send_file(file.uri.path, mimetype=mimetype)
+            response = send_file(file.uri.path, mimetype=mimetype)
+            return Response(
+                stream_with_context(response.iter_content()),
+                content_type=response.headers["content-type"],
+            )
         except DatabaseError as err:
             return error(str(err))
 

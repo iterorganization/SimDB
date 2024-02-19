@@ -77,7 +77,9 @@ def check_role(config: Config, user: User, role: Optional[str]) -> bool:
     return True
 
 
-def check_auth(config: Config, username: Optional[str], password: Optional[str]) -> Optional[User]:
+def check_auth(
+    config: Config, username: Optional[str], password: Optional[str]
+) -> Optional[User]:
     """
     This function is called to check if a username / password combination is valid.
     """

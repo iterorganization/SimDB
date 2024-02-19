@@ -98,7 +98,7 @@ def read_bytes(path: str, compressed: bool = True) -> bytes:
 
 
 def _read_bytes_in_chunks(
-        path: Path, compressed: bool = True, chunk_size: int = 1024
+    path: Path, compressed: bool = True, chunk_size: int = 1024
 ) -> Iterable[bytes]:
     with path.open("rb") as file_in:
         while True:
@@ -147,12 +147,12 @@ class RemoteAPI:
     _remote: str
 
     def __init__(
-            self,
-            remote: Optional[str],
-            username: Optional[str],
-            password: Optional[str],
-            config: Config,
-            use_token: Optional[bool] = None,
+        self,
+        remote: Optional[str],
+        username: Optional[str],
+        password: Optional[str],
+        config: Config,
+        use_token: Optional[bool] = None,
     ) -> None:
         """
         Create a new RemoteAPI.
@@ -239,7 +239,7 @@ class RemoteAPI:
         self.version = Version.coerce(self.get_api_version())
 
     def _load_cookies(
-            self, remote: str, username: Optional[str], password: Optional[str]
+        self, remote: str, username: Optional[str], password: Optional[str]
     ) -> None:
         if self._firewall == "F5":
             import requests
@@ -320,11 +320,12 @@ class RemoteAPI:
             return self._username, self._password
 
     def get(
-            self,
-            url: str,
-            params: Optional[Dict] = None,
-            headers: Optional[Dict] = None,
-            authenticate: Optional[bool] = True,
+        self,
+        url: str,
+        params: Optional[Dict] = None,
+        headers: Optional[Dict] = None,
+        authenticate: Optional[bool] = True,
+        stream: Optional[bool] = False,
     ) -> "requests.Response":
         """
         Perform an HTTP GET request.
@@ -333,6 +334,7 @@ class RemoteAPI:
         @param params: any additional parameters to send along with the request.
         @param headers: additional headers to send with the request.
         @param authenticate: True if we should send authentication headers with the request.
+        @param stream: True to enable streaming.
         @return:
         """
         import requests
@@ -348,6 +350,7 @@ class RemoteAPI:
                 auth=self._get_auth(),
                 headers=headers,
                 cookies=self._cookies,
+                stream=stream,
             )
         else:
             res = requests.get(
@@ -355,6 +358,7 @@ class RemoteAPI:
                 params=params,
                 headers=headers,
                 cookies=self._cookies,
+                stream=stream,
             )
 
         check_return(res)
@@ -540,7 +544,7 @@ class RemoteAPI:
 
     @try_request
     def list_simulations(
-            self, meta: Optional[List[str]] = None, limit: int = 0
+        self, meta: Optional[List[str]] = None, limit: int = 0
     ) -> List["Simulation"]:
         from ..database.models import Simulation
 
@@ -564,7 +568,7 @@ class RemoteAPI:
 
     @try_request
     def query_simulations(
-            self, constraints: List[str], meta: List[str], limit=0
+        self, constraints: List[str], meta: List[str], limit=0
     ) -> List["Simulation"]:
         from ..database.models import Simulation
         from ..remote import APIConstants
@@ -602,7 +606,7 @@ class RemoteAPI:
 
     @try_request
     def add_watcher(
-            self, sim_id: str, user: str, email: str, notification: "Watcher.Notification"
+        self, sim_id: str, user: str, email: str, notification: "Watcher.Notification"
     ) -> None:
         self.post(
             "watchers/" + sim_id,
@@ -620,7 +624,7 @@ class RemoteAPI:
 
     @try_request
     def set_metadata(
-            self, sim_id: str, key: str, value: Union[str, uuid.UUID, int, float]
+        self, sim_id: str, key: str, value: Union[str, uuid.UUID, int, float]
     ) -> List[str]:
         res = self.patch("simulation/metadata/" + sim_id, {"key": key, "value": value})
         return [data["value"] for data in res.json()]
@@ -636,18 +640,18 @@ class RemoteAPI:
         return res.json()["staging_dir"]
 
     def _push_file(
-            self,
-            path: Path,
-            uuid: uuid.UUID,
-            file_type: str,
-            sim_data: Dict,
-            chunk_size: int,
-            out_stream: IO,
+        self,
+        path: Path,
+        uuid: uuid.UUID,
+        file_type: str,
+        sim_data: Dict,
+        chunk_size: int,
+        out_stream: IO,
     ):
         print(f"Uploading file {path} ", file=out_stream, end="")
         num_chunks = 0
         for chunk_index, chunk in enumerate(
-                _read_bytes_in_chunks(path, compressed=True, chunk_size=chunk_size)
+            _read_bytes_in_chunks(path, compressed=True, chunk_size=chunk_size)
         ):
             print(".", file=out_stream, end="", flush=True)
             self._send_chunk(chunk_index, chunk, chunk_size, uuid, file_type, sim_data)
@@ -671,13 +675,13 @@ class RemoteAPI:
         print("Complete", file=out_stream, flush=True)
 
     def _send_chunk(
-            self,
-            chunk_index: int,
-            chunk: bytes,
-            chunk_size: int,
-            uuid: uuid.UUID,
-            file_type: str,
-            sim_data: dict,
+        self,
+        chunk_index: int,
+        chunk: bytes,
+        chunk_size: int,
+        uuid: uuid.UUID,
+        file_type: str,
+        sim_data: dict,
     ):
         data = {
             "simulation": sim_data,
@@ -699,10 +703,10 @@ class RemoteAPI:
 
     @try_request
     def push_simulation(
-            self,
-            simulation: "Simulation",
-            out_stream: IO[str] = sys.stdout,
-            add_watcher: bool = True,
+        self,
+        simulation: "Simulation",
+        out_stream: IO[str] = sys.stdout,
+        add_watcher: bool = True,
     ) -> None:
         """
         Push the local simulation to the remote server.
@@ -798,28 +802,55 @@ class RemoteAPI:
         return [(Path(file["path"]), file["checksum"]) for file in files]
 
     def _pull_file(
-            self,
-            uuid: uuid.UUID,
-            index: int,
-            checksum: str,
-            from_path: Path,
-            to_path: Path,
-            out_stream: IO[str],
+        self,
+        uuid: uuid.UUID,
+        index: int,
+        checksum: str,
+        from_path: Path,
+        to_path: Path,
+        out_stream: IO[str],
     ):
-        print(f"Downloading file {from_path}", file=out_stream, end="")
-        r = self.get(f"file/download/{uuid.hex}/{index}")
-        bytes = r.content
+        print(
+            f"Downloading file {from_path} to {to_path} ",
+            file=out_stream,
+            flush=True,
+        )
+        response = self.get(f"file/download/{uuid.hex}/{index}", stream=True)
+
         os.makedirs(to_path.parent, exist_ok=True)
         sha1 = hashlib.sha1()
-        sha1.update(bytes)
+
+        with open(to_path, "wb") as f:
+            total_length = response.headers.get("content-length")
+            if total_length is None:
+                f.write(response.content)
+            else:
+                downloaded = 0
+                total_length = int(total_length)
+                for data in response.iter_content(chunk_size=4096):
+                    sha1.update(data)
+                    downloaded += len(data)
+                    f.write(data)
+                    done = int(50 * downloaded / total_length)
+                    print(
+                        "\r[%s%s] %0.2f%%"
+                        % (
+                            "=" * done,
+                            " " * (50 - done),
+                            100.0 * (downloaded / total_length),
+                        ),
+                        file=out_stream,
+                        end="",
+                        flush=True,
+                    )
+                print("\r", file=out_stream, end="", flush=True)
+
         if sha1.hexdigest() != checksum:
             raise APIError(f"Checksum failed for file {from_path}")
-        open(to_path, "wb").write(bytes)
-        print("Complete", file=out_stream, flush=True)
 
     @try_request
     def pull_simulation(
-            self, sim_id: str, directory: Path, out_stream: IO[str] = sys.stdout
+        self, sim_id: str, directory: Path, out_stream: IO[str] = sys.stdout
     ) -> "Simulation":
         from ..uri import URI
 
@@ -836,13 +867,18 @@ class RemoteAPI:
         if simulation is None:
             raise RemoteError(f"Failed to find simulation: {sim_id}")
 
-        files = itertools.chain(simulation.inputs, simulation.outputs)
+        files = list(itertools.chain(simulation.inputs, simulation.outputs))
+
+        all_paths = []
 
         for file in files:
             info = self._get_file_info(file.uuid)
-            paths = [path for (path, _) in info]
+            all_paths += [path for (path, _) in info]
 
-            common_root = os.path.commonpath(paths)
+        common_root = os.path.commonpath(all_paths)
+
+        for file in files:
+            info = self._get_file_info(file.uuid)
 
             for index, (path, checksum) in enumerate(info):
                 rel_path = directory / path.relative_to(common_root)
