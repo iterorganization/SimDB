@@ -855,8 +855,6 @@ class RemoteAPI:
         if sha1.hexdigest() != checksum:
             raise APIError(f"Checksum failed for file {from_path}")
 
-        print("Complete".rjust(os.get_terminal_size().columns - len(msg)), file=out_stream, flush=True)
-
     @try_request
     def pull_simulation(
         self, sim_id: str, directory: Path, out_stream: IO[str] = sys.stdout
