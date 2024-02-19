@@ -672,7 +672,11 @@ class RemoteAPI:
                 ],
             },
         )
-        print("Complete".rjust(os.get_terminal_size()[0]-len(f"{from_path}")-16), file=out_stream, flush=True)
+        print(
+            "Complete".rjust(os.get_terminal_size()[0] - len(str(path)) - 16),
+            file=out_stream,
+            flush=True,
+        )
 
     def _send_chunk(
         self,
