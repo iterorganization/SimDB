@@ -668,7 +668,7 @@ class RemoteAPI:
                 ],
             },
         )
-        print("Complete", file=out_stream, flush=True)
+        print("Complete".rjust(os.get_terminal_size()[0]-len(f"{from_path}")-16), file=out_stream, flush=True)
 
     def _send_chunk(
             self,
@@ -815,7 +815,7 @@ class RemoteAPI:
         if sha1.hexdigest() != checksum:
             raise APIError(f"Checksum failed for file {from_path}")
         open(to_path, "wb").write(bytes)
-        print("Complete", file=out_stream, flush=True)
+        print("Complete".rjust(os.get_terminal_size()[0]-len(f"{from_path}")-18), file=out_stream, flush=True)
 
     @try_request
     def pull_simulation(
