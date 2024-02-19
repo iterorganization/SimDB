@@ -268,7 +268,7 @@ def simulation_pull(
 
 @simulation.command("query")
 @pass_config
-@click.argument("constraint", nargs=-1)
+@click.argument("constraints", nargs=-1)
 @click.option(
     "-m",
     "--meta-data",
@@ -323,18 +323,18 @@ def simulation_query(config: Config, constraints: List[str], meta: List[str]):
     from ...database import get_local_db
     from .utils import print_simulations
 
-    constraints: List[Tuple[str, str, QueryType]] = []
+    parsed_constraints: List[Tuple[str, str, QueryType]] = []
     names = []
     for constraint in constraints:
         if "=" not in constraint:
             raise click.ClickException(f"Invalid constraint {constraint}.")
         key, value = constraint.split("=")
         names.append(key)
-        constraints.append((key,) + parse_query_arg(value))
+        parsed_constraints.append((key,) + parse_query_arg(value))
     names += meta
 
     db = get_local_db(config)
-    simulations = db.query_meta(constraints)
+    simulations = db.query_meta(parsed_constraints)
     print_simulations(simulations, verbose=config.verbose, metadata_names=names)
 
 

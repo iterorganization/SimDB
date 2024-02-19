@@ -236,7 +236,8 @@ class FileDownload(Resource):
                 if file_index < 0 or file_index >= len(paths):
                     return error(f"invalid file_index for file {file.uri}")
 
-                mimetype = magic.from_file(paths[file_index], mime=True)
-                return send_file(file.uri.path, mimetype=mimetype)
+                path = paths[file_index]
+                mimetype = magic.from_file(path, mime=True)
+                return send_file(path, mimetype=mimetype)
         except DatabaseError as err:
             return error(str(err))

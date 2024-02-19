@@ -259,18 +259,26 @@ def imas_files(uri: URI) -> List[Path]:
     @param uri: a valid IMAS URI
     @return: a list of files which contains the IDS data for the backend specified in the URI
     """
-    backend = uri.path
+    backend = str(uri.path)
+    if backend.startswith("/"):
+        backend = backend[1:]
+
     path = _get_path(uri)
 
-    if str(backend) == "hdf5":
+    if backend == "uda":
+        backend = uri.query.get("backend", default=None)
+        if backend is None:
+            raise ValueError("Invalid IMAS URI - 'backend' query argument not provided for UDA backend")
+
+    if backend == "hdf5":
         return list(p.absolute() for p in path.glob("*.h5"))
-    elif str(backend) == "mdsplus":
+    elif backend == "mdsplus":
         return [
             path / "ids_001.characteristics",
             path / "ids_001.datafile",
             path / "ids_001.tree",
         ]
-    elif str(backend) == "ascii":
+    elif backend == "ascii":
         return list(p.absolute() for p in path.glob("*.ids"))
     else:
         raise ValueError(f"Unknown IMAS backend {backend}")
