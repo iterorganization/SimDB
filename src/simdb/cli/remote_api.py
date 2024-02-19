@@ -648,7 +648,8 @@ class RemoteAPI:
         chunk_size: int,
         out_stream: IO,
     ):
-        print(f"Uploading file {path} ", file=out_stream, end="")
+        msg = f"Uploading file {path} "
+        print(msg, file=out_stream, end="")
         num_chunks = 0
         for chunk_index, chunk in enumerate(
             _read_bytes_in_chunks(path, compressed=True, chunk_size=chunk_size)
@@ -672,8 +673,9 @@ class RemoteAPI:
                 ],
             },
         )
+        print(f"\r{msg}", file=out_stream, end="")
         print(
-            "Complete".rjust(os.get_terminal_size()[0] - len(str(path)) - 16),
+            "Complete".rjust(os.get_terminal_size().columns - len(msg)),
             file=out_stream,
             flush=True,
         )
@@ -814,8 +816,9 @@ class RemoteAPI:
         to_path: Path,
         out_stream: IO[str],
     ):
+        msg = f"Downloading file {from_path} to {to_path}"
         print(
-            f"Downloading file {from_path} to {to_path} ",
+            msg,
             file=out_stream,
             flush=True,
         )
@@ -851,6 +854,8 @@ class RemoteAPI:
 
         if sha1.hexdigest() != checksum:
             raise APIError(f"Checksum failed for file {from_path}")
+
+        print("Complete".rjust(os.get_terminal_size().columns - len(msg)), file=out_stream, flush=True)
 
     @try_request
     def pull_simulation(
