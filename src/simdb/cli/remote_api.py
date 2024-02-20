@@ -1,6 +1,7 @@
 import os
 import json
 import uuid
+from argparse import FileType
 from typing import (
     List,
     Dict,
@@ -874,23 +875,30 @@ class RemoteAPI:
         if simulation is None:
             raise RemoteError(f"Failed to find simulation: {sim_id}")
 
-        files = list(itertools.chain(simulation.inputs, simulation.outputs))
-
         all_paths = []
 
-        for file in files:
+        for file in itertools.chain(simulation.inputs, simulation.outputs):
             info = self._get_file_info(file.uuid)
             all_paths += [path for (path, _) in info]
 
         common_root = os.path.commonpath(all_paths)
 
-        for file in files:
+        for file in itertools.chain(simulation.inputs, simulation.outputs):
             info = self._get_file_info(file.uuid)
 
-            for index, (path, checksum) in enumerate(info):
+            if file.type == DataObject.Type.FILE:
+                (path, checksum) = info[0]
                 rel_path = directory / path.relative_to(common_root)
-                self._pull_file(file.uuid, index, checksum, path, rel_path, out_stream)
-                file.uri = URI(file.uri, path=path)
+                self._pull_file(file.uuid, 0, checksum, path, rel_path, out_stream)
+                file.uri = URI(file.uri, path=rel_path.absolute())
+            elif file.type == DataObject.Type.IMAS:
+                for index, (path, checksum) in enumerate(info):
+                    rel_path = directory / path.relative_to(common_root)
+                    self._pull_file(file.uuid, index, checksum, path, rel_path, out_stream)
+
+                to_path = (directory / Path(file.uri.query.get("path")).relative_to(common_root)).absolute()
+                backend = file.uri.query.get("backend")
+                file.uri = URI(f"imas:{backend}?path={to_path}")
 
         return simulation
 
