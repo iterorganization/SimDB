@@ -1,17 +1,19 @@
 import re
 import sys
 import uuid
+import os
 
 import click
 from collections.abc import Iterable
 from typing import List, TYPE_CHECKING, Optional, Tuple, Union, Type
 from semantic_version import Version
+from pprint import pprint
 
 from ..remote_api import RemoteAPI
 from . import pass_config, check_meta_args
 from .utils import print_simulations, print_trace
 from ...notifications import Notification
-from .validators import validate_limit
+from .validators import validate_non_negative, validate_positive
 from ...database.models.simulation import Simulation
 
 pass_api = click.make_pass_decorator(RemoteAPI)
@@ -334,6 +336,23 @@ def add_watcher(
     click.echo(f"Watcher successfully added for simulation {sim_id}")
 
 
+@remote.command("schema", cls=remote_command_cls())
+@pass_api
+@click.option(
+    "-d",
+    "--depth",
+    help="Limit the depth of elements of the schema printed to the console.",
+    default=2,
+    show_default=True,
+    callback=validate_positive,
+)
+def remote_show_validation_schema(api: RemoteAPI, depth: int):
+    """Show validation schemas for the given remote."""
+    schemas = api.get_validation_schemas()
+    for schema in schemas:
+        pprint(schema, indent=2, depth=depth, width=os.get_terminal_size().columns)
+
+
 @remote.command("list", cls=remote_command_cls())
 @pass_api
 @pass_config
@@ -352,7 +371,7 @@ def add_watcher(
     help="Limit number of returned entries (use 0 for no limit).",
     default=100,
     show_default=True,
-    callback=validate_limit,
+    callback=validate_non_negative,
 )
 def remote_list(config: "Config", api: RemoteAPI, meta: List[str], limit: int):
     """List simulations available on remote."""
@@ -404,7 +423,7 @@ def remote_trace(api: RemoteAPI, sim_id: str):
     help="Limit number of returned entries (use 0 for no limit).",
     default=100,
     show_default=True,
-    callback=validate_limit,
+    callback=validate_non_negative,
 )
 def remote_query(
     config: "Config",

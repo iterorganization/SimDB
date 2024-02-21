@@ -5,7 +5,7 @@ from typing import Optional, List, Tuple, Any, Type
 from . import pass_config, check_meta_args
 from ...config.config import Config
 from ...query import QueryType, parse_query_arg
-from .validators import validate_limit
+from .validators import validate_non_negative
 
 
 @click.group()
@@ -50,7 +50,7 @@ def simulation():
     help="Limit number of returned entries (use 0 for no limit).",
     default=100,
     show_default=True,
-    callback=validate_limit,
+    callback=validate_non_negative,
 )
 def simulation_list(config: Config, meta: List[str], limit: int):
     """List ingested simulations."""
