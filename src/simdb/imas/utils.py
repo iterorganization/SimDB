@@ -301,9 +301,10 @@ def convert_uri(uri: URI, path: Path, config: Config) -> URI:
         raise ValueError(
             "Cannot process IMAS data as server.imas_remote_host configuration option not set"
         )
-    port = int(config.get_option("server.imas_remote_port", default=None))
+    port = config.get_option("server.imas_remote_port", default=None)
     backend = uri.path
     if port is None:
         return URI(f"imas://{host}/uda?path={path}&backend={backend}")
     else:
+        port = int(port)
         return URI(f"imas://{host}:{port}/uda?path={path}&backend={backend}")
