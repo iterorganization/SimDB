@@ -2,9 +2,11 @@ import re
 import os
 import urllib
 from enum import Enum, auto
-from typing import Iterable, Union, Dict, List, Tuple, Optional, TextIO
+from typing import Iterable, Union, Dict, List, Tuple, Optional, TextIO, Type
 import glob
 from pathlib import Path
+import numpy as np
+import yaml
 
 from ..uri import URI
 
@@ -286,6 +288,17 @@ class DescriptionValidator(ManifestValidator):
     pass
 
 
+def ndarray_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) -> np.ndarray:
+    mapping = loader.construct_mapping(node, deep=True)
+    return np.array(mapping['data'], mapping.get('dtype', None))
+
+
+def get_loader() -> Type[yaml.SafeLoader]:
+    loader = yaml.SafeLoader
+    loader.add_constructor('!ndarray', ndarray_constructor)
+    return loader
+
+
 class MetaDataValidator(ListValuesValidator):
     """
     Validator for the manifest Metadata list.
@@ -419,15 +432,13 @@ class Manifest:
         return 0
 
     def _load_metadata(self, root_path: Path, path: Path):
-        import yaml
-
         try:
             if not path.is_absolute():
                 root_dir = root_path.absolute().parent
                 path = root_dir / path
             with open(path) as metadata_file:
                 _update_dict(
-                    self._metadata, yaml.load(metadata_file, Loader=yaml.SafeLoader)
+                    self._metadata, yaml.load(metadata_file, Loader=get_loader())
                 )
         except yaml.YAMLError as err:
             raise InvalidManifest("failed to read metadata file %s - %s" % (path, err))
@@ -487,7 +498,7 @@ class Manifest:
         self._path: Path = file_path
         with open(file_path) as file:
             try:
-                self._data = yaml.load(file, Loader=yaml.SafeLoader)
+                self._data = yaml.load(file, Loader=get_loader())
             except yaml.YAMLError as err:
                 raise InvalidManifest("badly formatted manifest - " + str(err))
 

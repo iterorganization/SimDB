@@ -112,7 +112,12 @@ class CustomValidator(cerberus.Validator):
     def _normalize_coerce_numpy(cls, value):
         import numpy as np
 
-        return np.fromstring(value[1:-1], sep=" ")
+        if isinstance(value, np.ndarray):
+            return value
+        elif isinstance(value, str):
+            return np.fromstring(value[1:-1], sep=" ")
+        else:
+            return np.array(value)
 
 
 def _load_schema(path: Path):
