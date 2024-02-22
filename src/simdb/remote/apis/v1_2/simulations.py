@@ -208,7 +208,7 @@ class SimulationList(Resource):
             if "simulation" not in data:
                 return error("Simulation data not provided")
 
-            add_watcher = data.get("add_watcher", default=True)
+            add_watcher = data.get("add_watcher", True)
 
             simulation = models_sim.Simulation.from_data(data["simulation"])
             simulation.meta.append(models_meta.MetaData("uploaded_by", user.name))
