@@ -380,6 +380,13 @@ def remote_list(config: "Config", api: RemoteAPI, meta: List[str], limit: int):
     print_simulations(simulations, verbose=config.verbose, metadata_names=meta)
 
 
+@remote.command("version", cls=remote_command_cls())
+@pass_api
+def remote_version(api: RemoteAPI):
+    """Show the SimDB version of the remote."""
+    click.echo(f"Remote '{api.remote}' SimDB version: {api.version}")
+
+
 @remote.command("info", cls=remote_command_cls())
 @pass_api
 @click.argument("sim_id")

@@ -238,10 +238,12 @@ Commands:
   info       Print information about simulation with given SIM_ID (UUID...
   list       List simulations available on remote.
   query      Perform a metadata query to find matching remote simulations.
+  schema     Show validation schemas for the given remote.
   test       Test that the remote is valid.
   token      Manage user authentication tokens.
   trace      Print provenance trace of simulation with given SIM_ID (UUID...
   update     Mark remote simulation as published.
+  version    Show the SimDB version of the remote.
   watcher    Manage simulation watchers on REMOTE SimDB server.
 ```
     
@@ -471,6 +473,18 @@ Options:
     
 
 ```text
+Usage: simdb remote [NAME] schema [OPTIONS]
+
+  Show validation schemas for the given remote.
+
+Options:
+  -d, --depth INTEGER  Limit the depth of elements of the schema printed to
+                       the console.  [default: 2]
+  --help               Show this message and exit.
+```
+    
+
+```text
 Usage: simdb remote [NAME] test [OPTIONS]
 
   Test that the remote is valid.
@@ -537,6 +551,16 @@ Options:
 Usage: simdb remote [NAME] update [OPTIONS] SIM_ID {validate|accept|deprecate}
 
   Mark remote simulation as published.
+
+Options:
+  --help  Show this message and exit.
+```
+    
+
+```text
+Usage: simdb remote [NAME] version [OPTIONS]
+
+  Show the SimDB version of the remote.
 
 Options:
   --help  Show this message and exit.
@@ -703,7 +727,7 @@ Options:
     
 
 ```text
-Usage: simdb simulation query [OPTIONS] [CONSTRAINT]...
+Usage: simdb simulation query [OPTIONS] [CONSTRAINTS]...
 
   Perform a metadata query to find matching local simulations.
 

@@ -1,7 +1,6 @@
 import os
 import json
 import uuid
-from argparse import FileType
 from typing import (
     List,
     Dict,
@@ -894,9 +893,14 @@ class RemoteAPI:
             elif file.type == DataObject.Type.IMAS:
                 for index, (path, checksum) in enumerate(info):
                     rel_path = directory / path.relative_to(common_root)
-                    self._pull_file(file.uuid, index, checksum, path, rel_path, out_stream)
+                    self._pull_file(
+                        file.uuid, index, checksum, path, rel_path, out_stream
+                    )
 
-                to_path = (directory / Path(file.uri.query.get("path")).relative_to(common_root)).absolute()
+                to_path = (
+                    directory
+                    / Path(file.uri.query.get("path")).relative_to(common_root)
+                ).absolute()
                 backend = file.uri.query.get("backend")
                 file.uri = URI(f"imas:{backend}?path={to_path}")
 
