@@ -1,6 +1,7 @@
-from typing import List, Dict, Tuple, TYPE_CHECKING, TypeVar, Optional
+from typing import List, Dict, Tuple, TYPE_CHECKING, TypeVar, Optional, Any
 from collections import OrderedDict
 import click
+import numpy
 
 if TYPE_CHECKING:
     # Only importing these for type checking and documentation generation in order to speed up runtime startup.
@@ -21,6 +22,22 @@ def _flatten_dict(values: Dict) -> List[Tuple[str, str]]:
         else:
             items.append((k, v))
     return items
+
+
+def _format_meta_value(meta_value: Any, max_len: int) -> str:
+    """
+    Format the meta value as a string, limiting array values to max_len.
+    """
+    if isinstance(meta_value, list) or isinstance(meta_value, numpy.ndarray):
+        values = []
+        for i, v in enumerate(meta_value):
+            values.append(f"{v:.2f}")
+            if i >= max_len - 1:
+                values.append("...")
+                break
+        output = ", ".join(values)
+        return f"[{output}]"
+    return str(meta_value)
 
 
 def print_simulations(
@@ -70,9 +87,10 @@ def print_simulations(
                 meta = sim.find_meta(name)
                 column_widths.setdefault(name, len(name))
                 if meta:
-                    line.append(str(meta[0].value))
+                    value = _format_meta_value(meta[0].value, 5)
+                    line.append(value)
                     column_widths[name] = max(
-                        column_widths[name], len(str(meta[0].value))
+                        column_widths[name], len(value)
                     )
                 else:
                     line.append("")
