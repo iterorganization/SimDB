@@ -1,7 +1,7 @@
 import re
 import sys
 import uuid
-import os
+import shutil
 
 import click
 from collections.abc import Iterable
@@ -350,7 +350,7 @@ def remote_show_validation_schema(api: RemoteAPI, depth: int):
     """Show validation schemas for the given remote."""
     schemas = api.get_validation_schemas()
     for schema in schemas:
-        pprint(schema, indent=2, depth=depth, width=os.get_terminal_size().columns)
+        pprint(schema, indent=2, depth=depth, width=shutil.get_terminal_size().columns) 
 
 
 @remote.command("list", cls=remote_command_cls())
