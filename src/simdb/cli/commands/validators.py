@@ -9,5 +9,5 @@ def validate_non_negative(ctx, param, value):
 
 def validate_positive(ctx, param, value):
     if value <= 0:
-        raise click.BadParameter("must be positive")
+        raise click.BadParameter("must be greater than zero")
     return value
