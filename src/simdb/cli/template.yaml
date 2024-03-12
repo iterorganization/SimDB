@@ -9,7 +9,7 @@ inputs:
 # Data and log files.
 outputs:
   - uri: file:///home/user/path/to/a/file2
-  - uri: imas://localhost/path=/path/to/file2?backend=hdf5
+  - uri: imas:hdf5?path=/path/to/results/folder
 
 metadata:
 - values:
