@@ -238,10 +238,12 @@ Commands:
   info       Print information about simulation with given SIM_ID (UUID...
   list       List simulations available on remote.
   query      Perform a metadata query to find matching remote simulations.
+  schema     Show validation schemas for the given remote.
   test       Test that the remote is valid.
   token      Manage user authentication tokens.
   trace      Print provenance trace of simulation with given SIM_ID (UUID...
   update     Mark remote simulation as published.
+  version    Show the SimDB version of the remote.
   watcher    Manage simulation watchers on REMOTE SimDB server.
 ```
     
@@ -327,7 +329,7 @@ Commands:
     
 
 ```text
-Usage: simdb remote [OPTIONS]
+Usage: simdb remote [NAME] config default [OPTIONS]
 
   Print the default remote.
 
@@ -337,7 +339,7 @@ Options:
     
 
 ```text
-Usage: simdb remote [OPTIONS] NAME
+Usage: simdb remote [NAME] config delete [OPTIONS] NAME
 
   Delete a remote.
 
@@ -347,7 +349,7 @@ Options:
     
 
 ```text
-Usage: simdb remote [OPTIONS]
+Usage: simdb remote [NAME] config get-default [OPTIONS]
 
   Get the name of the default remote.
 
@@ -357,7 +359,7 @@ Options:
     
 
 ```text
-Usage: simdb remote [OPTIONS]
+Usage: simdb remote [NAME] config list [OPTIONS]
 
   List available remotes.
 
@@ -367,7 +369,7 @@ Options:
     
 
 ```text
-Usage: simdb remote [OPTIONS] NAME URL
+Usage: simdb remote [NAME] config new [OPTIONS] NAME URL
 
   Add a new remote.
 
@@ -375,12 +377,13 @@ Options:
   --firewall [F5]  Specify the remote is behind a login firewall and what type
                    it is.
   --username TEXT  Username to use for remote.
+  --default        Set the new remote as the default.
   --help           Show this message and exit.
 ```
     
 
 ```text
-Usage: simdb remote [OPTIONS] NAME
+Usage: simdb remote [NAME] config set-default [OPTIONS] NAME
 
   Set a remote as default.
 
@@ -390,7 +393,7 @@ Options:
     
 
 ```text
-Usage: simdb remote [OPTIONS] NAME OPTION VALUE
+Usage: simdb remote [NAME] config set-option [OPTIONS] NAME OPTION VALUE
 
   Set a configuration option for a given remote.
 
@@ -471,6 +474,18 @@ Options:
     
 
 ```text
+Usage: simdb remote [NAME] schema [OPTIONS]
+
+  Show validation schemas for the given remote.
+
+Options:
+  -d, --depth INTEGER  Limit the depth of elements of the schema printed to
+                       the console.  [default: 2]
+  --help               Show this message and exit.
+```
+    
+
+```text
 Usage: simdb remote [NAME] test [OPTIONS]
 
   Test that the remote is valid.
@@ -544,6 +559,16 @@ Options:
     
 
 ```text
+Usage: simdb remote [NAME] version [OPTIONS]
+
+  Show the SimDB version of the remote.
+
+Options:
+  --help  Show this message and exit.
+```
+    
+
+```text
 Usage: simdb remote [NAME] watcher [OPTIONS] COMMAND [ARGS]...
 
   Manage simulation watchers on REMOTE SimDB server.
@@ -559,7 +584,7 @@ Commands:
     
 
 ```text
-Usage: simdb remote [OPTIONS] SIM_ID
+Usage: simdb remote [NAME] watcher add [OPTIONS] SIM_ID
 
   Register a user as a watcher for a simulation with given SIM_ID (UUID or
   alias).
@@ -574,7 +599,7 @@ Options:
     
 
 ```text
-Usage: simdb remote [OPTIONS] SIM_ID
+Usage: simdb remote [NAME] watcher list [OPTIONS] SIM_ID
 
   List watchers for simulation with given SIM_ID (UUID or alias).
 
@@ -584,7 +609,7 @@ Options:
     
 
 ```text
-Usage: simdb remote [OPTIONS] SIM_ID
+Usage: simdb remote [NAME] watcher remove [OPTIONS] SIM_ID
 
   Remove a user from list of watchers on a simulation with given SIM_ID (UUID
   or alias).
@@ -703,7 +728,7 @@ Options:
     
 
 ```text
-Usage: simdb simulation query [OPTIONS] [CONSTRAINT]...
+Usage: simdb simulation query [OPTIONS] [CONSTRAINTS]...
 
   Perform a metadata query to find matching local simulations.
 

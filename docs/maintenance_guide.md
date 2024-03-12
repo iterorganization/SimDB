@@ -126,6 +126,25 @@ Options for the server configuration are:
 
 More caching options can be found in the [Flask-Caching documentation](https://flask-caching.readthedocs.io/en/latest/#built-in-cache-backends). You can convert the caching options for the library to SimDB configuration by removing the `CACHE_` prefix and converting to lowercase, i.e. `CACHE_ARGS` becomes `args` in the `[cache]` section.
 
+### Role options
+
+| Section | Option | Required | Description                                                    |
+|---------|--------|----------|----------------------------------------------------------------|
+| role    | users  | yes      | A comma separated list of the the users assigned to this role. |
+
+Each role must be given a name in the section header, and whilst defining any roles is optional each `role` section must
+have a `users` option.
+
+For example:
+
+```yaml
+[role "admin"]
+users = admin,user1,user2
+```
+
+Currently only the `admin` role is used in SimDB (this is the set of users able to perform CLI command in the `admin`
+command subgroup).
+
 ### Example configuration files
 
 Example of app.cfg for SQLite:

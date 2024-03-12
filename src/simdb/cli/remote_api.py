@@ -1,7 +1,6 @@
 import os
 import json
 import uuid
-from argparse import FileType
 from typing import (
     List,
     Dict,
@@ -238,6 +237,7 @@ class RemoteAPI:
 
         self._api_url += f"{latest_version}/"
         self.version = Version.coerce(self.get_api_version())
+        self.server_version = Version.coerce(self.get_server_version())
 
     def _load_cookies(
         self, remote: str, username: Optional[str], password: Optional[str]
@@ -532,6 +532,12 @@ class RemoteAPI:
         res = self.get("", authenticate=False)
         data = res.json()
         return data["api_version"]
+
+    @try_request
+    def get_server_version(self) -> str:
+        res = self.get("", authenticate=False)
+        data = res.json()
+        return data["server_version"]
 
     @try_request
     def get_validation_schemas(self) -> List[Dict]:
@@ -894,9 +900,14 @@ class RemoteAPI:
             elif file.type == DataObject.Type.IMAS:
                 for index, (path, checksum) in enumerate(info):
                     rel_path = directory / path.relative_to(common_root)
-                    self._pull_file(file.uuid, index, checksum, path, rel_path, out_stream)
+                    self._pull_file(
+                        file.uuid, index, checksum, path, rel_path, out_stream
+                    )
 
-                to_path = (directory / Path(file.uri.query.get("path")).relative_to(common_root)).absolute()
+                to_path = (
+                    directory
+                    / Path(file.uri.query.get("path")).relative_to(common_root)
+                ).absolute()
                 backend = file.uri.query.get("backend")
                 file.uri = URI(f"imas:{backend}?path={to_path}")
 
