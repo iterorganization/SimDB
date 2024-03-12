@@ -156,7 +156,7 @@ def remote_config():
     pass
 
 
-@remote_config.command("default")
+@remote_config.command("default", cls=remote_command_cls("config"))
 @pass_config
 def config_default(config: "Config"):
     """
@@ -165,7 +165,7 @@ def config_default(config: "Config"):
     click.echo(config.default_remote)
 
 
-@remote_config.command("list")
+@remote_config.command("list", cls=remote_command_cls("config"))
 @pass_config
 def config_list(config: "Config"):
     """
@@ -189,7 +189,7 @@ def config_list(config: "Config"):
             )
 
 
-@remote_config.command("new")
+@remote_config.command("new", cls=remote_command_cls("config"))
 @pass_config
 @click.argument("name", required=True)
 @click.argument("url", required=True)
@@ -199,12 +199,18 @@ def config_list(config: "Config"):
     type=click.Choice(["F5"], case_sensitive=False),
 )
 @click.option("--username", help="Username to use for remote.", type=str)
+@click.option(
+    "--default",
+    is_flag=True,
+    help="Set the new remote as the default.",
+)
 def config_new(
     config: "Config",
     name: str,
     url: str,
     firewall: Optional[str],
     username: Optional[str],
+    default: bool,
 ):
     """
     Add a new remote.
@@ -214,10 +220,12 @@ def config_new(
         config.set_option(f"remote.{name}.firewall", firewall)
     if username is not None:
         config.set_option(f"remote.{name}.username", username)
+    if default:
+        config.default_remote = name
     config.save()
 
 
-@remote_config.command("delete")
+@remote_config.command("delete", cls=remote_command_cls("config"))
 @pass_config
 @click.argument("name", required=True)
 def config_delete(config: "Config", name: str):
@@ -228,7 +236,7 @@ def config_delete(config: "Config", name: str):
     config.save()
 
 
-@remote_config.command("set-default")
+@remote_config.command("set-default", cls=remote_command_cls("config"))
 @pass_config
 @click.argument("name", required=True)
 def config_set_default(config: "Config", name: str):
@@ -239,7 +247,7 @@ def config_set_default(config: "Config", name: str):
     config.save()
 
 
-@remote_config.command("get-default")
+@remote_config.command("get-default", cls=remote_command_cls("config"))
 @pass_config
 def config_get_default(config: "Config"):
     """
@@ -248,7 +256,7 @@ def config_get_default(config: "Config"):
     click.echo(config.default_remote)
 
 
-@remote_config.command("set-option")
+@remote_config.command("set-option", cls=remote_command_cls("config"))
 @pass_config
 @click.argument("name", required=True)
 @click.argument("option", required=True)
@@ -267,7 +275,7 @@ def watcher():
     pass
 
 
-@watcher.command("list")
+@watcher.command("list", cls=remote_command_cls("watcher"))
 @pass_api
 @click.argument("sim_id")
 def list_watchers(api: RemoteAPI, sim_id: str):
@@ -281,7 +289,7 @@ def list_watchers(api: RemoteAPI, sim_id: str):
         click.echo(f"no watchers found for simulation {sim_id}")
 
 
-@watcher.command("remove")
+@watcher.command("remove", cls=remote_command_cls("watcher"))
 @pass_api
 @pass_config
 @click.argument("sim_id")
@@ -298,7 +306,7 @@ def remove_watcher(config: "Config", api: RemoteAPI, sim_id: str, user: str):
     click.echo(f"Watcher successfully removed for simulation {sim_id}")
 
 
-@watcher.command("add")
+@watcher.command("add", cls=remote_command_cls("watcher"))
 @pass_api
 @pass_config
 @click.argument("sim_id")
@@ -350,7 +358,7 @@ def remote_show_validation_schema(api: RemoteAPI, depth: int):
     """Show validation schemas for the given remote."""
     schemas = api.get_validation_schemas()
     for schema in schemas:
-        pprint(schema, indent=2, depth=depth, width=shutil.get_terminal_size().columns) 
+        pprint(schema, indent=2, depth=depth, width=shutil.get_terminal_size().columns)
 
 
 @remote.command("list", cls=remote_command_cls())

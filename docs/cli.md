@@ -329,7 +329,7 @@ Commands:
     
 
 ```text
-Usage: simdb remote [OPTIONS]
+Usage: simdb remote [NAME] config default [OPTIONS]
 
   Print the default remote.
 
@@ -339,7 +339,7 @@ Options:
     
 
 ```text
-Usage: simdb remote [OPTIONS] NAME
+Usage: simdb remote [NAME] config delete [OPTIONS] NAME
 
   Delete a remote.
 
@@ -349,7 +349,7 @@ Options:
     
 
 ```text
-Usage: simdb remote [OPTIONS]
+Usage: simdb remote [NAME] config get-default [OPTIONS]
 
   Get the name of the default remote.
 
@@ -359,7 +359,7 @@ Options:
     
 
 ```text
-Usage: simdb remote [OPTIONS]
+Usage: simdb remote [NAME] config list [OPTIONS]
 
   List available remotes.
 
@@ -369,7 +369,7 @@ Options:
     
 
 ```text
-Usage: simdb remote [OPTIONS] NAME URL
+Usage: simdb remote [NAME] config new [OPTIONS] NAME URL
 
   Add a new remote.
 
@@ -377,12 +377,13 @@ Options:
   --firewall [F5]  Specify the remote is behind a login firewall and what type
                    it is.
   --username TEXT  Username to use for remote.
+  --default        Set the new remote as the default.
   --help           Show this message and exit.
 ```
     
 
 ```text
-Usage: simdb remote [OPTIONS] NAME
+Usage: simdb remote [NAME] config set-default [OPTIONS] NAME
 
   Set a remote as default.
 
@@ -392,7 +393,7 @@ Options:
     
 
 ```text
-Usage: simdb remote [OPTIONS] NAME OPTION VALUE
+Usage: simdb remote [NAME] config set-option [OPTIONS] NAME OPTION VALUE
 
   Set a configuration option for a given remote.
 
@@ -583,7 +584,7 @@ Commands:
     
 
 ```text
-Usage: simdb remote [OPTIONS] SIM_ID
+Usage: simdb remote [NAME] watcher add [OPTIONS] SIM_ID
 
   Register a user as a watcher for a simulation with given SIM_ID (UUID or
   alias).
@@ -598,7 +599,7 @@ Options:
     
 
 ```text
-Usage: simdb remote [OPTIONS] SIM_ID
+Usage: simdb remote [NAME] watcher list [OPTIONS] SIM_ID
 
   List watchers for simulation with given SIM_ID (UUID or alias).
 
@@ -608,7 +609,7 @@ Options:
     
 
 ```text
-Usage: simdb remote [OPTIONS] SIM_ID
+Usage: simdb remote [NAME] watcher remove [OPTIONS] SIM_ID
 
   Remove a user from list of watchers on a simulation with given SIM_ID (UUID
   or alias).

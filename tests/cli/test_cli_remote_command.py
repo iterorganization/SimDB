@@ -15,7 +15,7 @@ def test_remote_watchers_list_command(
 ):
     get_endpoints.return_value = ["v1", "v1.1", "v1.1.1", "v1.2"]
     get_api_version.return_value = "1.2"
-    get_server_version.return_value = "0.10.3"
+    get_server_version.return_value = "0.11"
     get_server_authentication.return_value = "None"
     sim_id = "acbd1234"
     watchers = ["a", "b", "c"]
@@ -43,7 +43,7 @@ def test_remote_watcher_remove_command(
 ):
     get_endpoints.return_value = ["v1", "v1.1", "v1.1.1", "v1.2"]
     get_api_version.return_value = "1.2"
-    get_server_version.return_value = "0.10.3"
+    get_server_version.return_value = "0.11"
     get_server_authentication.return_value = "None"
     user = "test"
     sim_id = "acbd1234"
@@ -79,7 +79,7 @@ def test_remote_watcher_add_command(
 ):
     get_endpoints.return_value = ["v1", "v1.1", "v1.1.1", "v1.2"]
     get_api_version.return_value = "1.2"
-    get_server_version.return_value = "0.10.3"
+    get_server_version.return_value = "0.11"
     get_server_authentication.return_value = "None"
     user = "test"
     email = "test@iter.org"
@@ -118,7 +118,7 @@ def test_remote_list_command(
 ):
     get_endpoints.return_value = ["v1", "v1.1", "v1.1.1", "v1.2"]
     get_api_version.return_value = "1.2"
-    get_server_version.return_value = "0.10.3"
+    get_server_version.return_value = "0.11"
     get_server_authentication.return_value = "None"
     data = [
         ("abcd1234", "test"),
@@ -153,7 +153,7 @@ def test_remote_list_command_with_verbose(
 ):
     get_endpoints.return_value = ["v1", "v1.1", "v1.1.1", "v1.2"]
     get_api_version.return_value = "1.2"
-    get_server_version.return_value = "0.10.3"
+    get_server_version.return_value = "0.11"
     get_server_authentication.return_value = "None"
     data = [
         ("abcd1234", "test", "2000-01-01-01", "Validated"),
@@ -192,7 +192,7 @@ def test_remote_info_command(
 ):
     get_endpoints.return_value = ["v1", "v1.1", "v1.1.1", "v1.2"]
     get_api_version.return_value = "1.2"
-    get_server_version.return_value = "0.10.3"
+    get_server_version.return_value = "0.11"
     get_server_authentication.return_value = "None"
     sim_id = "abcd1234"
     sim = ("abcd1234", "test", "2000-01-01-01", "Validated")
@@ -221,7 +221,7 @@ def test_remote_query_command(
 ):
     get_endpoints.return_value = ["v1", "v1.1", "v1.1.1", "v1.2"]
     get_api_version.return_value = "1.2"
-    get_server_version.return_value = "0.10.3"
+    get_server_version.return_value = "0.11"
     get_server_authentication.return_value = "None"
     data = [
         ("abcd1234", "123"),
@@ -261,7 +261,7 @@ def test_remote_query_command_with_verbose(
 ):
     get_endpoints.return_value = ["v1", "v1.1", "v1.1.1", "v1.2"]
     get_api_version.return_value = "1.2"
-    get_server_version.return_value = "0.10.3"
+    get_server_version.return_value = "0.11"
     get_server_authentication.return_value = "None"
     data = [
         ("abcd1234", "123", "2000-01-01-01", "Validated"),
@@ -312,7 +312,7 @@ def test_remote_update_command_with_accept(
 
     get_endpoints.return_value = ["v1", "v1.1", "v1.1.1", "v1.2"]
     get_api_version.return_value = "1.2"
-    get_server_version.return_value = "0.10.3"
+    get_server_version.return_value = "0.11"
     get_server_authentication.return_value = "None"
     sim_id = "abcd1234"
     config_file = config_test_file()
