@@ -4,7 +4,8 @@ alias: simulation-alias
 # Data and configuration files
 inputs:
   - uri: file:///home/user/path/to/a/file1
-  - uri: imas://localhost/path=/path/to/file1?backend=hdf5
+  - uri: imas:mdsplus?path=/path/to/folder
+  - uri: imas://host:port/uda?path=/path/to/folder/on/host&backend=mdsplus
 
 # Data and log files.
 outputs:
