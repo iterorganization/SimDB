@@ -303,6 +303,16 @@ service nginx restart
 
 You should now be able to check the simdb server is running by going to the http address defined in your nginx site (localhost:80 in the example above).
 
+#### Nginx Request Entity Size
+
+You may need to increase the size of uploaded files that Nginx will accept. For SimDB this should be at least 100MB.
+
+You can set this by changing the following option in your `/etc/nginx/nginx.conf` file:
+
+```
+client_max_body_size 100m;
+```
+
 ### Using SSL with the Gunicorn/Nginx
 
 In production, you should be using HTTPS not HTTP for the SimDB server. To do this with Nginx you can change the simdb.conf in the `/etc/nginx/sites-available` that you created in the previous section.
