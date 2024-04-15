@@ -45,13 +45,8 @@ simdb_server
 
 This will start a server on port 5000. You can test this server is running by opening htpp://localhost:5000 in a browser.
 
-## Setting up PostgreSQL Database on local (SDCC)
+## Setting up PostgreSQL Database
 This section will guide to setting up a PostgreSQL server for SimDB.
-
-Load PostgreSQL module
-```bash
-module load PostgreSQL
-``` 
 
 Setup PostgreSQL configuration and data directory
 ```bash
@@ -93,5 +88,4 @@ host = localhost
 port = 5432
 
 ...
-```
-For more information, please refer [How to setup PostgreSQL on SDCC](https://confluence.iter.org/display/IMP/How+to+setup+PostgreSQL+on+SDCC) 
+``` 
