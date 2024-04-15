@@ -84,9 +84,14 @@ psql -U simdb
 ```
 
 Update [database] section of app.cfg
+```
+...
+
 [database]
 type = postgres
 host = localhost
 port = 5432
 
+...
+```
 For more information, please refer [How to setup PostgreSQL on SDCC](https://confluence.iter.org/display/IMP/How+to+setup+PostgreSQL+on+SDCC) 
