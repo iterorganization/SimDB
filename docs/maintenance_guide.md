@@ -85,6 +85,7 @@ Options for the server configuration are:
 | email      | port                     | yes                    | SMTP server port port.                                                                                                                                                                                                                             |
 | email      | user                     | yes                    | SMTP server user to send emails from .                                                                                                                                                                                                             |
 | email      | password                 | yes                    | SMTP server user password.                                                                                                                                                                                                                         |
+| development  | disable_checksum	| yes			 | Flag [True, False] to set whether integrity checks should be perform or not. Defaults to False 																		      |
 
 ### Authentication options
 
@@ -173,6 +174,9 @@ server = smtp.email.com
 port = 465
 user = test@email.com
 password = abc123
+
+[development]
+disable_checksum = True
 ```
 
 Example of app.cfg for PostgreSQL (see [Setting up PostgreSQL database](setting_up_postgres.md)):
@@ -193,6 +197,19 @@ DEBUG = False
 SSL_ENABLED = True
 
 ...
+```
+Now create a validation schema in the application configuration directory, which can be located by using:
+
+```
+dirname "$(simdb config path)"
+```
+In this directory, you should create a file ‘validation-schema.yaml’ specifying the validation schema. 
+Example of validation-schema.yaml:
+
+```
+description:
+  required: true
+  type: string
 ```
 
 Once the server configuration has been created you should be able to run
