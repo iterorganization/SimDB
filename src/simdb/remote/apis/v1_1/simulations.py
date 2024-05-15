@@ -39,10 +39,12 @@ def _update_simulation_status(
 Simulation status changed from {old_status} to {status}.
 
 Updated by {user}.
+
+Note: please don't reply to this email, replies to this address are not monitored. 
 """
         to_addresses = [w.email for w in simulation.watchers]
         if to_addresses:
-            server.send_message(f"Simulation {simulation.uuid.hex}", msg, to_addresses)
+            server.send_message(f"Simulation {simulation.alias}", msg, to_addresses)
 
 
 def _validate(simulation, user) -> Dict:
