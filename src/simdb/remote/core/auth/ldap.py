@@ -1,4 +1,5 @@
 from typing import Optional
+from flask import Request
 
 from ....config import Config
 from ._authenticator import Authenticator
@@ -22,7 +23,7 @@ class LdapAuthenticator(Authenticator):
     Name = "LDAP"
 
     def authenticate(
-        self, username: Optional[str], password: Optional[str], config: Config
+        self, config: Config, request: Request
     ) -> Optional[User]:
         import ldap
 
@@ -31,6 +32,13 @@ class LdapAuthenticator(Authenticator):
             conn = ldap.initialize(ldap_host)
         except ldap.LDAPError:
             raise AuthenticationError("failed to connect to ldap server")
+
+        auth = request.authorization
+        if not auth:
+            return None
+
+        username = auth.username
+        password = auth.password
 
         ldap_bind = config.get_option("authentication.ldap_bind")
         try:

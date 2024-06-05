@@ -27,3 +27,4 @@ backports-datetime-fromisoformat~=1.0.0
 python-magic~=0.4
 flask-compress~=1.12
 simplejson~=3.0
+python-keycloak~=4.0

@@ -11,14 +11,7 @@ EnvironmentDetails = NewType("EnvironmentDetails", Dict[str, Union[str, List[str
 
 def _platform_version() -> str:
     import distro
-
-    if platform.system() == "Linux":
-        return " ".join(distro.linux_distribution()) + " " + platform.version()
-    elif platform.system() == "Darwin":
-        return platform.mac_ver()[0] + " " + platform.version()
-    elif platform.system() == "Win":
-        return " ".join(platform.win32_ver())
-    return "Unknown"
+    return distro.name(pretty=True)
 
 
 def _platform_details() -> PlatformDetails:

@@ -1,4 +1,5 @@
 from typing import Optional
+from flask import Request
 
 from ....config import Config
 from ._authenticator import Authenticator
@@ -17,7 +18,7 @@ class ActiveDirectoryAuthenticator(Authenticator):
     Name = "ActiveDirectory"
 
     def authenticate(
-        self, username: Optional[str], password: Optional[str], config: Config
+        self, config: Config, request: Request
     ) -> Optional[User]:
         from easyad import EasyAD
 
@@ -29,6 +30,13 @@ class ActiveDirectoryAuthenticator(Authenticator):
             ad = EasyAD(ad_config)
         except (KeyError, ImportError):
             return None
+
+        auth = request.authorization
+        if not auth:
+            return None
+
+        username = auth.username
+        password = auth.password
 
         user = ad.authenticate_user(username, password, json_safe=True)
         if user:
