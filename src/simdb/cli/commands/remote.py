@@ -132,7 +132,7 @@ def remote_test(api: RemoteAPI):
     Test that the remote is valid.
     """
     remote_version = api.get_api_version()
-    print(f"Remote is valid (remote API version: {remote_version}")
+    print(f"Remote is valid (remote API version: {remote_version})")
 
 
 @remote.command("directory", cls=remote_command_cls())
