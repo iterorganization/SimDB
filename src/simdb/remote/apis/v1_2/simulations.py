@@ -358,6 +358,11 @@ class Simulation(Resource):
         except DatabaseError as err:
             return error(str(err))
 
+    parser = api.parser()
+    parser.add_argument(
+        'status', type=str, location="json", help = "status"
+    )
+    @api.expect(parser)    
     @requires_auth("admin")
     def patch(self, sim_id: str, user: User = Optional[None]):
         try:
@@ -411,6 +416,14 @@ class SimulationMeta(Resource):
         except DatabaseError as err:
             return error(str(err))
 
+    parser = api.parser()
+    parser.add_argument(
+        'key', type=str, location="json", help = "status",        
+    )
+    parser.add_argument(
+        'value', type=str, location="json", help = "status",        
+    )
+    @api.expect(parser)
     @requires_auth("admin")
     def patch(self, sim_id: str, user: User = Optional[None]):
         try:
@@ -438,6 +451,11 @@ class SimulationMeta(Resource):
         except DatabaseError as err:
             return error(str(err))
 
+    parser_delete = api.parser()
+    parser_delete.add_argument(
+        'key', type=str, location="json", help = "metadata key",        
+    )
+    @api.expect(parser_delete)
     @requires_auth("admin")
     def delete(self, sim_id: str, user: User = Optional[None]):
         try:
