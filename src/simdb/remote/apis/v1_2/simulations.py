@@ -423,14 +423,15 @@ class SimulationMeta(Resource):
                 return error("New metadata value not provided")
 
             key = data["key"]
-            value = data["value"]
-
+            value = data["value"].lower()
             simulation = current_app.db.get_simulation(sim_id)
             if simulation is None:
                 raise ValueError(f"Simulation {sim_id} not found.")
-
             old_values = [meta.data() for meta in simulation.find_meta(key)]
-            simulation.set_meta(key, value)
+            # simulation.set_meta(key, value)
+            # current_app.db.insert_simulation(simulation)  
+            status = models_sim.Simulation.Status(value)
+            _update_simulation_status(simulation, status, user)
             current_app.db.insert_simulation(simulation)
             clear_cache()
             return old_values
