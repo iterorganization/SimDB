@@ -280,6 +280,11 @@ class Simulation(Resource):
         except DatabaseError as err:
             return error(str(err))
 
+    parser = api.parser()
+    parser.add_argument(
+        'status', type=str, location="json", help = "status", required=True
+    )
+    @api.expect(parser)
     @requires_auth("admin")
     def patch(self, sim_id: str, user: User = Optional[None]):
         try:
