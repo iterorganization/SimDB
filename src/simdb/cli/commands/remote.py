@@ -612,7 +612,8 @@ def admin_set_meta(api: RemoteAPI, sim_id: str, key: str, value: str, type: str)
 )
 def admin_set_status(api: RemoteAPI, sim_id: str, value: str):
     """Update the status metadata value for the given simulation."""
-    old_value = api.set_metadata(sim_id, "status", value)
+    #old_value = api.set_metadata(sim_id, "status", value)
+    old_value = api.update_simulation(sim_id, Simulation.Status(value.lower()))
     if old_value:
         click.echo(f"Update status for simulation {sim_id}: {old_value} -> {value}")
     else:
