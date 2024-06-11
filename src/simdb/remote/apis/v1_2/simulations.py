@@ -360,7 +360,7 @@ class Simulation(Resource):
 
     parser = api.parser()
     parser.add_argument(
-        'status', type=str, location="json", help = "status"
+        'status', type=str, location="json", help = "status", required=True
     )
     @api.expect(parser)    
     @requires_auth("admin")
@@ -418,10 +418,10 @@ class SimulationMeta(Resource):
 
     parser = api.parser()
     parser.add_argument(
-        'key', type=str, location="json", help = "status",        
+        'key', type=str, location="json", help = "status", required=True       
     )
     parser.add_argument(
-        'value', type=str, location="json", help = "status",        
+        'value', type=str, location="json", help = "status", required=True       
     )
     @api.expect(parser)
     @requires_auth("admin")
@@ -453,7 +453,7 @@ class SimulationMeta(Resource):
 
     parser_delete = api.parser()
     parser_delete.add_argument(
-        'key', type=str, location="json", help = "metadata key",        
+        'key', type=str, location="json", help = "metadata key", required=True        
     )
     @api.expect(parser_delete)
     @requires_auth("admin")
