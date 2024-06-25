@@ -4,7 +4,7 @@ from flask_restx import Api, Resource
 from flask import jsonify
 
 from ...core.typing import current_app
-from ...core.auth import TOKEN_HEADER_NAME, requires_auth, User
+from ...core.auth import requires_auth, User
 from .simulations import api as sim_ns
 from ..files import api as file_ns
 from ..metadata import api as metadata_ns
