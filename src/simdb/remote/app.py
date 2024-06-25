@@ -9,9 +9,9 @@ from flask.json import JSONEncoder, JSONDecoder
 from .apis import blueprints
 from .core.cache import cache
 from .core.typing import SimDBApp
-from .core.auth import get_authenticator
 from ..config import Config
 from ..json import CustomEncoder, CustomDecoder
+from .core.auth._authenticator import Authenticator
 
 compress = Compress()
 
@@ -47,7 +47,7 @@ def create_app(
         for ver in blueprints:
             endpoints.append(f"{request.url}{ver}")
         authentication_type = config.get_option("authentication.type")
-        authenticator = get_authenticator(authentication_type)
+        authenticator = Authenticator.get(authentication_type)
         return jsonify(
             {"endpoints": endpoints, "authentication": type(authenticator).Name}
         )
