@@ -52,14 +52,7 @@ def test_check_auth(get_option):
         "authentication.ad_server": "test.server",
         "authentication.ad_domain": "test.domain",
     }[a]    
-
-    class request:
-        class authorization:
-            username = ""
-            password = ""
-    request.authorization.username = "admin"
-    request.authorization.password = "abc123"
-    ok = check_auth(config, request)
+    ok = check_auth(config, "admin", "abc123")
     assert ok
     get_option.assert_called_once_with("server.admin_password")
 
@@ -69,9 +62,7 @@ def test_check_auth(get_option):
         return None
 
     easy_ad().authenticate_user.side_effect = auth
-    request.authorization.username = "user"
-    request.authorization.password = "password"
-    ok = check_auth(config, request)
+    ok = check_auth(config,  "user", "password")
     assert ok
     easy_ad.assert_called_with(
         {
@@ -82,7 +73,5 @@ def test_check_auth(get_option):
     easy_ad().authenticate_user.assert_called_once_with(
         "user", "password", json_safe=True
     )
-    request.authorization.username = "user"
-    request.authorization.password = "wrong"
-    ok = check_auth(config, request)
+    ok = check_auth(config, "user", "wrong")
     assert not ok
