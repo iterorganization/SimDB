@@ -15,7 +15,7 @@ try:
 except ImportError:
     has_flask = False
 
-
+        
 @mock.patch("simdb.config.Config.get_option")
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_check_role(get_option):
@@ -51,8 +51,15 @@ def test_check_auth(get_option):
         "authentication.type": "ActiveDirectory",
         "authentication.ad_server": "test.server",
         "authentication.ad_domain": "test.domain",
-    }[a]
-    ok = check_auth(config, "admin", "abc123")
+    }[a]    
+
+    class request:
+        class authorization:
+            username = ""
+            password = ""
+    request.authorization.username = "admin"
+    request.authorization.password = "abc123"
+    ok = check_auth(config, request)
     assert ok
     get_option.assert_called_once_with("server.admin_password")
 
@@ -62,8 +69,9 @@ def test_check_auth(get_option):
         return None
 
     easy_ad().authenticate_user.side_effect = auth
-
-    ok = check_auth(config, "user", "password")
+    request.authorization.username = "user"
+    request.authorization.password = "password"
+    ok = check_auth(config, request)
     assert ok
     easy_ad.assert_called_with(
         {
@@ -74,6 +82,7 @@ def test_check_auth(get_option):
     easy_ad().authenticate_user.assert_called_once_with(
         "user", "password", json_safe=True
     )
-
-    ok = check_auth(config, "user", "wrong")
+    request.authorization.username = "user"
+    request.authorization.password = "wrong"
+    ok = check_auth(config, request)
     assert not ok
