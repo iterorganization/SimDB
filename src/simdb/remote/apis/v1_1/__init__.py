@@ -22,7 +22,7 @@ api = Api(
         "apiToken": {
             "type": "apiKey",
             "in": "header",
-            "name": TOKEN_HEADER_NAME,
+            "name": "Authorization",
         },
     },
     security=["basicAuth", "apiToken"],
