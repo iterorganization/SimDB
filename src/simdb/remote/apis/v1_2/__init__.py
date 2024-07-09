@@ -21,7 +21,7 @@ api = Api(
         "apiToken": {
             "type": "apiKey",
             "in": "header",
-            "name": "Authorization",
+            "name": TokenAuthenticator.TOKEN_HEADER_NAME,
         },
     },
     security=["basicAuth", "apiToken"],
