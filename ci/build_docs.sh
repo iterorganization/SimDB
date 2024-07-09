@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Set up ITER modules environment
 set -e
 
