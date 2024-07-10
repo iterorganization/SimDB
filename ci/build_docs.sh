@@ -6,7 +6,7 @@ set -e
 . /usr/share/Modules/init/sh
 module use /work/imas/etc/modules/all
 module purge
-module load Python/3.8.6-GCCcore-10.2.0
+module load Python/3.11.5-GCCcore-13.2.0
 module list
 
 # Set up virtualenv
