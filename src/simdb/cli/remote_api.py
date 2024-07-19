@@ -268,14 +268,11 @@ class RemoteAPI:
                     password = click.prompt(
                         f"Password for user {username}", hide_input=True
                     )
+                auth = (username, password)
                 with requests.Session() as s:
                     s.get(base_url)
-                    payload = {
-                        "username": username,
-                        "password": password,
-                        "vhost": "standard",
-                    }
-                    p = s.post(f"{base_url}/my.policy", data=payload)
+                    s.headers['User-Agent'] = 'it_script_basic'
+                    p = s.post(f"{base_url}/my.policy", auth=auth)
                     if p.status_code != 200:
                         raise RuntimeError(
                             "Failed to get firewall authentication cookies"
@@ -343,7 +340,8 @@ class RemoteAPI:
         params = params if params is not None else {}
         headers = headers if headers is not None else {}
         headers["Accept-encoding"] = "gzip"
-
+        headers['User-Agent'] = 'it_script_basic'
+        
         if authenticate and self._server_auth != "None":
             res = requests.get(
                 self._api_url + url,
@@ -377,7 +375,8 @@ class RemoteAPI:
         import requests
 
         headers = {"Content-type": "application/json"}
-
+        headers['User-Agent'] = 'it_script_basic'
+        
         if self._server_auth != "None":
             res = requests.put(
                 self._api_url + url,
@@ -417,7 +416,8 @@ class RemoteAPI:
         else:
             headers = {"Content-type": "application/json"}
         post_data = json.dumps(data, cls=CustomEncoder, indent=2) if data else {}
-
+        headers['User-Agent'] = 'it_script_basic'
+        
         if self._server_auth != "None":
             res = requests.post(
                 self._api_url + url,
@@ -451,7 +451,8 @@ class RemoteAPI:
         import requests
 
         headers = {"Content-type": "application/json"}
-
+        headers['User-Agent'] = 'it_script_basic'
+        
         if self._server_auth != "None":
             res = requests.patch(
                 self._api_url + url,
@@ -485,7 +486,8 @@ class RemoteAPI:
         import requests
 
         headers = {"Content-type": "application/json"}
-
+        headers['User-Agent'] = 'it_script_basic'
+        
         if self._server_auth != "None":
             res = requests.delete(
                 self._api_url + url,
