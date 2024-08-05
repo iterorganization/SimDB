@@ -85,7 +85,7 @@ Options for the server configuration are:
 | email       | port                     | yes                    | SMTP server port port.                                                                                                                                                                                                                             |
 | email       | user                     | yes                    | SMTP server user to send emails from .                                                                                                                                                                                                             |
 | email       | password                 | yes                    | SMTP server user password.                                                                                                                                                                                                                         |
-| development | disable_checksum	 | yes			  | Flag [True, False] to set whether integrity checks should be perform or not. Defaults to False 																		       |
+| development | disable_checksum         | yes                    | Flag [True, False] to set whether integrity checks should be perform or not. Defaults to False                                                                                                                                                     |
 
 ### Authentication options
 
