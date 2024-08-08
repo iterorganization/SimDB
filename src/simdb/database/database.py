@@ -403,18 +403,18 @@ class Database:
         rows = self._get_metadata(constraints)
 
         sim_id_sets = {}
-        for name, _, query_type in constraints:
-            sim_id_sets[(name, query_type)] = set()
+        for name, value, query_type in constraints:
+            sim_id_sets[(name, value, query_type)] = set()
 
         for row in rows:
             for name, value, query_type in constraints:
                 if name in ("alias", "uuid"):
-                    sim_id_sets[(name, query_type)].add(row.simulation.id)
+                    sim_id_sets[(name, value, query_type)].add(row.simulation.id)
                 if row.metadata.element == name:
                     if query_type == QueryType.EXIST:
-                        sim_id_sets[(name, query_type)].add(row.simulation.id)
+                        sim_id_sets[(name, value, query_type)].add(row.simulation.id)
                     elif query_compare(query_type, name, row.metadata.value, value):
-                        sim_id_sets[(name, query_type)].add(row.simulation.id)
+                        sim_id_sets[(name, value, query_type)].add(row.simulation.id)
 
         if sim_id_sets:
             return set.intersection(*sim_id_sets.values())
