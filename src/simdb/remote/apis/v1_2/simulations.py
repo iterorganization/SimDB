@@ -50,6 +50,7 @@ Note: please don't reply to this email, replies to this address are not monitore
 
 def _validate(simulation, user) -> Dict:
     from ....validation import ValidationError, Validator
+    from ....validation.file import find_file_validator
 
     schemas = Validator.validation_schemas(current_app.simdb_config, simulation)
     try:
@@ -58,15 +59,33 @@ def _validate(simulation, user) -> Dict:
             _update_simulation_status(
                 simulation, models_sim.Simulation.Status.PASSED, user
             )
-            return {
-                "passed": True,
-            }
     except ValidationError as err:
         _update_simulation_status(simulation, models_sim.Simulation.Status.FAILED, user)
         return {
             "passed": False,
             "error": str(err),
         }
+
+    file_validator_type = current_app.simdb_config.get_option("file_validation.type", default=None)
+    file_validator_options = current_app.simdb_config.get_section("file_validation", default={})
+    file_validator = find_file_validator(file_validator_type, file_validator_options)
+
+    if file_validator:
+        for output in simulation.outputs:
+            try:
+                file_validator.validate(output.uri)
+            except ValidationError as err:
+                _update_simulation_status(simulation, models_sim.Simulation.Status.FAILED, user)
+                return {
+                    "passed": False,
+                    "error": str(err),
+                }
+    else:
+        error("Invalid file validator specified in configuration")
+
+    return {
+        "passed": True,
+    }
 
 
 def _set_alias(alias: str):

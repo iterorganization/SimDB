@@ -548,9 +548,13 @@ class RemoteAPI:
         return res.json()
 
     @try_request
-    def get_upload_options(self) -> List[Dict]:
-        res = self.get("upload_options")
-        return res.json()
+    def get_upload_options(self) -> Dict[str, Any]:
+        try:
+            res = self.get("upload_options")
+            return res.json()
+        except FailedConnection:
+            # old remotes may not provide this endpoint
+            return {}
 
     @try_request
     def list_simulations(
@@ -733,25 +737,11 @@ class RemoteAPI:
         :param out_stream: The IO stream to write messages to the user (default: stdout)
         :param add_watcher: Add the current user as a watcher of the simulation on the remote server
         """
-        from ..validation import Validator, ValidationError
         from ..imas.utils import imas_files
-
-        schemas = self.get_validation_schemas()
-        try:
-            for schema in schemas:
-                Validator(schema).validate(simulation)
-        except ValidationError as err:
-            print("Warning: simulation does not validate.")
-            print(f"Validation error: {err}.")
-
-        options: Dict[str, bool] = {}
-        try:
-            options = self.get_upload_options()
-        except FailedConnection:
-            pass
 
         sim_data = simulation.data(recurse=True)
 
+        options = self.get_upload_options()
         if options.get("copy_files", True):
             chunk_size = 10 * 1024 * 1024  # 10 MB
 

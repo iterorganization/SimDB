@@ -8,6 +8,19 @@ from ...query import QueryType, parse_query_arg
 from .validators import validate_non_negative
 
 
+def _validate_simulation_outputs(options: dict, simulation):
+    file_validator_type = options.get("file_validator", None)
+    file_validator_options = options.get("file_validator_options", {})
+
+    if file_validator_type:
+        from ...validation.file import find_file_validator
+        file_validator = find_file_validator(file_validator_type, file_validator_options)
+        if not file_validator:
+            raise click.ClickException(f"Requested file validator {file_validator_type} not available.")
+        for output in simulation.outputs:
+            file_validator.validate(output)
+
+
 @click.group()
 def simulation():
     """Manage ingested simulations."""
@@ -210,15 +223,29 @@ def simulation_push(
     """Push the simulation with the given SIM_ID (UUID or alias) to the REMOTE."""
     from ...database import get_local_db
     from ..remote_api import RemoteAPI
+    from ...validation import Validator, ValidationError
     import sys
 
     api = RemoteAPI(remote, username, password, config)
     db = get_local_db(config)
+
     simulation = db.get_simulation(sim_id)
     if simulation is None:
         raise click.ClickException(f"Failed to find simulation: {sim_id}")
+
     if replaces:
         simulation.set_meta("replaces", replaces)
+
+    schemas = api.get_validation_schemas()
+    try:
+        for schema in schemas:
+            Validator(schema).validate(simulation)
+    except ValidationError as err:
+        raise click.ClickException(f"Simulation does not validate: {err}")
+
+    options = api.get_upload_options()
+    _validate_simulation_outputs(options, simulation)
+
     api.push_simulation(simulation, out_stream=sys.stdout, add_watcher=add_watcher)
 
     click.echo(f"Successfully pushed simulation {simulation.uuid}")
@@ -362,7 +389,7 @@ def simulation_validate(
     schemas = api.get_validation_schemas()
     click.echo("done")
 
-    click.echo("validating ... ", nl=False)
+    click.echo("validating metadata ... ", nl=False)
     for schema in schemas:
         Validator(schema).validate(simulation)
 
@@ -371,5 +398,8 @@ def simulation_validate(
 
         if checksum != file.checksum:
             raise ValidationError("Checksum doest not match for file " + str(file))
+
+    options = api.get_upload_options()
+    _validate_simulation_outputs(options, simulation)
 
     click.echo("success")

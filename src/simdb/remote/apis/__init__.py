@@ -9,6 +9,7 @@ from ... import __version__
 from ..core.typing import current_app
 from ..core.auth import User, requires_auth, AuthenticationError
 from ...database import Database
+from ...validation.file import find_file_validator
 from .v1 import api as api_v1, namespaces as namespaces_v1
 from .v1_1 import api as api_v1_1, namespaces as namespaces_v1_1
 from .v1_2 import api as api_v1_2, namespaces as namespaces_v1_2
@@ -129,6 +130,15 @@ def register(api, version, namespaces):
                 copy_files=config.get_option("server.copy_files", default=True),
                 copy_ids=config.get_option("server.copy_ids", default=True),
             )
+
+            file_validator_type = current_app.simdb_config.get_option("file_validation.type", default=None)
+            file_validator_options = current_app.simdb_config.get_section("file_validation", default={})
+            file_validator = find_file_validator(file_validator_type, file_validator_options)
+
+            if file_validator:
+                options["file_validator"] = file_validator_type
+                options["file_validator_options"] = file_validator.options()
+
             return jsonify(options)
 
 
