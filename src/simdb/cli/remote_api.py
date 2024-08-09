@@ -245,6 +245,7 @@ class RemoteAPI:
         if self._firewall == "F5":
             import requests
 
+            headers = {"User-Agent": "it_script_basic"}
             cookies_file = f"{remote}-cookies.pkl"
             cookies_path = Path(appdirs.user_config_dir("simdb")) / cookies_file
             parsed_url = urlparse(self._url)
@@ -254,7 +255,7 @@ class RemoteAPI:
             if os.path.exists(cookies_path):
                 with open(cookies_path, "rb") as f:
                     cookies = pickle.load(f)
-                r = requests.get(f"{self._url}/", cookies=cookies)
+                r = requests.get(f"{self._url}/", headers=headers, cookies=cookies)
                 try:
                     # check to see if the cookies are still valid by trying a simple request
                     r.json()
