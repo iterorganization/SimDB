@@ -122,7 +122,7 @@ def check_return(res: "requests.Response") -> None:
     if res.status_code != 200:
         try:
             data = res.json()
-        except json.JSONDecodeError:
+        except ValueError:
             data = {}
         if "error" in data:
             raise RemoteError(data["error"])
@@ -342,7 +342,7 @@ class RemoteAPI:
         headers = headers if headers is not None else {}
         headers["Accept-encoding"] = "gzip"
         headers['User-Agent'] = 'it_script_basic'
-        
+
         if authenticate and self._server_auth != "None":
             res = requests.get(
                 self._api_url + url,
@@ -377,7 +377,7 @@ class RemoteAPI:
 
         headers = {"Content-type": "application/json"}
         headers['User-Agent'] = 'it_script_basic'
-        
+
         if self._server_auth != "None":
             res = requests.put(
                 self._api_url + url,
@@ -418,7 +418,7 @@ class RemoteAPI:
             headers = {"Content-type": "application/json"}
         post_data = json.dumps(data, cls=CustomEncoder, indent=2) if data else {}
         headers['User-Agent'] = 'it_script_basic'
-        
+
         if self._server_auth != "None":
             res = requests.post(
                 self._api_url + url,
@@ -453,7 +453,7 @@ class RemoteAPI:
 
         headers = {"Content-type": "application/json"}
         headers['User-Agent'] = 'it_script_basic'
-        
+
         if self._server_auth != "None":
             res = requests.patch(
                 self._api_url + url,
@@ -488,7 +488,7 @@ class RemoteAPI:
 
         headers = {"Content-type": "application/json"}
         headers['User-Agent'] = 'it_script_basic'
-        
+
         if self._server_auth != "None":
             res = requests.delete(
                 self._api_url + url,

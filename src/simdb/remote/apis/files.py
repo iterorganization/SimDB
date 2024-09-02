@@ -114,11 +114,11 @@ def _check_file_is_in_simulation(
 
 def _process_simulation_data(data: dict) -> Response:
     simulation = models.Simulation.from_data(data["simulation"])
-    sim_file_paths = [
+    sim_file_paths = set(
         f.uri.path
         for f in itertools.chain(simulation.inputs, simulation.outputs)
         if f.type == DataObject.Type.FILE
-    ]
+    )
     common_root = (
         Path(os.path.commonpath(sim_file_paths)) if len(sim_file_paths) > 1 else None
     )
@@ -147,8 +147,8 @@ def _handle_file_upload() -> Response:
     if not files:
         return error("No files given")
 
-    all_sim_files = list(itertools.chain(simulation.inputs, simulation.outputs))
-    paths = [f.uri.path for f in all_sim_files if f.type == DataObject.Type.FILE]
+    all_sim_files = itertools.chain(simulation.inputs, simulation.outputs)
+    paths = set(f.uri.path for f in all_sim_files if f.type == DataObject.Type.FILE)
     common_root = Path(os.path.commonpath(paths)) if len(paths) > 1 else None
 
     sim_files = simulation.inputs if file_type == "input" else simulation.outputs

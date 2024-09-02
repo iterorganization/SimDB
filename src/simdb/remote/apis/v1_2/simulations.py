@@ -41,7 +41,7 @@ Simulation status changed from {old_status} to {status}.
 
 Updated by {user}.
 
-Note: please don't reply to this email, replies to this address are not monitored. 
+Note: please don't reply to this email, replies to this address are not monitored.
 """
         to_addresses = [w.email for w in simulation.watchers]
         if to_addresses:
@@ -234,11 +234,11 @@ class SimulationList(Resource):
                 simulation.alias = simulation.uuid.hex[0:8]
 
             files = list(itertools.chain(simulation.inputs, simulation.outputs))
-            sim_file_paths = [
+            sim_file_paths = set(
                 f.uri.path
                 for f in itertools.chain(simulation.inputs, simulation.outputs)
                 if f.type == DataObject.Type.FILE
-            ]
+            )
             common_root = (
                 Path(os.path.commonpath(sim_file_paths))
                 if len(sim_file_paths) > 1
@@ -362,7 +362,7 @@ class Simulation(Resource):
     parser.add_argument(
         'status', type=str, location="json", help = "status", required=True
     )
-    @api.expect(parser)    
+    @api.expect(parser)
     @requires_auth("admin")
     def patch(self, sim_id: str, user: User = Optional[None]):
         try:
@@ -418,10 +418,10 @@ class SimulationMeta(Resource):
 
     parser = api.parser()
     parser.add_argument(
-        'key', type=str, location="json", help = "status", required=True       
+        'key', type=str, location="json", help = "status", required=True
     )
     parser.add_argument(
-        'value', type=str, location="json", help = "status", required=True       
+        'value', type=str, location="json", help = "status", required=True
     )
     @api.expect(parser)
     @requires_auth("admin")
@@ -442,7 +442,7 @@ class SimulationMeta(Resource):
                 raise ValueError(f"Simulation {sim_id} not found.")
             old_values = [meta.data() for meta in simulation.find_meta(key)]
             if key.lower() != 'status':
-                simulation.set_meta(key, value)                
+                simulation.set_meta(key, value)
             else:
                 status = models_sim.Simulation.Status(value)
                 _update_simulation_status(simulation, status, user)
@@ -454,7 +454,7 @@ class SimulationMeta(Resource):
 
     parser_delete = api.parser()
     parser_delete.add_argument(
-        'key', type=str, location="json", help = "metadata key", required=True        
+        'key', type=str, location="json", help = "metadata key", required=True
     )
     @api.expect(parser_delete)
     @requires_auth("admin")
