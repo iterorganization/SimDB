@@ -17,12 +17,10 @@ workflow:
     name:
       required: true
       type: string
-      empty: False
 
 description:
   required: true
   type: string
-  empty: False
 
 equilibrium:
 #  required: true
@@ -213,8 +211,8 @@ summary:
           type: dict
           schema:
             value:
-              type: numpy
-              coerce: numpy
+              type: float
+#              coerce: numpy
               gt: 0
         beta_pol:
           type: dict
@@ -247,7 +245,7 @@ summary:
             value:
               type: numpy
               coerce: numpy
-              ge: 0
+#              ge: 0
         energy_thermal:
           type: dict
           schema:
