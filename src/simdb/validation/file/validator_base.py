@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from ...uri import URI
-from ids_validator.validate_options import ValidateOptions
 
 class FileValidatorBase(ABC):
     """
@@ -23,7 +22,7 @@ class FileValidatorBase(ABC):
         """
 
     @abstractmethod
-    def validate_uri(self, uri: URI, validate_options: ValidateOptions):
+    def validate_uri(self, uri: URI, validate_options):
         """
         Validate the given simulation output file.
         """

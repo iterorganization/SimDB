@@ -130,11 +130,10 @@ def register(api, version, namespaces):
                 copy_files=config.get_option("server.copy_files", default=True),
                 copy_ids=config.get_option("server.copy_ids", default=True),
             )
-            from ids_validator.validate_options import ValidateOptions
 
             file_validator_type = current_app.simdb_config.get_option("file_validation.type", default=None)
             file_validator_options = current_app.simdb_config.get_section("file_validation", default={})
-            validator_type, validator_oprions = find_file_validator(file_validator_type, file_validator_options)
+            validator_type, validator_options = find_file_validator(file_validator_type, file_validator_options)
 
             # if validator_type:
             #     options["file_validator"] = validator_type

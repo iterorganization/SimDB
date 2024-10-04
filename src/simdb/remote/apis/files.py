@@ -147,8 +147,17 @@ def _handle_file_upload() -> Response:
     if not files:
         return error("No files given")
 
-    all_sim_files = itertools.chain(simulation.inputs, simulation.outputs)
-    paths = set(f.uri.path for f in all_sim_files if f.type == DataObject.Type.FILE)
+    all_sim_files = list(itertools.chain(simulation.inputs, simulation.outputs))
+    file_paths = set(f.uri.path for f in all_sim_files if f.type == DataObject.Type.FILE)
+
+    # The IMAS 'file' that is being upload will appear as file:<path> but the other IMAS objects will
+    # still appear as imas:<backend>?path=<path>
+    # This requires this somewhat dirty hack, and needs to be looked at in the future.
+    imas_paths_1 = [f.uri.path for f in all_sim_files if f.type == DataObject.Type.IMAS and 'path' not in f.uri.query]
+    imas_paths_2 = [f.uri.query['path'] for f in all_sim_files if f.type == DataObject.Type.IMAS and 'path' in f.uri.query]
+    imas_paths = imas_paths_1 + imas_paths_2
+
+    paths = file_paths.union(imas_paths)
     common_root = Path(os.path.commonpath(paths)) if len(paths) > 1 else None
 
     sim_files = simulation.inputs if file_type == "input" else simulation.outputs
