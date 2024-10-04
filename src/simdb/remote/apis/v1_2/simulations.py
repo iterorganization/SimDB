@@ -51,6 +51,7 @@ Note: please don't reply to this email, replies to this address are not monitore
 def _validate(simulation, user) -> Dict:
     from ....validation import ValidationError, Validator
     from ....validation.file import find_file_validator
+    from ids_validator.validate_options import ValidateOptions
 
     schemas = Validator.validation_schemas(current_app.simdb_config, simulation)
     try:
@@ -65,15 +66,13 @@ def _validate(simulation, user) -> Dict:
             "passed": False,
             "error": str(err),
         }
-
     file_validator_type = current_app.simdb_config.get_option("file_validation.type", default=None)
     file_validator_options = current_app.simdb_config.get_section("file_validation", default={})
-    file_validator = find_file_validator(file_validator_type, file_validator_options)
-
-    if file_validator:
+    validator_type, validator_options  = find_file_validator(file_validator_type, file_validator_options)
+    if validator_type:
         for output in simulation.outputs:
             try:
-                file_validator.validate(output.uri)
+                validator_type.validate_uri(output.uri, validator_options)
             except ValidationError as err:
                 _update_simulation_status(simulation, models_sim.Simulation.Status.FAILED, user)
                 return {

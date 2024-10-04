@@ -8,17 +8,17 @@ from ...query import QueryType, parse_query_arg
 from .validators import validate_non_negative
 
 
-def _validate_simulation_outputs(options: dict, simulation):
-    file_validator_type = options.get("file_validator", None)
-    file_validator_options = options.get("file_validator_options", {})
+# def _validate_simulation_outputs(options: dict, simulation):
+#     file_validator_type = options.get("file_validator", None)
+#     file_validator_options = options.get("file_validator_options", {})
 
-    if file_validator_type:
-        from ...validation.file import find_file_validator
-        file_validator = find_file_validator(file_validator_type, file_validator_options)
-        if not file_validator:
-            raise click.ClickException(f"Requested file validator {file_validator_type} not available.")
-        for output in simulation.outputs:
-            file_validator.validate(output)
+#     if file_validator_type:
+#         from ...validation.file import find_file_validator
+#         file_validator = find_file_validator(file_validator_type, file_validator_options)
+#         if not file_validator:
+#             raise click.ClickException(f"Requested file validator {file_validator_type} not available.")
+        # for output in simulation.outputs:
+        #     file_validator.validate(output)
 
 
 @click.group()
@@ -243,8 +243,8 @@ def simulation_push(
     except ValidationError as err:
         raise click.ClickException(f"Simulation does not validate: {err}")
 
-    options = api.get_upload_options()
-    _validate_simulation_outputs(options, simulation)
+    # options = api.get_upload_options()
+    # _validate_simulation_outputs(options, simulation)
 
     api.push_simulation(simulation, out_stream=sys.stdout, add_watcher=add_watcher)
 
@@ -399,7 +399,7 @@ def simulation_validate(
         if checksum != file.checksum:
             raise ValidationError("Checksum doest not match for file " + str(file))
 
-    options = api.get_upload_options()
-    _validate_simulation_outputs(options, simulation)
+    # options = api.get_upload_options()
+    # _validate_simulation_outputs(options, simulation)
 
     click.echo("success")
