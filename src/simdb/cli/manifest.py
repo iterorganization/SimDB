@@ -389,7 +389,7 @@ class Manifest:
     def inputs(self) -> Iterable[Source]:
         sources = []
         base_path = self._path.absolute().parent
-        if isinstance(self._data, dict) and self._data["inputs"]:
+        if isinstance(self._data, dict) and "inputs" in self._data and self._data["inputs"]:
             for i in self._data["inputs"]:
                 source = Source(base_path, i["uri"])
                 if source.type == DataObject.Type.FILE:
@@ -565,7 +565,7 @@ class Manifest:
             if section not in section_validators.keys():
                 raise InvalidManifest(f"Unknown manifest section found {section}.")
 
-        required_sections = ("inputs", "outputs", "metadata")
+        required_sections = ("outputs", "metadata")
         for section in required_sections:
             if section not in self._data.keys():
                 raise InvalidManifest(f"Required manifest section not found {section}.")
