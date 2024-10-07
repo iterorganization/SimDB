@@ -5,12 +5,6 @@ from pathlib import Path
 
 class IdsValidator(FileValidatorBase):
 
-# # Paths where ids_validator looks for rule sets, comma separated values
-# extra_rule_dirs
-
-# # Dictionary of filter criteria comma separated list of key=value elements
-# rule_filter =
-
     def configure(self, arguments: dict):
 
         from ids_validator.validate_options import ValidateOptions
@@ -30,14 +24,14 @@ class IdsValidator(FileValidatorBase):
             rule_files = arguments.get("rulesets")
             if isinstance(rule_files, str):
                 # rulesets will be a comma separated string of file names when read from server config
-                list_of_rulesets = rule_files.split(",")
-
+                list_of_rulesets = rule_files.strip('"').split(",")
+        
         if "extra_rule_dirs" in arguments:
             extra_rule_paths = arguments.get("extra_rule_dirs")
             if isinstance(extra_rule_paths, str):
                 list_of_extra_rulesets = [
                     Path(ruleset_path)
-                    for ruleset_path in extra_rule_paths.split(",")
+                    for ruleset_path in extra_rule_paths.strip('"').split(",")
                 ]
 
         ### Define logic for rule_filter
@@ -45,14 +39,14 @@ class IdsValidator(FileValidatorBase):
             isinstance(arguments.get("rule_filter_name"), str)):
 
             list_of_filter_names = [
-                filter_name for filter_name in arguments.get("rule_filter_name").split(",")
+                filter_name for filter_name in arguments.get("rule_filter_name").strip('"').split(",")
             ]
 
         if ("rule_filter_ids" in arguments and
             isinstance(arguments.get("rule_filter_ids"), str)):
 
             list_of_filter_idses = [
-                filter_ids for filter_ids in arguments.get("rule_filter_ids").split(",")
+                filter_ids for filter_ids in arguments.get("rule_filter_ids").strip('"').split(",")    
             ]
 
         # Check if option apply_generic is used and wether it a bool
@@ -74,7 +68,6 @@ class IdsValidator(FileValidatorBase):
             rule_filter = RuleFilter(name=list_of_filter_names, ids=list_of_filter_idses),
         )
 
-        print(f"{options =}")
         return options
 
     def options(self) -> dict:
@@ -89,15 +82,15 @@ class IdsValidator(FileValidatorBase):
         from ids_validator.report.validationResultGenerator import ValidationResultGenerator
 
         backend = uri.query.get("backend")
-        path = uri.query.get("path").replace("/testdb_summary","")
+        path = uri.query.get("path")
         validate_uri = f"imas:{backend}?path={path}"
 
         validate_output = validate(imas_uri=URI(validate_uri), validate_options=validate_options)
 
         validate_result = all([result.success for result in validate_output.results])
 
-        report_generator = ValidationResultGenerator(validate_output.results)
-        print(report_generator.txt)
+        # report_generator = ValidationResultGenerator(validate_output.results)
+        # print(report_generator.txt)
 
         if validate_result == False:
             raise ValidationError(f"Validation of following URI: [{validate_uri}], failed")

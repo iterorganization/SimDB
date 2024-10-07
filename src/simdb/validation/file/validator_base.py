@@ -11,7 +11,7 @@ class FileValidatorBase(ABC):
         """
         Configure the validator with the given arguments.
 
-        Needs to be able to configure the validator from both the options found in the [file_validation] section of the
+        Needs to be able to configure the validator from both the options found in the [ids_validation] section of the
         server configuration file, and from the dictionary returned from the options() method.
         """
 

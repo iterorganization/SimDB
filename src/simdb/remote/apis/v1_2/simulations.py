@@ -66,8 +66,8 @@ def _validate(simulation, user) -> Dict:
             "passed": False,
             "error": str(err),
         }
-    file_validator_type = current_app.simdb_config.get_option("file_validation.type", default=None)
-    file_validator_options = current_app.simdb_config.get_section("file_validation", default={})
+    file_validator_type = current_app.simdb_config.get_option("ids_validation.type", default=None)
+    file_validator_options = current_app.simdb_config.get_section("ids_validation", default={})
     validator_type, validator_options  = find_file_validator(file_validator_type, file_validator_options)
     if validator_type:
         for output in simulation.outputs:
