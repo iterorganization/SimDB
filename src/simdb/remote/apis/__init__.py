@@ -131,14 +131,6 @@ def register(api, version, namespaces):
                 copy_ids=config.get_option("server.copy_ids", default=True),
             )
 
-            file_validator_type = current_app.simdb_config.get_option("ids_validation.type", default=None)
-            file_validator_options = current_app.simdb_config.get_section("ids_validation", default={})
-            validator_type, validator_options = find_file_validator(file_validator_type, file_validator_options)
-
-            # if validator_type:
-            #     options["file_validator"] = validator_type
-            #     options["file_validator_options"] = validator_options
-
             return jsonify(options)
 
 

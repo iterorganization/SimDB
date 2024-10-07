@@ -38,16 +38,13 @@ class IdsValidator(FileValidatorBase):
         if ("rule_filter_name" in arguments and
             isinstance(arguments.get("rule_filter_name"), str)):
 
-            list_of_filter_names = [
-                filter_name for filter_name in arguments.get("rule_filter_name").strip('"').split(",")
-            ]
+            list_of_filter_names = arguments.get("rule_filter_name").strip('"').split(",")
+            
 
         if ("rule_filter_ids" in arguments and
             isinstance(arguments.get("rule_filter_ids"), str)):
 
-            list_of_filter_idses = [
-                filter_ids for filter_ids in arguments.get("rule_filter_ids").strip('"').split(",")    
-            ]
+            list_of_filter_idses = arguments.get("rule_filter_ids").strip('"').split(",")    
 
         # Check if option apply_generic is used and wether it a bool
         if ("apply_generic" in arguments and
