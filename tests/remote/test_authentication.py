@@ -51,6 +51,7 @@ def test_check_auth(get_option):
         "authentication.type": "ActiveDirectory",
         "authentication.ad_server": "test.server",
         "authentication.ad_domain": "test.domain",
+        "authentication.ad_cert": "test.cert",
     }[a]   
     class request:
         class authorization:
@@ -76,6 +77,7 @@ def test_check_auth(get_option):
         {
             "AD_SERVER": "test.server",
             "AD_DOMAIN": "test.domain",
+            "AD_CA_CERT_FILE": "test.cert",
         }
     )
     easy_ad().authenticate_user.assert_called_once_with(
