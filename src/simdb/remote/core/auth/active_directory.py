@@ -13,6 +13,7 @@ class ActiveDirectoryAuthenticator(Authenticator):
     This requires the following extra parameters in the server configuration:
     ad_server   -   the server URI
     ad_domain   -   the AD domain
+    ad_cert     -   path to the root ca certificate
     """
 
     Name = "ActiveDirectory"
