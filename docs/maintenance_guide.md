@@ -87,7 +87,7 @@ Options for the server configuration are:
 | email           | password                 | yes                    | SMTP server user password.                                                                                                                                                                                                                 |
 | development     | disable_checksum	       | yes			              | Flag [True, False] to set whether integrity checks should be perform or not. Defaults to False 																		                                                                                                         |
 
-### IDS Validator options
+### File validation options
 
 | Section          | Option                   | Required                 | Description                                                                                                                                                                                                                                |
 |------------------|--------------------------|--------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
