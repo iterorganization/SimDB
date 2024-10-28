@@ -78,7 +78,7 @@ def check_auth(
         return User("admin", None)
 
     authentication_types = config.get_option("authentication.type").split(",")
-    authentication_types = ['token'] + authentication_types
+    #authentication_types = ['token'] + authentication_types
     for authentication_type in authentication_types:
         authenticator = Authenticator.get(authentication_type)
         user = authenticator.authenticate(config, request)
