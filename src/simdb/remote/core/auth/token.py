@@ -23,7 +23,7 @@ class TokenAuthenticator(Authenticator):
         try:
             token = request.headers.get(TokenAuthenticator.TOKEN_HEADER_NAME, "")
 
-            (name, token) = token
+            (name, token) = token.split()
 
             if name != "JWT-Token":
                 raise AuthenticationError("Invalid token")
