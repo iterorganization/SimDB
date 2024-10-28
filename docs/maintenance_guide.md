@@ -78,27 +78,26 @@ Options for the server configuration are:
 | flask           | debug                    | no                     | Flag [True, Flase] to specify whether Flask server is run with debug mode enabled - defaults to True if flask_env='development', otherwise False.                                                                                          |
 | flask           | testing                  | no                     | Flag [True, False] to specify whether exceptions are propagated rather than being handled by Flask's error handlers - defaults to False.                                                                                                   |
 | flask           | secret_key               | yes                    | Secret key used to encrypt server messages including authentication tokens - should be at least 20 characters long.                                                                                                                        |
-| flask           | swagger_ui_doc_expansion | no                     | Default state of the Swagger UI documentations [none, list, full].                                                                                                                                                                         | 
-| validation      | auto_validate            | no                     | Flag [True, False] to set whether the server should run validation on uploaded simulation automatically. Defaults to False.                                                                                                                |
+| flask           | swagger_ui_doc_expansion | no                     | Default state of the Swagger UI documentations [none, list, full].                                                                                                                                                                         |
+| validation      | auto_validate            | no                     | Flag [True, False] to set whether the server should run validation on uploaded simulations (including running any selected file_validation) automatically. Defaults to False.                                                              |
 | validation      | error_on_fail            | no                     | Flag [True, False] to set whether simulations that fail validation should be rejected - auto_validate must be set to True if this flag is set to True. Defaults to False                                                                   |
 | email           | server                   | yes                    | SMTP server used to send emails from the SimDB server.                                                                                                                                                                                     |
 | email           | port                     | yes                    | SMTP server port port.                                                                                                                                                                                                                     |
 | email           | user                     | yes                    | SMTP server user to send emails from .                                                                                                                                                                                                     |
 | email           | password                 | yes                    | SMTP server user password.                                                                                                                                                                                                                 |
-| development     | disable_checksum	        | yes			                 | Flag [True, False] to set whether integrity checks should be perform or not. Defaults to False 																		                                                                                                                          |
+| development     | disable_checksum	       | yes			              | Flag [True, False] to set whether integrity checks should be perform or not. Defaults to False 																		                                                                                                         |
 
 ### IDS Validator options
 
-| Section         | Option                   | Required               | Description                                                                                                                                                                                                                                |
-|-----------------|--------------------------|------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| ids_validation  | type                     | no                     | Name of IDS Validator to use to validate simulations i.e "ids_validator", "test_validator" etc. At the moment only "ids_validator" is available.                                                                                                                                                                          |
-| ids_validation  | rulesets                 | no                     | Name of rulesets used for IDS validation i.e. "ruleset_1,ruleset_2,etc."                                                                                                                                                                            |
-| ids_validation  | extra_rule_dir           | no                     | Paths to additional rulesets used by ids_validator i.e. "./path/to/ruleset_dir_1,/path_to_ruleset_dir_2,etc."                                                                                                                                                                        |
-| ids_validation  | bundled_ruleset          | no                     | Flag [True, False] to load the rulesets bundled with ids_validator. Defaults to True                                                                                                                                                                                  |
-| ids_validation  | apply_generic            | no                     | Flag [True, False] to apply generic rulesets. Defaults to True                                                                                                                                                                                  |
-| ids_validation  | rule_filter_name         | no                     | Only rulesets containing specified names will be applied, i.e. "summary_test_1,core_profiles_test_1,etc."                                                                                                                                                                               |
-| ids_validation  | rule_filter_ids          | no                     | Only rulesets concerning specified IDS will be applied, i.e. "summary,equilibrium,etc."    
-
+| Section          | Option                   | Required                 | Description                                                                                                                                                                                                                                |
+|------------------|--------------------------|--------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| file_validation  | type                     | no                       | Name of file Validator to use to validate simulation data i.e "ids_validator", "test_validator" etc. At the moment only "ids_validator" is available.                                                                                      |
+| file_validation  | rulesets                 | yes (ids_validator only) | Name of rulesets used for IDS validation i.e. "ruleset_1,ruleset_2,etc."                                                                                                                                                                   |
+| file_validation  | extra_rule_dir           | yes (ids_validator only) | Paths to additional rulesets used by ids_validator i.e. "./path/to/ruleset_dir_1,/path_to_ruleset_dir_2,etc."                                                                                                                              |
+| file_validation  | bundled_ruleset          | yes (ids_validator only) | Flag [True, False] to load the rulesets bundled with ids_validator. Defaults to True                                                                                                                                                       |
+| file_validation  | apply_generic            | yes (ids_validator only) | Flag [True, False] to apply generic rulesets. Defaults to True                                                                                                                                                                             |
+| file_validation  | rule_filter_name         | yes (ids_validator only) | Only rulesets containing specified names will be applied, i.e. "summary_test_1,core_profiles_test_1,etc."                                                                                                                                  |
+| file_validation  | rule_filter_ids          | yes (ids_validator only) | Only rulesets concerning specified IDS will be applied, i.e. "summary,equilibrium,etc."                                                                                                                                                    |
 
 ### Authentication options
 
@@ -216,7 +215,7 @@ Now create a validation schema in the application configuration directory, which
 ```
 dirname "$(simdb config path)"
 ```
-In this directory, you should create a file ‘validation-schema.yaml’ specifying the validation schema. 
+In this directory, you should create a file ‘validation-schema.yaml’ specifying the validation schema.
 Example of validation-schema.yaml:
 
 ```
@@ -228,7 +227,7 @@ description:
 Once the server configuration has been created you should be able to run
 
 ```
-simdb_server 
+simdb_server
 ```
 And see some console output such as:
 
@@ -356,7 +355,7 @@ server {
 
     # Use only TLS
     ssl_protocols TLSv1.1 TLSv1.2;
-    
+
     # Tell client which ciphers are available
     ssl_prefer_server_ciphers on;
     ssl_ciphers ECDH+AESGCM:ECDH+AES256:ECDH+AES128:DH+3DES:!ADH:!AECDH:!MD5;
@@ -376,10 +375,10 @@ server {
     if ($host = localhost) { # or the address of the server you are running
         return 301 https://$host$request_uri;
     }
-    
+
     server_name localhost; # or the address of the server you are running
     listen 80;
-    
+
     return 404;
 }
 ```
@@ -414,7 +413,7 @@ And run the following:
 CREATE DATABASE simdb;
 CREATE ROLE simdb;
 ALTER DATABASE simdb OWNER TO simdb;
-ALTER ROLE "simdb" WITH LOGIN; 
+ALTER ROLE "simdb" WITH LOGIN;
 ```
 
 This is assuming your webserver is running as user `simdb`. If not, you should change the role name above to match whichever user you are running the server under.

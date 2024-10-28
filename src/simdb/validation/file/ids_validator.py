@@ -25,7 +25,7 @@ class IdsValidator(FileValidatorBase):
             if isinstance(rule_files, str):
                 # rulesets will be a comma separated string of file names when read from server config
                 list_of_rulesets = rule_files.strip('"').split(",")
-        
+
         if "extra_rule_dirs" in arguments:
             extra_rule_paths = arguments.get("extra_rule_dirs")
             if isinstance(extra_rule_paths, str):
@@ -39,12 +39,12 @@ class IdsValidator(FileValidatorBase):
             isinstance(arguments.get("rule_filter_name"), str)):
 
             list_of_filter_names = arguments.get("rule_filter_name").strip('"').split(",")
-            
+
 
         if ("rule_filter_ids" in arguments and
             isinstance(arguments.get("rule_filter_ids"), str)):
 
-            list_of_filter_idses = arguments.get("rule_filter_ids").strip('"').split(",")    
+            list_of_filter_idses = arguments.get("rule_filter_ids").strip('"').split(",")
 
         # Check if option apply_generic is used and wether it a bool
         if ("apply_generic" in arguments and
@@ -74,6 +74,10 @@ class IdsValidator(FileValidatorBase):
         }
 
     def validate_uri(self, uri: URI, validate_options):
+        if uri.scheme != "imas":
+            # Skip non IMAS data
+            return
+
         from ..validator import ValidationError
         from ids_validator.validate.validate import validate
         from ids_validator.report.validationResultGenerator import ValidationResultGenerator
