@@ -110,10 +110,11 @@ Options for the server configuration are:
 
 ### Activate Directory authentication options
 
-| Section        | Option    | Required | Description                                           |
-|----------------|-----------|----------|-------------------------------------------------------|
-| authentication | ad_server | yes      | Active directory server used for user authentication. |
-| authentication | ad_domain | yes      | Active directory domain used for user authentication. |
+| Section        | Option    | Required | Description                                                   |
+|----------------|-----------|----------|---------------------------------------------------------------|
+| authentication | ad_server | yes      | Active directory server used for user authentication.         |
+| authentication | ad_domain | yes      | Active directory domain used for user authentication.         |
+| authentication | ad_cert   | yes      | Path to the root ca certificate used for user authentication. |
 
 ### LDAP authentication options
 
