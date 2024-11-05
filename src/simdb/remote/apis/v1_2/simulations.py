@@ -320,7 +320,8 @@ class SimulationList(Resource):
                 elif simulation.status == models_sim.Simulation.Status.FAILED:
                     result[
                         "error"
-                    ] = "Simulation validation failed and server has error_on_fail=True."
+                    ] = f"""Simulation validation failed and server has error_on_fail=True.\n
+                    Validation result: {result['validation']}"""
                     response = jsonify(result)
                     response.status_code = 400
                     return response
