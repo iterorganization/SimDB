@@ -13,6 +13,7 @@ class ActiveDirectoryAuthenticator(Authenticator):
     This requires the following extra parameters in the server configuration:
     ad_server   -   the server URI
     ad_domain   -   the AD domain
+    ad_cert     -   path to the root ca certificate
     """
 
     Name = "ActiveDirectory"
@@ -26,6 +27,7 @@ class ActiveDirectoryAuthenticator(Authenticator):
             ad_config = {
                 "AD_SERVER": config.get_option("authentication.ad_server"),
                 "AD_DOMAIN": config.get_option("authentication.ad_domain"),
+                "AD_CA_CERT_FILE": config.get_option("authentication.ad_cert"),
             }
             ad = EasyAD(ad_config)
         except (KeyError, ImportError):
