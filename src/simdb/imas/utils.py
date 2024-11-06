@@ -176,7 +176,7 @@ def open_imas(uri: URI) -> DBEntry:
     if path is None:
         path = get_path_for_legacy_uri(uri)
         backend = uri.query.get("backend", default="mdsplus")
-        uri = f"imas:{backend}&path={path}"
+        uri = f"imas:{backend}?path={path}"
 
     entry = imas.DBEntry(str(uri), "r")
 
