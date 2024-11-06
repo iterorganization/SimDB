@@ -133,6 +133,14 @@ def register(api, version, namespaces):
 
             return jsonify(options)
 
+            # file_validator_type = current_app.simdb_config.get_option("file_validation.type", default=None)
+            # file_validator_options = current_app.simdb_config.get_section("file_validation", default={})
+            # validator_type, validator_options = find_file_validator(file_validator_type, file_validator_options)
+
+            # if validator_type:
+            #     options["file_validator"] = validator_type
+            #     options["file_validator_options"] = validator_oprions
+            #     options["file_validator_options"] = validator_options
 
 register(api_v1, "v1", namespaces_v1)
 register(api_v1_1, "v1.1", namespaces_v1_1)

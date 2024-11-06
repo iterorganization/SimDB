@@ -80,7 +80,8 @@ class IdsValidator(FileValidatorBase):
 
         from ..validator import ValidationError
         from ids_validator.validate.validate import validate
-        from ids_validator.report.validationResultGenerator import ValidationResultGenerator
+        from ids_validator.report.validationReportGenerator import ValidationReportGenerator
+
 
         backend = uri.query.get("backend")
         path = uri.query.get("path")
@@ -90,8 +91,7 @@ class IdsValidator(FileValidatorBase):
 
         validate_result = all([result.success for result in validate_output.results])
 
-        # report_generator = ValidationResultGenerator(validate_output.results)
-        # print(report_generator.txt)
+        report_generator = ValidationReportGenerator(validate_output)
 
         if validate_result == False:
-            raise ValidationError(f"Validation of following URI: [{validate_uri}], failed")
+            raise ValidationError(f"Validation of following URI: [{validate_uri}], failed with following report: \n{report_generator.txt}")
