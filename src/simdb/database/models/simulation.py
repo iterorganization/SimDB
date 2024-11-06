@@ -1,11 +1,13 @@
 from enum import Enum
 import uuid
 import sys
+import itertools
 from collections.abc import Iterable
 from collections import defaultdict
 from datetime import datetime
-from typing import List, Union, Dict, Any, TYPE_CHECKING, Optional
+from typing import List, Union, Dict, Any, TYPE_CHECKING, Optional, Set
 from getpass import getuser
+from pathlib import Path
 
 if sys.version_info < (3, 11):
     from backports.datetime_fromisoformat import MonkeyPatch
@@ -250,6 +252,29 @@ class Simulation(Base):
             raise ValueError(
                 f"Duplicate metadata elements {duplicates} found for simulation {self.uuid}"
             )
+
+    def file_paths(self) -> Set[Path]:
+        def _get_path(file: File) -> Optional[Path]:
+            if file.uri.scheme == "file":
+                if file.type == DataObject.Type.FILE:
+                    return file.uri.path
+                elif file.type == DataObject.Type.IMAS:
+                    return file.uri.path.parent
+                else:
+                    raise ValueError(f'Unknown file type {file.type}')
+            elif file.uri.scheme == "imas":
+                return (
+                    Path(file.uri.query["path"]) if "path" in file.uri.query else None
+                )
+            return None
+
+        file_paths = set(
+            filter(
+                lambda el: el is not None,
+                (_get_path(f) for f in itertools.chain(self.inputs, self.outputs)),
+            )
+        )
+        return file_paths
 
     @classmethod
     def from_data(cls, data: Dict[str, Union[str, Dict, List]]) -> "Simulation":

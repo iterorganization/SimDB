@@ -25,6 +25,10 @@ class Query:
             elif key:
                 self._args[key] = None
 
+    @classmethod
+    def empty(cls):
+        return cls(None)
+
     def __str__(self):
         return "&".join(f"{k}={v}" for k, v in self._args.items())
 
@@ -96,7 +100,7 @@ class URI:
         :param path: The URI path. Takes precedence over any path found from the URI argument.
         """
         self.scheme: Optional[str] = None
-        self.query: Optional[Query] = None
+        self.query: Query = Query.empty()
         self.path: Optional[Path] = None
         self.authority: Authority = Authority.empty()
         self.fragment: Optional[str] = None

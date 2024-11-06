@@ -12,7 +12,7 @@ import magic
 
 from ..core.typing import current_app
 from ...remote.core.auth import User, requires_auth
-from ...remote.core.path import secure_path
+from ...remote.core.path import find_common_root, secure_path
 from ...remote.core.errors import error
 from ...database import DatabaseError, models
 from ...cli.manifest import DataObject
@@ -38,9 +38,9 @@ def _verify_file(
             raise ValueError("file %s does not exist" % path)
         checksum = sha1_checksum(URI(scheme="file", path=path))
         if sim_file.checksum != checksum:
-            raise ValueError("checksum failed for file %s" % repr(sim_file))
+            raise ValueError(f"checksum failed for file {sim_file!r}")
     elif sim_file.type == DataObject.Type.IMAS:
-        from ...imas.checksum import checksum as imas_checksum
+        # from ...imas.checksum import checksum as imas_checksum
 
         user_folder = current_app.simdb_config.get_option(
             "server.user_upload_folder", default=None
@@ -51,9 +51,13 @@ def _verify_file(
             uri.query["path"] = uri.query["path"].replace(
                 str(user_folder), str(server_folder)
             )
-        checksum = imas_checksum(uri)
-        if sim_file.checksum != checksum:
-            raise ValueError("checksum failed for IDS %s" % uri)
+        # TODO: IMAS checksum won't work at this point as the checksum is for all the files together
+        # - not just this file. This check needs to be moved to later, once all the files have been
+        # uploaded.
+        #
+        # checksum = imas_checksum(uri)
+        # if sim_file.checksum != checksum:
+        #     raise ValueError("checksum failed for IDS %s" % uri)
 
 
 def _save_chunked_file(
@@ -114,14 +118,8 @@ def _check_file_is_in_simulation(
 
 def _process_simulation_data(data: dict) -> Response:
     simulation = models.Simulation.from_data(data["simulation"])
-    sim_file_paths = set(
-        f.uri.path
-        for f in itertools.chain(simulation.inputs, simulation.outputs)
-        if f.type == DataObject.Type.FILE
-    )
-    common_root = (
-        Path(os.path.commonpath(sim_file_paths)) if len(sim_file_paths) > 1 else None
-    )
+    sim_file_paths = simulation.file_paths()
+    common_root = find_common_root(sim_file_paths)
     for file in data["files"]:
         sim_file = _check_file_is_in_simulation(
             simulation, uuid.UUID(file["file_uuid"]), file["file_type"]
@@ -147,18 +145,8 @@ def _handle_file_upload() -> Response:
     if not files:
         return error("No files given")
 
-    all_sim_files = list(itertools.chain(simulation.inputs, simulation.outputs))
-    file_paths = set(f.uri.path for f in all_sim_files if f.type == DataObject.Type.FILE)
-
-    # The IMAS 'file' that is being upload will appear as file:<path> but the other IMAS objects will
-    # still appear as imas:<backend>?path=<path>
-    # This requires this somewhat dirty hack, and needs to be looked at in the future.
-    imas_paths_1 = [f.uri.path for f in all_sim_files if f.type == DataObject.Type.IMAS and 'path' not in f.uri.query]
-    imas_paths_2 = [f.uri.query['path'] for f in all_sim_files if f.type == DataObject.Type.IMAS and 'path' in f.uri.query]
-    imas_paths = imas_paths_1 + imas_paths_2
-
-    paths = file_paths.union(imas_paths)
-    common_root = Path(os.path.commonpath(paths)) if len(paths) > 1 else None
+    sim_file_paths = simulation.file_paths()
+    common_root = find_common_root(sim_file_paths)
 
     sim_files = simulation.inputs if file_type == "input" else simulation.outputs
     _stage_file_from_chunks(files, chunk_info, simulation.uuid, sim_files, common_root)

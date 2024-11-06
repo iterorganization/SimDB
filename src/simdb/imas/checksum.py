@@ -3,7 +3,7 @@ import struct
 import multiprocessing as mp
 from typing import cast
 
-from .utils import open_imas, list_idss
+from .utils import open_imas, list_idss, imas_files
 from ..uri import URI
 
 
@@ -74,9 +74,13 @@ def _checksum(q: mp.Queue, uri: URI) -> str:
 def checksum(uri: URI) -> str:
     if uri.scheme != "imas":
         raise ValueError("invalid scheme for imas checksum: %s" % uri.scheme)
-    q = mp.Queue()
-    p = mp.Process(target=_checksum, args=(q, uri))
-    p.start()
-    check = q.get()
-    p.join()
-    return check
+
+    import hashlib
+    sha1 = hashlib.sha1()
+
+    for path in imas_files(uri):
+        with open(path, "rb") as file:
+            for chunk in iter(lambda: file.read(4096), b""):
+                sha1.update(chunk)
+
+    return sha1.hexdigest()

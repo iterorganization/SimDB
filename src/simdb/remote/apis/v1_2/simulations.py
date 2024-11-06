@@ -18,7 +18,7 @@ from ...core.alias import create_alias_dir
 from ...core.auth import User, requires_auth
 from ...core.cache import cache, cache_key, clear_cache
 from ...core.errors import error
-from ...core.path import secure_path
+from ...core.path import secure_path, find_common_root
 
 api = Namespace("simulations", path="/")
 
@@ -252,16 +252,8 @@ class SimulationList(Resource):
                 simulation.alias = simulation.uuid.hex[0:8]
 
             files = list(itertools.chain(simulation.inputs, simulation.outputs))
-            sim_file_paths = set(
-                f.uri.path
-                for f in itertools.chain(simulation.inputs, simulation.outputs)
-                if f.type == DataObject.Type.FILE
-            )
-            common_root = (
-                Path(os.path.commonpath(sim_file_paths))
-                if len(sim_file_paths) > 1
-                else None
-            )
+            sim_file_paths = simulation.file_paths()
+            common_root = find_common_root(sim_file_paths)
 
             config = current_app.simdb_config
 
@@ -283,7 +275,10 @@ class SimulationList(Resource):
                         from simdb.imas.utils import convert_uri
 
                         path = secure_path(
-                            Path(sim_file.uri.query["path"]), common_root, staging_dir
+                            Path(sim_file.uri.query["path"]),
+                            common_root,
+                            staging_dir,
+                            is_file=common_root is not None,
                         )
                         sim_file.uri = convert_uri(sim_file.uri, path, config)
             elif config.get_option("server.imas_remote_host", default=None):
@@ -297,7 +292,10 @@ class SimulationList(Resource):
                         from simdb.imas.utils import convert_uri
 
                         path = secure_path(
-                            Path(sim_file.uri.query["path"]), common_root, staging_dir
+                            Path(sim_file.uri.query["path"]),
+                            common_root,
+                            staging_dir,
+                            is_file=common_root is not None,
                         )
                         sim_file.uri = convert_uri(sim_file.uri, path, config)
 
