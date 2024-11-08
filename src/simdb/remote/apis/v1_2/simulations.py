@@ -319,7 +319,7 @@ class SimulationList(Resource):
                     result[
                         "error"
                     ] = f"""Simulation validation failed and server has error_on_fail=True.\n
-                    Validation result: {result['validation']}"""
+                    {result['validation']["error"]}"""
                     response = jsonify(result)
                     response.status_code = 400
                     return response
