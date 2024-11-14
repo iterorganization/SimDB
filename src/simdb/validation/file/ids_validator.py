@@ -82,16 +82,18 @@ class IdsValidator(FileValidatorBase):
         from ids_validator.validate.validate import validate
         from ids_validator.report.validationReportGenerator import ValidationReportGenerator
 
+        try:
+            backend = uri.query.get("backend")
+            path = uri.query.get("path")
+            validate_uri = f"imas:{backend}?path={path}"
 
-        backend = uri.query.get("backend")
-        path = uri.query.get("path")
-        validate_uri = f"imas:{backend}?path={path}"
+            validate_output = validate(imas_uri=URI(validate_uri), validate_options=validate_options)
 
-        validate_output = validate(imas_uri=URI(validate_uri), validate_options=validate_options)
+            validate_result = all([result.success for result in validate_output.results])
 
-        validate_result = all([result.success for result in validate_output.results])
+            report_generator = ValidationReportGenerator(validate_output)
 
-        report_generator = ValidationReportGenerator(validate_output)
-
-        if validate_result == False:
-            raise ValidationError(f"Validation of following URI: [{validate_uri}], failed with following report: \n{report_generator.txt}")
+            if validate_result == False:
+                raise ValidationError(f"Validation of following URI: [{validate_uri}], failed with following report: \n{report_generator.txt}")
+        except Exception as err:
+            raise ValidationError(f"validate_uri exception [{err}]")
