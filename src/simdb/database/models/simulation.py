@@ -143,6 +143,7 @@ class Simulation(Base):
                 all_idss += idss
 
                 meta = load_metadata(entry)
+                entry.close()
                 flattened_meta: Dict[str, str] = {}
                 flatten_dict(flattened_meta, meta)
 
