@@ -582,11 +582,11 @@ class RemoteAPI:
     ) -> List["Simulation"]:
         from ..database.models import Simulation
         from ..remote import APIConstants
-
-        params = {}
+        from collections import defaultdict
+        params = defaultdict(list)
         for item in constraints:
             (key, value) = item.split("=")
-            params[key] = value
+            params[key].append(value)
         args = "?" + "&".join(meta) if meta else ""
         headers = {
             APIConstants.LIMIT_HEADER: str(limit),
