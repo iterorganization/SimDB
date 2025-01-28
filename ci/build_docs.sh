@@ -3,7 +3,12 @@
 set -e
 
 # Set up environment
+if test -f /etc/profile.d/modules.sh ;then
+. /etc/profile.d/modules.sh
+else
 . /usr/share/Modules/init/sh
+fi
+
 module use /work/imas/etc/modules/all
 module purge
 module load Python/3.11.5-GCCcore-13.2.0

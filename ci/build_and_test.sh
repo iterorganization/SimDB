@@ -3,7 +3,11 @@
 set -e
 
 # Set up environment
+if test -f /etc/profile.d/modules.sh ;then
+. /etc/profile.d/modules.sh
+else
 . /usr/share/Modules/init/sh
+fi
 
 module use /work/imas/etc/modules/all
 module purge
