@@ -1,4 +1,5 @@
 import os
+import shutil 
 import json
 import uuid
 from typing import (
@@ -689,7 +690,7 @@ class RemoteAPI:
         )
         print(f"\r{msg}", file=out_stream, end="")
         print(
-            "Complete".rjust(os.get_terminal_size().columns - len(msg)),
+            "Complete".rjust(shutil.get_terminal_size().columns - len(msg)),
             file=out_stream,
             flush=True,
         )
