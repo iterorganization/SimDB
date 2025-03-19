@@ -271,7 +271,6 @@ class RemoteAPI:
                     )
                 auth = (username, password)
                 with requests.Session() as s:
-                    s.get(base_url)
                     s.headers['User-Agent'] = 'it_script_basic'
                     p = s.post(f"{base_url}/my.policy", auth=auth)
                     if p.status_code != 200:
