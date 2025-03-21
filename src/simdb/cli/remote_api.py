@@ -661,6 +661,7 @@ class RemoteAPI:
         sim_data: Dict,
         chunk_size: int,
         out_stream: IO,
+        type: DataObject.Type,
     ):
         msg = f"Uploading file {path} "
         print(msg, file=out_stream, end="")
@@ -674,19 +675,22 @@ class RemoteAPI:
         if num_chunks == 0:
             # empty file
             self._send_chunk(0, b"", chunk_size, uuid, file_type, sim_data)
-        self.post(
-            "files",
-            data={
-                "simulation": sim_data,
-                "files": [
-                    {
-                        "chunks": num_chunks,
-                        "file_type": file_type,
-                        "file_uuid": uuid.hex,
-                    }
-                ],
-            },
-        )
+        if type == DataObject.Type.FILE:
+            self.post(
+                "files",
+                data={
+                    "simulation": sim_data,
+                    "obj_type": DataObject.Type.FILE,
+                    "files": [
+                        {
+                            "chunks": num_chunks,
+                            ""
+                            "file_type": file_type,
+                            "file_uuid": uuid.hex,
+                        }
+                    ],
+                },
+            )
         print(f"\r{msg}", file=out_stream, end="")
         print(
             "Complete".rjust(shutil.get_terminal_size().columns - len(msg)),
@@ -752,14 +756,35 @@ class RemoteAPI:
                     if not copy_ids:
                         print(f"Skipping IDS data {file}", file=out_stream, flush=True)
                         continue
+                    ids_list = simulation.meta_dict().get("ids", [])
                     for path in imas_files(file.uri):
+                        # Check if hdf5 ids_name is in ids_list
+                        ids_name = Path(path).name.split(".")
+                        if ids_name[1] == "h5":
+                            if ids_name[0] != "master" and ids_list is not None and ids_name[0] not in ids_list:
+                                raise ValueError(f"IDS {ids_name[0]} not found in ids list {ids_list}")
                         sim_file = next(
                             (f for f in sim_data["inputs"] if f["uuid"] == file.uuid)
                         )
                         sim_file["uri"] = f"file:{path}"
                         self._push_file(
-                            path, file.uuid, "input", sim_data, chunk_size, out_stream
+                            path, file.uuid, "input", sim_data, chunk_size, out_stream, file.type
                         )
+                	
+                    self.post(
+                        "files",
+                        data={
+                            "simulation": simulation.data(recurse=True),
+                            "obj_type": file.type,
+                            "files": [
+                                {
+                                    "file_type": "input",
+                                    "file_uuid": file.uuid.hex,
+                                }
+                            ],
+                        },
+                    )
+
                 else:
                     self._push_file(
                         file.uri.path,
@@ -768,6 +793,7 @@ class RemoteAPI:
                         sim_data,
                         chunk_size,
                         out_stream,
+                        file.type,
                     )
 
             for file in simulation.outputs:
@@ -775,14 +801,35 @@ class RemoteAPI:
                     if not copy_ids:
                         print(f"Skipping IDS data {file}", file=out_stream, flush=True)
                         continue
+                    
+                    ids_list = simulation.meta_dict().get("ids", [])
                     for path in imas_files(file.uri):
+                        # Check if hdf5 ids_name is in ids_list
+                        ids_name = Path(path).name.split(".")
+                        if ids_name[1] == "h5":
+                            if ids_name[0] != "master" and ids_list is not None and ids_name[0] not in ids_list:
+                                raise ValueError(f"IDS {ids_name[0]} not found in ids list {ids_list}")
                         sim_file = next(
                             (f for f in sim_data["outputs"] if f["uuid"] == file.uuid)
                         )
                         sim_file["uri"] = f"file:{path}"
                         self._push_file(
-                            path, file.uuid, "output", sim_data, chunk_size, out_stream
+                            path, file.uuid, "output", sim_data, chunk_size, out_stream, file.type
                         )
+
+                    self.post(
+                        "files",
+                        data={
+                            "simulation": simulation.data(recurse=True),
+                            "obj_type": file.type,
+                            "files": [
+                                {
+                                    "file_type": "output",
+                                    "file_uuid": file.uuid.hex,
+                                }
+                            ],
+                        },
+                    )
                 else:
                     self._push_file(
                         file.uri.path,
@@ -791,6 +838,7 @@ class RemoteAPI:
                         sim_data,
                         chunk_size,
                         out_stream,
+                        file.type,
                     )
 
         sim_data = simulation.data(recurse=True)
