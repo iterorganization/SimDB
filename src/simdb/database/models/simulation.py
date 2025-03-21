@@ -132,11 +132,19 @@ class Simulation(Base):
 
         for output in manifest.outputs:
             if output.type == DataObject.Type.IMAS:
-                from ...imas.utils import open_imas, list_idss, check_time
+                from ...imas.utils import open_imas, list_idss, check_time, imas_files
                 from ...imas.metadata import load_metadata
 
                 entry = open_imas(output.uri)
                 idss = list_idss(entry)
+                
+                for path in imas_files(output.uri):                        
+                    # Check if hdf5 ids_name is in ids_list                        
+                    ids_name = Path(path).name.split(".")
+                    if ids_name[1] == "h5":
+                        if ids_name[0] != "master" and idss is not None and ids_name[0] not in idss:
+                            raise ValueError(f"IDS {ids_name[0]} not found in ids list {idss}")
+                
                 for ids in idss:
                     check_time(entry, ids)
 
@@ -153,6 +161,7 @@ class Simulation(Base):
             file = File(output.type, output.uri, config=config)
             if output.type == DataObject.Type.IMAS and "path" not in output.uri.query:
                 file.uri = _update_legacy_uri(output)
+            
             self.outputs.append(file)
 
         if all_idss:
@@ -165,8 +174,7 @@ class Simulation(Base):
             self.set_meta(key, value)
 
         if not self.find_meta("status"):
-            self.set_meta("status", Simulation.Status.NOT_VALIDATED.value)
-
+            self.set_meta("status", Simulation.Status.NOT_VALIDATED.value)        
         self.validate_meta()
 
     @property
