@@ -40,24 +40,12 @@ def _verify_file(
         if sim_file.checksum != checksum:
             raise ValueError(f"checksum failed for file {sim_file!r}")
     elif sim_file.type == DataObject.Type.IMAS:
-        # from ...imas.checksum import checksum as imas_checksum
-
-        user_folder = current_app.simdb_config.get_option(
-            "server.user_upload_folder", default=None
-        )
+        from ...imas.checksum import checksum as imas_checksum        
         uri = sim_file.uri
-        if user_folder is not None:
-            server_folder = current_app.simdb_config.get_option("server.upload_folder")
-            uri.query["path"] = uri.query["path"].replace(
-                str(user_folder), str(server_folder)
-            )
-        # TODO: IMAS checksum won't work at this point as the checksum is for all the files together
-        # - not just this file. This check needs to be moved to later, once all the files have been
-        # uploaded.
-        #
-        # checksum = imas_checksum(uri)
-        # if sim_file.checksum != checksum:
-        #     raise ValueError("checksum failed for IDS %s" % uri)
+        uri.query.set("path", str(staging_dir));
+        checksum = imas_checksum(uri)
+        if sim_file.checksum != checksum:
+            raise ValueError("checksum failed for IDS %s" % uri)
 
 
 def _save_chunked_file(
@@ -120,11 +108,20 @@ def _process_simulation_data(data: dict) -> Response:
     simulation = models.Simulation.from_data(data["simulation"])
     sim_file_paths = simulation.file_paths()
     common_root = find_common_root(sim_file_paths)
-    for file in data["files"]:
-        sim_file = _check_file_is_in_simulation(
-            simulation, uuid.UUID(file["file_uuid"]), file["file_type"]
-        )
-        _verify_file(simulation.uuid, sim_file, common_root)
+    if DataObject.Type(data["obj_type"]) == DataObject.Type.FILE:
+        for file in data["files"]:
+            sim_file = _check_file_is_in_simulation(
+                simulation, uuid.UUID(file["file_uuid"]), file["file_type"]
+            )
+            _verify_file(simulation.uuid, sim_file, common_root)
+    elif DataObject.Type(data["obj_type"]) == DataObject.Type.IMAS:
+        file = data["files"][0]
+        sim_files = simulation.inputs if file["file_type"] == "input" else simulation.outputs
+        sim_file = next((f for f in sim_files if f.uuid == uuid.UUID(file["file_uuid"])), None)
+        _verify_file(simulation.uuid, sim_file, common_root)        
+    else:
+        raise ValueError("Unsupported object type %s" % data["obj_type"])
+    
     return jsonify({})
 
 
