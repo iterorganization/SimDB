@@ -42,7 +42,10 @@ def _verify_file(
     elif sim_file.type == DataObject.Type.IMAS:
         from ...imas.checksum import checksum as imas_checksum        
         uri = sim_file.uri
-        uri.query.set("path", str(staging_dir));
+        path_value = uri.query.get("path")        
+        if path_value is None:
+            raise ValueError("The 'path' key is missing in the URI query")
+        uri.query.set("path", path_value.replace(str(common_root), str(staging_dir)))
         checksum = imas_checksum(uri)
         if sim_file.checksum != checksum:
             raise ValueError("checksum failed for IDS %s" % uri)
