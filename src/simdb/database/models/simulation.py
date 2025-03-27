@@ -122,13 +122,37 @@ class Simulation(Base):
         if manifest.alias:
             self.alias = manifest.alias
 
+        all_input_idss = []
         for input in manifest.inputs:
-            file = File(input.type, input.uri, config=config)
+            from ...imas.utils import open_imas, list_idss, check_time, imas_files
+            from ...imas.metadata import load_metadata
+
+            entry = open_imas(input.uri)
+            idss = list_idss(entry)
+            
+            for path in imas_files(input.uri):                        
+                # Check if hdf5 ids_name is in ids_list                        
+                ids_name = Path(path).name.split(".")
+                if ids_name[1] == "h5":
+                    if ids_name[0] != "master" and idss is not None and ids_name[0] not in idss:
+                        raise ValueError(f"IDS {ids_name[0]} not found in ids list {idss}")
+            
+            for ids in idss:
+                check_time(entry, ids)
+
+            all_input_idss += idss
+
+            entry.close()
+            
+            file = File(input.type, input.uri, config=config, creation_date=str(self.datetime))
             if input.type == DataObject.Type.IMAS and "path" not in input.uri.query:
                 file.uri = _update_legacy_uri(input)
             self.inputs.append(file)
 
-        all_idss = []
+        if all_input_idss:
+            self.meta.append(MetaData("input_ids", "[%s]" % ", ".join(all_input_idss)))
+
+        all_output_idss = []
 
         for output in manifest.outputs:
             if output.type == DataObject.Type.IMAS:
@@ -137,7 +161,7 @@ class Simulation(Base):
 
                 entry = open_imas(output.uri)
                 idss = list_idss(entry)
-                
+
                 for path in imas_files(output.uri):                        
                     # Check if hdf5 ids_name is in ids_list                        
                     ids_name = Path(path).name.split(".")
@@ -148,7 +172,7 @@ class Simulation(Base):
                 for ids in idss:
                     check_time(entry, ids)
 
-                all_idss += idss
+                all_output_idss += idss
 
                 meta = load_metadata(entry)
                 entry.close()
@@ -158,7 +182,7 @@ class Simulation(Base):
                 for key, value in flattened_meta.items():
                     self.meta.append(MetaData(key, value))
 
-            file = File(output.type, output.uri, config=config)
+            file = File(output.type, output.uri, config=config, creation_date=str(self.datetime))
             if output.type == DataObject.Type.IMAS and "path" not in output.uri.query:
                 file.uri = _update_legacy_uri(output)
             

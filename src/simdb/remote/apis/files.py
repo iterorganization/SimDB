@@ -51,8 +51,7 @@ def _verify_file(
             uri.query.set("path", str(staging_dir))
         checksum = imas_checksum(uri)
         if sim_file.checksum != checksum:
-            raise ValueError("checksum failed for IDS %s" % uri)
-
+            raise ValueError("checksum failed for simulation %s" % sim_file.uri)
 
 def _save_chunked_file(
     file: FileStorage, chunk_info: Dict, path: Path, compressed: bool = True

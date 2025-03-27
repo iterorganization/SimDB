@@ -756,7 +756,7 @@ class RemoteAPI:
                     if not copy_ids:
                         print(f"Skipping IDS data {file}", file=out_stream, flush=True)
                         continue
-                    ids_list = simulation.meta_dict().get("ids", [])
+                    ids_list = simulation.meta_dict().get("input_ids", [])
                     for path in imas_files(file.uri):
                         # Check if hdf5 ids_name is in ids_list
                         ids_name = Path(path).name.split(".")

@@ -530,6 +530,7 @@ class Database:
             self.session.query(Simulation.uuid, Simulation.alias)
             .join(Simulation.outputs)
             .filter(File.checksum.in_(subquery))
+            .filter(Simulation.alias != simulation.alias)
             .distinct()
         )
         return [{"uuid": r.uuid, "alias": r.alias} for r in query.all()]
@@ -548,6 +549,7 @@ class Database:
             self.session.query(Simulation.uuid, Simulation.alias)
             .join(Simulation.inputs)
             .filter(File.checksum.in_(subquery))
+            .filter(Simulation.alias != simulation.alias)
             .distinct()
         )
         return [{"uuid": r.uuid, "alias": r.alias} for r in query.all()]
