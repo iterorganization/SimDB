@@ -188,8 +188,8 @@ class Simulation(Base):
             
             self.outputs.append(file)
 
-        if all_idss:
-            self.meta.append(MetaData("ids", "[%s]" % ", ".join(all_idss)))
+        if all_output_idss:
+            self.meta.append(MetaData("ids", "[%s]" % ", ".join(all_output_idss)))
 
         flattened_dict: Dict[str, str] = {}
         flatten_dict(flattened_dict, manifest.metadata)
