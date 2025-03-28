@@ -747,7 +747,7 @@ class RemoteAPI:
 
         options = self.get_upload_options()
         if options.get("copy_files", True):
-            chunk_size = 9 * 1024 * 1024  # 10 MB
+            chunk_size = 9 * 1024 * 1024  # 9 MB < 10 MB limit on ITER network
 
             copy_ids = options.get("copy_ids", True)
 
