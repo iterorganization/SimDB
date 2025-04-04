@@ -52,7 +52,7 @@ def is_missing(value: Any):
 
 
 class DBEntry:
-    def partial_get(self, ids: str, path: str) -> Any:
+    def partial_get(self, ids: str, path: str, occurrence = 0) -> Any:
         ...
 
     def list_all_occurrences(self, ids: str) -> List[int]:
@@ -91,7 +91,7 @@ def list_idss(entry: DBEntry) -> List[str]:
     return idss
 
 
-def check_time(entry: DBEntry, ids: str) -> None:
+def check_time(entry: DBEntry, ids: str, occurrence) -> None:
     """
     Check the validity of the ids_properties/homogeneous_time field of the given IDS.
 
@@ -101,9 +101,9 @@ def check_time(entry: DBEntry, ids: str) -> None:
     """
     from imas import imasdef
 
-    homo_time = entry.partial_get(ids, "ids_properties/homogeneous_time")
+    homo_time = entry.partial_get(ids, "ids_properties/homogeneous_time", occurrence)
     if homo_time == imasdef.IDS_TIME_MODE_HOMOGENEOUS:
-        time = entry.partial_get(ids, "time")
+        time = entry.partial_get(ids, "time", occurrence)
         if time is None or time.size == 0:
             raise ValueError(
                 f"IDS {ids} has homogeneous_time flag set to IDS_TIME_MODE_HOMOGENEOUS but invalid time entry."
