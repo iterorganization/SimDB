@@ -133,9 +133,11 @@ class Simulation(Base):
                 idss = list_idss(entry)
 
                 for ids in idss:
-                    if ids.find("_", 0):
-                        continue
-                    check_time(entry, ids)
+                    occurrence = 0                   
+                    if ids.find("_", len(ids) - 2, len(ids)) != -1:
+                        occurrence = ids.split("_", len(ids) - 1)[1]
+                        ids = ids.split("_", len(ids) - 1)[0]
+                    check_time(entry, ids, occurrence)
 
                 all_input_idss += idss
 
@@ -160,9 +162,11 @@ class Simulation(Base):
                 idss = list_idss(entry)
 
                 for ids in idss:
-                    if ids.find("_", 0):
-                        continue
-                    check_time(entry, ids)
+                    occurrence = 0                   
+                    if ids.find("_", len(ids) - 2, len(ids)) != -1:
+                        occurrence = ids.split("_", len(ids) - 1)[1]
+                        ids = ids.split("_", len(ids) - 1)[0]
+                    check_time(entry, ids, occurrence)
 
                 all_output_idss += idss
 
