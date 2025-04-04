@@ -132,14 +132,9 @@ class Simulation(Base):
                 entry = open_imas(input.uri)
                 idss = list_idss(entry)
 
-                for path in imas_files(input.uri):
-                    # Check if hdf5 ids_name is in ids_list
-                    ids_name = Path(path).name.split(".")
-                    if ids_name[1] == "h5":
-                        if ids_name[0] != "master" and idss is not None and ids_name[0] not in idss:
-                            raise ValueError(f"IDS {ids_name[0]} not found in ids list {idss}")
-
                 for ids in idss:
+                    if ids.find("_", 0):
+                        continue
                     check_time(entry, ids)
 
                 all_input_idss += idss
@@ -164,14 +159,9 @@ class Simulation(Base):
                 entry = open_imas(output.uri)
                 idss = list_idss(entry)
 
-                for path in imas_files(output.uri):                        
-                    # Check if hdf5 ids_name is in ids_list                        
-                    ids_name = Path(path).name.split(".")
-                    if ids_name[1] == "h5":
-                        if ids_name[0] != "master" and idss is not None and ids_name[0] not in idss:
-                            raise ValueError(f"IDS {ids_name[0]} not found in ids list {idss}")
-                
                 for ids in idss:
+                    if ids.find("_", 0):
+                        continue
                     check_time(entry, ids)
 
                 all_output_idss += idss

@@ -38,6 +38,7 @@ class File(Base):
         self,
         type: DataObject.Type,
         uri: urilib.URI,
+        ids_list: Optional[list] = None,        
         perform_integrity_check: bool = True,
         config: Optional[Config] = None,
     ) -> None:
@@ -47,7 +48,7 @@ class File(Base):
 
         if perform_integrity_check:
             self.datetime = self.get_creation_date()
-            self.checksum = self.generate_checksum(config)
+            self.checksum = self.generate_checksum(config, ids_list)
 
     def __str__(self):
         result = ""
@@ -74,7 +75,7 @@ class File(Base):
         result = f"{self.uuid} ({self.uri})"
         return result
 
-    def generate_checksum(self, config):
+    def generate_checksum(self, config, ids_list: list):
         if config and config.get_option("development.disable_checksum", default=False):
             return ""
         if self.type == DataObject.Type.UDA:
@@ -84,7 +85,7 @@ class File(Base):
         elif self.type == DataObject.Type.IMAS:
             from ...imas.checksum import checksum as imas_checksum
 
-            checksum = imas_checksum(self.uri)
+            checksum = imas_checksum(self.uri, ids_list)
         elif self.type == DataObject.Type.FILE:
             from ...checksum import sha1_checksum
 

@@ -1,4 +1,5 @@
 import hashlib
+from pathlib import Path
 import struct
 import multiprocessing as mp
 from typing import cast
@@ -71,7 +72,7 @@ def _checksum(q: mp.Queue, uri: URI) -> str:
     q.put(check.hexdigest())
 
 
-def checksum(uri: URI) -> str:
+def checksum(uri: URI, ids_list: list) -> str:
     if uri.scheme != "imas":
         raise ValueError("invalid scheme for imas checksum: %s" % uri.scheme)
 
@@ -80,6 +81,10 @@ def checksum(uri: URI) -> str:
 
     for path in imas_files(uri):
         with open(path, "rb") as file:
+            ids_name = Path(path).name.split(".")
+            if ids_name[1] == "h5":
+                if ids_name[0] != "master" and ids_list is not None and ids_name[0] not in ids_list:
+                    continue
             for chunk in iter(lambda: file.read(4096), b""):
                 sha1.update(chunk)
 

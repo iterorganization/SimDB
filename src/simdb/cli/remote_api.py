@@ -687,6 +687,7 @@ class RemoteAPI:
                             ""
                             "file_type": file_type,
                             "file_uuid": uuid.hex,
+                            "ids_list": None,
                         }
                     ],
                 },
@@ -762,7 +763,7 @@ class RemoteAPI:
                         ids_name = Path(path).name.split(".")
                         if ids_name[1] == "h5":
                             if ids_name[0] != "master" and ids_list is not None and ids_name[0] not in ids_list:
-                                raise ValueError(f"IDS {ids_name[0]} not found in ids list {ids_list}")
+                                continue
                         sim_file = next(
                             (f for f in sim_data["inputs"] if f["uuid"] == file.uuid)
                         )
@@ -780,6 +781,7 @@ class RemoteAPI:
                                 {
                                     "file_type": "input",
                                     "file_uuid": file.uuid.hex,
+                                    "ids_list": ids_list, 
                                 }
                             ],
                         },
@@ -808,7 +810,7 @@ class RemoteAPI:
                         ids_name = Path(path).name.split(".")
                         if ids_name[1] == "h5":
                             if ids_name[0] != "master" and ids_list is not None and ids_name[0] not in ids_list:
-                                raise ValueError(f"IDS {ids_name[0]} not found in ids list {ids_list}")
+                                continue
                         sim_file = next(
                             (f for f in sim_data["outputs"] if f["uuid"] == file.uuid)
                         )
@@ -826,6 +828,7 @@ class RemoteAPI:
                                 {
                                     "file_type": "output",
                                     "file_uuid": file.uuid.hex,
+                                    "ids_list": ids_list, 
                                 }
                             ],
                         },

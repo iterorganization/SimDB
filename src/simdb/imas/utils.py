@@ -55,6 +55,16 @@ class DBEntry:
     def partial_get(self, ids: str, path: str) -> Any:
         ...
 
+    def list_all_occurrences(self, ids: str) -> List[int]:
+        """
+        List all occurrences of the given IDS in the IMAS data entry.
+
+        @param
+        ids: the IDS name
+        @param path: the path to the data
+        @return: the list of occurrences
+        """
+        ...
 
 def list_idss(entry: DBEntry) -> List[str]:
     """
@@ -72,6 +82,11 @@ def list_idss(entry: DBEntry) -> List[str]:
     for name in imas.IDSName:
         value = entry.partial_get(name.value, "ids_properties/homogeneous_time")
         if value != imasdef.EMPTY_INT:
+            occurrence = entry.list_all_occurrences(name.value)        
+            if len(occurrence[0]) > 1:
+                for i in range(len(occurrence[0])):
+                    if i > 0:
+                        idss.append(name.value + "_" + str(i))
             idss.append(name.value)
     return idss
 
