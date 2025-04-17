@@ -277,7 +277,7 @@ summary:
             value:
               type: numpy
               coerce: numpy
-              gt: -17000000
+              ge: -17000000
 #              le: 0
         tau_energy:
           type: dict
