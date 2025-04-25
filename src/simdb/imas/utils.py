@@ -76,18 +76,17 @@ def list_idss(entry: DBEntry) -> List[str]:
     @return: the list of found IDSs
     """
     import imas
-    from imas import imasdef
-
+    
     idss = []
-    for name in imas.IDSName:
-        value = entry.partial_get(name.value, "ids_properties/homogeneous_time")
-        if value != imasdef.EMPTY_INT:
-            occurrence = entry.list_all_occurrences(name.value)        
-            if len(occurrence[0]) > 1:
-                for i in range(len(occurrence[0])):
-                    if i > 0:
-                        idss.append(name.value + "_" + str(i))
-            idss.append(name.value)
+
+    for ids_name in entry.factory.ids_names():
+        occurrences = entry.list_all_occurrences(ids_name)
+        if occurrences:
+            if len(occurrences) > 0:
+                for occurrence in range(len(occurrences)):
+                    if occurrence > 0:
+                        idss.append(ids_name + "_" + str(occurrence))
+                idss.append(ids_name)
     return idss
 
 
@@ -99,16 +98,22 @@ def check_time(entry: DBEntry, ids: str, occurrence) -> None:
     @param ids: the
     @return:
     """
-    from imas import imasdef
-
-    homo_time = entry.partial_get(ids, "ids_properties/homogeneous_time", occurrence)
-    if homo_time == imasdef.IDS_TIME_MODE_HOMOGENEOUS:
-        time = entry.partial_get(ids, "time", occurrence)
-        if time is None or time.size == 0:
-            raise ValueError(
-                f"IDS {ids} has homogeneous_time flag set to IDS_TIME_MODE_HOMOGENEOUS but invalid time entry."
-            )
-
+    import imas
+    
+    ids_obj = entry.get(ids, occurrence)
+    try:
+        # IMAS-Python validte method validates the time mode and coordinates 
+        #ids_obj.validate()
+        homo_time = ids_obj.ids_properties.homogeneous_time
+        if homo_time == imas.ids_defs.IDS_TIME_MODE_HOMOGENEOUS:
+            time = ids_obj.time
+            print(ids, flush=True)
+            if time is None or time.size == 0:
+                raise ValueError(
+                    f"IDS {ids} has homogeneous_time flag set to IDS_TIME_MODE_HOMOGENEOUS but invalid time entry."
+                )
+    except imas.exception.ValidationError as e:
+        raise ImasError(f"IDS {ids} failed validation: {e}")
 
 def _is_al5() -> bool:
     import semantic_version
@@ -131,7 +136,7 @@ def _open_legacy(uri: URI) -> DBEntry:
         raise ImasError(f"cannot open AL5 URI {uri} with AL4")
 
     backend_ids = {
-        "hdf5": imas.imasdef.HDF5_BACKEND,
+        "hdf5": imas.ids_defs.HDF5_BACKEND,
     }
 
     backend = uri.query.get("backend", default=None)
@@ -149,23 +154,31 @@ def _open_legacy(uri: URI) -> DBEntry:
     backend_id = backend_ids[backend]
 
     if user is not None:
-        entry = imas.DBEntry(
-            backend_id,
-            database,
-            int(shot),
-            int(run),
-            user_name=user,
-            data_version=version,
-        )
+        try:
+            entry = imas.DBEntry(
+                backend_id,
+                database,
+                int(shot),
+                int(run),
+                user_name=user,
+                data_version=version,
+            )
+        except:
+            raise ImasError(
+                f"failed to open IMAS data with URI {uri}"
+            )
     else:
-        entry = imas.DBEntry(
-            backend_id, database, int(shot), int(run), data_version=version
-        )
-
+        try:
+            entry = imas.DBEntry(
+                backend_id, database, int(shot), int(run), data_version=version
+            )
+        except:
+            raise ImasError(
+                f"failed to open IMAS data with URI {uri}"
+            )
     (status, _) = entry.open()
     if status != 0:
         raise ImasError(f"failed to open IMAS data with URI {uri}")
-
     return entry
 
 
@@ -193,12 +206,11 @@ def open_imas(uri: URI) -> DBEntry:
         backend = uri.query.get("backend", default="mdsplus")
         uri = f"imas:{backend}?path={path}"
 
-    entry = imas.DBEntry(str(uri), "r")
-
-    (status, _) = entry.open()
-    if status != 0:
+    try:
+        entry = imas.DBEntry(str(uri), "r")
+    except:
         raise ImasError(f"failed to open IMAS data with URI {uri}")
-
+    
     return entry
 
 
@@ -210,7 +222,8 @@ def imas_timestamp(uri: URI) -> datetime:
     @return: the timestamp as a datetime object
     """
     entry = open_imas(uri)
-    creation = entry.partial_get("summary", "ids_properties/creation_date")
+    ids_obj = entry.get("summary")
+    creation = ids_obj.ids_properties.creation_date
     if creation:
         try:
             timestamp = parser.parse(creation)

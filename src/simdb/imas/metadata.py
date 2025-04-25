@@ -24,7 +24,7 @@ class ReadValues(Enum):
 
 
 def walk_imas(ids_node) -> Dict:
-    from imas import imasdef
+    import imas
 
     meta = {}
     for name in (i for i in dir(ids_node) if not i.startswith("_")):
@@ -34,13 +34,13 @@ def walk_imas(ids_node) -> Dict:
             if attr.size != 0:
                 meta[name] = attr
         elif isinstance(attr, int):
-            if attr != imasdef.EMPTY_INT:
+            if attr != imas.ids_defs.EMPTY_INT:
                 meta[name] = attr
         elif isinstance(attr, str):
             if attr:
                 meta[name] = attr
         elif isinstance(attr, float):
-            if attr != imasdef.EMPTY_FLOAT:
+            if attr != imas.ids_defs.EMPTY_FLOAT:
                 meta[name] = attr
         elif "__structure" in str(type(attr)):
             meta[name] = walk_imas(attr)
@@ -103,9 +103,9 @@ def load_metadata(entry):
         "summary": {
             "values": "all",
         },
-        "dataset_description": {
-            "values": "all",
-        },
+        # "dataset_description": {
+        #     "values": "all",
+        # },
     }
     meta = walk_dict(data_to_read, entry, 0, ReadValues.SELECTED)
     return meta
