@@ -99,15 +99,13 @@ def check_time(entry: DBEntry, ids: str, occurrence) -> None:
     @return:
     """
     import imas
-    
-    ids_obj = entry.get(ids, occurrence)
+    ids_obj = entry.get(ids, occurrence, autoconvert=False)
     try:
         # IMAS-Python validte method validates the time mode and coordinates 
         #ids_obj.validate()
         homo_time = ids_obj.ids_properties.homogeneous_time
         if homo_time == imas.ids_defs.IDS_TIME_MODE_HOMOGENEOUS:
             time = ids_obj.time
-            print(ids, flush=True)
             if time is None or time.size == 0:
                 raise ValueError(
                     f"IDS {ids} has homogeneous_time flag set to IDS_TIME_MODE_HOMOGENEOUS but invalid time entry."
