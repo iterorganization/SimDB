@@ -40,21 +40,19 @@ def literal_presenter(dumper, data):
 yaml.add_representer(Literal, literal_presenter)
 
 
-def get_yaml_data(yaml_file):
+def load_yaml_file(yaml_file, Loader=yaml.SafeLoader):
     yaml_data = None
-
     try:
         with open(yaml_file, "r", encoding="utf-8") as file_handle:
             yaml_data = yaml.load(file_handle, Loader=Loader)
     except Exception as e:
-        print(f"Error loading YAML file {yaml_file} details{e}", exc_info=True)
-        yaml_data = None
+        print(f"Error loading YAML file {yaml_file}: {e}")
     return yaml_data
 
 
 def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
 
-    legacy_yaml_data = get_yaml_data(legacy_yaml_file)
+    legacy_yaml_data = load_yaml_file(legacy_yaml_file)
     dbentry_status = "obsolete"
     if "status" in legacy_yaml_data:
         dbentry_status = legacy_yaml_data["status"]
@@ -62,19 +60,29 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
 
         shot = legacy_yaml_data["characteristics"]["shot"]
         run = legacy_yaml_data["characteristics"]["run"]
-        uri = f"imas:hdf5?path=/work/imas/shared/imasdb/ITER/3/{shot}/{run}"
+        uri_mdsplus = f"imas:mdsplus?path=/work/imas/shared/imasdb/ITER/3/{shot}/{run}"
+        uri = uri_hdf5 = f"imas:hdf5?path=/work/imas/shared/imasdb/ITER/3/{shot}/{run}"
 
-        connection = imas.DBEntry(uri, "r")
-        ids_summary = None
+        connection = None
         try:
-            ids_summary = connection.get("summary", autoconvert=False, lazy=True)
+            connection = imas.DBEntry(uri_hdf5, "r")
         except Exception as e:
-            pass
-        ids_dataset_description = None
-        try:
-            ids_dataset_description = connection.get("dataset_description", autoconvert=False, lazy=True)
-        except Exception as e:
-            pass
+            try:
+                connection = imas.DBEntry(uri_mdsplus, "r")
+                uri = uri_mdsplus
+            except Exception as e:
+                pass
+        if connection is not None:
+            ids_summary = None
+            try:
+                ids_summary = connection.get("summary", autoconvert=False, lazy=True)
+            except Exception as e:
+                pass
+            ids_dataset_description = None
+            try:
+                ids_dataset_description = connection.get("dataset_description", autoconvert=False, lazy=True)
+            except Exception as e:
+                pass
 
         manifest_metadata = {}
 
@@ -136,35 +144,32 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
         summary["local"] = local
 
         plasma_composition = legacy_yaml_data["plasma_composition"]
-        species_list = (
-            plasma_composition["species"].split()
-            if plasma_composition["species"] is str
-            else [plasma_composition["species"]]
-        )
-
+        species_list = []
+        if isinstance(plasma_composition["species"], str):
+            species_list = plasma_composition["species"].split()
         a_values = z_values = n_over_ntot_values = n_over_ne_values = n_over_n_maj_values = []
         if "a" in plasma_composition:
-            if plasma_composition["a"] is str:
+            if isinstance(plasma_composition["a"], str):
                 a_values = [float(value) for value in plasma_composition["a"].split()]
             else:
                 a_values = [plasma_composition["a"]]
         if "z" in plasma_composition:
-            if plasma_composition["z"] is str:
+            if isinstance(plasma_composition["z"], str):
                 z_values = [float(value) for value in plasma_composition["z"].split()]
             else:
                 z_values = [plasma_composition["z"]]
         if "n_over_ntot" in plasma_composition:
-            if plasma_composition["n_over_ntot"] is str:
+            if isinstance(plasma_composition["n_over_ntot"], str):
                 n_over_ntot_values = [float(value) for value in plasma_composition["n_over_ntot"].split()]
             else:
                 n_over_ntot_values = [plasma_composition["n_over_ntot"]]
         if "n_over_ne" in plasma_composition:
-            if plasma_composition["n_over_ne"] is str:
+            if isinstance(plasma_composition["n_over_ne"], str):
                 n_over_ne_values = [float(value) for value in plasma_composition["n_over_ne"].split()]
             else:
                 n_over_ne_values = [plasma_composition["n_over_ne"]]
         if "n_over_n_maj" in plasma_composition:
-            if "n_over_n_maj" in plasma_composition and plasma_composition["n_over_n_maj"] is str:
+            if isinstance(plasma_composition["n_over_n_maj"], str):
                 n_over_n_maj_values = [float(value) for value in plasma_composition["n_over_n_maj"].split()]
             else:
                 n_over_n_maj_values = [plasma_composition["n_over_n_maj"]]
@@ -218,16 +223,16 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
         }
 
         # manifest_file_path = os.path.join(os.path.dirname(legacy_yaml_file), f"manifest_{shot:06d}{run:04d}.yaml")
-        if output_directory is None:
-            output_directory = os.path.join(os.getcwd(), "manifest")
+
         if not os.path.exists(output_directory):
             os.makedirs(output_directory)
         manifest_file_path = os.path.join(output_directory, f"manifest_{shot:06d}{run:04d}.yaml")
-        try:
-            with open(manifest_file_path, "w") as file:
-                yaml.dump(out_data, file, default_flow_style=False, sort_keys=False)
-        except Exception as e:
-            print(f"Error writing manifest file {manifest_file_path}: {e}")
+
+        with open(manifest_file_path, "w") as file:
+            yaml.dump(out_data, file, default_flow_style=False, sort_keys=False)
+
+        if connection:
+            connection.close()
         print(".", end="")
 
 
@@ -274,6 +279,9 @@ if __name__ == "__main__":
                     for filename in filenames:
                         if filename.endswith(".yaml"):
                             files.append(os.path.join(root, filename))
-
+    output_directory = args.output_directory
+    if args.output_directory is None:
+        output_directory = os.path.join(os.getcwd(), "manifest")
     for yaml_file in files:
-        write_manifest_file(yaml_file, output_directory=args.output_directory)
+        write_manifest_file(yaml_file, output_directory=output_directory)
+    print(f"\nManifest files are written into  {output_directory}")
