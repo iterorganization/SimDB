@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 # pip install pyyaml
 # pip install imas-python
-import sys
 import logging
+import sys
 
 try:
     import imaspy as imas
@@ -20,22 +20,54 @@ import yaml
 # TODO Check workflow name and type is empty and matching with dataset_description.simulation.workflow
 # TODO Finalize names of the attributes in summary and dataset_description
 # Create logger
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.ERROR)  # Set default level
+# logger = logging.getLogger(__name__)
+# logger.setLevel(logging.ERROR)  # Set default level
 
-log_format = logging.Formatter("%(levelname)s - line %(lineno)d - %(message)s")
+# log_format = logging.Formatter("%(levelname)s - line %(lineno)d - %(message)s")
 
-# --- File handler ---
-file_handler = logging.FileHandler(f"{os.path.basename(__file__)}.log")
-file_handler.setFormatter(log_format)
-logger.addHandler(file_handler)
+# # --- File handler ---
+# file_handler = logging.FileHandler(f"{os.path.basename(__file__)}.log")
+# file_handler.setFormatter(log_format)
+# logger.addHandler(file_handler)
 
-enable_console_logging = True  # Set this to False to disable console logs
+
+enable_console_logging = False  # Set this to False to disable console logs
+# Setup output directory
+output_directory = "simdb_legacy_importer_logs"
+os.makedirs(output_directory, exist_ok=True)
+
+# Define file paths
+validation_log_path = os.path.join(output_directory, "simdb_legacy_importer_validation.log")
+error_log_path = os.path.join(output_directory, "simdb_legacy_importer_error.log")
+
+# --- Validation Logger ---
+validation_logger = logging.getLogger("validation_logger")
+validation_logger.setLevel(logging.INFO)
+
+validation_handler = logging.FileHandler(validation_log_path, mode="w")
+validation_handler.setFormatter(logging.Formatter("%(message)s"))
+
+validation_logger.addHandler(validation_handler)
+if enable_console_logging:
+    validation_console_handler = logging.StreamHandler(sys.stdout)
+    validation_console_handler.setFormatter(logging.Formatter("%(message)s"))
+    validation_logger.addHandler(validation_console_handler)
+
+# --- Error Logger ---
+error_logger = logging.getLogger("error_logger")
+error_logger.setLevel(logging.ERROR)
+
+error_handler = logging.FileHandler(error_log_path, mode="w")
+error_handler.setFormatter(logging.Formatter("%(levelname)s - line %(lineno)d - %(message)s"))
+
+error_logger.addHandler(error_handler)
 
 if enable_console_logging:
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(log_format)
-    logger.addHandler(console_handler)
+    error_console_handler = logging.StreamHandler(sys.stdout)
+    error_console_handler.setFormatter(logging.Formatter("%(levelname)s - line %(lineno)d - %(message)s"))
+    error_logger.addHandler(error_console_handler)
+# -----------------------------------------------------------------------------------------------------
+
 
 replaces_re1 = re.compile(r"\d+/\d+")
 replaces_re2 = re.compile(r"\((\d+),(\d+)\)(\s*-.*)?")
@@ -53,28 +85,54 @@ yaml.add_representer(Literal, literal_presenter)
 
 
 def load_yaml_file(yaml_file, Loader=yaml.SafeLoader):
+    if not os.path.exists(yaml_file):
+        error_logger.error(f"YAML file {yaml_file} does not exist")
+        return None
     yaml_data = None
     try:
         with open(yaml_file, "r", encoding="utf-8") as file_handle:
             yaml_data = yaml.load(file_handle, Loader=Loader)
     except Exception as e:
-        logger.error(f"error loading YAML file {yaml_file}: {e}", exc_info=True)
+        error_logger.error(f"error loading YAML file {yaml_file}: {e}", exc_info=True)
     return yaml_data
+
+
+def get_confinement_regime(ids_summary):
+    confinement_regime = ""
+    debug_info = ""
+    if len(ids_summary.global_quantities.h_mode.value) > 0:
+
+        foo = ""
+        nt = len(ids_summary.global_quantities.h_mode.value)
+        for it in range(nt):
+            if ids_summary.global_quantities.h_mode.value[it] == 1:
+                foo = foo + "H"
+            else:
+                foo = foo + "L"
+        debug_info = f"ids_summary.global_quantities.h_mode.value\n\t{foo}"
+        confinement_regime = "".join([foo[i] + "-" for i in range(len(foo) - 1) if foo[i + 1] != foo[i]] + [foo[-1]])
+        if len(confinement_regime) > 5:
+            confinement_regime = confinement_regime[0:5]
+        if len(confinement_regime) == 1:
+            confinement_regime = confinement_regime + "-mode"
+    # else:
+    # validation_logger.warning(f"{alias} > ids_summary.global_quantities.h_mode is empty")
+    return confinement_regime, debug_info
 
 
 def get_local(scenario_key_parameters: dict):
     local = {}
     local["separatrix"] = {}
-    local["separatrix"]["zeff_calc"] = scenario_key_parameters.get("sepmid_zeff", "missing_key")
-    local["separatrix"]["n_e_calc"] = scenario_key_parameters.get("sepmid_electron_density", "missing_key")
+    local["separatrix"]["zeff_calc"] = scenario_key_parameters.get("sepmid_zeff", "tbd")
+    local["separatrix"]["n_e_calc"] = scenario_key_parameters.get("sepmid_electron_density", "tbd")
 
     local["magnetic_axis"] = {}
-    local["magnetic_axis"]["zeff"] = scenario_key_parameters.get("central_zeff", "missing_key")
-    local["magnetic_axis"]["n_e"] = scenario_key_parameters.get("central_electron_density", "missing_key")
+    local["magnetic_axis"]["zeff"] = scenario_key_parameters.get("central_zeff", "tbd")
+    local["magnetic_axis"]["n_e"] = scenario_key_parameters.get("central_electron_density", "tbd")
     return local
 
 
-def get_dataset_description(legacy_yaml_data: dict):
+def get_dataset_description(legacy_yaml_data: dict, ids_summary=None):
     dataset_description = {}
     shot = legacy_yaml_data["characteristics"]["shot"]
     run = legacy_yaml_data["characteristics"]["run"]
@@ -116,6 +174,14 @@ def get_dataset_description(legacy_yaml_data: dict):
             start = end = legacy_yaml_data["idslist"]["summary"]["time"][0]
             step = 0.0
         try:
+            if step == "varying":
+                times = ids_summary.time
+                homogeneous_time = ids_summary.ids_properties.homogeneous_time
+                if homogeneous_time == 1:
+                    if times is not None:
+                        if len(times) > 1:
+                            step = (times[len(times) - 1] - times[0]) / (len(times) - 1)
+
             start = float(start)
             end = float(end)
             dataset_description["pulse_time_begin_epoch"] = {
@@ -131,12 +197,13 @@ def get_dataset_description(legacy_yaml_data: dict):
                 "time_end": end,
             }
         except ValueError as e:
-            logger.error(f"{alias}:{e}")
+            error_logger.error(f"{alias}:{e}")
+            exit(0)
 
         try:
             dataset_description["simulation"]["time_step"] = float(step)
         except ValueError as e:
-            logger.error(f"{alias}:{e}")
+            error_logger.error(f"{alias}:{e}")
 
     # TODO below attributes are not present in the dataset_description responsible_name, reference_name
     # TODO dataset_description or summary/ids_properties/provider contains the linux name of the user.
@@ -230,41 +297,37 @@ def get_plasma_composition(plasma_composition):
     return species_dict
 
 
-def get_global_quantities(legacy_yaml_data: dict):
+def get_global_quantities(legacy_yaml_data: dict, ids_summary, alias):
     # TODO should we keep h_mode_derived or confinement_regime. h_mode is time based array
-    # and mode is calculaed from the time based array
-    # Beow isthe code
-    # if len(summary.global_quantities.h_mode.value) > 0:
-    #     foo = ""
-    #     nt = len(summary.global_quantities.h_mode.value)
-    #     for it in range(nt):
-    #         if summary.global_quantities.h_mode.value[it] == 1:
-    #             foo = foo + "H"
-    #         else:
-    #             foo = foo + "L"
-    #     confinement_regime = "".join(
-    #         [foo[i] + "-" for i in range(len(foo) - 1) if foo[i + 1] != foo[i]] + [foo[-1]]
-    #     )
-    #     if len(confinement_regime) > 5:
-    #         confinement_regime = confinement_regime[0:5]
-    #     if len(confinement_regime) == 1:
-    #         confinement_regime = confinement_regime + "-mode"
     # TODO Should we also keep as scenario_key_parameters as part of summary
+    validation_status = True
+    confinement_regime_from_ids, debug_info = get_confinement_regime(ids_summary)
+    confinement_regime_from_yaml = legacy_yaml_data["scenario_key_parameters"]["confinement_regime"]
+    if confinement_regime_from_ids != "":
+        if confinement_regime_from_yaml != confinement_regime_from_ids:
+            validation_logger.error(
+                f"{alias} confinement_regime (yaml,ids):[{confinement_regime_from_yaml}],"
+                f"[{confinement_regime_from_ids}]"
+            )
+            validation_logger.warning(f"\t> {debug_info}")
+            validation_status = False
     global_quantities = {}
-    global_quantities["h_mode_derived"] = legacy_yaml_data["scenario_key_parameters"]["confinement_regime"]
+    global_quantities["h_mode_derived"] = confinement_regime_from_yaml
     global_quantities["b0_calc"] = legacy_yaml_data["scenario_key_parameters"]["magnetic_field"]
     global_quantities["main_species"] = legacy_yaml_data["scenario_key_parameters"]["main_species"]
     global_quantities["ip_calc"] = legacy_yaml_data["scenario_key_parameters"]["plasma_current"]
-    global_quantities["density_peaking"] = legacy_yaml_data["scenario_key_parameters"].get(
-        "density_peaking", "missing_key"
-    )
-    global_quantities["power_loss_total"] = legacy_yaml_data["hcd"].get("p_sol", "missing_key")
-    return global_quantities
+    # TODO how to calulate density_peaking?
+    global_quantities["density_peaking"] = legacy_yaml_data["scenario_key_parameters"].get("density_peaking", "tbd")
+    global_quantities["power_loss_total"] = legacy_yaml_data["hcd"].get("p_sol", "tbd")
+    return global_quantities, validation_status
 
 
 def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
-
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
     legacy_yaml_data = load_yaml_file(legacy_yaml_file)
+    if legacy_yaml_data is None:
+        return
     dbentry_status = "obsolete"
     if "status" in legacy_yaml_data:
         dbentry_status = legacy_yaml_data["status"]
@@ -273,40 +336,41 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
         shot = legacy_yaml_data["characteristics"]["shot"]
         run = legacy_yaml_data["characteristics"]["run"]
         alias = str(shot) + "/" + str(run)
+        manifest_file_path = os.path.join(output_directory, f"manifest_{shot:06d}{run:04d}.yaml")
         data_entry_path_parts = legacy_yaml_file.strip("/").split("/")
         folder_path = "/" + "/".join(data_entry_path_parts[:6])
-        uri_mdsplus = f"imas:mdsplus?path=/{folder_path}/{shot}/{run}"
-        uri = uri_hdf5 = f"imas:hdf5?path=/{folder_path}/{shot}/{run}"
+        uri = f"imas:hdf5?path=/{folder_path}/{shot}/{run}"
 
         connection = None
         try:
-            connection = imas.DBEntry(uri_hdf5, "r")
+            connection = imas.DBEntry(uri, "r")
         except Exception as e:  #
-            logger.error(f"{alias} {uri_hdf5}: {e}")
-            exit(0)
-            try:
-                connection = imas.DBEntry(uri_mdsplus, "r")
-                uri = uri_mdsplus
-            except Exception as e:
-                logger.error(f"{alias} {uri_mdsplus}: {e}")
+            error_logger.error(f"{alias} {uri}: {e}")
+        ids_summary = None
+        ids_dataset_description = None
         if connection is not None:
-            ids_summary = None
             try:
-                ids_summary = connection.get("summary", autoconvert=False, lazy=True)
+                ids_summary = connection.get("summary", autoconvert=False, lazy=True, ignore_unknown_dd_version=True)
             except Exception as e:
-                logger.error(f"{alias}: {e}")
-            ids_dataset_description = None
+                error_logger.error(f"{alias}: {e}")
+                exit(0)
             try:
-                ids_dataset_description = connection.get("dataset_description", autoconvert=False, lazy=True)
-            except Exception as e:
-                logger.error(f"{alias}: {e}")
+                ids_dataset_description = connection.get(
+                    "dataset_description", autoconvert=False, lazy=True, ignore_unknown_dd_version=True
+                )
+            except Exception as _:  # noqa: F841
+                pass
 
         manifest_metadata = {}
 
-        manifest_metadata["dataset_description"] = get_dataset_description(legacy_yaml_data=legacy_yaml_data)
+        manifest_metadata["dataset_description"] = get_dataset_description(
+            legacy_yaml_data=legacy_yaml_data, ids_summary=ids_summary
+        )
         summary = {}
         summary["heating_current_drive"] = get_heating_current_drive(legacy_yaml_data)
-        summary["global_quantities"] = get_global_quantities(legacy_yaml_data)
+        summary["global_quantities"], global_quantities_validation = get_global_quantities(
+            legacy_yaml_data, ids_summary, alias
+        )
         summary["local"] = get_local(legacy_yaml_data["scenario_key_parameters"])
         summary["plasma_composition"] = get_plasma_composition(legacy_yaml_data["plasma_composition"])
         manifest_metadata["summary"] = summary
@@ -325,16 +389,17 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
 
         # manifest_file_path = os.path.join(os.path.dirname(legacy_yaml_file), f"manifest_{shot:06d}{run:04d}.yaml")
 
-        if not os.path.exists(output_directory):
-            os.makedirs(output_directory)
         manifest_file_path = os.path.join(output_directory, f"manifest_{shot:06d}{run:04d}.yaml")
 
         with open(manifest_file_path, "w") as file:
-            yaml.dump(out_data, file, default_flow_style=False, sort_keys=True)
+            yaml.dump(out_data, file, default_flow_style=False)
 
         if connection:
             connection.close()
-        sys.stdout.write(".")
+        if global_quantities_validation is False:
+            sys.stdout.write("V")
+        else:
+            sys.stdout.write(".")
         sys.stdout.flush()
 
 
@@ -386,4 +451,4 @@ if __name__ == "__main__":
         output_directory = os.path.join(os.getcwd(), "manifest")
     for yaml_file in files:
         write_manifest_file(yaml_file, output_directory=output_directory)
-    logger.info(f"\nManifest files are written into  {output_directory}")
+    error_logger.info(f"\nManifest files are written into  {output_directory}")
