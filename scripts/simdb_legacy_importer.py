@@ -14,6 +14,7 @@ import os
 import re
 from datetime import datetime
 
+import numpy as np
 import yaml
 
 # TODO Add validation functions
@@ -97,6 +98,42 @@ def load_yaml_file(yaml_file, Loader=yaml.SafeLoader):
     return yaml_data
 
 
+def get_central_electron_density(ids_core_profiles):
+    slice_index = 0
+    ne0_raw = []
+    for t in range(len(ids_core_profiles.time)):
+        ne0_raw.append(ids_core_profiles.profiles_1d[t].electrons.density[0])
+    ne0 = np.array(ne0_raw)
+    central_electron_density = 0
+    for islice in range(len(ne0)):
+        if ne0[islice] > central_electron_density:
+            central_electron_density = ne0[islice]
+            slice_index = islice
+    return central_electron_density, slice_index
+
+
+def get_sepmid_electron_density(ids_summary):
+    slice_index = 0
+    ne_sep = ids_summary.local.separatrix.n_e.value
+    sepmid_electron_density = 0
+    for islice in range(len(ne_sep)):
+        if ne_sep[islice] > sepmid_electron_density:
+            sepmid_electron_density = ne_sep[islice]
+            slice_index = islice
+    return sepmid_electron_density, slice_index
+
+
+def get_power_loss(ids_summary, slice_index):
+    p_sol = np.nan
+    debug_info = ""
+    debug_info += (
+        f"\n\t> ids_summary.global_quantities.power_loss.value : {ids_summary.global_quantities.power_loss.value.value}"
+    )
+    if len(ids_summary.global_quantities.power_loss.value) > 0:
+        p_sol = ids_summary.global_quantities.power_loss.value[slice_index]
+    return p_sol, debug_info
+
+
 def get_confinement_regime(ids_summary):
     confinement_regime = ""
     debug_info = ""
@@ -109,15 +146,81 @@ def get_confinement_regime(ids_summary):
                 foo = foo + "H"
             else:
                 foo = foo + "L"
-        debug_info = f"ids_summary.global_quantities.h_mode.value\n\t{foo}"
+        debug_info = f"\n\t> ids_summary.global_quantities.h_mode.value : {foo}"
         confinement_regime = "".join([foo[i] + "-" for i in range(len(foo) - 1) if foo[i + 1] != foo[i]] + [foo[-1]])
         if len(confinement_regime) > 5:
             confinement_regime = confinement_regime[0:5]
         if len(confinement_regime) == 1:
             confinement_regime = confinement_regime + "-mode"
-    # else:
-    # validation_logger.warning(f"{alias} > ids_summary.global_quantities.h_mode is empty")
+    else:
+        debug_info += "\n\t> ids_summary.global_quantities.h_mode is empty"
     return confinement_regime, debug_info
+
+
+def get_magnetic_field(ids_summary, ids_equilibrium):
+    magnetic_field = np.nan
+    magnetic_field_equilibrium = 0
+    magnetic_field_summary = 0
+    debug_info = ""
+    if ids_equilibrium:
+        debug_info += (
+            f"\n\t> ids_equilibrium.vacuum_toroidal_field.b0 : {ids_equilibrium.vacuum_toroidal_field.b0.value}"
+        )
+        if len(ids_equilibrium.vacuum_toroidal_field.b0) > 0:
+            if min(np.sign(ids_equilibrium.vacuum_toroidal_field.b0)) < 0:
+                magnetic_field_equilibrium = min(ids_equilibrium.vacuum_toroidal_field.b0)
+            else:
+                magnetic_field_equilibrium = max(ids_equilibrium.vacuum_toroidal_field.b0)
+            magnetic_field = magnetic_field_equilibrium
+    if ids_summary:
+        debug_info += f"\n\t> ids_summary.global_quantities.b0.value : {ids_summary.global_quantities.b0.value.value}"
+        if len(ids_summary.global_quantities.b0.value) > 0:
+            if min(np.sign(ids_summary.global_quantities.b0.value)) < 0:
+                magnetic_field_summary = min(ids_summary.global_quantities.b0.value)
+            else:
+                magnetic_field_summary = max(ids_summary.global_quantities.b0.value)
+            magnetic_field = magnetic_field_summary
+    if magnetic_field_equilibrium != magnetic_field_summary:
+        debug_info += "\n\t> magnetic_field is not same in summary and equilibrium ids"
+
+    return magnetic_field, debug_info
+
+
+def get_plasma_current(ids_summary, ids_equilibrium):
+    plasma_current = np.nan
+    plasma_current_summary = 0
+    plasma_current_equilibrium = 0
+    debug_info = ""
+    if ids_summary:
+        if len(ids_summary.global_quantities.ip.value) > 0:
+            debug_info += (
+                f"\n\t> ids_summary.global_quantities.ip.value : {ids_summary.global_quantities.ip.value.value}"
+            )
+            ip = ids_summary.global_quantities.ip.value
+            plasma_current_summary = ip[np.argmax(np.abs(ip))]
+            plasma_current = plasma_current_summary
+            debug_info += f"\n\t> plasma_current_summary : {plasma_current_summary}"
+        else:
+            debug_info += "\n\t> ids_summary.global_quantities.ip.value is empty"
+
+    if ids_equilibrium:
+        ip_raw = []
+        for t in range(len(ids_equilibrium.time)):
+            ip_raw.append(ids_equilibrium.time_slice[t].global_quantities.ip)
+        ip = np.array(ip_raw)
+        debug_info += f"\n\t> ids_equilibrium.time_slice[t].global_quantities.ip : {ip}"
+        plasma_current_equilibrium = ip[np.argmax(np.abs(ip))]
+        plasma_current = plasma_current_equilibrium
+        if plasma_current_equilibrium == 0:
+            debug_info += "\n\t> ids_equilibrium.time_slice[t].global_quantities.ip is empty"
+        else:
+            debug_info += f"\n\t> plasma_current_equilibrium : {plasma_current_equilibrium}"
+    else:
+        debug_info += "\n\t> equilibrium ids is not available"
+    if plasma_current_summary != plasma_current_equilibrium:
+        debug_info += "\n\t> plasma_current is not same in summary and equilibrium ids"
+
+    return plasma_current, debug_info
 
 
 def get_local(scenario_key_parameters: dict):
@@ -214,16 +317,86 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None):
     return dataset_description
 
 
-def get_heating_current_drive(legacy_yaml_data: dict):
+def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
     heating_current_drive = {}
-    # for isource in range(n_ic):
-    #         if len(summary.heating_current_drive.ic[isource].power.value) > 0:
-    #             p_ic = p_ic + max(summary.heating_current_drive.ic[isource].power.value) * 1.0e-6
-    heating_current_drive["power_ec_total"] = legacy_yaml_data["hcd"]["p_ec"]
-    heating_current_drive["power_ic_total"] = legacy_yaml_data["hcd"]["p_ic"]
-    heating_current_drive["power_nbi_total"] = legacy_yaml_data["hcd"]["p_nbi"]
-    heating_current_drive["power_lh_total"] = legacy_yaml_data["hcd"]["p_lh"]
-    heating_current_drive["power_additional_total"] = legacy_yaml_data["hcd"]["p_hcd"]
+    debug_info_ec = ""
+    debug_info_ic = ""
+    debug_info_nbi = ""
+    debug_info_lh = ""
+    # validation
+    p_ec = 0
+    p_ic = 0
+    p_nbi = 0
+    p_lh = 0
+
+    n_ec = len(ids_summary.heating_current_drive.ec)
+    n_ic = len(ids_summary.heating_current_drive.ic)
+    n_nbi = len(ids_summary.heating_current_drive.nbi)
+    n_lh = len(ids_summary.heating_current_drive.lh)
+    if n_ec > 0:
+        for isource in range(n_ec):
+            if len(ids_summary.heating_current_drive.ec[isource].power.value) > 0:
+                p_ec = p_ec + max(ids_summary.heating_current_drive.ec[isource].power.value)
+    else:
+        debug_info_ec += "\n\t> ids_summary.heating_current_drive.ec is empty"
+    if n_ic > 0:
+        for isource in range(n_ic):
+            if len(ids_summary.heating_current_drive.ic[isource].power.value) > 0:
+                p_ic = p_ic + max(ids_summary.heating_current_drive.ic[isource].power.value)
+    else:
+        debug_info_ic += "\n\t> ids_summary.heating_current_drive.ic is empty"
+    if n_nbi > 0:
+        for isource in range(n_nbi):
+            if len(ids_summary.heating_current_drive.nbi[isource].power.value) > 0:
+                p_nbi = p_nbi + max(ids_summary.heating_current_drive.nbi[isource].power.value)
+    else:
+        debug_info_nbi += "\n\t> ids_summary.heating_current_drive.n_nbi is empty"
+    if n_lh > 0:
+        for isource in range(n_lh):
+            if len(ids_summary.heating_current_drive.lh[isource].power.value) > 0:
+                p_lh = p_lh + max(ids_summary.heating_current_drive.lh[isource].power.value)
+    else:
+        debug_info_lh += "\n\t> ids_summary.heating_current_drive.n_lh is empty"
+    p_hcd = p_ec + p_ic + p_nbi + p_lh
+
+    p_ec_yaml = float(legacy_yaml_data["hcd"]["p_ec"])
+    p_ec_ids = float(p_ec * 1.0e-6)
+    are_values_same = abs(p_ec_ids - p_ec_yaml) < 5e-2
+    if are_values_same is False:
+        validation_logger.error(f"{alias} hcd p_ec (yaml,ids):[{p_ec_yaml}]," f"[{p_ec_ids}]")
+        validation_logger.warning(f"{debug_info_ec}")
+    heating_current_drive["power_ec_total"] = float(p_ec)
+
+    p_ic_yaml = float(legacy_yaml_data["hcd"]["p_ic"])
+    p_ic_ids = float(p_ic * 1.0e-6)
+    are_values_same = abs(p_ic_ids - p_ic_yaml) < 5e-2
+    if are_values_same is False:
+        validation_logger.error(f"{alias} hcd p_ic (yaml,ids):[{p_ic_yaml}]," f"[{p_ic_ids}]")
+        validation_logger.warning(f"{debug_info_ic}")
+    heating_current_drive["power_ic_total"] = float(p_ic)
+
+    p_nbi_yaml = float(legacy_yaml_data["hcd"]["p_nbi"])
+    p_nbi_ids = float(p_nbi * 1.0e-6)
+    are_values_same = abs(p_nbi_ids - p_nbi_yaml) < 5e-2
+    if are_values_same is False:
+        validation_logger.error(f"{alias} hcd p_nbi (yaml,ids):[{p_nbi_yaml}]," f"[{p_nbi_ids}]")
+        validation_logger.warning(f"{debug_info_nbi}")
+    heating_current_drive["power_nbi_total"] = float(p_nbi)
+
+    p_lh_yaml = float(legacy_yaml_data["hcd"]["p_lh"])
+    p_lh_ids = float(p_lh * 1.0e-6)
+    are_values_same = abs(p_lh_ids - p_lh_yaml) < 5e-2
+    if are_values_same is False:
+        validation_logger.error(f"{alias} hcd p_lh (yaml,ids):[{p_lh_yaml}]," f"[{p_lh_ids}]")
+        validation_logger.warning(f"{debug_info_lh}")
+    heating_current_drive["power_lh_total"] = float(p_lh)
+    p_hcd_yaml = float(legacy_yaml_data["hcd"]["p_hcd"])
+    p_hcd_ids = float(p_hcd * 1.0e-6)
+    are_values_same = abs(p_hcd_ids - p_hcd_yaml) < 5e-2
+    if are_values_same is False:
+        validation_logger.error(f"{alias} hcd p_hcd (yaml,ids):[{p_hcd_yaml}]," f"[{p_hcd_ids}]")
+        validation_logger.warning(f"{debug_info_ec}{debug_info_ic} {debug_info_nbi} {debug_info_lh}")
+    heating_current_drive["power_additional_total"] = float(p_hcd)
     return heating_current_drive
 
 
@@ -297,10 +470,11 @@ def get_plasma_composition(plasma_composition):
     return species_dict
 
 
-def get_global_quantities(legacy_yaml_data: dict, ids_summary, alias):
+def get_global_quantities(legacy_yaml_data: dict, slice_index, ids_summary, ids_equilibrium, alias):
     # TODO should we keep h_mode_derived or confinement_regime. h_mode is time based array
     # TODO Should we also keep as scenario_key_parameters as part of summary
     validation_status = True
+    # confinement_regime
     confinement_regime_from_ids, debug_info = get_confinement_regime(ids_summary)
     confinement_regime_from_yaml = legacy_yaml_data["scenario_key_parameters"]["confinement_regime"]
     if confinement_regime_from_ids != "":
@@ -309,16 +483,60 @@ def get_global_quantities(legacy_yaml_data: dict, ids_summary, alias):
                 f"{alias} confinement_regime (yaml,ids):[{confinement_regime_from_yaml}],"
                 f"[{confinement_regime_from_ids}]"
             )
-            validation_logger.warning(f"\t> {debug_info}")
+            validation_logger.warning(f"{debug_info}")
+            validation_status = False
+
+    # plasma_current
+    plasma_current_from_ids, debug_info = get_plasma_current(ids_summary, ids_equilibrium)
+    plasma_current_from_yaml = legacy_yaml_data["scenario_key_parameters"]["plasma_current"]
+    if plasma_current_from_yaml == "tbd":
+        plasma_current_from_yaml = np.nan
+    plasma_current_from_ids_MA = plasma_current_from_ids * 1e-6
+    plasma_current_from_yaml = plasma_current_from_yaml
+    are_values_same = abs(plasma_current_from_ids_MA - plasma_current_from_yaml) < 5e-2
+
+    if are_values_same is False:
+        validation_logger.error(
+            f"{alias} plasma_current (yaml,ids):[{plasma_current_from_yaml}]," f"[{plasma_current_from_ids}]"
+        )
+        validation_logger.warning(f"{debug_info}")
+        validation_status = False
+
+    # magnetic_field
+    magnetic_field_from_ids, debug_info = get_magnetic_field(ids_summary, ids_equilibrium)
+    magnetic_field_from_yaml = legacy_yaml_data["scenario_key_parameters"]["magnetic_field"]
+
+    are_values_same = abs(magnetic_field_from_ids - magnetic_field_from_yaml) < 5e-2
+    if are_values_same is False:
+        validation_logger.error(
+            f"{alias} magnetic_field (yaml,ids):[{magnetic_field_from_yaml}]," f"[{magnetic_field_from_ids}]"
+        )
+        validation_logger.warning(f"{debug_info}")
+        validation_status = False
+
+    # power_loss
+    p_sol_from_ids, debug_info = get_power_loss(ids_summary, slice_index)
+    p_sol_from_ids_W = p_sol_from_ids * 1e-6
+    p_sol_from_yaml = legacy_yaml_data["hcd"].get("p_sol", np.nan)
+    if p_sol_from_yaml == "tbd" or p_sol_from_yaml is None:
+        p_sol_from_yaml = np.nan
+    if not np.isnan(p_sol_from_ids):
+        are_values_same = abs(p_sol_from_ids_W - p_sol_from_yaml) < 5e-2
+        if are_values_same is False:
+            validation_logger.error(f"{alias} power_loss (yaml,ids):[{p_sol_from_yaml}]," f"[{p_sol_from_ids}]")
+            validation_logger.warning(f"{debug_info}")
             validation_status = False
     global_quantities = {}
     global_quantities["h_mode_derived"] = confinement_regime_from_yaml
-    global_quantities["b0_calc"] = legacy_yaml_data["scenario_key_parameters"]["magnetic_field"]
+    global_quantities["b0_calc"] = float(magnetic_field_from_ids)
     global_quantities["main_species"] = legacy_yaml_data["scenario_key_parameters"]["main_species"]
-    global_quantities["ip_calc"] = legacy_yaml_data["scenario_key_parameters"]["plasma_current"]
+    global_quantities["ip_calc"] = float(plasma_current_from_ids)
     # TODO how to calulate density_peaking?
     global_quantities["density_peaking"] = legacy_yaml_data["scenario_key_parameters"].get("density_peaking", "tbd")
-    global_quantities["power_loss_total"] = legacy_yaml_data["hcd"].get("p_sol", "tbd")
+    if not np.isnan(p_sol_from_ids):
+        global_quantities["power_loss_total"] = float(p_sol_from_ids)
+    else:
+        global_quantities["power_loss_total"] = "tbd"
     return global_quantities, validation_status
 
 
@@ -348,28 +566,53 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
             error_logger.error(f"{alias} {uri}: {e}")
         ids_summary = None
         ids_dataset_description = None
+        ids_equilibrium = None
+        ids_core_profiles = None
+        ids_edge_profiles = None
         if connection is not None:
             try:
                 ids_summary = connection.get("summary", autoconvert=False, lazy=True, ignore_unknown_dd_version=True)
-            except Exception as e:
+            except Exception as e:  # noqa: F841
                 error_logger.error(f"{alias}: {e}")
                 exit(0)
             try:
-                ids_dataset_description = connection.get(
-                    "dataset_description", autoconvert=False, lazy=True, ignore_unknown_dd_version=True
+                ids_equilibrium = connection.get(
+                    "equilibrium", autoconvert=False, lazy=True, ignore_unknown_dd_version=True
                 )
-            except Exception as _:  # noqa: F841
+            except Exception as e:  # noqa: F841
                 pass
-
+            try:
+                ids_core_profiles = connection.get(
+                    "core_profiles", autoconvert=False, lazy=True, ignore_unknown_dd_version=True
+                )
+            except Exception as e:  # noqa: F841
+                pass
+            try:
+                ids_edge_profiles = connection.get(
+                    "edge_profiles", autoconvert=False, lazy=True, ignore_unknown_dd_version=True
+                )
+            except Exception as e:  # noqa: F841
+                pass
+            # try:
+            #     ids_dataset_description = connection.get(
+            #         "dataset_description", autoconvert=False, lazy=True, ignore_unknown_dd_version=True
+            #     )
+            # except Exception as _:  # noqa: F841
+            #     pass
+        slice_index = 0
+        if ids_core_profiles:
+            central_electron_density, slice_index = get_central_electron_density(ids_core_profiles)
+        elif ids_edge_profiles:
+            sepmid_electron_density, slice_index = get_sepmid_electron_density(ids_summary)
         manifest_metadata = {}
 
         manifest_metadata["dataset_description"] = get_dataset_description(
             legacy_yaml_data=legacy_yaml_data, ids_summary=ids_summary
         )
         summary = {}
-        summary["heating_current_drive"] = get_heating_current_drive(legacy_yaml_data)
+        summary["heating_current_drive"] = get_heating_current_drive(legacy_yaml_data, ids_summary, alias)
         summary["global_quantities"], global_quantities_validation = get_global_quantities(
-            legacy_yaml_data, ids_summary, alias
+            legacy_yaml_data, slice_index, ids_summary, ids_equilibrium, alias
         )
         summary["local"] = get_local(legacy_yaml_data["scenario_key_parameters"])
         summary["plasma_composition"] = get_plasma_composition(legacy_yaml_data["plasma_composition"])
@@ -397,7 +640,7 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
         if connection:
             connection.close()
         if global_quantities_validation is False:
-            sys.stdout.write("V")
+            sys.stdout.write("v")
         else:
             sys.stdout.write(".")
         sys.stdout.flush()
