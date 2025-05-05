@@ -126,11 +126,12 @@ def get_sepmid_electron_density(ids_summary):
 def get_power_loss(ids_summary, slice_index):
     p_sol = np.nan
     debug_info = ""
-    debug_info += (
-        f"\n\t> ids_summary.global_quantities.power_loss.value : {ids_summary.global_quantities.power_loss.value.value}"
-    )
-    if len(ids_summary.global_quantities.power_loss.value) > 0:
-        p_sol = ids_summary.global_quantities.power_loss.value[slice_index]
+    if hasattr(ids_summary.global_quantities, "power_loss"):
+
+        debug_info += "\n\t> ids_summary.global_quantities.power_loss.value : "
+        f"{ids_summary.global_quantities.power_loss.value.value}"
+        if len(ids_summary.global_quantities.power_loss.value) > 0:
+            p_sol = ids_summary.global_quantities.power_loss.value[slice_index]
     return p_sol, debug_info
 
 
@@ -235,7 +236,8 @@ def get_local(scenario_key_parameters: dict):
     return local
 
 
-def get_dataset_description(legacy_yaml_data: dict, ids_summary=None):
+def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_dataset_description=None):
+    validation_status = True
     dataset_description = {}
     shot = legacy_yaml_data["characteristics"]["shot"]
     run = legacy_yaml_data["characteristics"]["run"]
@@ -260,6 +262,21 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None):
     dataset_description["pulse"] = legacy_yaml_data["characteristics"]["shot"]
 
     simulation = {}
+    debug_info = ""
+    workflow_name_ids = ""
+    if ids_dataset_description is not None:
+        debug_info += (
+            f"\n\t> ids_dataset_description.simulation.workflow : {ids_dataset_description.simulation.workflow}"
+        )
+
+        workflow_name_ids = ids_dataset_description.simulation.workflow
+
+    workflow_name_yaml = legacy_yaml_data["characteristics"]["workflow"]
+    if workflow_name_ids != "":
+        if workflow_name_yaml != workflow_name_ids:
+            validation_logger.error(f"{alias} workflow (yaml,ids):[{workflow_name_yaml}]," f"[{workflow_name_ids}]")
+            validation_logger.warning(f"{debug_info}")
+            validation_status = False
     simulation["workflow"] = legacy_yaml_data["characteristics"]["workflow"]
     dataset_description["simulation"] = simulation
 
@@ -314,10 +331,11 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None):
     dataset_description["responsible_name"] = legacy_yaml_data["responsible_name"]
     dataset_description["reference_name"] = legacy_yaml_data["reference_name"]
 
-    return dataset_description
+    return dataset_description, validation_status
 
 
 def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
+    validation_status = True
     heating_current_drive = {}
     debug_info_ec = ""
     debug_info_ic = ""
@@ -357,6 +375,7 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
                 p_lh = p_lh + max(ids_summary.heating_current_drive.lh[isource].power.value)
     else:
         debug_info_lh += "\n\t> ids_summary.heating_current_drive.n_lh is empty"
+
     p_hcd = p_ec + p_ic + p_nbi + p_lh
 
     p_ec_yaml = float(legacy_yaml_data["hcd"]["p_ec"])
@@ -365,6 +384,7 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
     if are_values_same is False:
         validation_logger.error(f"{alias} hcd p_ec (yaml,ids):[{p_ec_yaml}]," f"[{p_ec_ids}]")
         validation_logger.warning(f"{debug_info_ec}")
+        validation_status = False
     heating_current_drive["power_ec_total"] = float(p_ec)
 
     p_ic_yaml = float(legacy_yaml_data["hcd"]["p_ic"])
@@ -373,6 +393,7 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
     if are_values_same is False:
         validation_logger.error(f"{alias} hcd p_ic (yaml,ids):[{p_ic_yaml}]," f"[{p_ic_ids}]")
         validation_logger.warning(f"{debug_info_ic}")
+        validation_status = False
     heating_current_drive["power_ic_total"] = float(p_ic)
 
     p_nbi_yaml = float(legacy_yaml_data["hcd"]["p_nbi"])
@@ -381,6 +402,7 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
     if are_values_same is False:
         validation_logger.error(f"{alias} hcd p_nbi (yaml,ids):[{p_nbi_yaml}]," f"[{p_nbi_ids}]")
         validation_logger.warning(f"{debug_info_nbi}")
+        validation_status = False
     heating_current_drive["power_nbi_total"] = float(p_nbi)
 
     p_lh_yaml = float(legacy_yaml_data["hcd"]["p_lh"])
@@ -389,6 +411,7 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
     if are_values_same is False:
         validation_logger.error(f"{alias} hcd p_lh (yaml,ids):[{p_lh_yaml}]," f"[{p_lh_ids}]")
         validation_logger.warning(f"{debug_info_lh}")
+        validation_status = False
     heating_current_drive["power_lh_total"] = float(p_lh)
     p_hcd_yaml = float(legacy_yaml_data["hcd"]["p_hcd"])
     p_hcd_ids = float(p_hcd * 1.0e-6)
@@ -396,12 +419,13 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
     if are_values_same is False:
         validation_logger.error(f"{alias} hcd p_hcd (yaml,ids):[{p_hcd_yaml}]," f"[{p_hcd_ids}]")
         validation_logger.warning(f"{debug_info_ec}{debug_info_ic} {debug_info_nbi} {debug_info_lh}")
+        validation_status = False
     heating_current_drive["power_additional_total"] = float(p_hcd)
-    return heating_current_drive
+    return heating_current_drive, validation_status
 
 
 def get_plasma_composition(plasma_composition):
-
+    # https://github.com/iterorganization/IMAS-Data-Dictionary/discussions/51
     species_list = []
     if isinstance(plasma_composition["species"], str):
         species_list = plasma_composition["species"].split()
@@ -556,8 +580,8 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
         alias = str(shot) + "/" + str(run)
         manifest_file_path = os.path.join(output_directory, f"manifest_{shot:06d}{run:04d}.yaml")
         data_entry_path_parts = legacy_yaml_file.strip("/").split("/")
-        folder_path = "/" + "/".join(data_entry_path_parts[:6])
-        uri = f"imas:hdf5?path=/{folder_path}/{shot}/{run}"
+        folder_path = "/".join(data_entry_path_parts[:6])
+        uri = f"imas:mdsplus?path=/{folder_path}/{shot}/{run}"
 
         connection = None
         try:
@@ -593,24 +617,29 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
                 )
             except Exception as e:  # noqa: F841
                 pass
-            # try:
-            #     ids_dataset_description = connection.get(
-            #         "dataset_description", autoconvert=False, lazy=True, ignore_unknown_dd_version=True
-            #     )
-            # except Exception as _:  # noqa: F841
-            #     pass
+            try:
+                ids_dataset_description = connection.get(
+                    "dataset_description", autoconvert=False, lazy=True, ignore_unknown_dd_version=True
+                )
+            except Exception as _:  # noqa: F841
+                pass
         slice_index = 0
         if ids_core_profiles:
             central_electron_density, slice_index = get_central_electron_density(ids_core_profiles)
         elif ids_edge_profiles:
             sepmid_electron_density, slice_index = get_sepmid_electron_density(ids_summary)
+        global_quantities_validation = False
+        hcd_validation = False
+        dataset_validation = False
         manifest_metadata = {}
 
-        manifest_metadata["dataset_description"] = get_dataset_description(
-            legacy_yaml_data=legacy_yaml_data, ids_summary=ids_summary
+        manifest_metadata["dataset_description"], dataset_validation = get_dataset_description(
+            legacy_yaml_data=legacy_yaml_data, ids_summary=ids_summary, ids_dataset_description=ids_dataset_description
         )
         summary = {}
-        summary["heating_current_drive"] = get_heating_current_drive(legacy_yaml_data, ids_summary, alias)
+        summary["heating_current_drive"], hcd_validation = get_heating_current_drive(
+            legacy_yaml_data, ids_summary, alias
+        )
         summary["global_quantities"], global_quantities_validation = get_global_quantities(
             legacy_yaml_data, slice_index, ids_summary, ids_equilibrium, alias
         )
@@ -618,8 +647,13 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
         summary["plasma_composition"] = get_plasma_composition(legacy_yaml_data["plasma_composition"])
         manifest_metadata["summary"] = summary
 
-        # TODO get from summary ids
-        creation_time = datetime.fromtimestamp(os.path.getctime(legacy_yaml_file)).strftime("%Y-%m-%d %H:%M:%S")
+        try:
+            creation_date = ids_summary.ids_properties.creation_date
+            dt = datetime.strptime(creation_date, "%Y%m%d   %H%M%S.%f %z")
+            creation_time = dt.strftime("%Y-%m-%d %H:%M:%S")
+        except Exception as e:  # noqa: F841
+            stat = os.stat(legacy_yaml_file)
+            creation_time = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
 
         out_data = {
             "version": 2,
@@ -635,11 +669,11 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
         manifest_file_path = os.path.join(output_directory, f"manifest_{shot:06d}{run:04d}.yaml")
 
         with open(manifest_file_path, "w") as file:
-            yaml.dump(out_data, file, default_flow_style=False)
+            yaml.dump(out_data, file, default_flow_style=False, sort_keys=False)
 
         if connection:
             connection.close()
-        if global_quantities_validation is False:
+        if global_quantities_validation is False or hcd_validation is False or dataset_validation is False:
             sys.stdout.write("v")
         else:
             sys.stdout.write(".")
