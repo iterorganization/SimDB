@@ -1,25 +1,104 @@
-version: 1
-alias: simulation-alias
-
+version: 2
+alias: simulation-alias 
+creation_date: 'simulation-datetime in YYYY-MM-DD HH:mm:ss format'
 # Data and configuration files
 inputs:
   - uri: file:///home/user/path/to/a/file1
   - uri: imas:mdsplus?path=/path/to/folder
   - uri: imas://host:port/uda?path=/path/to/folder/on/host&backend=mdsplus
-
 # Data and log files.
 outputs:
   - uri: file:///home/user/path/to/a/file2
   - uri: imas:hdf5?path=/path/to/results/folder
-
 metadata:
 - values:
-    workflow:
-      name: Workflow Name
-      git: ssh://git@git.iter.org/wf/workflow.git
-      branch: master
-      commit: 079e84d5ae8a0eec6dcf3819c98f3c05f48e952f
-      codes:
-        - Code 1:
-            git: ssh://git@git.iter.org/eq/code.git
-            commit: 079e84d5ae8a0eec6dcf3819c98f3c05f48e952f
+    dataset_description:
+      code:
+        description: |
+          - H-mode: Description of H-mode
+          - Density: Description of density      
+          - Confinement: Description of confinement
+          - Pedestal: Description of pedestal
+          - L-H transition: Description of L-H transition
+        name: Workflow Name
+        git: ssh://git@git.iter.org/wf/workflow.git
+        branch: master
+        commit: 079e84d5ae8a0eec6dcf3819c98f3c05f48e952f
+        codes:
+          - Code 1:
+              git: ssh://git@git.iter.org/eq/code.git
+              commit: 079e84d5ae8a0eec6dcf3819c98f3c05f48e952f
+      pulse:
+        number: 12345 # simulation pulse number
+      pulse_time_begin_epoch:
+        nanoseconds: -500000000.0
+        seconds: 2
+      pulse_time_end_epoch:
+        nanoseconds: 428019999.9999468
+        seconds: 647
+      reference_name: simulation reference
+      responsible_name: resoinsible officer name and email id
+      simulation:
+        time_begin: 1.5 
+        time_end: 647.42802
+        time_step: 3.71223
+      type:
+        name: simulation # simulation type i.e. predictive, experimental, simulation etc.
+    summry:
+      global_quantities:
+        b0_calc: 
+        density_peaking: 
+        h_mode_derived: 
+        ip_calc: 
+        main_species: 
+        power_loss_total: 
+      heating_current_drive:
+        power_additional_total: 
+        power_ec_total: 
+        power_ic_total: 
+        power_lh_total: 
+        power_nbi_total: 
+      local:
+        magnetic_axis:
+          n_e: 
+          zeff: 
+        separatrix:
+          n_e_calc: 
+          zeff_calc: 
+      plasma_composition:
+        Be:
+          a: 
+          n_over_n_maj: 
+          n_over_ne: 
+          n_over_ntot: 
+          z: 
+        D:
+          a: 
+          n_over_n_maj: 
+          n_over_ne: 
+          n_over_ntot: 
+          z: 
+        H:
+          a: 
+          n_over_n_maj: 
+          n_over_ne: 
+          n_over_ntot: 
+          z: 
+        He4:
+          a: 
+          n_over_n_maj: 
+          n_over_ne: 
+          n_over_ntot: 
+          z: 
+        T:
+          a: 
+          n_over_n_maj: 
+          n_over_ne: 
+          n_over_ntot: 
+          z: 
+        W:
+          a: 
+          n_over_n_maj: 
+          n_over_ne: 
+          n_over_ntot: 
+          z: 
