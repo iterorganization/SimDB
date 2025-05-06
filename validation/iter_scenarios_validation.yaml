@@ -6,21 +6,34 @@ alias:
     - '^/.*$'      # does not start with /
     - '^.*/$'      # does not end with /
 
-device:
-  required: true
-  type: string
-
-workflow:
+dataset_description:
   required: true
   type: dict
   schema:
-    name:
+    code:
+      required: true
+      type: dict
+      schema:
+        name:
+          required: true
+          type: string
+        description:
+          required: true
+          type: string
+    pulse:
+      required: true
+      type: integer
+    machine:
       required: true
       type: string
+    type:
+      required: true
+      type: dict
+      schema:
+        name:
+          required: true
+          type: string
 
-description:
-  required: true
-  type: string
 
 equilibrium:
 #  required: true
