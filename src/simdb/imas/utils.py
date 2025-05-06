@@ -99,7 +99,7 @@ def check_time(entry: DBEntry, ids: str, occurrence) -> None:
     @return:
     """
     import imas
-    ids_obj = entry.get(ids, occurrence, autoconvert=False)
+    ids_obj = entry.get(ids, occurrence, autoconvert=False, lazy=True)
     try:
         # IMAS-Python validte method validates the time mode and coordinates 
         #ids_obj.validate()
@@ -228,7 +228,7 @@ def imas_timestamp(uri: URI) -> datetime:
         except parser.ParserError:
             raise ValueError(f"invalid IMAS creation time {creation}")
     else:
-        timestamp = datetime.now()
+        timestamp = None
     entry.close()
     return timestamp
 
