@@ -101,8 +101,6 @@ def check_time(entry: DBEntry, ids: str, occurrence) -> None:
     import imas
     ids_obj = entry.get(ids, occurrence, autoconvert=False, lazy=True)
     try:
-        # IMAS-Python validte method validates the time mode and coordinates 
-        #ids_obj.validate()
         homo_time = ids_obj.ids_properties.homogeneous_time
         if homo_time == imas.ids_defs.IDS_TIME_MODE_HOMOGENEOUS:
             time = ids_obj.time
