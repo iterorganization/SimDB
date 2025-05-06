@@ -236,7 +236,7 @@ class SimulationList(Resource):
             add_watcher = data.get("add_watcher", True)
 
             simulation = models_sim.Simulation.from_data(data["simulation"])
-            simulation.set_meta("uploaded_by", user.name)
+            simulation.set_meta("uploaded_by", user.email)
 
             if add_watcher:
                 simulation.watchers.append(
