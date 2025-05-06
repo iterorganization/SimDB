@@ -11,56 +11,29 @@ except ImportError:
     import imas
 import argparse
 import os
-import re
 from datetime import datetime
 
 import numpy as np
 import yaml
 
-# TODO Add validation functions
-# TODO Check workflow name and type is empty and matching with dataset_description.simulation.workflow
-# TODO Finalize names of the attributes in summary and dataset_description
-# Create logger
-# logger = logging.getLogger(__name__)
-# logger.setLevel(logging.ERROR)  # Set default level
-
-# log_format = logging.Formatter("%(levelname)s - line %(lineno)d - %(message)s")
-
-# # --- File handler ---
-# file_handler = logging.FileHandler(f"{os.path.basename(__file__)}.log")
-# file_handler.setFormatter(log_format)
-# logger.addHandler(file_handler)
-
-
-enable_console_logging = False  # Set this to False to disable console logs
-# Setup output directory
+enable_console_logging = False
 output_directory = "simdb_legacy_importer_logs"
 os.makedirs(output_directory, exist_ok=True)
-
-# Define file paths
 validation_log_path = os.path.join(output_directory, "simdb_legacy_importer_validation.log")
 error_log_path = os.path.join(output_directory, "simdb_legacy_importer_error.log")
-
-# --- Validation Logger ---
 validation_logger = logging.getLogger("validation_logger")
 validation_logger.setLevel(logging.INFO)
-
 validation_handler = logging.FileHandler(validation_log_path, mode="w")
 validation_handler.setFormatter(logging.Formatter("%(message)s"))
-
 validation_logger.addHandler(validation_handler)
 if enable_console_logging:
     validation_console_handler = logging.StreamHandler(sys.stdout)
     validation_console_handler.setFormatter(logging.Formatter("%(message)s"))
     validation_logger.addHandler(validation_console_handler)
-
-# --- Error Logger ---
 error_logger = logging.getLogger("error_logger")
 error_logger.setLevel(logging.ERROR)
-
 error_handler = logging.FileHandler(error_log_path, mode="w")
 error_handler.setFormatter(logging.Formatter("%(levelname)s - line %(lineno)d - %(message)s"))
-
 error_logger.addHandler(error_handler)
 
 if enable_console_logging:
@@ -68,10 +41,6 @@ if enable_console_logging:
     error_console_handler.setFormatter(logging.Formatter("%(levelname)s - line %(lineno)d - %(message)s"))
     error_logger.addHandler(error_console_handler)
 # -----------------------------------------------------------------------------------------------------
-
-
-replaces_re1 = re.compile(r"\d+/\d+")
-replaces_re2 = re.compile(r"\((\d+),(\d+)\)(\s*-.*)?")
 
 
 class Literal(str):
@@ -224,16 +193,102 @@ def get_plasma_current(ids_summary, ids_equilibrium):
     return plasma_current, debug_info
 
 
-def get_local(scenario_key_parameters: dict):
+def get_local(scenario_key_parameters: dict, slice_index, ids_summary, ids_core_profiles, ids_edge_profiles, alias):
+    debug_info = ""
+    validation_status = True
+    central_electron_density_ids = np.nan
+    central_zeff_ids = np.nan
+    sepmid_electron_density_ids = np.nan
+    if ids_summary.local.separatrix.zeff.value.has_value:
+        sepmid_zeff_ids = ids_summary.local.separatrix.zeff.value[slice_index]
+    else:
+        sepmid_zeff_ids = np.nan
+
+    if ids_core_profiles:
+        central_electron_density_ids, _ = get_central_electron_density(ids_core_profiles)
+        central_zeff_ids = ids_core_profiles.profiles_1d[slice_index].zeff[0]
+    elif ids_edge_profiles:
+        sepmid_electron_density_ids, _ = get_sepmid_electron_density(ids_summary)
+
+    sepmid_electron_density_yaml = scenario_key_parameters.get("sepmid_electron_density", np.nan)
+    sepmid_zeff_yaml = scenario_key_parameters.get("sepmid_zeff", np.nan)
+    central_zeff_yaml = scenario_key_parameters.get("central_zeff", np.nan)
+    central_electron_density_yaml = scenario_key_parameters.get("central_electron_density", np.nan)
+
+    if sepmid_electron_density_yaml == "tbd":
+        sepmid_electron_density_yaml = np.nan
+    if sepmid_zeff_yaml == "tbd":
+        sepmid_zeff_yaml = np.nan
+    if central_zeff_yaml == "tbd":
+        central_zeff_yaml = np.nan
+    if central_electron_density_yaml == "tbd":
+        central_electron_density_yaml = np.nan
+
+    if not np.isnan(sepmid_electron_density_ids):
+        if np.isnan(sepmid_electron_density_yaml):
+            validation_logger.error(
+                f"{alias} sepmid_electron_density, yaml value empty (yaml,ids):[{sepmid_electron_density_yaml}],"
+                f"[{sepmid_electron_density_ids}]"
+            )
+        are_values_same = abs(sepmid_electron_density_yaml - sepmid_electron_density_ids) < 5e-2
+        if are_values_same is False:
+            validation_logger.error(
+                f"{alias} sepmid_electron_density (yaml,ids):[{sepmid_electron_density_yaml}],"
+                f"[{sepmid_electron_density_ids}]"
+            )
+            debug_info = "\n\t> sepmid_electron_density is not same in legacy yaml  and summary ids"
+            validation_logger.warning(f"{debug_info}")
+            validation_status = False
+
+    if not np.isnan(sepmid_zeff_ids):
+        if np.isnan(sepmid_zeff_yaml):
+            validation_logger.error(
+                f"{alias} sepmid_zeff, yaml value empty (yaml,ids):[{sepmid_zeff_yaml}]," f"[{sepmid_zeff_ids}]"
+            )
+        are_values_same = abs(sepmid_zeff_yaml - sepmid_zeff_ids) < 5e-2
+        if are_values_same is False:
+            validation_logger.error(f"{alias} sepmid_zeff (yaml,ids):[{sepmid_zeff_yaml}]," f"[{sepmid_zeff_ids}]")
+            debug_info = "\n\t> sepmid_zeff is not same in legacy yaml and summary ids"
+            validation_logger.warning(f"{debug_info}")
+            validation_status = False
+
+    if not np.isnan(central_electron_density_ids):
+        if np.isnan(central_electron_density_yaml):
+            validation_logger.error(
+                f"{alias} central_electron_density, yaml value empty (yaml,ids):[{central_electron_density_yaml}],"
+                f"[{central_electron_density_ids}]"
+            )
+        are_values_same = abs(central_electron_density_yaml - central_electron_density_ids) < 5e-2
+        if are_values_same is False:
+            validation_logger.error(
+                f"{alias} central_electron_density (yaml,ids):[{central_electron_density_yaml}],"
+                f"[{central_electron_density_ids}]"
+            )
+            debug_info = "\n\t> central_zeff is not same in legacy yaml and core_profiles"
+            validation_logger.warning(f"{debug_info}")
+            validation_status = False
+
+    if not np.isnan(central_zeff_ids):
+        if np.isnan(central_zeff_yaml):
+            validation_logger.error(
+                f"{alias} central_zeff, yaml value empty (yaml,ids):[{central_zeff_yaml}]," f"[{central_zeff_ids}]"
+            )
+        are_values_same = abs(central_zeff_yaml - central_zeff_ids) < 5e-2
+        if are_values_same is False:
+            validation_logger.error(f"{alias} central_zeff (yaml,ids):[{central_zeff_yaml}]," f"[{central_zeff_ids}]")
+            debug_info = "\n\t> central_zeff is not same in legacy yaml and core_profiles"
+            validation_logger.warning(f"{debug_info}")
+            validation_status = False
+
     local = {}
     local["separatrix"] = {}
-    local["separatrix"]["zeff_calc"] = scenario_key_parameters.get("sepmid_zeff", "tbd")
-    local["separatrix"]["n_e_calc"] = scenario_key_parameters.get("sepmid_electron_density", "tbd")
+    local["separatrix"]["zeff"] = scenario_key_parameters.get("sepmid_zeff", "tbd")
+    local["separatrix"]["n_e"] = scenario_key_parameters.get("sepmid_electron_density", "tbd")
 
     local["magnetic_axis"] = {}
     local["magnetic_axis"]["zeff"] = scenario_key_parameters.get("central_zeff", "tbd")
     local["magnetic_axis"]["n_e"] = scenario_key_parameters.get("central_electron_density", "tbd")
-    return local
+    return local, validation_status
 
 
 def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_dataset_description=None):
@@ -242,22 +297,22 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
     shot = legacy_yaml_data["characteristics"]["shot"]
     run = legacy_yaml_data["characteristics"]["run"]
     alias = str(shot) + "/" + str(run)
+    # https://github.com/iterorganization/IMAS-Data-Dictionary/discussions/63
+    dataset_description["responsible_name"] = legacy_yaml_data["responsible_name"]
 
-    dataset_description["uri"] = f"imas:hdf5?path=/work/imas/shared/imasdb/ITER/3/{shot}/{run}"
-    # TODO check what is predictive means here. as per 4.0.0 we have expermiental and
-    # simulation as a type (Some places it is tbd)
-    # TODO we also had workflow type does it different from pulse type. It seems both are same
-    # so just adding type in dataset_description
-    # and dropping workflow type
-    if legacy_yaml_data["characteristics"]["type"] == "experimental":
-        dataset_description["type"] = {"name": "experimental", "index": 1, "description": ""}
-    elif legacy_yaml_data["characteristics"]["type"] == "simulation":
-        dataset_description["type"] = {"name": "simulation", "index": 2, "description": ""}
-    elif legacy_yaml_data["characteristics"]["type"] == "predictive":
-        dataset_description["type"] = {"name": "predictive", "index": 3, "description": ""}
+    # removed https://github.com/iterorganization/IMAS-Data-Dictionary/discussions/63
+    # dataset_description["uri"] = f"imas:hdf5?path=/work/imas/shared/imasdb/ITER/3/{shot}/{run}"
+
+    # https://github.com/iterorganization/IMAS-Data-Dictionary/discussions/63
+    if legacy_yaml_data["characteristics"]["type"].lower() == "experimental":
+        dataset_description["type"] = {"name": "experimental"}
+    elif legacy_yaml_data["characteristics"]["type"].lower() == "simulation":
+        dataset_description["type"] = {"name": "simulation"}
+    elif legacy_yaml_data["characteristics"]["type"].lower() == "predictive":
+        dataset_description["type"] = {"name": "predictive"}
     else:
-        dataset_description["type"] = {"name": "simulation", "index": 2, "description": ""}
-    dataset_description["machine"] = legacy_yaml_data["characteristics"]["machine"]
+        dataset_description["type"] = {"name": f"{legacy_yaml_data['characteristics']['type'].lower()}"}
+    dataset_description["machine"] = legacy_yaml_data["characteristics"]["machine"].upper()
 
     dataset_description["pulse"] = legacy_yaml_data["characteristics"]["shot"]
 
@@ -278,14 +333,16 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
             validation_logger.warning(f"{debug_info}")
             validation_status = False
     simulation["workflow"] = legacy_yaml_data["characteristics"]["workflow"]
+
+    description = str(legacy_yaml_data["reference_name"]) + "\n" + str(legacy_yaml_data["free_description"])
+    simulation["description"] = Literal(description)
     dataset_description["simulation"] = simulation
 
     code = {}
     code["name"] = legacy_yaml_data["characteristics"]["workflow"]
-    code["description"] = Literal(legacy_yaml_data["free_description"])
+
     dataset_description["code"] = code
 
-    # TODO when we have single time step do we need to add time_step in dataset_description?
     if "summary" in legacy_yaml_data["idslist"]:
         start = end = step = 0.0
         if "start_end_step" in legacy_yaml_data["idslist"]["summary"]:
@@ -312,24 +369,16 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
                 "seconds": round(end),
                 "nanoseconds": (end - round(end)) * 10**9,
             }
-            dataset_description["simulation"] = {
-                "time_begin": start,
-                "time_end": end,
-            }
+            dataset_description["simulation"]["time_begin"] = start
+            dataset_description["simulation"]["time_end"] = end
+
         except ValueError as e:
             error_logger.error(f"{alias}:{e}")
-            exit(0)
 
         try:
             dataset_description["simulation"]["time_step"] = float(step)
         except ValueError as e:
             error_logger.error(f"{alias}:{e}")
-
-    # TODO below attributes are not present in the dataset_description responsible_name, reference_name
-    # TODO dataset_description or summary/ids_properties/provider contains the linux name of the user.
-    # How to enforce user to store actual name/email ID of the person
-    dataset_description["responsible_name"] = legacy_yaml_data["responsible_name"]
-    dataset_description["reference_name"] = legacy_yaml_data["reference_name"]
 
     return dataset_description, validation_status
 
@@ -385,7 +434,7 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
         validation_logger.error(f"{alias} hcd p_ec (yaml,ids):[{p_ec_yaml}]," f"[{p_ec_ids}]")
         validation_logger.warning(f"{debug_info_ec}")
         validation_status = False
-    heating_current_drive["power_ec_total"] = float(p_ec)
+    heating_current_drive["power_ec"] = float(p_ec)
 
     p_ic_yaml = float(legacy_yaml_data["hcd"]["p_ic"])
     p_ic_ids = float(p_ic * 1.0e-6)
@@ -394,7 +443,7 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
         validation_logger.error(f"{alias} hcd p_ic (yaml,ids):[{p_ic_yaml}]," f"[{p_ic_ids}]")
         validation_logger.warning(f"{debug_info_ic}")
         validation_status = False
-    heating_current_drive["power_ic_total"] = float(p_ic)
+    heating_current_drive["power_ic"] = float(p_ic)
 
     p_nbi_yaml = float(legacy_yaml_data["hcd"]["p_nbi"])
     p_nbi_ids = float(p_nbi * 1.0e-6)
@@ -403,7 +452,7 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
         validation_logger.error(f"{alias} hcd p_nbi (yaml,ids):[{p_nbi_yaml}]," f"[{p_nbi_ids}]")
         validation_logger.warning(f"{debug_info_nbi}")
         validation_status = False
-    heating_current_drive["power_nbi_total"] = float(p_nbi)
+    heating_current_drive["power_nbi"] = float(p_nbi)
 
     p_lh_yaml = float(legacy_yaml_data["hcd"]["p_lh"])
     p_lh_ids = float(p_lh * 1.0e-6)
@@ -412,7 +461,7 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
         validation_logger.error(f"{alias} hcd p_lh (yaml,ids):[{p_lh_yaml}]," f"[{p_lh_ids}]")
         validation_logger.warning(f"{debug_info_lh}")
         validation_status = False
-    heating_current_drive["power_lh_total"] = float(p_lh)
+    heating_current_drive["power_lh"] = float(p_lh)
     p_hcd_yaml = float(legacy_yaml_data["hcd"]["p_hcd"])
     p_hcd_ids = float(p_hcd * 1.0e-6)
     are_values_same = abs(p_hcd_ids - p_hcd_yaml) < 5e-2
@@ -420,7 +469,7 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
         validation_logger.error(f"{alias} hcd p_hcd (yaml,ids):[{p_hcd_yaml}]," f"[{p_hcd_ids}]")
         validation_logger.warning(f"{debug_info_ec}{debug_info_ic} {debug_info_nbi} {debug_info_lh}")
         validation_status = False
-    heating_current_drive["power_additional_total"] = float(p_hcd)
+    heating_current_drive["power_additional"] = float(p_hcd)
     return heating_current_drive, validation_status
 
 
@@ -495,8 +544,7 @@ def get_plasma_composition(plasma_composition):
 
 
 def get_global_quantities(legacy_yaml_data: dict, slice_index, ids_summary, ids_equilibrium, alias):
-    # TODO should we keep h_mode_derived or confinement_regime. h_mode is time based array
-    # TODO Should we also keep as scenario_key_parameters as part of summary
+    # https://github.com/iterorganization/IMAS-Data-Dictionary/discussions/66
     validation_status = True
     # confinement_regime
     confinement_regime_from_ids, debug_info = get_confinement_regime(ids_summary)
@@ -551,11 +599,11 @@ def get_global_quantities(legacy_yaml_data: dict, slice_index, ids_summary, ids_
             validation_logger.warning(f"{debug_info}")
             validation_status = False
     global_quantities = {}
-    global_quantities["h_mode_derived"] = confinement_regime_from_yaml
-    global_quantities["b0_calc"] = float(magnetic_field_from_ids)
+    global_quantities["h_mode"] = confinement_regime_from_ids
+    global_quantities["b0"] = float(magnetic_field_from_ids)
     global_quantities["main_species"] = legacy_yaml_data["scenario_key_parameters"]["main_species"]
-    global_quantities["ip_calc"] = float(plasma_current_from_ids)
-    # TODO how to calulate density_peaking?
+    global_quantities["ip"] = float(plasma_current_from_ids)
+    # TODO how to calulate density_peaking? https://github.com/iterorganization/IMAS-Data-Dictionary/discussions/65
     global_quantities["density_peaking"] = legacy_yaml_data["scenario_key_parameters"].get("density_peaking", "tbd")
     if not np.isnan(p_sol_from_ids):
         global_quantities["power_loss_total"] = float(p_sol_from_ids)
@@ -631,6 +679,7 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
         global_quantities_validation = False
         hcd_validation = False
         dataset_validation = False
+        local_validation = False
         manifest_metadata = {}
 
         manifest_metadata["dataset_description"], dataset_validation = get_dataset_description(
@@ -643,7 +692,14 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
         summary["global_quantities"], global_quantities_validation = get_global_quantities(
             legacy_yaml_data, slice_index, ids_summary, ids_equilibrium, alias
         )
-        summary["local"] = get_local(legacy_yaml_data["scenario_key_parameters"])
+        summary["local"], local_validation = get_local(
+            legacy_yaml_data["scenario_key_parameters"],
+            slice_index,
+            ids_summary,
+            ids_core_profiles,
+            ids_edge_profiles,
+            alias,
+        )
         summary["plasma_composition"] = get_plasma_composition(legacy_yaml_data["plasma_composition"])
         manifest_metadata["summary"] = summary
 
@@ -667,13 +723,17 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
         # manifest_file_path = os.path.join(os.path.dirname(legacy_yaml_file), f"manifest_{shot:06d}{run:04d}.yaml")
 
         manifest_file_path = os.path.join(output_directory, f"manifest_{shot:06d}{run:04d}.yaml")
-
         with open(manifest_file_path, "w") as file:
             yaml.dump(out_data, file, default_flow_style=False, sort_keys=False)
 
         if connection:
             connection.close()
-        if global_quantities_validation is False or hcd_validation is False or dataset_validation is False:
+        if (
+            global_quantities_validation is False
+            or hcd_validation is False
+            or dataset_validation is False
+            or local_validation is False
+        ):
             sys.stdout.write("v")
         else:
             sys.stdout.write(".")
