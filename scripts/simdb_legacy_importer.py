@@ -629,7 +629,7 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
         manifest_file_path = os.path.join(output_directory, f"manifest_{shot:06d}{run:04d}.yaml")
         data_entry_path_parts = legacy_yaml_file.strip("/").split("/")
         folder_path = "/".join(data_entry_path_parts[:6])
-        uri = f"imas:mdsplus?path=/{folder_path}/{shot}/{run}"
+        uri = f"imas:hdf5?path=/{folder_path}/{shot}/{run}"
 
         connection = None
         try:
@@ -648,12 +648,6 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
                 error_logger.error(f"{alias}: {e}")
                 exit(0)
             try:
-                ids_equilibrium = connection.get(
-                    "equilibrium", autoconvert=False, lazy=True, ignore_unknown_dd_version=True
-                )
-            except Exception as e:  # noqa: F841
-                pass
-            try:
                 ids_core_profiles = connection.get(
                     "core_profiles", autoconvert=False, lazy=True, ignore_unknown_dd_version=True
                 )
@@ -670,6 +664,12 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
                     "dataset_description", autoconvert=False, lazy=True, ignore_unknown_dd_version=True
                 )
             except Exception as _:  # noqa: F841
+                pass
+            try:
+                ids_equilibrium = connection.get(
+                    "equilibrium", autoconvert=False, lazy=True, ignore_unknown_dd_version=True
+                )
+            except Exception as e:  # noqa: F841
                 pass
         slice_index = 0
         if ids_core_profiles:
