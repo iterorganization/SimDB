@@ -1,7 +1,34 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# pip install pyyaml
-# pip install imas-python
+"""
+simdb_legacy_importer.py
+
+This script is designed to update legacy YAML metadata files into manifest files. It validates and processes data
+from YAML files and IMAS database entries, generating manifest files with updated metadata.
+
+Command-line Arguments:
+    --files: List of YAML metadata files to process.
+    --folder: List of folders to search for YAML files recursively.
+    --output-directory: Directory to save the generated manifest files.
+
+Usage:
+    Run the script with the appropriate command-line arguments to process YAML files and generate manifest files.
+
+Example:
+    python simdb_legacy_importer.py
+    python simdb_legacy_importer.py --files file1.yaml file2.yaml --output-directory ./manifests
+
+Notes:
+    - The script validates data consistency between YAML files and IMAS database entries.
+    - Validation errors and warnings are logged into separate log files.
+    - The script supports both experimental and simulation data.
+
+Dependencies:
+    - pyyaml: For YAML file handling. pip install pyyaml
+    - imas-python: For interacting with IMAS database entries. pip install imas-python
+"""
+
+
 import logging
 import sys
 
@@ -298,20 +325,22 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
     run = legacy_yaml_data["characteristics"]["run"]
     alias = str(shot) + "/" + str(run)
     # https://github.com/iterorganization/IMAS-Data-Dictionary/discussions/63
-    dataset_description["responsible_name"] = legacy_yaml_data["responsible_name"]
+    # Removed after discussion on 05/07/2025 Standup meeting
+    # dataset_description["responsible_name"] = legacy_yaml_data["responsible_name"]
 
     # removed https://github.com/iterorganization/IMAS-Data-Dictionary/discussions/63
     # dataset_description["uri"] = f"imas:hdf5?path=/work/imas/shared/imasdb/ITER/3/{shot}/{run}"
 
     # https://github.com/iterorganization/IMAS-Data-Dictionary/discussions/63
-    if legacy_yaml_data["characteristics"]["type"].lower() == "experimental":
-        dataset_description["type"] = {"name": "experimental"}
-    elif legacy_yaml_data["characteristics"]["type"].lower() == "simulation":
-        dataset_description["type"] = {"name": "simulation"}
-    elif legacy_yaml_data["characteristics"]["type"].lower() == "predictive":
-        dataset_description["type"] = {"name": "predictive"}
-    else:
-        dataset_description["type"] = {"name": f"{legacy_yaml_data['characteristics']['type'].lower()}"}
+    # Removed after discussion on 05/07/2025 Standup meeting
+    # if legacy_yaml_data["characteristics"]["type"].lower() == "experimental":
+    #     dataset_description["type"] = {"name": "experimental"}
+    # elif legacy_yaml_data["characteristics"]["type"].lower() == "simulation":
+    #     dataset_description["type"] = {"name": "simulation"}
+    # elif legacy_yaml_data["characteristics"]["type"].lower() == "predictive":
+    #     dataset_description["type"] = {"name": "predictive"}
+    # else:
+    #     dataset_description["type"] = {"name": f"{legacy_yaml_data['characteristics']['type'].lower()}"}
     dataset_description["machine"] = legacy_yaml_data["characteristics"]["machine"].upper()
 
     dataset_description["pulse"] = legacy_yaml_data["characteristics"]["shot"]
@@ -332,7 +361,6 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
             validation_logger.error(f"{alias} workflow (yaml,ids):[{workflow_name_yaml}]," f"[{workflow_name_ids}]")
             validation_logger.warning(f"{debug_info}")
             validation_status = False
-    simulation["workflow"] = legacy_yaml_data["characteristics"]["workflow"]
 
     description = str(legacy_yaml_data["reference_name"]) + "\n" + str(legacy_yaml_data["free_description"])
     simulation["description"] = Literal(description)
@@ -599,7 +627,7 @@ def get_global_quantities(legacy_yaml_data: dict, slice_index, ids_summary, ids_
             validation_logger.warning(f"{debug_info}")
             validation_status = False
     global_quantities = {}
-    global_quantities["h_mode"] = confinement_regime_from_ids
+    global_quantities["h_mode"] = confinement_regime_from_yaml
     global_quantities["b0"] = float(magnetic_field_from_ids)
     global_quantities["main_species"] = legacy_yaml_data["scenario_key_parameters"]["main_species"]
     global_quantities["ip"] = float(plasma_current_from_ids)
