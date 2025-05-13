@@ -309,12 +309,12 @@ def get_local(scenario_key_parameters: dict, slice_index, ids_summary, ids_core_
 
     local = {}
     local["separatrix"] = {}
-    local["separatrix"]["zeff"] = scenario_key_parameters.get("sepmid_zeff", "tbd")
-    local["separatrix"]["n_e"] = scenario_key_parameters.get("sepmid_electron_density", "tbd")
+    local["separatrix"]["zeff"] = {"value": scenario_key_parameters.get("sepmid_zeff", "tbd")}
+    local["separatrix"]["n_e"] = {"value": scenario_key_parameters.get("sepmid_electron_density", "tbd")}
 
     local["magnetic_axis"] = {}
-    local["magnetic_axis"]["zeff"] = scenario_key_parameters.get("central_zeff", "tbd")
-    local["magnetic_axis"]["n_e"] = scenario_key_parameters.get("central_electron_density", "tbd")
+    local["magnetic_axis"]["zeff"] = {"value": scenario_key_parameters.get("central_zeff", "tbd")}
+    local["magnetic_axis"]["n_e"] = {"value": scenario_key_parameters.get("central_electron_density", "tbd")}
     return local, validation_status
 
 
@@ -361,8 +361,12 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
             validation_logger.error(f"{alias} workflow (yaml,ids):[{workflow_name_yaml}]," f"[{workflow_name_ids}]")
             validation_logger.warning(f"{debug_info}")
             validation_status = False
+    description = ""
+    if str(legacy_yaml_data["reference_name"]) in str(legacy_yaml_data["free_description"]):
+        description = str(legacy_yaml_data["free_description"])
+    else:
+        description = str(legacy_yaml_data["reference_name"]) + "\n" + str(legacy_yaml_data["free_description"])
 
-    description = str(legacy_yaml_data["reference_name"]) + "\n" + str(legacy_yaml_data["free_description"])
     simulation["description"] = Literal(description)
     dataset_description["simulation"] = simulation
 
@@ -462,7 +466,7 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
         validation_logger.error(f"{alias} hcd p_ec (yaml,ids):[{p_ec_yaml}]," f"[{p_ec_ids}]")
         validation_logger.warning(f"{debug_info_ec}")
         validation_status = False
-    heating_current_drive["power_ec"] = float(p_ec)
+    heating_current_drive["power_ec"] = {"value": float(p_ec)}
 
     p_ic_yaml = float(legacy_yaml_data["hcd"]["p_ic"])
     p_ic_ids = float(p_ic * 1.0e-6)
@@ -471,7 +475,7 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
         validation_logger.error(f"{alias} hcd p_ic (yaml,ids):[{p_ic_yaml}]," f"[{p_ic_ids}]")
         validation_logger.warning(f"{debug_info_ic}")
         validation_status = False
-    heating_current_drive["power_ic"] = float(p_ic)
+    heating_current_drive["power_ic"] = {"value": float(p_ic)}
 
     p_nbi_yaml = float(legacy_yaml_data["hcd"]["p_nbi"])
     p_nbi_ids = float(p_nbi * 1.0e-6)
@@ -480,7 +484,7 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
         validation_logger.error(f"{alias} hcd p_nbi (yaml,ids):[{p_nbi_yaml}]," f"[{p_nbi_ids}]")
         validation_logger.warning(f"{debug_info_nbi}")
         validation_status = False
-    heating_current_drive["power_nbi"] = float(p_nbi)
+    heating_current_drive["power_nbi"] = {"value": float(p_nbi)}
 
     p_lh_yaml = float(legacy_yaml_data["hcd"]["p_lh"])
     p_lh_ids = float(p_lh * 1.0e-6)
@@ -489,7 +493,7 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
         validation_logger.error(f"{alias} hcd p_lh (yaml,ids):[{p_lh_yaml}]," f"[{p_lh_ids}]")
         validation_logger.warning(f"{debug_info_lh}")
         validation_status = False
-    heating_current_drive["power_lh"] = float(p_lh)
+    heating_current_drive["power_lh"] = {"value": float(p_lh)}
     p_hcd_yaml = float(legacy_yaml_data["hcd"]["p_hcd"])
     p_hcd_ids = float(p_hcd * 1.0e-6)
     are_values_same = abs(p_hcd_ids - p_hcd_yaml) < 5e-2
@@ -497,7 +501,7 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
         validation_logger.error(f"{alias} hcd p_hcd (yaml,ids):[{p_hcd_yaml}]," f"[{p_hcd_ids}]")
         validation_logger.warning(f"{debug_info_ec}{debug_info_ic} {debug_info_nbi} {debug_info_lh}")
         validation_status = False
-    heating_current_drive["power_additional"] = float(p_hcd)
+    heating_current_drive["power_additional"] = {"value": float(p_hcd)}
     return heating_current_drive, validation_status
 
 
@@ -627,14 +631,14 @@ def get_global_quantities(legacy_yaml_data: dict, slice_index, ids_summary, ids_
             validation_logger.warning(f"{debug_info}")
             validation_status = False
     global_quantities = {}
-    global_quantities["h_mode"] = confinement_regime_from_yaml
-    global_quantities["b0"] = float(magnetic_field_from_ids)
+    global_quantities["h_mode"] = {"value": confinement_regime_from_yaml}
+    global_quantities["b0"] = {"value": float(magnetic_field_from_ids)}
     global_quantities["main_species"] = legacy_yaml_data["scenario_key_parameters"]["main_species"]
-    global_quantities["ip"] = float(plasma_current_from_ids)
+    global_quantities["ip"] = {"value": float(plasma_current_from_ids)}
     # TODO how to calulate density_peaking? https://github.com/iterorganization/IMAS-Data-Dictionary/discussions/65
     global_quantities["density_peaking"] = legacy_yaml_data["scenario_key_parameters"].get("density_peaking", "tbd")
     if not np.isnan(p_sol_from_ids):
-        global_quantities["power_loss_total"] = float(p_sol_from_ids)
+        global_quantities["power_loss"] = {"value": float(p_sol_from_ids)}
     else:
         global_quantities["power_loss_total"] = "tbd"
     return global_quantities, validation_status
