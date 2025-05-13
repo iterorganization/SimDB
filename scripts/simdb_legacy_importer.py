@@ -640,7 +640,7 @@ def get_global_quantities(legacy_yaml_data: dict, slice_index, ids_summary, ids_
     if not np.isnan(p_sol_from_ids):
         global_quantities["power_loss"] = {"value": float(p_sol_from_ids)}
     else:
-        global_quantities["power_loss_total"] = "tbd"
+        global_quantities["power_loss"] = {"value": "tbd"}
     return global_quantities, validation_status
 
 
