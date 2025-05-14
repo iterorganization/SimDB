@@ -93,6 +93,20 @@ def walk_dict(d: Dict, node, depth: int, read_values: ReadValues) -> Dict:
         return walk_imas(node)
     return meta
 
+def load_imas_metadata(ids_dist, entry) -> dict:
+    """
+    Load metadata from IMAS entry.
+    :param ids_list: Dictionary where keys are IDS names and values are configurations.
+    :param entry: IMAS entry object.
+    :return: Dictionary containing metadata.
+    """
+    import imas
+    metadata = {}
+    for ids_name, v in ids_dist.items():
+        ids = entry.get(ids_name)
+        for node in imas.util.tree_iter(ids):
+            metadata[ ids_name + "." + str(node.metadata.path).replace("/",".")] = node.value
+    return metadata
 
 def load_metadata(entry):
     # with open(Path(__file__).absolute().parent / 'imas_metadata.yaml') as f:
@@ -107,5 +121,5 @@ def load_metadata(entry):
         #     "values": "all",
         # },
     }
-    meta = walk_dict(data_to_read, entry, 0, ReadValues.SELECTED)
+    meta = load_imas_metadata(data_to_read, entry)
     return meta
