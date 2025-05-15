@@ -116,11 +116,11 @@ class Simulation(Base):
         if manifest is None:
             return
         self.uuid = uuid.uuid1()
-        # Creation date is mandatory in the manifest
-        if manifest.creation_date is None:
-            raise ValueError("Manifest creation_date cannot be None")
-        self.datetime = date_parser.parse(manifest.creation_date)
-        self.meta.append(MetaData("creation_date", manifest.creation_date))
+        
+        # Simulation creation date is mandatory in the manifest
+        if manifest.creation_date:
+            self.datetime = date_parser.parse(manifest.creation_date)
+            self.meta.append(MetaData("creation_date", manifest.creation_date))
 
         # self.status = Simulation.Status.NOT_VALIDATED
         self.user = getuser()
