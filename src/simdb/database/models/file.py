@@ -41,7 +41,7 @@ class File(Base):
         ids_list: Optional[list] = None,        
         perform_integrity_check: bool = True,
         config: Optional[Config] = None,
-        creation_date: Optional[datetime] = None,
+        creation_date = None,
     ) -> None:
         self.uuid = uuid.uuid1()
         self.uri = uri
