@@ -10,31 +10,27 @@ dataset_description:
   required: true
   type: dict
   schema:
-    code:
-      required: true
-      type: dict
-      schema:
-        name:
-          required: true
-          type: string
-        description:
-          required: true
-          type: string
-    pulse:
-      required: true
-      type: integer
     machine:
-      required: true
       type: string
-    type:
-      required: true
+    pulse:
+      type: integer
+    simulation:
+      type: dict
+      schema:
+        description:
+          type: string
+        time_begin:
+          type: float
+        time_end:
+          type: float
+        time_step:
+          type: float
+    code:
       type: dict
       schema:
         name:
-          required: true
-          type: string
-
-
+          type: string      
+    
 equilibrium:
 #  required: true
   type: dict

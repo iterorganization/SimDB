@@ -1,3 +1,4 @@
+from datetime import datetime
 import uuid
 import os
 import sys
@@ -366,6 +367,9 @@ class Database:
         s_b = Bundle("simulation", Simulation.id, Simulation.alias, Simulation.uuid)
         query = self.session.query(m_b, s_b).join(Simulation)
         for name, value, query_type in constraints:
+            date_time = datetime.now()
+            if name == "creation_date":
+                date_time = datetime.strptime(value.replace("_", ":"), "%Y-%m-%d %H:%M:%S")
             if query == QueryType.NONE:
                 pass
             elif query_type == QueryType.EQ:
@@ -373,6 +377,8 @@ class Database:
                     query = query.filter(func.lower(Simulation.alias) == value.lower())
                 elif name == "uuid":
                     query = query.filter(Simulation.uuid == uuid.UUID(value))
+                elif name == "creation_date":
+                    query = query.filter(Simulation.datetime == date_time)
             elif query_type == QueryType.IN:
                 if name == "alias":
                     query = query.filter(Simulation.alias.ilike("%{}%".format(value)))
@@ -382,17 +388,32 @@ class Database:
                             "%{}%".format(value.replace("-", ""))
                         )
                     )
+            elif query_type == QueryType.GT:
+                if name == "creation_date":
+                    query = query.filter(Simulation.datetime > date_time)
+            elif query_type == QueryType.GE:
+                if name == "creation_date":
+                    query = query.filter(Simulation.datetime >= date_time)
+            elif query_type == QueryType.LT:
+                if name == "creation_date":
+                    query = query.filter(Simulation.datetime < date_time)
+            elif query_type == QueryType.LE:
+                if name == "creation_date":
+                    query = query.filter(Simulation.datetime <= date_time)
+            elif query_type == QueryType.NE:
+                if name == "creation_date":
+                    query = query.filter(Simulation.datetime != date_time)
             elif name in ("uuid", "alias"):
                 raise ValueError(f"Invalid query type {query_type} for alias or uuid.")
 
         names_filters = []
         for name, _, _ in constraints:
-            if name in ("alias", "uuid"):
+            if name in ("alias", "uuid", "creation_date"):
                 continue
             names_filters.append(MetaData.element.ilike(name))
         if names_filters:
             query = query.filter(or_(*names_filters))
-
+        
         return query
 
     def _get_sim_ids(

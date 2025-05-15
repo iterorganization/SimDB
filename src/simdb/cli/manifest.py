@@ -1,3 +1,4 @@
+import datetime
 import re
 import os
 import urllib
@@ -279,6 +280,24 @@ class AliasValidator(ManifestValidator):
         if urllib.parse.quote(value) != value:
             raise InvalidAlias(f"illegal characters in alias: {value}")
 
+class CreationDateValidator(ManifestValidator):
+    """
+    Validator for simulation CreationDate.
+    """
+
+    def __init__(self, version: int):
+        super().__init__(version)
+
+    def validate(self, value):
+        if not isinstance(value, str):
+            raise InvalidManifest("CreationDate must be a string")
+        
+        # Validate the datetime format
+        try:
+            datetime.datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            raise InvalidManifest(f"Invalid datetime format for CreationDate: {value}")
+
 
 class DescriptionValidator(ManifestValidator):
     """
@@ -309,11 +328,12 @@ class MetaDataValidator(ListValuesValidator):
     def __init__(self, version: int) -> None:
         section_name = "metadata"
         expected_keys = ("path", "values")
+        
         super().__init__(version, section_name, expected_keys)
 
     def validate(self, values: Union[list, dict]) -> None:
         super().validate(values)
-
+        
         for item in values:
             name = next(iter(item))
             for char in MetaDataValidator.forbidden_characters:
@@ -333,7 +353,7 @@ class WorkflowValidator(DictValuesValidator):
         if version == 0:
             expected_keys = ("name", "git", "repo", "commit", "codes")
             required_keys = ("name", "commit", "codes")
-        elif version > 0:
+        elif version == 1:
             expected_keys = (
                 "name",
                 "developer",
@@ -426,9 +446,15 @@ class Manifest:
         return None
 
     @property
+    def creation_date(self) -> Optional[str]:
+        if isinstance(self._data, dict):
+            return self._data.get("creation_date", None)
+        return None
+     
+    @property
     def version(self) -> int:
         if isinstance(self._data, dict):
-            return self._data.get("version", 0)
+            return self._data.get("version", 2)
         return 0
 
     def _load_metadata(self, root_path: Path, path: Path):
@@ -538,10 +564,9 @@ class Manifest:
             )
 
         if "version" not in self._data.keys():
-            print("warning: no version given in manifest, assuming version 0.")
+            print("warning: no version given in manifest, assuming version 2.")
 
         version = self.version
-
         if version == 0:
             section_validators = {
                 "inputs": InputsValidator(version),
@@ -558,6 +583,15 @@ class Manifest:
                 "outputs": OutputsValidator(version),
                 "metadata": MetaDataValidator(version),
             }
+        elif version == 2:
+            section_validators = {
+                "version": VersionValidator(version),
+                "alias": AliasValidator(version),
+                "inputs": InputsValidator(version),
+                "outputs": OutputsValidator(version),
+                "metadata": MetaDataValidator(version),
+                "creation_date": CreationDateValidator(version),
+            }
         else:
             raise InvalidManifest(f"Unknown manifest version {version}.")
 
@@ -571,6 +605,5 @@ class Manifest:
                 raise InvalidManifest(f"Required manifest section not found {section}.")
 
         for name, values in self._data.items():
-            section_validators[name].validate(values)
-
+            section_validators[name].validate(values)        
         self._convert_version()

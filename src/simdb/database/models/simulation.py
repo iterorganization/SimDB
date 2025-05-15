@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import List, Union, Dict, Any, TYPE_CHECKING, Optional, Set
 from getpass import getuser
 from pathlib import Path
+from dateutil import parser as date_parser
 
 if sys.version_info < (3, 11):
     from backports.datetime_fromisoformat import MonkeyPatch
@@ -115,7 +116,12 @@ class Simulation(Base):
         if manifest is None:
             return
         self.uuid = uuid.uuid1()
-        self.datetime = datetime.now()
+        # Creation date is mandatory in the manifest
+        if manifest.creation_date is None:
+            raise ValueError("Manifest creation_date cannot be None")
+        self.datetime = date_parser.parse(manifest.creation_date)
+        self.meta.append(MetaData("creation_date", manifest.creation_date))
+
         # self.status = Simulation.Status.NOT_VALIDATED
         self.user = getuser()
 
@@ -126,7 +132,7 @@ class Simulation(Base):
         
         for input in manifest.inputs:
             if input.type == DataObject.Type.IMAS:
-                from ...imas.utils import open_imas, list_idss, check_time, imas_files
+                from ...imas.utils import open_imas, list_idss, check_time
                 from ...imas.metadata import load_metadata
 
                 entry = open_imas(input.uri)
@@ -143,7 +149,7 @@ class Simulation(Base):
 
                 entry.close()
 
-            file = File(input.type, input.uri, config=config)
+            file = File(input.type, input.uri, all_input_idss, config=config, creation_date=self.datetime)
             if input.type == DataObject.Type.IMAS and "path" not in input.uri.query:
                 file.uri = _update_legacy_uri(input)
             self.inputs.append(file)
@@ -155,7 +161,7 @@ class Simulation(Base):
 
         for output in manifest.outputs:
             if output.type == DataObject.Type.IMAS:
-                from ...imas.utils import open_imas, list_idss, check_time, imas_files
+                from ...imas.utils import open_imas, list_idss, check_time
                 from ...imas.metadata import load_metadata
 
                 entry = open_imas(output.uri)
@@ -178,7 +184,7 @@ class Simulation(Base):
                 for key, value in flattened_meta.items():
                     self.meta.append(MetaData(key, value))
 
-            file = File(output.type, output.uri, config=config)
+            file = File(output.type, output.uri, all_output_idss, config=config, creation_date=self.datetime)
             if output.type == DataObject.Type.IMAS and "path" not in output.uri.query:
                 file.uri = _update_legacy_uri(output)
             
@@ -192,7 +198,6 @@ class Simulation(Base):
 
         for key, value in flattened_dict.items():
             self.set_meta(key, value)
-
         if not self.find_meta("status"):
             self.set_meta("status", Simulation.Status.NOT_VALIDATED.value)        
         self.validate_meta()
