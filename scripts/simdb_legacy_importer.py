@@ -320,10 +320,12 @@ def get_local(scenario_key_parameters: dict, slice_index, ids_summary, ids_core_
 
 def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_dataset_description=None):
     validation_status = True
+
     dataset_description = {}
     shot = legacy_yaml_data["characteristics"]["shot"]
     run = legacy_yaml_data["characteristics"]["run"]
     alias = str(shot) + "/" + str(run)
+    validation_logger.error(f"{alias}")
     # https://github.com/iterorganization/IMAS-Data-Dictionary/discussions/63
     # Removed after discussion on 05/07/2025 Standup meeting
     # dataset_description["responsible_name"] = legacy_yaml_data["responsible_name"]
@@ -341,39 +343,76 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
     #     dataset_description["type"] = {"name": "predictive"}
     # else:
     #     dataset_description["type"] = {"name": f"{legacy_yaml_data['characteristics']['type'].lower()}"}
-    dataset_description["machine"] = legacy_yaml_data["characteristics"]["machine"].upper()
 
-    dataset_description["pulse"] = legacy_yaml_data["characteristics"]["shot"]
-
-    simulation = {}
-    debug_info = ""
-    workflow_name_ids = ""
-    if ids_dataset_description is not None:
-        debug_info += (
-            f"\n\t> ids_dataset_description.simulation.workflow : {ids_dataset_description.simulation.workflow}"
-        )
-
-        workflow_name_ids = ids_dataset_description.simulation.workflow
-
-    workflow_name_yaml = legacy_yaml_data["characteristics"]["workflow"]
-    if workflow_name_ids != "":
-        if workflow_name_yaml != workflow_name_ids:
-            validation_logger.error(f"{alias} workflow (yaml,ids):[{workflow_name_yaml}]," f"[{workflow_name_ids}]")
-            validation_logger.warning(f"{debug_info}")
+    # dataset_description.machine
+    machine_from_yaml = legacy_yaml_data["characteristics"]["machine"]
+    machine_from_ids = None
+    if ids_dataset_description is not None and hasattr(ids_dataset_description, "machine"):
+        machine_from_ids = ids_dataset_description.machine if ids_dataset_description.machine.has_value else None
+    if machine_from_ids:
+        if machine_from_ids != machine_from_yaml:
+            validation_logger.error("\tdiscrepancies found in machine name")
+            validation_logger.warning(
+                f"\t>  yaml['characteristics']['machine'], dataset_description.machine (yaml,ids):[{machine_from_yaml}],"
+                f"[{machine_from_ids}]"
+            )
             validation_status = False
-    description = ""
-    if str(legacy_yaml_data["reference_name"]) in str(legacy_yaml_data["free_description"]):
-        description = str(legacy_yaml_data["free_description"])
     else:
-        description = str(legacy_yaml_data["reference_name"]) + "\n" + str(legacy_yaml_data["free_description"])
+        validation_logger.error("\tids_dataset_description.machine is not set, setting from yaml file")
+        validation_logger.warning(f"\t>  (yaml,ids):[{machine_from_yaml}]," f"[{machine_from_ids}]")
+        dataset_description["machine"] = machine_from_yaml.upper()
 
-    simulation["description"] = Literal(description)
+    # dataset_description.pulse
+    pulse_from_yaml = legacy_yaml_data["characteristics"]["shot"]
+    pulse_from_ids = None
+    if ids_dataset_description is not None and hasattr(ids_dataset_description, "pulse"):
+        pulse_from_ids = ids_dataset_description.pulse if ids_dataset_description.pulse.has_value else None
+    if pulse_from_ids:
+        if pulse_from_ids != pulse_from_yaml:
+            validation_logger.error("\tdiscrepancies found in pulse name")
+            validation_logger.warning(
+                f"\t>  yaml['characteristics']['pulse'], dataset_description.pulse (yaml,ids):[{pulse_from_yaml}],"
+                f"[{pulse_from_ids}]"
+            )
+            validation_status = False
+    else:
+        validation_logger.error("\tids_dataset_description.pulse is not set, setting from yaml file")
+        validation_logger.warning(f"\t>  (yaml,ids):[{pulse_from_yaml}]," f"[{pulse_from_ids}]")
+        dataset_description["pulse"] = pulse_from_yaml
+
+    # dataset_description.code
+    code_from_yaml = legacy_yaml_data["characteristics"]["workflow"]
+    code_from_ids = None
+    if ids_dataset_description is not None and hasattr(ids_dataset_description.simulation, "workflow"):
+        code_from_ids = (
+            ids_dataset_description.simulation.workflow
+            if ids_dataset_description.simulation.workflow.has_value
+            else None
+        )
+    if code_from_ids:
+        if code_from_ids != code_from_yaml:
+            validation_logger.error("\tdiscrepancies found in code name")
+            validation_logger.warning(
+                f"\t>  yaml['characteristics']['workflow'], dataset_description.simulation.workflow  (yaml,ids):[{code_from_yaml}],[{code_from_ids}]"
+            )
+            validation_status = False
+    else:
+        validation_logger.error("\tids_dataset_description.simulation.workflow is not set, setting from yaml file")
+        validation_logger.warning(f"\t>  (yaml,ids):[{code_from_yaml}], [{code_from_ids}]")
+        code = {}
+        code["name"] = code_from_yaml.upper()
+        dataset_description["code"] = code
+
+    # dataset_description.simulation.description
+    description_yaml = ""
+    if str(legacy_yaml_data["reference_name"]) in str(legacy_yaml_data["free_description"]):
+        description_yaml = str(legacy_yaml_data["free_description"])
+    else:
+        description_yaml = str(legacy_yaml_data["reference_name"]) + "\n" + str(legacy_yaml_data["free_description"])
+    description_yaml = Literal(description_yaml)
+    simulation = {}
+    simulation["description"] = Literal(description_yaml)
     dataset_description["simulation"] = simulation
-
-    code = {}
-    code["name"] = legacy_yaml_data["characteristics"]["workflow"]
-
-    dataset_description["code"] = code
 
     if "summary" in legacy_yaml_data["idslist"]:
         start = end = step = 0.0
@@ -382,36 +421,171 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
         elif "time" in legacy_yaml_data["idslist"]["summary"]:
             start = end = legacy_yaml_data["idslist"]["summary"]["time"][0]
             step = 0.0
-        try:
-            if step == "varying":
-                times = ids_summary.time
-                homogeneous_time = ids_summary.ids_properties.homogeneous_time
-                if homogeneous_time == 1:
-                    if times is not None:
-                        if len(times) > 1:
-                            step = (times[len(times) - 1] - times[0]) / (len(times) - 1)
+        if step == "varying":
+            times = ids_summary.time
+            homogeneous_time = ids_summary.ids_properties.homogeneous_time
+            if homogeneous_time == 1:
+                if times is not None:
+                    if len(times) > 1:
+                        step = (times[len(times) - 1] - times[0]) / (len(times) - 1)
 
-            start = float(start)
-            end = float(end)
-            dataset_description["pulse_time_begin_epoch"] = {
-                "seconds": round(start),
-                "nanoseconds": (start - round(start)) * 10**9,
-            }
-            dataset_description["pulse_time_end_epoch"] = {
-                "seconds": round(end),
-                "nanoseconds": (end - round(end)) * 10**9,
-            }
+        start = float(start)
+        end = float(end)
+
+        pulse_time_begin_epoch_seconds_ids = 0
+        pulse_time_begin_epoch_nanoseconds_ids = 0
+        pulse_time_end_epoch_seconds_ids = 0
+        pulse_time_end_epoch_nanoseconds_ids = 0
+        simulation_time_begin_ids = 0.0
+        simulation_time_end_ids = 0.0
+        simulation_time_step_ids = 0
+
+        pulse_time_begin_epoch_seconds_yaml = round(start)
+        pulse_time_begin_epoch_nanoseconds_yaml = (start - round(start)) * 10**9
+        pulse_time_end_epoch_seconds_yaml = round(end)
+        pulse_time_end_epoch_nanoseconds_yaml = (end - round(end)) * 10**9
+        simulation_time_begin_yaml = start
+        simulation_time_end_yaml = end
+        simulation_time_step_yaml = float(step)
+
+        dataset_description["pulse_time_begin_epoch"] = {}
+        dataset_description["pulse_time_end_epoch"] = {}
+        if ids_dataset_description is not None:
+            pulse_time_begin_epoch_seconds_ids = (
+                ids_dataset_description.pulse_time_begin_epoch.seconds
+                if ids_dataset_description.pulse_time_begin_epoch.seconds.has_value
+                else 0
+            )
+            pulse_time_begin_epoch_nanoseconds_ids = (
+                ids_dataset_description.pulse_time_begin_epoch.nanoseconds
+                if ids_dataset_description.pulse_time_begin_epoch.nanoseconds.has_value
+                else 0
+            )
+            pulse_time_end_epoch_seconds_ids = (
+                ids_dataset_description.pulse_time_end_epoch.seconds
+                if ids_dataset_description.pulse_time_end_epoch.seconds.has_value
+                else 0
+            )
+            pulse_time_end_epoch_nanoseconds_ids = (
+                ids_dataset_description.pulse_time_end_epoch.nanoseconds
+                if ids_dataset_description.pulse_time_end_epoch.nanoseconds.has_value
+                else 0
+            )
+            simulation_time_begin_ids = (
+                ids_dataset_description.simulation.time_begin
+                if ids_dataset_description.simulation.time_begin.has_value
+                else 0.0
+            )
+            simulation_time_end_ids = (
+                ids_dataset_description.simulation.time_end
+                if ids_dataset_description.simulation.time_end.has_value
+                else 0.0
+            )
+            simulation_time_step_ids = (
+                ids_dataset_description.simulation.time_step
+                if ids_dataset_description.simulation.time_step.has_value
+                else 0
+            )
+
+        if pulse_time_begin_epoch_seconds_ids:
+            if pulse_time_begin_epoch_seconds_ids != pulse_time_begin_epoch_seconds_yaml:
+                validation_logger.error("\tdiscrepancies found in dataset_description.pulse_time_begin_epoch.seconds")
+                validation_logger.warning(
+                    f"\t>  (yaml,ids):[{pulse_time_begin_epoch_seconds_yaml}],[{pulse_time_begin_epoch_seconds_ids}]"
+                )
+                validation_status = False
+        else:
+            validation_logger.error(
+                "\tdataset_description.pulse_time_begin_epoch.seconds is not set, setting from yaml file"
+            )
+            validation_logger.warning(
+                f"\t>  (yaml,ids):[{pulse_time_begin_epoch_seconds_yaml}],[{pulse_time_begin_epoch_seconds_ids}]"
+            )
+            dataset_description["pulse_time_begin_epoch"]["seconds"] = round(start)
+        if pulse_time_begin_epoch_nanoseconds_ids:
+            if pulse_time_begin_epoch_nanoseconds_ids != pulse_time_begin_epoch_nanoseconds_yaml:
+                validation_logger.error(
+                    "\tdiscrepancies found in dataset_description.pulse_time_begin_epoch.nanoseconds"
+                )
+                validation_logger.warning(
+                    f"\t>  (yaml,ids):"
+                    f"[{pulse_time_begin_epoch_nanoseconds_yaml}],[{pulse_time_begin_epoch_nanoseconds_ids}]"
+                )
+                validation_status = False
+        else:
+            validation_logger.error(
+                "\tdataset_description.pulse_time_begin_epoch.nanoseconds is not set, setting from yaml file"
+            )
+            validation_logger.warning(
+                f"\t>  (yaml,ids):[{pulse_time_begin_epoch_nanoseconds_yaml}],[{pulse_time_begin_epoch_nanoseconds_ids}]"
+            )
+            dataset_description["pulse_time_begin_epoch"]["nanoseconds"] = (start - round(start)) * 10**9
+
+        if pulse_time_end_epoch_seconds_ids:
+            if pulse_time_end_epoch_seconds_ids != pulse_time_end_epoch_seconds_yaml:
+                validation_logger.error("\tdiscrepancies found in dataset_description.pulse_time_end_epoch.seconds")
+                validation_logger.warning(
+                    f"\t>  (yaml,ids):[{pulse_time_end_epoch_seconds_yaml}],[{pulse_time_end_epoch_seconds_ids}]"
+                )
+                validation_status = False
+        else:
+            validation_logger.error(
+                "\tdataset_description.pulse_time_end_epoch.seconds is not set, setting from yaml file"
+            )
+            validation_logger.warning(
+                f"\t>  (yaml,ids):[{pulse_time_end_epoch_seconds_yaml}],[{pulse_time_end_epoch_seconds_ids}]"
+            )
+            dataset_description["pulse_time_end_epoch"]["seconds"] = round(end)
+        if pulse_time_end_epoch_nanoseconds_ids:
+            if pulse_time_end_epoch_nanoseconds_ids != pulse_time_end_epoch_nanoseconds_yaml:
+                validation_logger.error("\tdiscrepancies found in dataset_description.pulse_time_end_epoch.nanoseconds")
+                validation_logger.warning(
+                    f"\t>  (yaml,ids):[{pulse_time_end_epoch_nanoseconds_yaml}],[{pulse_time_end_epoch_nanoseconds_ids}]"
+                )
+                validation_status = False
+        else:
+            validation_logger.error(
+                "\tdataset_description.pulse_time_end_epoch.nanoseconds is not set, setting from yaml file"
+            )
+            validation_logger.warning(
+                f"\t>  (yaml,ids):[{pulse_time_end_epoch_nanoseconds_yaml}],[{pulse_time_end_epoch_nanoseconds_ids}]"
+            )
+            dataset_description["pulse_time_end_epoch"]["nanoseconds"] = (end - round(end)) * 10**9
+
+        if simulation_time_begin_ids:
+            if simulation_time_begin_ids != simulation_time_begin_yaml:
+                validation_logger.error("\tdiscrepancies found in dataset_description.simulation.time_start")
+                validation_logger.warning(
+                    f"\t>  (yaml,ids):[{simulation_time_begin_yaml}],[{simulation_time_begin_ids}]"
+                )
+                validation_status = False
+        else:
+            validation_logger.error("\tdataset_description.simulation.time_begin is not set, setting from yaml file")
+            validation_logger.warning(f"\t>  (yaml,ids):[{simulation_time_begin_yaml}],[{simulation_time_begin_ids}]")
             dataset_description["simulation"]["time_begin"] = start
+        if simulation_time_end_ids:
+            if simulation_time_end_ids != simulation_time_end_yaml:
+                validation_logger.error("\tdiscrepancies found in dataset_description.simulation.time_end")
+                validation_logger.warning(f"\t>  (yaml,ids):[{simulation_time_end_yaml}],[{simulation_time_end_ids}]")
+                validation_status = False
+        else:
+            validation_logger.error("\tdataset_description.simulation.time_end is not set, setting from yaml file")
+            validation_logger.warning(f"\t>  (yaml,ids):[{simulation_time_end_yaml}],[{simulation_time_end_ids}]")
             dataset_description["simulation"]["time_end"] = end
 
-        except ValueError as e:
-            error_logger.error(f"{alias}:{e}")
-
-        try:
+        if simulation_time_step_ids:
+            if simulation_time_step_ids != simulation_time_step_yaml:
+                validation_logger.error("\tdiscrepancies found in dataset_description.simulation.time_step")
+                validation_logger.warning(f"\t>  (yaml,ids):[{simulation_time_step_yaml}],[{simulation_time_step_ids}]")
+                validation_status = False
+        else:
+            validation_logger.error("\tdataset_description.simulation.time_step is not set, setting from yaml file")
+            validation_logger.warning(f"\t>  (yaml,ids):[{simulation_time_step_yaml}],[{simulation_time_step_ids}]")
             dataset_description["simulation"]["time_step"] = float(step)
-        except ValueError as e:
-            error_logger.error(f"{alias}:{e}")
 
+    import pprint
+
+    pprint.pprint(dataset_description)
     return dataset_description, validation_status
 
 
@@ -466,7 +640,10 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
         validation_logger.error(f"{alias} hcd p_ec (yaml,ids):[{p_ec_yaml}]," f"[{p_ec_ids}]")
         validation_logger.warning(f"{debug_info_ec}")
         validation_status = False
-    heating_current_drive["power_ec"] = {"value": float(p_ec)}
+    if not ids_summary.heating_current_drive.power_ec.value.has_value and float(p_ec) != 0.0:
+        heating_current_drive["power_ec"] = {"value": float(p_ec)}
+    else:
+        validation_logger.error(f"{alias} ids_summary.heating_current_drive.power_ec.value is already set, not setting")
 
     p_ic_yaml = float(legacy_yaml_data["hcd"]["p_ic"])
     p_ic_ids = float(p_ic * 1.0e-6)
@@ -475,7 +652,10 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
         validation_logger.error(f"{alias} hcd p_ic (yaml,ids):[{p_ic_yaml}]," f"[{p_ic_ids}]")
         validation_logger.warning(f"{debug_info_ic}")
         validation_status = False
-    heating_current_drive["power_ic"] = {"value": float(p_ic)}
+    if not ids_summary.heating_current_drive.power_ic.value.has_value and float(p_ic) != 0.0:
+        heating_current_drive["power_ic"] = {"value": float(p_ic)}
+    else:
+        validation_logger.error(f"{alias} ids_summary.heating_current_drive.power_ic.value is already set, not setting")
 
     p_nbi_yaml = float(legacy_yaml_data["hcd"]["p_nbi"])
     p_nbi_ids = float(p_nbi * 1.0e-6)
@@ -484,7 +664,12 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
         validation_logger.error(f"{alias} hcd p_nbi (yaml,ids):[{p_nbi_yaml}]," f"[{p_nbi_ids}]")
         validation_logger.warning(f"{debug_info_nbi}")
         validation_status = False
-    heating_current_drive["power_nbi"] = {"value": float(p_nbi)}
+    if not ids_summary.heating_current_drive.power_nbi.value.has_value and float(p_nbi) != 0.0:
+        heating_current_drive["power_nbi"] = {"value": float(p_nbi)}
+    else:
+        validation_logger.error(
+            f"{alias} ids_summary.heating_current_drive.power_nbi.value is already set, not setting"
+        )
 
     p_lh_yaml = float(legacy_yaml_data["hcd"]["p_lh"])
     p_lh_ids = float(p_lh * 1.0e-6)
@@ -493,7 +678,10 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
         validation_logger.error(f"{alias} hcd p_lh (yaml,ids):[{p_lh_yaml}]," f"[{p_lh_ids}]")
         validation_logger.warning(f"{debug_info_lh}")
         validation_status = False
-    heating_current_drive["power_lh"] = {"value": float(p_lh)}
+    if not ids_summary.heating_current_drive.power_lh.value.has_value and float(p_lh) != 0.0:
+        heating_current_drive["power_lh"] = {"value": float(p_lh)}
+    else:
+        validation_logger.error(f"{alias} ids_summary.heating_current_drive.power_lh.value is already set, not setting")
     p_hcd_yaml = float(legacy_yaml_data["hcd"]["p_hcd"])
     p_hcd_ids = float(p_hcd * 1.0e-6)
     are_values_same = abs(p_hcd_ids - p_hcd_yaml) < 5e-2
@@ -501,7 +689,12 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
         validation_logger.error(f"{alias} hcd p_hcd (yaml,ids):[{p_hcd_yaml}]," f"[{p_hcd_ids}]")
         validation_logger.warning(f"{debug_info_ec}{debug_info_ic} {debug_info_nbi} {debug_info_lh}")
         validation_status = False
-    heating_current_drive["power_additional"] = {"value": float(p_hcd)}
+    if not ids_summary.heating_current_drive.power_additional.value.has_value and float(p_hcd) != 0.0:
+        heating_current_drive["power_additional"] = {"value": float(p_hcd)}
+    else:
+        validation_logger.error(
+            f"{alias} ids_summary.heating_current_drive.power_additional.value is already set, not setting"
+        )
     return heating_current_drive, validation_status
 
 
@@ -718,9 +911,9 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
             legacy_yaml_data=legacy_yaml_data, ids_summary=ids_summary, ids_dataset_description=ids_dataset_description
         )
         summary = {}
-        summary["heating_current_drive"], hcd_validation = get_heating_current_drive(
-            legacy_yaml_data, ids_summary, alias
-        )
+        heating_current_drive, hcd_validation = get_heating_current_drive(legacy_yaml_data, ids_summary, alias)
+        if heating_current_drive and heating_current_drive != {}:
+            summary["heating_current_drive"] = heating_current_drive
         summary["global_quantities"], global_quantities_validation = get_global_quantities(
             legacy_yaml_data, slice_index, ids_summary, ids_equilibrium, alias
         )
