@@ -121,6 +121,10 @@ class Simulation(Base):
         if manifest.creation_date:
             self.datetime = date_parser.parse(manifest.creation_date)
             self.meta.append(MetaData("creation_date", manifest.creation_date))
+        else:
+            # If no creation date is provided, use the current date and time
+            self.datetime = datetime.now()
+            self.meta.append(MetaData("creation_date", self.datetime.isoformat()))
 
         # self.status = Simulation.Status.NOT_VALIDATED
         self.user = getuser()
