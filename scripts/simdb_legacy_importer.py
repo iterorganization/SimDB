@@ -900,7 +900,7 @@ def get_global_quantities(legacy_yaml_data: dict, slice_index, ids_summary, ids_
         validation_logger.error("\t> ids_summary.global_quantities.ip.value is already set, not setting")
 
     if not ids_summary.global_quantities.power_loss.value.has_value:
-        if p_sol_from_ids != 0.0:
+        if p_sol_from_ids != 0.0 and not np.isnan(p_sol_from_ids):
             global_quantities["power_loss"] = {"value": float(p_sol_from_ids)}
         else:
             validation_logger.error(
