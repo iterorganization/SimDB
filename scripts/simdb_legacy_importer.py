@@ -998,10 +998,10 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
         validation_logger.error(f"{alias}")
         manifest_metadata = {}
 
-        manifest_metadata["dataset_description"], dataset_validation = get_dataset_description(
+        dataset_description, dataset_validation = get_dataset_description(
             legacy_yaml_data=legacy_yaml_data, ids_summary=ids_summary, ids_dataset_description=ids_dataset_description
         )
-        summary = {}
+        summary = {**dataset_description}
         heating_current_drive, hcd_validation = get_heating_current_drive(legacy_yaml_data, ids_summary, alias)
         if heating_current_drive and heating_current_drive != {}:
             summary["heating_current_drive"] = heating_current_drive
@@ -1023,16 +1023,11 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
         summary["plasma_composition"] = get_plasma_composition(legacy_yaml_data["plasma_composition"])
         manifest_metadata["summary"] = summary
 
-        try:
-            creation_date = ids_summary.ids_properties.creation_date
-            dt = datetime.strptime(creation_date, "%Y%m%d   %H%M%S.%f %z")
-            creation_time = dt.strftime("%Y-%m-%d %H:%M:%S")
-        except Exception as e:  # noqa: F841
-            stat = os.stat(legacy_yaml_file)
-            creation_time = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+        stat = os.stat(legacy_yaml_file)
+        creation_time = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
 
         out_data = {
-            "version": 2,
+            "manifest_version": 2,
             "creation_date": creation_time,
             "alias": alias,
             "outputs": [{"uri": uri}],
