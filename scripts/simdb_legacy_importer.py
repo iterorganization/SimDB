@@ -431,6 +431,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
             if ids_dataset_description.simulation.workflow.has_value
             else None
         )
+    code = {}
     if code_from_ids:
         if code_from_ids != code_from_yaml:
             validation_logger.error("\tdiscrepancies found in code name")
@@ -439,10 +440,11 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
                 f"(yaml,ids):[{code_from_yaml}],[{code_from_ids}]"
             )
             validation_status = False
+        code["name"] = code_from_ids.upper()
     else:
         validation_logger.error("\tids_dataset_description.simulation.workflow is not set, setting from yaml file")
         validation_logger.warning(f"\t>  (yaml,ids):[{code_from_yaml}], [{code_from_ids}]")
-        code = {}
+
         code["name"] = code_from_yaml.upper()
         dataset_description["code"] = code
 
