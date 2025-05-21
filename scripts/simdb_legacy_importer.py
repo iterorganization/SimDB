@@ -44,10 +44,9 @@ import numpy as np
 import yaml
 
 enable_console_logging = False
-output_directory = "simdb_legacy_importer_logs"
+output_directory = "manifest"
 os.makedirs(output_directory, exist_ok=True)
-validation_log_path = os.path.join(output_directory, "simdb_legacy_importer_validation.log")
-error_log_path = os.path.join(output_directory, "simdb_legacy_importer_error.log")
+validation_log_path = os.path.join(output_directory, "_manifest_validation.log")
 validation_logger = logging.getLogger("validation_logger")
 validation_logger.setLevel(logging.INFO)
 validation_handler = logging.FileHandler(validation_log_path, mode="w")
@@ -57,16 +56,6 @@ if enable_console_logging:
     validation_console_handler = logging.StreamHandler(sys.stdout)
     validation_console_handler.setFormatter(logging.Formatter("%(message)s"))
     validation_logger.addHandler(validation_console_handler)
-error_logger = logging.getLogger("error_logger")
-error_logger.setLevel(logging.ERROR)
-error_handler = logging.FileHandler(error_log_path, mode="w")
-error_handler.setFormatter(logging.Formatter("%(levelname)s - line %(lineno)d - %(message)s"))
-error_logger.addHandler(error_handler)
-
-if enable_console_logging:
-    error_console_handler = logging.StreamHandler(sys.stdout)
-    error_console_handler.setFormatter(logging.Formatter("%(levelname)s - line %(lineno)d - %(message)s"))
-    error_logger.addHandler(error_console_handler)
 # -----------------------------------------------------------------------------------------------------
 
 
@@ -83,14 +72,14 @@ yaml.add_representer(Literal, literal_presenter)
 
 def load_yaml_file(yaml_file, Loader=yaml.SafeLoader):
     if not os.path.exists(yaml_file):
-        error_logger.error(f"YAML file {yaml_file} does not exist")
+        validation_logger.error(f"YAML file {yaml_file} does not exist")
         return None
     yaml_data = None
     try:
         with open(yaml_file, "r", encoding="utf-8") as file_handle:
             yaml_data = yaml.load(file_handle, Loader=Loader)
     except Exception as e:
-        error_logger.error(f"error loading YAML file {yaml_file}: {e}", exc_info=True)
+        validation_logger.error(f"error loading YAML file {yaml_file}: {e}", exc_info=True)
     return yaml_data
 
 
@@ -150,7 +139,7 @@ def get_confinement_regime(ids_summary):
         if len(confinement_regime) == 1:
             confinement_regime = confinement_regime + "-mode"
     else:
-        debug_info += "\n\t> ids_summary.global_quantities.h_mode is empty"
+        debug_info += "\n\t> ids_summary.global_quantities.h_mode is empty "
     return confinement_regime, debug_info
 
 
@@ -220,152 +209,156 @@ def get_plasma_current(ids_summary, ids_equilibrium):
     return plasma_current, debug_info
 
 
-def get_local(scenario_key_parameters: dict, slice_index, ids_summary, ids_core_profiles, ids_edge_profiles, alias):
+def get_local(scenario_key_parameters: dict, slice_index, ids_summary, ids_core_profiles, ids_edge_profiles):
     debug_info = ""
-    validation_status = True
+    local = {}
+    separatrix = {}
+    magnetic_axis = {}
+    # get values from IDS
     central_electron_density_ids = np.nan
     central_zeff_ids = np.nan
+    sepmid_zeff_ids = np.nan
     sepmid_electron_density_ids = np.nan
-    if ids_summary.local.separatrix.zeff.value.has_value:
-        sepmid_zeff_ids = ids_summary.local.separatrix.zeff.value[slice_index]
-    else:
-        sepmid_zeff_ids = np.nan
 
     if ids_core_profiles:
         central_electron_density_ids, _ = get_central_electron_density(ids_core_profiles)
         central_zeff_ids = ids_core_profiles.profiles_1d[slice_index].zeff[0]
-    elif ids_edge_profiles:
+
+    # sepmid_electron_density
+    if ids_edge_profiles:
         sepmid_electron_density_ids, _ = get_sepmid_electron_density(ids_summary)
-
     sepmid_electron_density_yaml = scenario_key_parameters.get("sepmid_electron_density", np.nan)
-    sepmid_zeff_yaml = scenario_key_parameters.get("sepmid_zeff", np.nan)
-    central_zeff_yaml = scenario_key_parameters.get("central_zeff", np.nan)
-    central_electron_density_yaml = scenario_key_parameters.get("central_electron_density", np.nan)
-
-    if sepmid_electron_density_yaml == "tbd":
+    if sepmid_electron_density_yaml == "tbd" or sepmid_electron_density_yaml == "":
         sepmid_electron_density_yaml = np.nan
-    if sepmid_zeff_yaml == "tbd":
-        sepmid_zeff_yaml = np.nan
-    if central_zeff_yaml == "tbd":
-        central_zeff_yaml = np.nan
-    if central_electron_density_yaml == "tbd":
-        central_electron_density_yaml = np.nan
-
     if not np.isnan(sepmid_electron_density_ids):
         if np.isnan(sepmid_electron_density_yaml):
-            validation_logger.error(
+            validation_logger.info(
                 f"\t> sepmid_electron_density, yaml value empty (yaml,ids):[{sepmid_electron_density_yaml}],"
                 f"[{sepmid_electron_density_ids}]"
             )
         are_values_same = abs(sepmid_electron_density_yaml - sepmid_electron_density_ids) < 5e-2
         if are_values_same is False:
-            validation_logger.error(
+            validation_logger.info(
                 f"\t> sepmid_electron_density (yaml,ids):[{sepmid_electron_density_yaml}],"
                 f"[{sepmid_electron_density_ids}]"
             )
             debug_info = "\n\t> sepmid_electron_density is not same in legacy yaml  and summary ids"
-            validation_logger.warning(f"{debug_info}")
-            validation_status = False
+            validation_logger.info(f"\t> {debug_info}")
 
+    if not ids_summary.local.separatrix.n_e.value.has_value:
+        if sepmid_electron_density_yaml is not None and not np.isnan(sepmid_electron_density_yaml):
+            separatrix["n_e"] = {"value": sepmid_electron_density_yaml}
+        else:
+            validation_logger.info(
+                "\t> ids_summary.local.separatrix.n_e.value is empty and "
+                "sepmid_electron_density from yaml is empty, nothing to set"
+            )
+    else:
+        validation_logger.info("\t> ids_summary.local.separatrix.n_e.value is already set in the IDS, not setting")
+        validation_logger.info(
+            f"\t> (yaml,ids):[{sepmid_electron_density_yaml}]," f"[{ids_summary.local.separatrix.n_e.value}]"
+        )
+
+    # sepmid_zeff
+    if ids_summary.local.separatrix.zeff.value.has_value:
+        sepmid_zeff_ids = ids_summary.local.separatrix.zeff.value[slice_index]
+    sepmid_zeff_yaml = scenario_key_parameters.get("sepmid_zeff", np.nan)
+    if sepmid_zeff_yaml == "tbd" or sepmid_zeff_yaml == "":
+        sepmid_zeff_yaml = np.nan
     if not np.isnan(sepmid_zeff_ids):
         if np.isnan(sepmid_zeff_yaml):
-            validation_logger.error(
+            validation_logger.info(
                 f"\t> sepmid_zeff, yaml value empty (yaml,ids):[{sepmid_zeff_yaml}]," f"[{sepmid_zeff_ids}]"
             )
         are_values_same = abs(sepmid_zeff_yaml - sepmid_zeff_ids) < 5e-2
         if are_values_same is False:
-            validation_logger.error(f"\t> sepmid_zeff (yaml,ids):[{sepmid_zeff_yaml}]," f"[{sepmid_zeff_ids}]")
+            validation_logger.info(f"\t> sepmid_zeff (yaml,ids):[{sepmid_zeff_yaml}]," f"[{sepmid_zeff_ids}]")
             debug_info = "\n\t> sepmid_zeff is not same in legacy yaml and summary ids"
-            validation_logger.warning(f"{debug_info}")
-            validation_status = False
+            validation_logger.info(f"\t> {debug_info}")
+
+    if not ids_summary.local.separatrix.zeff.value.has_value:
+        if sepmid_zeff_yaml is not None and not np.isnan(sepmid_zeff_yaml):
+            separatrix["zeff"] = {"value": sepmid_zeff_yaml}
+        else:
+            validation_logger.info(
+                "\t> ids_summary.local.separatrix.zeff.value is empty and "
+                "sepmid_zeff from yaml is empty, nothing to set"
+            )
+    else:
+        validation_logger.info("\t> ids_summary.local.separatrix.zeff.value is already set in the IDS, not setting")
+        validation_logger.info(f"\t> (yaml,ids):[{sepmid_zeff_yaml}]," f"[{ids_summary.local.separatrix.zeff.value}]")
+
+    # central_electron_density
+    central_electron_density_yaml = scenario_key_parameters.get("central_electron_density", np.nan)
+    if central_electron_density_yaml == "tbd" or central_electron_density_yaml == "":
+        central_electron_density_yaml = np.nan
 
     if not np.isnan(central_electron_density_ids):
         if np.isnan(central_electron_density_yaml):
-            validation_logger.error(
+            validation_logger.info(
                 f"\t> central_electron_density, yaml value empty (yaml,ids):[{central_electron_density_yaml}],"
                 f"[{central_electron_density_ids}]"
             )
         are_values_same = abs(central_electron_density_yaml - central_electron_density_ids) < 5e-2
         if are_values_same is False:
-            validation_logger.error(
+            validation_logger.info(
                 f"\t> central_electron_density (yaml,ids):[{central_electron_density_yaml}],"
                 f"[{central_electron_density_ids}]"
             )
             debug_info = "\n\t> central_zeff is not same in legacy yaml and core_profiles"
-            validation_logger.warning(f"{debug_info}")
-            validation_status = False
+            validation_logger.info(f"\t> {debug_info}")
 
+    if not ids_summary.local.magnetic_axis.n_e.value.has_value:
+        if central_electron_density_yaml is not None and not np.isnan(central_electron_density_yaml):
+            magnetic_axis["n_e"] = {"value": central_electron_density_yaml}
+        else:
+            validation_logger.info(
+                "\t> ids_summary.local.magnetic_axis.n_e.value is empty "
+                "and central_electron_density from yaml is empty, nothing to set"
+            )
+    else:
+        validation_logger.info("\t> ids_summary.local.magnetic_axis.n_e.value is already set in the IDS, not setting")
+        validation_logger.info(
+            f"\t> (yaml,ids):[{central_electron_density_yaml}]," f"[{ids_summary.local.magnetic_axis.n_e.value}]"
+        )
+
+    # central_zeff
+    central_zeff_yaml = scenario_key_parameters.get("central_zeff", np.nan)
+    if central_zeff_yaml == "tbd" or central_zeff_yaml == "":
+        central_zeff_yaml = np.nan
     if not np.isnan(central_zeff_ids):
         if np.isnan(central_zeff_yaml):
-            validation_logger.error(
+            validation_logger.info(
                 f"\t> central_zeff, yaml value empty (yaml,ids):[{central_zeff_yaml}]," f"[{central_zeff_ids}]"
             )
         are_values_same = abs(central_zeff_yaml - central_zeff_ids) < 5e-2
         if are_values_same is False:
-            validation_logger.error(f"central_zeff (yaml,ids):[{central_zeff_yaml}]," f"[{central_zeff_ids}]")
+            validation_logger.info(f"central_zeff (yaml,ids):[{central_zeff_yaml}]," f"[{central_zeff_ids}]")
             debug_info = "\n\t> central_zeff is not same in legacy yaml and core_profiles"
-            validation_logger.warning(f"{debug_info}")
-            validation_status = False
+            validation_logger.info(f"\t> {debug_info}")
 
-    local = {}
-    separatrix = {}
-    if not ids_summary.local.separatrix.zeff.value.has_value:
-        sepmid_zeff_yaml = scenario_key_parameters.get("sepmid_zeff", "")
-        if not sepmid_zeff_yaml == "tbd" and sepmid_zeff_yaml != "":
-            separatrix["zeff"] = {"value": sepmid_zeff_yaml}
-        else:
-            validation_logger.error(
-                "\t> ids_summary.global_quantities.zeff.value is empty and "
-                "sepmid_zeff from yaml is empty, nothing to set"
-            )
-    else:
-        validation_logger.error("\t> ids_summary.local.separatrix.zeff.value is already set, not setting")
-
-    if not ids_summary.local.separatrix.n_e.value.has_value:
-        n_e_yaml = scenario_key_parameters.get("sepmid_electron_density", "")
-        if not n_e_yaml == "tbd" and n_e_yaml != "":
-            separatrix["n_e"] = {"value": n_e_yaml}
-        else:
-            validation_logger.error(
-                "\t> ids_summary.global_quantities.n_e.value is empty and "
-                "sepmid_zeff from yaml is empty, nothing to set"
-            )
-    else:
-        validation_logger.error("\t> ids_summary.local.separatrix.n_e.value is already set, not setting")
-    if separatrix and separatrix != {}:
-        local["separatrix"] = separatrix
-    magnetic_axis = {}
     if not ids_summary.local.magnetic_axis.zeff.value.has_value:
-        central_zeff_yaml = scenario_key_parameters.get("central_zeff", "")
-        if not central_zeff_yaml == "tbd" and central_zeff_yaml != "":
+        if central_zeff_yaml is not None and not np.isnan(central_zeff_yaml):
             magnetic_axis["zeff"] = {"value": central_zeff_yaml}
         else:
-            validation_logger.error(
+            validation_logger.info(
                 "\t> ids_summary.local.magnetic_axis.zeff.value is empty and "
                 "central_zeff from yaml is empty, nothing to set"
             )
     else:
-        validation_logger.error("\t> ids_summary.local.magnetic_axis.zeff.value is already set, not setting")
+        validation_logger.info("\t> ids_summary.local.magnetic_axis.zeff.value is already set in the IDS, not setting")
+        validation_logger.info(
+            f"\t> (yaml,ids):[{central_zeff_yaml}]," f"[{ids_summary.local.magnetic_axis.zeff.value}]"
+        )
 
-    if not ids_summary.local.magnetic_axis.n_e.value.has_value:
-        n_e_yaml = scenario_key_parameters.get("central_zeff", "")
-        if not n_e_yaml == "tbd" and n_e_yaml != "":
-            magnetic_axis["n_e"] = {"value": n_e_yaml}
-        else:
-            validation_logger.error(
-                "\t> ids_summary.local.magnetic_axis.n_e.value is empty "
-                "and central_n_e from yaml is empty, nothing to set"
-            )
-    else:
-        validation_logger.error("\t> ids_summary.local.magnetic_axis.n_e.value is already set, not setting")
+    if separatrix and separatrix != {}:
+        local["separatrix"] = separatrix
     if magnetic_axis and magnetic_axis != {}:
         local["magnetic_axis"] = magnetic_axis
-    return local, validation_status
+    return local
 
 
 def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_dataset_description=None):
-    validation_status = True
-
     dataset_description = {}
     # https://github.com/iterorganization/IMAS-Data-Dictionary/discussions/63
     # Removed after discussion on 05/07/2025 Standup meeting
@@ -392,16 +385,16 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
         machine_from_ids = ids_dataset_description.machine if ids_dataset_description.machine.has_value else None
     if machine_from_ids:
         if machine_from_ids != machine_from_yaml:
-            validation_logger.error("\tdiscrepancies found in machine name")
-            validation_logger.warning(
+            validation_logger.info("\tdiscrepancies found in machine name")
+            validation_logger.info(
                 f"\t>  yaml['characteristics']['machine'], "
                 f"dataset_description.machine (yaml,ids):[{machine_from_yaml}],"
                 f"[{machine_from_ids}]"
             )
-            validation_status = False
+
     else:
-        validation_logger.error("\tids_dataset_description.machine is not set, setting from yaml file")
-        validation_logger.warning(f"\t>  (yaml,ids):[{machine_from_yaml}]," f"[{machine_from_ids}]")
+        validation_logger.info("\tids_dataset_description.machine is not set in the IDS, setting it from yaml file")
+        validation_logger.info(f"\t>  (yaml,ids):[{machine_from_yaml}]," f"[{machine_from_ids}]")
         dataset_description["machine"] = machine_from_yaml.upper()
 
     # dataset_description.pulse
@@ -411,15 +404,15 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
         pulse_from_ids = ids_dataset_description.pulse if ids_dataset_description.pulse.has_value else None
     if pulse_from_ids:
         if pulse_from_ids != pulse_from_yaml:
-            validation_logger.error("\tdiscrepancies found in pulse name")
-            validation_logger.warning(
-                f"\t>  yaml['characteristics']['pulse'], dataset_description.pulse (yaml,ids):[{pulse_from_yaml}],"
+            validation_logger.info("\tdiscrepancies found in pulse")
+            validation_logger.info(
+                f"\t>  yaml['characteristics']['shot'], dataset_description.pulse (yaml,ids):[{pulse_from_yaml}],"
                 f"[{pulse_from_ids}]"
             )
-            validation_status = False
+
     else:
-        validation_logger.error("\tids_dataset_description.pulse is not set, setting from yaml file")
-        validation_logger.warning(f"\t>  (yaml,ids):[{pulse_from_yaml}]," f"[{pulse_from_ids}]")
+        validation_logger.info("\tids_dataset_description.pulse is not set in the IDS, setting it from yaml file")
+        validation_logger.info(f"\t>  (yaml,ids):[{pulse_from_yaml}]," f"[{pulse_from_ids}]")
         dataset_description["pulse"] = pulse_from_yaml
 
     # dataset_description.code
@@ -434,26 +427,50 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
     code = {}
     if code_from_ids:
         if code_from_ids != code_from_yaml:
-            validation_logger.error("\tdiscrepancies found in code name")
-            validation_logger.warning(
+            validation_logger.info("\tdiscrepancies found in code name")
+            validation_logger.info(
                 f"\t>  yaml['characteristics']['workflow'], dataset_description.simulation.workflow  "
                 f"(yaml,ids):[{code_from_yaml}],[{code_from_ids}]"
             )
-            validation_status = False
+
         code["name"] = code_from_ids.upper()
     else:
-        validation_logger.error("\tids_dataset_description.simulation.workflow is not set, setting from yaml file")
-        validation_logger.warning(f"\t>  (yaml,ids):[{code_from_yaml}], [{code_from_ids}]")
+        validation_logger.info(
+            "\tids_dataset_description.simulation.workflow is not set in the IDS, setting it from yaml file"
+        )
+        validation_logger.info(f"\t>  (yaml,ids):[{code_from_yaml}], [{code_from_ids}]")
 
         code["name"] = code_from_yaml.upper()
-        dataset_description["code"] = code
+    dataset_description["code"] = code
 
     # dataset_description.simulation.description
     description_yaml = ""
     if str(legacy_yaml_data["reference_name"]) in str(legacy_yaml_data["free_description"]):
         description_yaml = str(legacy_yaml_data["free_description"])
     else:
-        description_yaml = str(legacy_yaml_data["reference_name"]) + "\n" + str(legacy_yaml_data["free_description"])
+        description_yaml = (
+            "reference_name : "
+            + str(legacy_yaml_data["reference_name"])
+            + "\n"
+            + str(legacy_yaml_data["free_description"])
+        )
+    scenario_key_parameters = "scenario_key_parameters\n"
+    for key, value in legacy_yaml_data["scenario_key_parameters"].items():
+        scenario_key_parameters += f"    {key}: {value}\n"
+    description_yaml += "\n" + scenario_key_parameters
+
+    hcd_data = "hcd:\n"
+    for key, value in legacy_yaml_data["hcd"].items():
+        hcd_data += f"    {key}: {value}\n"
+    description_yaml += "\n" + hcd_data
+
+    characteristics = "characteristics:\n"
+    for key, value in legacy_yaml_data["characteristics"].items():
+        if key == "shot" or key == "run":
+            continue
+        characteristics += f"    {key}: {value}\n"
+    description_yaml += "\n" + characteristics
+
     description_yaml = Literal(description_yaml)
     simulation = {}
     simulation["description"] = Literal(description_yaml)
@@ -534,34 +551,35 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
 
         if pulse_time_begin_epoch_seconds_ids:
             if pulse_time_begin_epoch_seconds_ids != pulse_time_begin_epoch_seconds_yaml:
-                validation_logger.error("\tdiscrepancies found in dataset_description.pulse_time_begin_epoch.seconds")
-                validation_logger.warning(
+                validation_logger.info("\tdiscrepancies found in dataset_description.pulse_time_begin_epoch.seconds")
+                validation_logger.info(
                     f"\t>  (yaml,ids):[{pulse_time_begin_epoch_seconds_yaml}],[{pulse_time_begin_epoch_seconds_ids}]"
                 )
-                validation_status = False
+
         else:
-            validation_logger.error(
-                "\tdataset_description.pulse_time_begin_epoch.seconds is not set, setting from yaml file"
+            validation_logger.info(
+                "\tdataset_description.pulse_time_begin_epoch.seconds is not set in the IDS, setting it from yaml file"
             )
-            validation_logger.warning(
+            validation_logger.info(
                 f"\t>  (yaml,ids):[{pulse_time_begin_epoch_seconds_yaml}],[{pulse_time_begin_epoch_seconds_ids}]"
             )
             dataset_description["pulse_time_begin_epoch"]["seconds"] = round(start)
         if pulse_time_begin_epoch_nanoseconds_ids:
             if pulse_time_begin_epoch_nanoseconds_ids != pulse_time_begin_epoch_nanoseconds_yaml:
-                validation_logger.error(
+                validation_logger.info(
                     "\tdiscrepancies found in dataset_description.pulse_time_begin_epoch.nanoseconds"
                 )
-                validation_logger.warning(
+                validation_logger.info(
                     f"\t>  (yaml,ids):"
                     f"[{pulse_time_begin_epoch_nanoseconds_yaml}],[{pulse_time_begin_epoch_nanoseconds_ids}]"
                 )
-                validation_status = False
+
         else:
-            validation_logger.error(
-                "\tdataset_description.pulse_time_begin_epoch.nanoseconds is not set, setting from yaml file"
+            validation_logger.info(
+                "\tdataset_description.pulse_time_begin_epoch.nanoseconds is not set in the IDS, "
+                "setting it from yaml file"
             )
-            validation_logger.warning(
+            validation_logger.info(
                 f"\t>  (yaml,ids):[{pulse_time_begin_epoch_nanoseconds_yaml}],"
                 f"[{pulse_time_begin_epoch_nanoseconds_ids}]"
             )
@@ -569,72 +587,76 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
 
         if pulse_time_end_epoch_seconds_ids:
             if pulse_time_end_epoch_seconds_ids != pulse_time_end_epoch_seconds_yaml:
-                validation_logger.error("\tdiscrepancies found in dataset_description.pulse_time_end_epoch.seconds")
-                validation_logger.warning(
+                validation_logger.info("\tdiscrepancies found in dataset_description.pulse_time_end_epoch.seconds")
+                validation_logger.info(
                     f"\t>  (yaml,ids):[{pulse_time_end_epoch_seconds_yaml}],[{pulse_time_end_epoch_seconds_ids}]"
                 )
-                validation_status = False
+
         else:
-            validation_logger.error(
-                "\tdataset_description.pulse_time_end_epoch.seconds is not set, setting from yaml file"
+            validation_logger.info(
+                "\tdataset_description.pulse_time_end_epoch.seconds is not set in the IDS, setting it from yaml file"
             )
-            validation_logger.warning(
+            validation_logger.info(
                 f"\t>  (yaml,ids):[{pulse_time_end_epoch_seconds_yaml}],[{pulse_time_end_epoch_seconds_ids}]"
             )
             dataset_description["pulse_time_end_epoch"]["seconds"] = round(end)
         if pulse_time_end_epoch_nanoseconds_ids:
             if pulse_time_end_epoch_nanoseconds_ids != pulse_time_end_epoch_nanoseconds_yaml:
-                validation_logger.error("\tdiscrepancies found in dataset_description.pulse_time_end_epoch.nanoseconds")
-                validation_logger.warning(
+                validation_logger.info("\tdiscrepancies found in dataset_description.pulse_time_end_epoch.nanoseconds")
+                validation_logger.info(
                     f"\t>  (yaml,ids):[{pulse_time_end_epoch_nanoseconds_yaml}],"
                     f"[{pulse_time_end_epoch_nanoseconds_ids}]"
                 )
-                validation_status = False
+
         else:
-            validation_logger.error(
-                "\tdataset_description.pulse_time_end_epoch.nanoseconds is not set, setting from yaml file"
+            validation_logger.info(
+                "\tdataset_description.pulse_time_end_epoch.nanoseconds is not set in the IDS"
+                ", setting it from yaml file"
             )
-            validation_logger.warning(
+            validation_logger.info(
                 f"\t>  (yaml,ids):[{pulse_time_end_epoch_nanoseconds_yaml}],[{pulse_time_end_epoch_nanoseconds_ids}]"
             )
             dataset_description["pulse_time_end_epoch"]["nanoseconds"] = (end - round(end)) * 10**9
 
         if simulation_time_begin_ids:
             if simulation_time_begin_ids != simulation_time_begin_yaml:
-                validation_logger.error("\tdiscrepancies found in dataset_description.simulation.time_start")
-                validation_logger.warning(
-                    f"\t>  (yaml,ids):[{simulation_time_begin_yaml}],[{simulation_time_begin_ids}]"
-                )
-                validation_status = False
+                validation_logger.info("\tdiscrepancies found in dataset_description.simulation.time_start")
+                validation_logger.info(f"\t>  (yaml,ids):[{simulation_time_begin_yaml}],[{simulation_time_begin_ids}]")
+
         else:
-            validation_logger.error("\tdataset_description.simulation.time_begin is not set, setting from yaml file")
-            validation_logger.warning(f"\t>  (yaml,ids):[{simulation_time_begin_yaml}],[{simulation_time_begin_ids}]")
+            validation_logger.info(
+                "\tdataset_description.simulation.time_begin is not set in the IDS, setting it from yaml file"
+            )
+            validation_logger.info(f"\t>  (yaml,ids):[{simulation_time_begin_yaml}],[{simulation_time_begin_ids}]")
             dataset_description["simulation"]["time_begin"] = start
         if simulation_time_end_ids:
             if simulation_time_end_ids != simulation_time_end_yaml:
-                validation_logger.error("\tdiscrepancies found in dataset_description.simulation.time_end")
-                validation_logger.warning(f"\t>  (yaml,ids):[{simulation_time_end_yaml}],[{simulation_time_end_ids}]")
-                validation_status = False
+                validation_logger.info("\tdiscrepancies found in dataset_description.simulation.time_end")
+                validation_logger.info(f"\t>  (yaml,ids):[{simulation_time_end_yaml}],[{simulation_time_end_ids}]")
+
         else:
-            validation_logger.error("\tdataset_description.simulation.time_end is not set, setting from yaml file")
-            validation_logger.warning(f"\t>  (yaml,ids):[{simulation_time_end_yaml}],[{simulation_time_end_ids}]")
+            validation_logger.info(
+                "\tdataset_description.simulation.time_end is not set in the IDS, setting it from yaml file"
+            )
+            validation_logger.info(f"\t>  (yaml,ids):[{simulation_time_end_yaml}],[{simulation_time_end_ids}]")
             dataset_description["simulation"]["time_end"] = end
 
         if simulation_time_step_ids:
             if simulation_time_step_ids != simulation_time_step_yaml:
-                validation_logger.error("\tdiscrepancies found in dataset_description.simulation.time_step")
-                validation_logger.warning(f"\t>  (yaml,ids):[{simulation_time_step_yaml}],[{simulation_time_step_ids}]")
-                validation_status = False
+                validation_logger.info("\tdiscrepancies found in dataset_description.simulation.time_step")
+                validation_logger.info(f"\t>  (yaml,ids):[{simulation_time_step_yaml}],[{simulation_time_step_ids}]")
+
         else:
-            validation_logger.error("\tdataset_description.simulation.time_step is not set, setting from yaml file")
-            validation_logger.warning(f"\t>  (yaml,ids):[{simulation_time_step_yaml}],[{simulation_time_step_ids}]")
+            validation_logger.info(
+                "\tdataset_description.simulation.time_step is not set in the IDS, setting it from yaml file"
+            )
+            validation_logger.info(f"\t>  (yaml,ids):[{simulation_time_step_yaml}],[{simulation_time_step_ids}]")
             dataset_description["simulation"]["time_step"] = float(step)
 
-    return dataset_description, validation_status
+    return dataset_description
 
 
-def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
-    validation_status = True
+def get_heating_current_drive(legacy_yaml_data: dict, ids_summary):
     heating_current_drive = {}
     debug_info_ec = ""
     debug_info_ic = ""
@@ -681,63 +703,79 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary, alias):
     p_ec_ids = float(p_ec * 1.0e-6)
     are_values_same = abs(p_ec_ids - p_ec_yaml) < 5e-2
     if are_values_same is False:
-        validation_logger.error(f"\t> hcd p_ec (yaml,ids):[{p_ec_yaml}]," f"[{p_ec_ids}]")
-        validation_logger.warning(f"{debug_info_ec}")
-        validation_status = False
+        validation_logger.info(f"\t> hcd p_ec (yaml,ids):[{p_ec_yaml}]," f"[{p_ec_ids}]")
+        validation_logger.info(f"{debug_info_ec}")
+
     if not ids_summary.heating_current_drive.power_ec.value.has_value and float(p_ec) != 0.0:
         heating_current_drive["power_ec"] = {"value": float(p_ec)}
     else:
-        validation_logger.error("\t> ids_summary.heating_current_drive.power_ec.value is already set, not setting")
+        validation_logger.info(
+            "\t> ids_summary.heating_current_drive.power_ec.value is already set in the IDS, not setting"
+        )
+        validation_logger.info(f"\t>  (yaml,ids):[{p_ec}],[{ids_summary.heating_current_drive.power_ec.value.value}]")
 
     p_ic_yaml = float(legacy_yaml_data["hcd"]["p_ic"])
     p_ic_ids = float(p_ic * 1.0e-6)
     are_values_same = abs(p_ic_ids - p_ic_yaml) < 5e-2
     if are_values_same is False:
-        validation_logger.error(f"\t> hcd p_ic (yaml,ids):[{p_ic_yaml}]," f"[{p_ic_ids}]")
-        validation_logger.warning(f"{debug_info_ic}")
-        validation_status = False
+        validation_logger.info(f"\t> hcd p_ic (yaml,ids):[{p_ic_yaml}]," f"[{p_ic_ids}]")
+        validation_logger.info(f"{debug_info_ic}")
+
     if not ids_summary.heating_current_drive.power_ic.value.has_value and float(p_ic) != 0.0:
         heating_current_drive["power_ic"] = {"value": float(p_ic)}
     else:
-        validation_logger.error("\t> ids_summary.heating_current_drive.power_ic.value is already set, not setting")
+        validation_logger.info(
+            "\t> ids_summary.heating_current_drive.power_ic.value is already set in the IDS, not setting"
+        )
+        validation_logger.info(f"\t>  (yaml,ids):[{p_ic}],[{ids_summary.heating_current_drive.power_ic.value.value}]")
 
     p_nbi_yaml = float(legacy_yaml_data["hcd"]["p_nbi"])
     p_nbi_ids = float(p_nbi * 1.0e-6)
     are_values_same = abs(p_nbi_ids - p_nbi_yaml) < 5e-2
     if are_values_same is False:
-        validation_logger.error(f"\t> hcd p_nbi (yaml,ids):[{p_nbi_yaml}]," f"[{p_nbi_ids}]")
-        validation_logger.warning(f"{debug_info_nbi}")
-        validation_status = False
+        validation_logger.info(f"\t> hcd p_nbi (yaml,ids):[{p_nbi_yaml}]," f"[{p_nbi_ids}]")
+        validation_logger.info(f"{debug_info_nbi}")
+
     if not ids_summary.heating_current_drive.power_nbi.value.has_value and float(p_nbi) != 0.0:
         heating_current_drive["power_nbi"] = {"value": float(p_nbi)}
     else:
-        validation_logger.error("\t> ids_summary.heating_current_drive.power_nbi.value is already set, not setting")
+        validation_logger.info(
+            "\t> ids_summary.heating_current_drive.power_nbi.value is already set in the IDS, not setting"
+        )
+        validation_logger.info(f"\t>  (yaml,ids):[{p_nbi}],[{ids_summary.heating_current_drive.power_nbi.value}]")
 
     p_lh_yaml = float(legacy_yaml_data["hcd"]["p_lh"])
     p_lh_ids = float(p_lh * 1.0e-6)
     are_values_same = abs(p_lh_ids - p_lh_yaml) < 5e-2
     if are_values_same is False:
-        validation_logger.error(f"\t> hcd p_lh (yaml,ids):[{p_lh_yaml}]," f"[{p_lh_ids}]")
-        validation_logger.warning(f"{debug_info_lh}")
-        validation_status = False
+        validation_logger.info(f"\t> hcd p_lh (yaml,ids):[{p_lh_yaml}]," f"[{p_lh_ids}]")
+        validation_logger.info(f"{debug_info_lh}")
+
     if not ids_summary.heating_current_drive.power_lh.value.has_value and float(p_lh) != 0.0:
         heating_current_drive["power_lh"] = {"value": float(p_lh)}
     else:
-        validation_logger.error("\t> ids_summary.heating_current_drive.power_lh.value is already set, not setting")
+        validation_logger.info(
+            "\t> ids_summary.heating_current_drive.power_lh.value is already set in the IDS, not setting"
+        )
+        validation_logger.info(f"\t>  (yaml,ids):[{p_lh}],[{ids_summary.heating_current_drive.power_lh.value}]")
+
     p_hcd_yaml = float(legacy_yaml_data["hcd"]["p_hcd"])
     p_hcd_ids = float(p_hcd * 1.0e-6)
     are_values_same = abs(p_hcd_ids - p_hcd_yaml) < 5e-2
     if are_values_same is False:
-        validation_logger.error(f"\t> hcd p_hcd (yaml,ids):[{p_hcd_yaml}]," f"[{p_hcd_ids}]")
-        validation_logger.warning(f"{debug_info_ec}{debug_info_ic} {debug_info_nbi} {debug_info_lh}")
-        validation_status = False
+        validation_logger.info(f"\t> hcd p_hcd (yaml,ids):[{p_hcd_yaml}]," f"[{p_hcd_ids}]")
+        validation_logger.info(f"{debug_info_ec}{debug_info_ic} {debug_info_nbi} {debug_info_lh}")
+
     if not ids_summary.heating_current_drive.power_additional.value.has_value and float(p_hcd) != 0.0:
         heating_current_drive["power_additional"] = {"value": float(p_hcd)}
     else:
-        validation_logger.error(
-            "\t> ids_summary.heating_current_drive.power_additional.value is already set, not setting"
+        validation_logger.info(
+            "\t> ids_summary.heating_current_drive.power_additional.value is already set in the IDS, not setting"
         )
-    return heating_current_drive, validation_status
+        validation_logger.info(
+            f"\t>  (yaml,ids):[{p_hcd}],[{ids_summary.heating_current_drive.power_additional.value}]"
+        )
+    return heating_current_drive
 
 
 def get_plasma_composition(plasma_composition):
@@ -810,21 +848,38 @@ def get_plasma_composition(plasma_composition):
     return species_dict
 
 
-def get_global_quantities(legacy_yaml_data: dict, slice_index, ids_summary, ids_equilibrium, alias):
+def get_global_quantities(legacy_yaml_data: dict, slice_index, ids_summary, ids_equilibrium):
     # https://github.com/iterorganization/IMAS-Data-Dictionary/discussions/66
-    validation_status = True
-
+    global_quantities = {}
     # confinement_regime
     confinement_regime_from_ids, debug_info = get_confinement_regime(ids_summary)
     confinement_regime_from_yaml = legacy_yaml_data["scenario_key_parameters"]["confinement_regime"]
     if confinement_regime_from_ids != "":
         if confinement_regime_from_yaml != confinement_regime_from_ids:
-            validation_logger.error(
-                f"{alias} confinement_regime (yaml,ids):[{confinement_regime_from_yaml}],"
+            validation_logger.info(
+                f"\t> confinement_regime (yaml,ids):[{confinement_regime_from_yaml}],"
                 f"[{confinement_regime_from_ids}]"
             )
-            validation_logger.warning(f"{debug_info}")
-            validation_status = False
+            validation_logger.info(f"\t> {debug_info}")
+
+    if not ids_summary.global_quantities.h_mode.value.has_value:
+        if not confinement_regime_from_yaml == "tbd" and confinement_regime_from_yaml != "":
+            if "l" in confinement_regime_from_yaml.lower() and "h" in confinement_regime_from_yaml.lower():
+                pass
+            elif "l" in confinement_regime_from_yaml.lower():
+                global_quantities["h_mode"] = {"value": 0}
+            elif "h" in confinement_regime_from_yaml.lower():
+                global_quantities["h_mode"] = {"value": 1}
+        else:
+            validation_logger.info(
+                "\t> ids_summary.global_quantities.h_mode.value is empty "
+                "and confinement regime from yaml is empty, nothing to set"
+            )
+    else:
+        validation_logger.info("\t> ids_summary.global_quantities.h_mode.value is already set in the IDS, not setting")
+        validation_logger.info(
+            f"\t>  (yaml,ids):[{confinement_regime_from_yaml}],[{ids_summary.global_quantities.h_mode.value}]"
+        )
 
     # plasma_current
     plasma_current_from_ids, debug_info = get_plasma_current(ids_summary, ids_equilibrium)
@@ -836,11 +891,24 @@ def get_global_quantities(legacy_yaml_data: dict, slice_index, ids_summary, ids_
     are_values_same = abs(plasma_current_from_ids_MA - plasma_current_from_yaml) < 5e-2
 
     if are_values_same is False:
-        validation_logger.error(
+        validation_logger.info(
             f"\t> plasma_current (yaml,ids):[{plasma_current_from_yaml}]," f"[{plasma_current_from_ids}]"
         )
-        validation_logger.warning(f"{debug_info}")
-        validation_status = False
+        validation_logger.info(f"\t> {debug_info}")
+
+    if not ids_summary.global_quantities.ip.value.has_value:
+        if plasma_current_from_ids != 0.0:
+            global_quantities["ip"] = {"value": float(plasma_current_from_ids)}
+        else:
+            validation_logger.info(
+                "\t> ids_summary.global_quantities.ip.value is empty "
+                "and plasma current from ids is empty, nothing to set"
+            )
+    else:
+        validation_logger.info("\t> ids_summary.global_quantities.ip.value is already set in the IDS, not setting")
+        validation_logger.info(
+            f"\t>  (yaml,ids):[{plasma_current_from_yaml}],[{ids_summary.global_quantities.ip.value}]"
+        )
 
     # magnetic_field
     magnetic_field_from_ids, debug_info = get_magnetic_field(ids_summary, ids_equilibrium)
@@ -848,12 +916,24 @@ def get_global_quantities(legacy_yaml_data: dict, slice_index, ids_summary, ids_
 
     are_values_same = abs(magnetic_field_from_ids - magnetic_field_from_yaml) < 5e-2
     if are_values_same is False:
-        validation_logger.error(
+        validation_logger.info(
             f"\t> magnetic_field (yaml,ids):[{magnetic_field_from_yaml}]," f"[{magnetic_field_from_ids}]"
         )
-        validation_logger.warning(f"{debug_info}")
-        validation_status = False
+        validation_logger.info(f"\t> {debug_info}")
 
+    if not ids_summary.global_quantities.b0.value.has_value:
+        if magnetic_field_from_ids != 0.0:
+            global_quantities["b0"] = {"value": float(magnetic_field_from_ids)}
+        else:
+            validation_logger.info(
+                "\t> ids_summary.global_quantities.b0.value is empty "
+                "and magnetic field from ids is empty, nothing to set"
+            )
+    else:
+        validation_logger.info("\t> ids_summary.global_quantities.b0.value is already set in the IDS, not setting")
+        validation_logger.info(
+            f"\t>  (yaml,ids):[{magnetic_field_from_yaml}],[{ids_summary.global_quantities.b0.value}]"
+        )
     # power_loss
     p_sol_from_ids, debug_info = get_power_loss(ids_summary, slice_index)
     p_sol_from_ids_W = p_sol_from_ids * 1e-6
@@ -863,68 +943,38 @@ def get_global_quantities(legacy_yaml_data: dict, slice_index, ids_summary, ids_
     if not np.isnan(p_sol_from_ids):
         are_values_same = abs(p_sol_from_ids_W - p_sol_from_yaml) < 5e-2
         if are_values_same is False:
-            validation_logger.error(f"\t> power_loss (yaml,ids):[{p_sol_from_yaml}]," f"[{p_sol_from_ids}]")
-            validation_logger.warning(f"{debug_info}")
-            validation_status = False
-    global_quantities = {}
-
-    if not ids_summary.global_quantities.h_mode.value.has_value:
-        if not confinement_regime_from_yaml == "tbd" and confinement_regime_from_yaml != "":
-            global_quantities["h_mode"] = {"value": confinement_regime_from_yaml}
-        else:
-            validation_logger.error(
-                "\t> ids_summary.global_quantities.h_mode.value is empty "
-                "and confinement regime from yaml is empty, nothing to set"
-            )
-    else:
-        validation_logger.error("\t> ids_summary.global_quantities.h_mode.value is already set, not setting")
-
-    if not ids_summary.global_quantities.b0.value.has_value:
-        if magnetic_field_from_ids != 0.0:
-            global_quantities["b0"] = {"value": float(magnetic_field_from_ids)}
-        else:
-            validation_logger.error(
-                "\t> ids_summary.global_quantities.b0.value is empty "
-                "and magnetic field from ids is empty, nothing to set"
-            )
-    else:
-        validation_logger.error("\t> ids_summary.global_quantities.b0.value is already set, not setting")
-
-    if not ids_summary.global_quantities.ip.value.has_value:
-        if plasma_current_from_ids != 0.0:
-            global_quantities["ip"] = {"value": float(plasma_current_from_ids)}
-        else:
-            validation_logger.error(
-                "\t> ids_summary.global_quantities.ip.value is empty "
-                "and plasma current from ids is empty, nothing to set"
-            )
-    else:
-        validation_logger.error("\t> ids_summary.global_quantities.ip.value is already set, not setting")
+            validation_logger.info(f"\t> power_loss (yaml,ids):[{p_sol_from_yaml}]," f"[{p_sol_from_ids}]")
+            validation_logger.info(f"\t> {debug_info}")
 
     if not ids_summary.global_quantities.power_loss.value.has_value:
         if p_sol_from_ids != 0.0 and not np.isnan(p_sol_from_ids):
             global_quantities["power_loss"] = {"value": float(p_sol_from_ids)}
         else:
-            validation_logger.error(
-                "\t> ids_summary.global_quantities.power_loss.value is empty"
+            validation_logger.info(
+                "\t> ids_summary.global_quantities.power_loss.value is empty "
                 "and power loss from ids is empty, nothing to set"
             )
     else:
-        validation_logger.error("\t> ids_summary.global_quantities.power_loss.value is already set, not setting")
+        validation_logger.info(
+            "\t> ids_summary.global_quantities.power_loss.value is already set in the IDS, not setting"
+        )
+        validation_logger.info(
+            f"\t>  (yaml,ids):[{p_sol_from_yaml}],[{ids_summary.global_quantities.power_loss.value}]"
+        )
 
     main_species_yaml = legacy_yaml_data["scenario_key_parameters"]["main_species"]
     if main_species_yaml != "tbd" and main_species_yaml != "":
         global_quantities["main_species"] = main_species_yaml
     else:
-        validation_logger.error("\t> main species from yaml is empty, nothing to set")
+        validation_logger.info("\t> main species from yaml is empty, nothing to set")
     # TODO how to calulate density_peaking? https://github.com/iterorganization/IMAS-Data-Dictionary/discussions/65
-    density_peaking_yaml = legacy_yaml_data["scenario_key_parameters"].get("density_peaking", "")
-    if density_peaking_yaml != "tbd" and density_peaking_yaml != "":
-        global_quantities["density_peaking"] = density_peaking_yaml
-    else:
-        validation_logger.error("\t> density peaking from yaml is empty, nothing to set")
+    # density_peaking_yaml = legacy_yaml_data["scenario_key_parameters"].get("density_peaking", "")
+    # if density_peaking_yaml != "tbd" and density_peaking_yaml != "":
+    #     global_quantities["density_peaking"] = density_peaking_yaml
+    # else:
+    #     validation_logger.info("\t> density peaking from yaml is empty, nothing to set")
 
-    return global_quantities, validation_status
+    return global_quantities
 
 
 def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
@@ -950,7 +1000,7 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
         try:
             connection = imas.DBEntry(uri, "r")
         except Exception as e:  #
-            error_logger.error(f"{alias} {uri}: {e}")
+            validation_logger.error(f"{alias} {uri}: {e}")
         ids_summary = None
         ids_dataset_description = None
         ids_equilibrium = None
@@ -960,7 +1010,7 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
             try:
                 ids_summary = connection.get("summary", autoconvert=False, lazy=True, ignore_unknown_dd_version=True)
             except Exception as e:  # noqa: F841
-                error_logger.error(f"{alias}: {e}")
+                validation_logger.error(f"{alias}: {e}")
                 exit(0)
             try:
                 ids_core_profiles = connection.get(
@@ -991,32 +1041,26 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
             central_electron_density, slice_index = get_central_electron_density(ids_core_profiles)
         elif ids_edge_profiles:
             sepmid_electron_density, slice_index = get_sepmid_electron_density(ids_summary)
-        global_quantities_validation = False
-        hcd_validation = False
-        dataset_validation = False
-        local_validation = False
-        validation_logger.error(f"{alias}")
+
+        validation_logger.info(f"{alias}")
         manifest_metadata = {}
 
-        dataset_description, dataset_validation = get_dataset_description(
+        dataset_description = get_dataset_description(
             legacy_yaml_data=legacy_yaml_data, ids_summary=ids_summary, ids_dataset_description=ids_dataset_description
         )
         summary = {**dataset_description}
-        heating_current_drive, hcd_validation = get_heating_current_drive(legacy_yaml_data, ids_summary, alias)
+        heating_current_drive = get_heating_current_drive(legacy_yaml_data, ids_summary)
         if heating_current_drive and heating_current_drive != {}:
             summary["heating_current_drive"] = heating_current_drive
-        global_quantities, global_quantities_validation = get_global_quantities(
-            legacy_yaml_data, slice_index, ids_summary, ids_equilibrium, alias
-        )
+        global_quantities = get_global_quantities(legacy_yaml_data, slice_index, ids_summary, ids_equilibrium)
         if global_quantities and global_quantities != {}:
             summary["global_quantities"] = global_quantities
-        local, local_validation = get_local(
+        local = get_local(
             legacy_yaml_data["scenario_key_parameters"],
             slice_index,
             ids_summary,
             ids_core_profiles,
             ids_edge_profiles,
-            alias,
         )
         if local and local != {}:
             summary["local"] = local
@@ -1025,14 +1069,14 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
 
         stat = os.stat(legacy_yaml_file)
         creation_time = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
-
         out_data = {
             "manifest_version": 2,
+            "responsible_name": legacy_yaml_data["responsible_name"],
             "creation_date": creation_time,
             "alias": alias,
             "outputs": [{"uri": uri}],
             "inputs": [],
-            "metadata": [{"values": manifest_metadata}],
+            "metadata": manifest_metadata,
         }
 
         # manifest_file_path = os.path.join(os.path.dirname(legacy_yaml_file), f"manifest_{shot:06d}{run:04d}.yaml")
@@ -1043,15 +1087,11 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
 
         if connection:
             connection.close()
-        if (
-            global_quantities_validation is False
-            or hcd_validation is False
-            or dataset_validation is False
-            or local_validation is False
-        ):
-            sys.stdout.write("v")
-        else:
-            sys.stdout.write(".")
+
+        sys.stdout.write(".")
+        validation_logger.info(
+            "-----------------------------------------" "-------------------------------------------"
+        )
         sys.stdout.flush()
 
 
@@ -1103,4 +1143,4 @@ if __name__ == "__main__":
         output_directory = os.path.join(os.getcwd(), "manifest")
     for yaml_file in files:
         write_manifest_file(yaml_file, output_directory=output_directory)
-    error_logger.info(f"\nManifest files are written into  {output_directory}")
+    validation_logger.info(f"\nManifest files are written into  {output_directory}")
