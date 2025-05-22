@@ -418,26 +418,19 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
     # dataset_description.code
     code_from_yaml = legacy_yaml_data["characteristics"]["workflow"]
     code_from_ids = None
-    if ids_dataset_description is not None and hasattr(ids_dataset_description.simulation, "workflow"):
-        code_from_ids = (
-            ids_dataset_description.simulation.workflow
-            if ids_dataset_description.simulation.workflow.has_value
-            else None
-        )
+    code_from_ids = ids_summary.code.name
+
     code = {}
     if code_from_ids:
         if code_from_ids != code_from_yaml:
             validation_logger.info("\tdiscrepancies found in code name")
             validation_logger.info(
-                f"\t>  yaml['characteristics']['workflow'], dataset_description.simulation.workflow  "
+                f"\t>  yaml['characteristics']['workflow'], summary.code.name  "
                 f"(yaml,ids):[{code_from_yaml}],[{code_from_ids}]"
             )
-
         code["name"] = code_from_ids.upper()
     else:
-        validation_logger.info(
-            "\tids_dataset_description.simulation.workflow is not set in the IDS, setting it from yaml file"
-        )
+        validation_logger.info("\tsummary.code.name is not set in the IDS, setting it from yaml file")
         validation_logger.info(f"\t>  (yaml,ids):[{code_from_yaml}], [{code_from_ids}]")
 
         code["name"] = code_from_yaml.upper()
@@ -446,34 +439,33 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
     # dataset_description.simulation.description
     description_yaml = ""
     if str(legacy_yaml_data["reference_name"]) in str(legacy_yaml_data["free_description"]):
-        description_yaml = str(legacy_yaml_data["free_description"])
+        description_yaml = legacy_yaml_data["free_description"]
     else:
         description_yaml = (
-            "reference_name : "
+            "reference_name:"
             + str(legacy_yaml_data["reference_name"])
-            + "\n"
+            + "\ndescription:"
             + str(legacy_yaml_data["free_description"])
         )
     scenario_key_parameters = "scenario_key_parameters:\n"
     for key, value in legacy_yaml_data["scenario_key_parameters"].items():
         scenario_key_parameters += f"    {key}: {value}\n"
-    description_yaml += "\n" + scenario_key_parameters
+    description_yaml += scenario_key_parameters
 
     hcd_data = "hcd:\n"
     for key, value in legacy_yaml_data["hcd"].items():
         hcd_data += f"    {key}: {value}\n"
-    description_yaml += "\n" + hcd_data
+    description_yaml += hcd_data
 
     characteristics = "characteristics:\n"
     for key, value in legacy_yaml_data["characteristics"].items():
         if key == "shot" or key == "run":
             continue
         characteristics += f"    {key}: {value}\n"
-    description_yaml += "\n" + characteristics
-
+    description_yaml += characteristics
     description_yaml = Literal(description_yaml)
     simulation = {}
-    simulation["description"] = Literal(description_yaml)
+    simulation["description"] = description_yaml
     dataset_description["simulation"] = simulation
 
     if "summary" in legacy_yaml_data["idslist"]:
@@ -1076,7 +1068,7 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
             "alias": alias,
             "outputs": [{"uri": uri}],
             "inputs": [],
-            "metadata": manifest_metadata,
+            "metadata": [manifest_metadata],
         }
 
         # manifest_file_path = os.path.join(os.path.dirname(legacy_yaml_file), f"manifest_{shot:06d}{run:04d}.yaml")
