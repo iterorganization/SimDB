@@ -439,7 +439,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
     # dataset_description.simulation.description
     description_yaml = ""
     if str(legacy_yaml_data["reference_name"]) in str(legacy_yaml_data["free_description"]):
-        description_yaml = legacy_yaml_data["free_description"]
+        description_yaml = "\ndescription:" + legacy_yaml_data["free_description"]
     else:
         description_yaml = (
             "reference_name:"
@@ -695,11 +695,18 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary):
     p_ec_ids = float(p_ec * 1.0e-6)
     are_values_same = abs(p_ec_ids - p_ec_yaml) < 5e-2
     if are_values_same is False:
-        validation_logger.info(f"\t> hcd p_ec (yaml,ids):[{p_ec_yaml}]," f"[{p_ec_ids}]")
+        validation_logger.info(f"\t> discrepancies found in hcd p_ec (yaml,ids):[{p_ec_yaml}]," f"[{p_ec_ids}]")
         validation_logger.info(f"{debug_info_ec}")
 
-    if not ids_summary.heating_current_drive.power_ec.value.has_value and float(p_ec) != 0.0:
-        heating_current_drive["power_ec"] = {"value": float(p_ec)}
+    if not ids_summary.heating_current_drive.power_ec.value.has_value:
+        if float(p_ec_yaml) != 0.0:
+            heating_current_drive["power_ec"] = {"value": float(p_ec_yaml)}
+        else:
+            validation_logger.info(
+                "\t> ids_summary.heating_current_drive.power_ec.value is empty and "
+                "p_ec from yaml is empty, nothing to set"
+            )
+            validation_logger.info(f"\t>  (yaml,ids):[{p_ec}],[{ids_summary.heating_current_drive.power_ec.value}]")
     else:
         validation_logger.info(
             "\t> ids_summary.heating_current_drive.power_ec.value is already set in the IDS, not setting"
@@ -710,11 +717,18 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary):
     p_ic_ids = float(p_ic * 1.0e-6)
     are_values_same = abs(p_ic_ids - p_ic_yaml) < 5e-2
     if are_values_same is False:
-        validation_logger.info(f"\t> hcd p_ic (yaml,ids):[{p_ic_yaml}]," f"[{p_ic_ids}]")
+        validation_logger.info(f"\t> discrepancies found in hcd p_ic (yaml,ids):[{p_ic_yaml}]," f"[{p_ic_ids}]")
         validation_logger.info(f"{debug_info_ic}")
 
-    if not ids_summary.heating_current_drive.power_ic.value.has_value and float(p_ic) != 0.0:
-        heating_current_drive["power_ic"] = {"value": float(p_ic)}
+    if not ids_summary.heating_current_drive.power_ic.value.has_value:
+        if float(p_ic_yaml) != 0.0:
+            heating_current_drive["power_ic"] = {"value": float(p_ic_yaml)}
+        else:
+            validation_logger.info(
+                "\t> ids_summary.heating_current_drive.power_ic.value is empty and "
+                "p_ic from yaml is empty, nothing to set"
+            )
+            validation_logger.info(f"\t>  (yaml,ids):[{p_ic}],[{ids_summary.heating_current_drive.power_ic.value}]")
     else:
         validation_logger.info(
             "\t> ids_summary.heating_current_drive.power_ic.value is already set in the IDS, not setting"
@@ -725,11 +739,18 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary):
     p_nbi_ids = float(p_nbi * 1.0e-6)
     are_values_same = abs(p_nbi_ids - p_nbi_yaml) < 5e-2
     if are_values_same is False:
-        validation_logger.info(f"\t> hcd p_nbi (yaml,ids):[{p_nbi_yaml}]," f"[{p_nbi_ids}]")
+        validation_logger.info(f"\t>  discrepancies found in hcd p_nbi (yaml,ids):[{p_nbi_yaml}]," f"[{p_nbi_ids}]")
         validation_logger.info(f"{debug_info_nbi}")
 
-    if not ids_summary.heating_current_drive.power_nbi.value.has_value and float(p_nbi) != 0.0:
-        heating_current_drive["power_nbi"] = {"value": float(p_nbi)}
+    if not ids_summary.heating_current_drive.power_nbi.value.has_value:
+        if float(p_nbi_yaml) != 0.0:
+            heating_current_drive["power_nbi"] = {"value": float(p_nbi_yaml)}
+
+        else:
+            validation_logger.info(
+                "\t> ids_summary.heating_current_drive.power_nbi.value and p_nbi from yaml is empty, nothing to set"
+            )
+            validation_logger.info(f"\t>  (yaml,ids):[{p_nbi}],[{ids_summary.heating_current_drive.power_nbi.value}]")
     else:
         validation_logger.info(
             "\t> ids_summary.heating_current_drive.power_nbi.value is already set in the IDS, not setting"
@@ -740,11 +761,18 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary):
     p_lh_ids = float(p_lh * 1.0e-6)
     are_values_same = abs(p_lh_ids - p_lh_yaml) < 5e-2
     if are_values_same is False:
-        validation_logger.info(f"\t> hcd p_lh (yaml,ids):[{p_lh_yaml}]," f"[{p_lh_ids}]")
+        validation_logger.info(f"\t> discrepancies found in hcd p_lh (yaml,ids):[{p_lh_yaml}]," f"[{p_lh_ids}]")
         validation_logger.info(f"{debug_info_lh}")
 
-    if not ids_summary.heating_current_drive.power_lh.value.has_value and float(p_lh) != 0.0:
-        heating_current_drive["power_lh"] = {"value": float(p_lh)}
+    if not ids_summary.heating_current_drive.power_lh.value.has_value:
+        if float(p_lh_yaml) != 0.0:
+            heating_current_drive["power_lh"] = {"value": float(p_lh_yaml)}
+        else:
+            validation_logger.info(
+                "\t> ids_summary.heating_current_drive.power_lh.value is empty and "
+                "p_lh from yaml is empty, nothing to set"
+            )
+            validation_logger.info(f"\t>  (yaml,ids):[{p_lh}],[{ids_summary.heating_current_drive.power_lh.value}]")
     else:
         validation_logger.info(
             "\t> ids_summary.heating_current_drive.power_lh.value is already set in the IDS, not setting"
@@ -755,11 +783,20 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary):
     p_hcd_ids = float(p_hcd * 1.0e-6)
     are_values_same = abs(p_hcd_ids - p_hcd_yaml) < 5e-2
     if are_values_same is False:
-        validation_logger.info(f"\t> hcd p_hcd (yaml,ids):[{p_hcd_yaml}]," f"[{p_hcd_ids}]")
+        validation_logger.info(f"\t> discrepancies found in hcd p_hcd (yaml,ids):[{p_hcd_yaml}]," f"[{p_hcd_ids}]")
         validation_logger.info(f"{debug_info_ec}{debug_info_ic} {debug_info_nbi} {debug_info_lh}")
 
-    if not ids_summary.heating_current_drive.power_additional.value.has_value and float(p_hcd) != 0.0:
-        heating_current_drive["power_additional"] = {"value": float(p_hcd)}
+    if not ids_summary.heating_current_drive.power_additional.value.has_value:
+        if float(p_hcd_yaml) != 0.0:
+            heating_current_drive["power_additional"] = {"value": float(p_hcd_yaml)}
+        else:
+            validation_logger.info(
+                "\t> ids_summary.heating_current_drive.power_additional.value is empty and "
+                "p_hcd from yaml is empty, nothing to set"
+            )
+            validation_logger.info(
+                f"\t>  (yaml,ids):[{p_hcd}],[{ids_summary.heating_current_drive.power_additional.value}]"
+            )
     else:
         validation_logger.info(
             "\t> ids_summary.heating_current_drive.power_additional.value is already set in the IDS, not setting"
@@ -884,7 +921,8 @@ def get_global_quantities(legacy_yaml_data: dict, slice_index, ids_summary, ids_
 
     if are_values_same is False:
         validation_logger.info(
-            f"\t> plasma_current (yaml,ids):[{plasma_current_from_yaml}]," f"[{plasma_current_from_ids}]"
+            f"\t>  discrepancies found in plasma_current (yaml,ids):[{plasma_current_from_yaml}],"
+            f"[{plasma_current_from_ids}]"
         )
         validation_logger.info(f"\t> {debug_info}")
 
@@ -909,7 +947,8 @@ def get_global_quantities(legacy_yaml_data: dict, slice_index, ids_summary, ids_
     are_values_same = abs(magnetic_field_from_ids - magnetic_field_from_yaml) < 5e-2
     if are_values_same is False:
         validation_logger.info(
-            f"\t> magnetic_field (yaml,ids):[{magnetic_field_from_yaml}]," f"[{magnetic_field_from_ids}]"
+            f"\t>  discrepancies found in magnetic_field (yaml,ids):[{magnetic_field_from_yaml}],"
+            f"[{magnetic_field_from_ids}]"
         )
         validation_logger.info(f"\t> {debug_info}")
 
@@ -935,7 +974,9 @@ def get_global_quantities(legacy_yaml_data: dict, slice_index, ids_summary, ids_
     if not np.isnan(p_sol_from_ids):
         are_values_same = abs(p_sol_from_ids_W - p_sol_from_yaml) < 5e-2
         if are_values_same is False:
-            validation_logger.info(f"\t> power_loss (yaml,ids):[{p_sol_from_yaml}]," f"[{p_sol_from_ids}]")
+            validation_logger.info(
+                f"\t> discrepancies found in power_loss (yaml,ids):[{p_sol_from_yaml}]," f"[{p_sol_from_ids}]"
+            )
             validation_logger.info(f"\t> {debug_info}")
 
     if not ids_summary.global_quantities.power_loss.value.has_value:
