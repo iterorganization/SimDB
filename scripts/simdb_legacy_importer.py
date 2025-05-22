@@ -454,7 +454,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
             + "\n"
             + str(legacy_yaml_data["free_description"])
         )
-    scenario_key_parameters = "scenario_key_parameters\n"
+    scenario_key_parameters = "scenario_key_parameters:\n"
     for key, value in legacy_yaml_data["scenario_key_parameters"].items():
         scenario_key_parameters += f"    {key}: {value}\n"
     description_yaml += "\n" + scenario_key_parameters
@@ -897,7 +897,7 @@ def get_global_quantities(legacy_yaml_data: dict, slice_index, ids_summary, ids_
         validation_logger.info(f"\t> {debug_info}")
 
     if not ids_summary.global_quantities.ip.value.has_value:
-        if plasma_current_from_ids != 0.0:
+        if not np.isnan(plasma_current_from_ids) and  plasma_current_from_ids != 0.0:
             global_quantities["ip"] = {"value": float(plasma_current_from_ids)}
         else:
             validation_logger.info(
