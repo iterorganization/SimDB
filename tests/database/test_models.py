@@ -27,7 +27,7 @@ def test_create_simulation_with_manifest(manifest_cls, data_object_cls):
     data_object.uri = URI(f"file://{path}")
     manifest.inputs = [data_object]
     manifest.outputs = [data_object]
-    manifest.metadata = {"description": "test description"}
+    manifest.metadata = {"description": "test description", "uploaded_by": "test user"}
     manifest.creation_date = '2025-05-15 10:10:10'
     sim = Simulation(manifest=manifest)
     assert len(sim.inputs) == 1
@@ -36,6 +36,6 @@ def test_create_simulation_with_manifest(manifest_cls, data_object_cls):
     assert len(sim.outputs) == 1
     assert sim.outputs[0].type == DataObject.Type.FILE
     assert sim.outputs[0].uri == URI(f"file://{path}")
-    assert len(sim.meta) == 3
+    assert len(sim.meta) == 4
     meta = {m.element: m.value for m in sim.meta}
-    assert meta == {"description": "test description", "status": "not validated", 'creation_date': '2025-05-15 10:10:10'}
+    assert meta == {"description": "test description", "status": "not validated", 'creation_date': '2025-05-15 10:10:10', "uploaded_by": "test user"}
