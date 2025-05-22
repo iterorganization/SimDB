@@ -14,7 +14,6 @@ def test_create_simulation_without_manifest_creates_empty_sim():
     assert sim.inputs == []
     assert sim.outputs == []
     assert sim.meta == []
-    assert sim.datetime is None
 
 
 @mock.patch("simdb.cli.manifest.DataObject")

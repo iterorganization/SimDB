@@ -1,42 +1,25 @@
-version: 2
-alias: simulation-alias 
-creation_date: YYYY-MM-DD HH:mm:ss #'simulation-datetime'
+manifest_version: 2
+alias: simulation-alias
 # Data and configuration files
 inputs:
   - uri: file:///home/user/path/to/a/file1
-  - uri: imas:mdsplus?path=/path/to/folder
+  - uri: imas:hdf5?path=/path/to/folder
   - uri: imas://host:port/uda?path=/path/to/folder/on/host&backend=mdsplus
 # Data and log files.
 outputs:
   - uri: file:///home/user/path/to/a/file2
   - uri: imas:hdf5?path=/path/to/results/folder
 metadata:
-- values:
-    dataset_description:
-      machine: ITER
-      pulse: 12345 # simulation pulse number
-      simulation:
-        description: |
-          - H-mode: Description of H-mode
-          - Density: Description of density      
-          - Confinement: Description of confinement
-          - Pedestal: Description of pedestal
-          - L-H transition: Description of L-H transition
-        time_begin: # simulation time begin in seconds
-        time_end: # simulation time end in seconds
-        time_step: # simulation time step
-        git: ssh://git@git.iter.org/wf/workflow.git
-        branch: master
-        commit: 079e84d5ae8a0eec6dcf3819c98f3c05f48e952f
-        codes:
-          - Code 1:
-              git: ssh://git@git.iter.org/eq/code.git
-              commit: 079e84d5ae8a0eec6dcf3819c98f3c05f48e952f
-      code:
-        name: #workflow name
-      pulse_time_begin_epoch:
-        nanoseconds: 
-        seconds: 
-      pulse_time_end_epoch:
-        nanoseconds: 
-        seconds:          
+- summary:
+    machine: ITER # machine name such as ITER, JAT, EAST, etc.
+    pulse: 123456 # 6 digits simulation pulse number
+    code:
+      name: #workflow code name i.e. SOLPS, METIS, etc.
+    simulation:
+      description: |
+        ITER-third-field-H
+        - H-mode: Description of H-mode
+        - Density: Description of density      
+        - Confinement: Description of confinement
+        - Pedestal: Description of pedestal
+        - L-H transition: Description of L-H transition

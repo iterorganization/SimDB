@@ -41,18 +41,13 @@ class File(Base):
         ids_list: Optional[list] = None,        
         perform_integrity_check: bool = True,
         config: Optional[Config] = None,
-        creation_date = None,
     ) -> None:
         self.uuid = uuid.uuid1()
         self.uri = uri
         self.type = type
 
         if perform_integrity_check:
-            # For legacy database, creation date is handled in manifest so at place of reading from summary IDS, reading from manifest
             self.datetime = self.get_creation_date()
-            if self.datetime is None:
-                self.datetime = creation_date
-
             self.checksum = self.generate_checksum(config, ids_list)
 
     def __str__(self):
@@ -104,8 +99,8 @@ class File(Base):
             return datetime.now()
         elif self.type == DataObject.Type.IMAS:
             from ...imas.utils import imas_timestamp
-
-            return imas_timestamp(self.uri)
+            
+            return imas_timestamp(self.uri) 
         elif self.type == DataObject.Type.FILE:
             return datetime.fromtimestamp(Path(self.uri.path).stat().st_ctime)
         else:

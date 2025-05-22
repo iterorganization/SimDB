@@ -236,8 +236,14 @@ class SimulationList(Resource):
             add_watcher = data.get("add_watcher", True)
 
             simulation = models_sim.Simulation.from_data(data["simulation"])
-            simulation.set_meta("uploaded_by", user.email)
-
+            if data["uploaded_by"] is not None:
+                simulation.set_meta("uploaded_by", data["uploaded_by"])
+            elif user.email is not None:
+                simulation.set_meta("uploaded_by", user.email)
+            elif user.name is not None:
+                simulation.set_meta("uploaded_by", user.name)
+            else:
+                simulation.set_meta("uploaded_by", "anonymous")
             if add_watcher:
                 simulation.watchers.append(
                     models_watcher.Watcher(

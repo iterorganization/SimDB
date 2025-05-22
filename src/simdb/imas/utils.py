@@ -226,7 +226,7 @@ def imas_timestamp(uri: URI) -> datetime:
         except parser.ParserError:
             raise ValueError(f"invalid IMAS creation time {creation}")
     else:
-        timestamp = None
+        timestamp = datetime.now()
     entry.close()
     return timestamp
 

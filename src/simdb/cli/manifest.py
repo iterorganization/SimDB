@@ -287,7 +287,7 @@ class CreationDateValidator(ManifestValidator):
 
     def __init__(self, version: int):
         super().__init__(version)
-
+    
     def validate(self, value):
         if not isinstance(value, str):
             raise InvalidManifest("CreationDate must be a string")
@@ -296,7 +296,7 @@ class CreationDateValidator(ManifestValidator):
         try:
             datetime.datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
         except ValueError:
-            raise InvalidManifest(f"Invalid datetime format for CreationDate: {value}")
+            raise InvalidManifest(f"Invalid datetime format for CreationDate: {value}. Expected format: YYYY-MM-DD HH:MM:SS")
 
 
 class DescriptionValidator(ManifestValidator):
@@ -306,6 +306,12 @@ class DescriptionValidator(ManifestValidator):
 
     pass
 
+class ResponsibleValidator(ManifestValidator):
+    """
+    Validator for simulation Responsible.
+    """
+
+    pass
 
 def ndarray_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) -> np.ndarray:
     mapping = loader.construct_mapping(node, deep=True)
@@ -327,7 +333,7 @@ class MetaDataValidator(ListValuesValidator):
 
     def __init__(self, version: int) -> None:
         section_name = "metadata"
-        expected_keys = ("path", "values")
+        expected_keys = ("path", "summary")
         
         super().__init__(version, section_name, expected_keys)
 
@@ -450,11 +456,23 @@ class Manifest:
         if isinstance(self._data, dict):
             return self._data.get("creation_date", None)
         return None
+
+    @property
+    def responsible_name(self) -> Optional[str]:
+        if isinstance(self._data, dict):
+            return self._data.get("responsible_name", None)
+        return None
      
     @property
     def version(self) -> int:
         if isinstance(self._data, dict):
             return self._data.get("version", 2)
+        return 0
+
+    @property
+    def manifest_version(self) -> int:
+        if isinstance(self._data, dict):
+            return self._data.get("manifest_version", 2)
         return 0
 
     def _load_metadata(self, root_path: Path, path: Path):
@@ -536,8 +554,9 @@ class Manifest:
                     if not path.exists():
                         raise InvalidManifest("metadata path %s does not exist" % path)
                     self._load_metadata(file_path, path)
-                elif "values" in item:
-                    _update_dict(self._metadata, item["values"])
+                elif "summary" in item:
+                    self._metadata["summary"] = item["summary"]
+                    # _update_dict(self._metadata, item["values"])
 
     def save(self, out_file: TextIO) -> None:
         """
@@ -563,34 +582,20 @@ class Manifest:
                 "badly formatted manifest - top level sections must be keys not a list"
             )
 
-        if "version" not in self._data.keys():
+        if "manifest_version" not in self._data.keys():
             print("warning: no version given in manifest, assuming version 2.")
 
         version = self.version
-        if version == 0:
+        
+        if version == 2:
             section_validators = {
-                "inputs": InputsValidator(version),
-                "outputs": OutputsValidator(version),
-                "metadata": MetaDataValidator(version),
-                "workflow": WorkflowValidator(version),
-                "description": DescriptionValidator(version),
-            }
-        elif version == 1:
-            section_validators = {
-                "version": VersionValidator(version),
-                "alias": AliasValidator(version),
-                "inputs": InputsValidator(version),
-                "outputs": OutputsValidator(version),
-                "metadata": MetaDataValidator(version),
-            }
-        elif version == 2:
-            section_validators = {
-                "version": VersionValidator(version),
+                "manifest_version": VersionValidator(version),
                 "alias": AliasValidator(version),
                 "inputs": InputsValidator(version),
                 "outputs": OutputsValidator(version),
                 "metadata": MetaDataValidator(version),
                 "creation_date": CreationDateValidator(version),
+                "responsible_name": ResponsibleValidator(version),
             }
         else:
             raise InvalidManifest(f"Unknown manifest version {version}.")
@@ -599,10 +604,10 @@ class Manifest:
             if section not in section_validators.keys():
                 raise InvalidManifest(f"Unknown manifest section found {section}.")
 
-        required_sections = ("outputs", "metadata")
+        required_sections = ("manifest_version", "alias", "outputs", "metadata")
         for section in required_sections:
             if section not in self._data.keys():
-                raise InvalidManifest(f"Required manifest section not found {section}.")
+                raise InvalidManifest(f"Required manifest section \'{section}\' not found.")
 
         for name, values in self._data.items():
             section_validators[name].validate(values)        

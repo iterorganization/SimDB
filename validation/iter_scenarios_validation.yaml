@@ -6,7 +6,7 @@ alias:
     - '^/.*$'      # does not start with /
     - '^.*/$'      # does not end with /
 
-dataset_description:
+summary:
   required: true
   type: dict
   schema:
@@ -14,22 +14,128 @@ dataset_description:
       type: string
     pulse:
       type: integer
-    simulation:
-      type: dict
-      schema:
-        description:
-          type: string
-        time_begin:
-          type: float
-        time_end:
-          type: float
-        time_step:
-          type: float
     code:
       type: dict
       schema:
         name:
-          type: string      
+          type: string
+    time:
+      type: numpy
+      coerce: numpy
+    global_quantities:
+      type: dict
+      schema:
+        b0:
+          type: dict
+          schema:
+            value:
+              type: numpy
+              coerce: numpy
+#              lt: 0
+        r0:
+          type: dict
+          schema:
+            value:
+              type: float
+#              coerce: numpy
+              gt: 0
+        beta_pol:
+          type: dict
+          schema:
+            value:
+              type: numpy
+              coerce: numpy
+              ge: 0
+        current_bootstrap:
+          type: dict
+          schema:
+            value:
+              type: numpy
+              coerce: numpy
+        current_non_inductive:
+          type: dict
+          schema:
+            value:
+              type: numpy
+              coerce: numpy
+        current_ohm:
+          type: dict
+          schema:
+            value:
+              type: numpy
+              coerce: numpy
+        energy_diamagnetic:
+          type: dict
+          schema:
+            value:
+              type: numpy
+              coerce: numpy
+#              ge: 0
+        energy_thermal:
+          type: dict
+          schema:
+            value:
+              type: numpy
+              coerce: numpy
+        energy_total:
+          type: dict
+          schema:
+            value:
+              type: numpy
+              coerce: numpy
+        h_98:
+          type: dict
+          schema:
+            value:
+              type: numpy
+              coerce: numpy
+              ge: 0
+        h_mode:
+          type: dict
+          schema:
+            value:
+              type: numpy
+              coerce: numpy
+        ip:
+          type: dict
+          schema:
+            value:
+              type: numpy
+              coerce: numpy
+              ge: -17000000
+#              le: 0
+        tau_energy:
+          type: dict
+          schema:
+            value:
+              type: numpy
+              coerce: numpy
+              ge: 0
+        v_loop:
+          type: dict
+          schema:
+            value:
+              type: numpy
+              coerce: numpy
+    local:
+      type: dict
+      schema:
+        separatrix:
+          type: dict
+          schema:
+            n_e:
+              type: dict
+              schema:
+                value:
+                  type: numpy
+                  coerce: numpy
+                  gt: 0
+            zeff:
+              type: dict
+              schema:
+                value:
+                  type: numpy
+                  coerce: numpy    
     
 equilibrium:
 #  required: true
@@ -199,124 +305,4 @@ core_profiles:
         zeff:
           type: float
           ge: 0
-summary:
-  required: true
-  type: dict
-  schema:
-    time:
-      type: numpy
-      coerce: numpy
-    global_quantities:
-      type: dict
-      schema:
-        b0:
-          type: dict
-          schema:
-            value:
-              type: numpy
-              coerce: numpy
-#              lt: 0
-        r0:
-          type: dict
-          schema:
-            value:
-              type: float
-#              coerce: numpy
-              gt: 0
-        beta_pol:
-          type: dict
-          schema:
-            value:
-              type: numpy
-              coerce: numpy
-              ge: 0
-        current_bootstrap:
-          type: dict
-          schema:
-            value:
-              type: numpy
-              coerce: numpy
-        current_non_inductive:
-          type: dict
-          schema:
-            value:
-              type: numpy
-              coerce: numpy
-        current_ohm:
-          type: dict
-          schema:
-            value:
-              type: numpy
-              coerce: numpy
-        energy_diamagnetic:
-          type: dict
-          schema:
-            value:
-              type: numpy
-              coerce: numpy
-#              ge: 0
-        energy_thermal:
-          type: dict
-          schema:
-            value:
-              type: numpy
-              coerce: numpy
-        energy_total:
-          type: dict
-          schema:
-            value:
-              type: numpy
-              coerce: numpy
-        h_98:
-          type: dict
-          schema:
-            value:
-              type: numpy
-              coerce: numpy
-              ge: 0
-        h_mode:
-          type: dict
-          schema:
-            value:
-              type: numpy
-              coerce: numpy
-        ip:
-          type: dict
-          schema:
-            value:
-              type: numpy
-              coerce: numpy
-              ge: -17000000
-#              le: 0
-        tau_energy:
-          type: dict
-          schema:
-            value:
-              type: numpy
-              coerce: numpy
-              ge: 0
-        v_loop:
-          type: dict
-          schema:
-            value:
-              type: numpy
-              coerce: numpy
-    local:
-      type: dict
-      schema:
-        separatrix:
-          type: dict
-          schema:
-            n_e:
-              type: dict
-              schema:
-                value:
-                  type: numpy
-                  coerce: numpy
-                  gt: 0
-            zeff:
-              type: dict
-              schema:
-                value:
-                  type: numpy
-                  coerce: numpy
+

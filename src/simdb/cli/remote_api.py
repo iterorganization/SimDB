@@ -743,9 +743,9 @@ class RemoteAPI:
         :param add_watcher: Add the current user as a watcher of the simulation on the remote server
         """
         from ..imas.utils import imas_files
-
+        
         sim_data = simulation.data(recurse=True)
-
+        
         options = self.get_upload_options()
         if options.get("copy_files", True):
             chunk_size = 9 * 1024 * 1024  # 9 MB < 10 MB limit on ITER network
@@ -845,10 +845,10 @@ class RemoteAPI:
                     )
 
         sim_data = simulation.data(recurse=True)
-
+        uploaded_by = simulation.meta_dict().get("uploaded_by", None)
         print("Uploading simulation data ... ", file=out_stream, end="", flush=True)
         self.post(
-            "simulations", data={"simulation": sim_data, "add_watcher": add_watcher}
+            "simulations", data={"simulation": sim_data, "add_watcher": add_watcher, "uploaded_by": uploaded_by}
         )
         print("Success", file=out_stream, flush=True)
 

@@ -117,14 +117,18 @@ class Simulation(Base):
             return
         self.uuid = uuid.uuid1()
         
-        # Simulation creation date is mandatory in the manifest
+        # For legacy simulation import creation datetime is from manifest
+        # If no creation datetime is provided, use the current date and time
         if manifest.creation_date:
             self.datetime = date_parser.parse(manifest.creation_date)
             self.meta.append(MetaData("creation_date", manifest.creation_date))
-        else:
-            # If no creation date is provided, use the current date and time
+        else:            
             self.datetime = datetime.now()
             self.meta.append(MetaData("creation_date", self.datetime.isoformat()))
+        
+        # For legacy simulation import responsible_name is from manifest else it will be the user.email
+        if manifest.responsible_name:
+            self.meta.append(MetaData("uploaded_by", manifest.responsible_name))
 
         # self.status = Simulation.Status.NOT_VALIDATED
         self.user = getuser()
@@ -153,7 +157,7 @@ class Simulation(Base):
 
                 entry.close()
 
-            file = File(input.type, input.uri, all_input_idss, config=config, creation_date=self.datetime)
+            file = File(input.type, input.uri, all_input_idss, config=config)
             if input.type == DataObject.Type.IMAS and "path" not in input.uri.query:
                 file.uri = _update_legacy_uri(input)
             self.inputs.append(file)
@@ -188,7 +192,7 @@ class Simulation(Base):
                 for key, value in flattened_meta.items():
                     self.meta.append(MetaData(key, value))
 
-            file = File(output.type, output.uri, all_output_idss, config=config, creation_date=self.datetime)
+            file = File(output.type, output.uri, all_output_idss, config=config)
             if output.type == DataObject.Type.IMAS and "path" not in output.uri.query:
                 file.uri = _update_legacy_uri(output)
             
