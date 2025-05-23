@@ -358,6 +358,29 @@ def get_local(scenario_key_parameters: dict, slice_index, ids_summary, ids_core_
     return local
 
 
+def flatten_description(data, indent=0):
+    lines = []
+    prefix = " " * indent
+
+    if isinstance(data, dict):
+        for key, value in data.items():
+            if isinstance(value, (dict, list)):
+                lines.append(f"{prefix}{key}:")
+                lines.append(flatten_description(value, indent + 2))
+            else:
+                lines.append(f"{prefix}{key}: {value}")
+    elif isinstance(data, list):
+        for item in data:
+            lines.append(flatten_description(item, indent))
+    elif isinstance(data, str):
+        # Replace literal \n with actual line breaks
+        lines.append(prefix + data.replace("\\n", "\n" + prefix))
+    else:
+        lines.append(prefix + str(data))
+
+    return "\n".join(lines)
+
+
 def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_dataset_description=None):
     dataset_description = {}
     # https://github.com/iterorganization/IMAS-Data-Dictionary/discussions/63
@@ -437,17 +460,12 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
     dataset_description["code"] = code
 
     # dataset_description.simulation.description
-    description_yaml = ""
-    if str(legacy_yaml_data["reference_name"]) in str(legacy_yaml_data["free_description"]):
-        description_yaml = "\ndescription:" + legacy_yaml_data["free_description"]
-    else:
-        description_yaml = (
-            "reference_name:"
-            + str(legacy_yaml_data["reference_name"])
-            + "\ndescription:"
-            + str(legacy_yaml_data["free_description"])
-        )
-    scenario_key_parameters = "scenario_key_parameters:\n"
+    _description_yaml = flatten_description(legacy_yaml_data["free_description"])
+    _description_yaml = _description_yaml.replace("\\n", "\n")
+    description_yaml = (
+        "reference_name:" + str(legacy_yaml_data["reference_name"]) + "\ndescription:" + _description_yaml
+    )
+    scenario_key_parameters = "\nscenario_key_parameters:\n"
     for key, value in legacy_yaml_data["scenario_key_parameters"].items():
         scenario_key_parameters += f"    {key}: {value}\n"
     description_yaml += scenario_key_parameters
@@ -547,7 +565,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
                 validation_logger.info(
                     f"\t>  (yaml,ids):[{pulse_time_begin_epoch_seconds_yaml}],[{pulse_time_begin_epoch_seconds_ids}]"
                 )
-            dataset_description["pulse_time_begin_epoch"]["seconds"] = pulse_time_begin_epoch_seconds_ids
+            dataset_description["pulse_time_begin_epoch"]["seconds"] = pulse_time_begin_epoch_seconds_ids.value
         else:
             validation_logger.info(
                 "\tdataset_description.pulse_time_begin_epoch.seconds is not set in the IDS, setting it from yaml file"
@@ -565,7 +583,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
                     f"\t>  (yaml,ids):"
                     f"[{pulse_time_begin_epoch_nanoseconds_yaml}],[{pulse_time_begin_epoch_nanoseconds_ids}]"
                 )
-            dataset_description["pulse_time_begin_epoch"]["nanoseconds"] = pulse_time_begin_epoch_nanoseconds_ids
+            dataset_description["pulse_time_begin_epoch"]["nanoseconds"] = pulse_time_begin_epoch_nanoseconds_ids.value
         else:
             validation_logger.info(
                 "\tdataset_description.pulse_time_begin_epoch.nanoseconds is not set in the IDS, "
@@ -583,7 +601,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
                 validation_logger.info(
                     f"\t>  (yaml,ids):[{pulse_time_end_epoch_seconds_yaml}],[{pulse_time_end_epoch_seconds_ids}]"
                 )
-            dataset_description["pulse_time_end_epoch"]["seconds"] = pulse_time_end_epoch_seconds_ids
+            dataset_description["pulse_time_end_epoch"]["seconds"] = pulse_time_end_epoch_seconds_ids.value
         else:
             validation_logger.info(
                 "\tdataset_description.pulse_time_end_epoch.seconds is not set in the IDS, setting it from yaml file"
@@ -599,7 +617,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
                     f"\t>  (yaml,ids):[{pulse_time_end_epoch_nanoseconds_yaml}],"
                     f"[{pulse_time_end_epoch_nanoseconds_ids}]"
                 )
-            dataset_description["pulse_time_end_epoch"]["nanoseconds"] = pulse_time_end_epoch_nanoseconds_ids
+            dataset_description["pulse_time_end_epoch"]["nanoseconds"] = pulse_time_end_epoch_nanoseconds_ids.value
         else:
             validation_logger.info(
                 "\tdataset_description.pulse_time_end_epoch.nanoseconds is not set in the IDS"
@@ -614,7 +632,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
             if simulation_time_begin_ids != simulation_time_begin_yaml:
                 validation_logger.info("\tdiscrepancies found in dataset_description.simulation.time_start")
                 validation_logger.info(f"\t>  (yaml,ids):[{simulation_time_begin_yaml}],[{simulation_time_begin_ids}]")
-            dataset_description["simulation"]["time_begin"] = simulation_time_begin_ids
+            dataset_description["simulation"]["time_begin"] = simulation_time_begin_ids.value
         else:
             validation_logger.info(
                 "\tdataset_description.simulation.time_begin is not set in the IDS, setting it from yaml file"
@@ -625,7 +643,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
             if simulation_time_end_ids != simulation_time_end_yaml:
                 validation_logger.info("\tdiscrepancies found in dataset_description.simulation.time_end")
                 validation_logger.info(f"\t>  (yaml,ids):[{simulation_time_end_yaml}],[{simulation_time_end_ids}]")
-            dataset_description["simulation"]["time_end"] = simulation_time_end_ids
+            dataset_description["simulation"]["time_end"] = simulation_time_end_ids.value
         else:
             validation_logger.info(
                 "\tdataset_description.simulation.time_end is not set in the IDS, setting it from yaml file"
@@ -637,7 +655,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
             if simulation_time_step_ids != simulation_time_step_yaml:
                 validation_logger.info("\tdiscrepancies found in dataset_description.simulation.time_step")
                 validation_logger.info(f"\t>  (yaml,ids):[{simulation_time_step_yaml}],[{simulation_time_step_ids}]")
-            dataset_description["simulation"]["time_step"] = simulation_time_step_ids
+            dataset_description["simulation"]["time_step"] = simulation_time_step_ids.value
         else:
             validation_logger.info(
                 "\tdataset_description.simulation.time_step is not set in the IDS, setting it from yaml file"
@@ -929,6 +947,7 @@ def get_global_quantities(legacy_yaml_data: dict, slice_index, ids_summary, ids_
     if not ids_summary.global_quantities.ip.value.has_value:
         if not np.isnan(plasma_current_from_ids) and plasma_current_from_ids != 0.0:
             global_quantities["ip"] = {"value": float(plasma_current_from_ids)}
+            validation_logger.info("\t> ids_summary.global_quantities.ip.value setting from ids")
         else:
             validation_logger.info(
                 "\t> ids_summary.global_quantities.ip.value is empty "
