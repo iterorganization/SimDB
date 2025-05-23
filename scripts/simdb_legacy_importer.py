@@ -547,7 +547,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
                 validation_logger.info(
                     f"\t>  (yaml,ids):[{pulse_time_begin_epoch_seconds_yaml}],[{pulse_time_begin_epoch_seconds_ids}]"
                 )
-
+            dataset_description["pulse_time_begin_epoch"]["seconds"] = pulse_time_begin_epoch_seconds_ids
         else:
             validation_logger.info(
                 "\tdataset_description.pulse_time_begin_epoch.seconds is not set in the IDS, setting it from yaml file"
@@ -565,7 +565,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
                     f"\t>  (yaml,ids):"
                     f"[{pulse_time_begin_epoch_nanoseconds_yaml}],[{pulse_time_begin_epoch_nanoseconds_ids}]"
                 )
-
+            dataset_description["pulse_time_begin_epoch"]["nanoseconds"] = pulse_time_begin_epoch_nanoseconds_ids
         else:
             validation_logger.info(
                 "\tdataset_description.pulse_time_begin_epoch.nanoseconds is not set in the IDS, "
@@ -583,7 +583,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
                 validation_logger.info(
                     f"\t>  (yaml,ids):[{pulse_time_end_epoch_seconds_yaml}],[{pulse_time_end_epoch_seconds_ids}]"
                 )
-
+            dataset_description["pulse_time_end_epoch"]["seconds"] = pulse_time_end_epoch_seconds_ids
         else:
             validation_logger.info(
                 "\tdataset_description.pulse_time_end_epoch.seconds is not set in the IDS, setting it from yaml file"
@@ -599,7 +599,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
                     f"\t>  (yaml,ids):[{pulse_time_end_epoch_nanoseconds_yaml}],"
                     f"[{pulse_time_end_epoch_nanoseconds_ids}]"
                 )
-
+            dataset_description["pulse_time_end_epoch"]["nanoseconds"] = pulse_time_end_epoch_nanoseconds_ids
         else:
             validation_logger.info(
                 "\tdataset_description.pulse_time_end_epoch.nanoseconds is not set in the IDS"
@@ -614,7 +614,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
             if simulation_time_begin_ids != simulation_time_begin_yaml:
                 validation_logger.info("\tdiscrepancies found in dataset_description.simulation.time_start")
                 validation_logger.info(f"\t>  (yaml,ids):[{simulation_time_begin_yaml}],[{simulation_time_begin_ids}]")
-
+            dataset_description["simulation"]["time_begin"] = simulation_time_begin_ids
         else:
             validation_logger.info(
                 "\tdataset_description.simulation.time_begin is not set in the IDS, setting it from yaml file"
@@ -625,7 +625,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
             if simulation_time_end_ids != simulation_time_end_yaml:
                 validation_logger.info("\tdiscrepancies found in dataset_description.simulation.time_end")
                 validation_logger.info(f"\t>  (yaml,ids):[{simulation_time_end_yaml}],[{simulation_time_end_ids}]")
-
+            dataset_description["simulation"]["time_end"] = simulation_time_end_ids
         else:
             validation_logger.info(
                 "\tdataset_description.simulation.time_end is not set in the IDS, setting it from yaml file"
@@ -637,7 +637,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
             if simulation_time_step_ids != simulation_time_step_yaml:
                 validation_logger.info("\tdiscrepancies found in dataset_description.simulation.time_step")
                 validation_logger.info(f"\t>  (yaml,ids):[{simulation_time_step_yaml}],[{simulation_time_step_ids}]")
-
+            dataset_description["simulation"]["time_step"] = simulation_time_step_ids
         else:
             validation_logger.info(
                 "\tdataset_description.simulation.time_step is not set in the IDS, setting it from yaml file"
