@@ -373,7 +373,6 @@ def flatten_description(data, indent=0):
         for item in data:
             lines.append(flatten_description(item, indent))
     elif isinstance(data, str):
-        # Replace literal \n with actual line breaks
         lines.append(prefix + data.replace("\\n", "\n" + prefix))
     else:
         lines.append(prefix + str(data))
@@ -1185,11 +1184,11 @@ if __name__ == "__main__":
             lowlevelVersion = int(lowlevelVersion.split(".")[0])
             if lowlevelVersion < 4:
                 directory_list = [os.environ["IMAS_HOME"] + "/shared/iterdb/3/0"]
-            for folder_path in directory_list:
-                for root, _, filenames in os.walk(folder_path):
-                    for filename in filenames:
-                        if filename.endswith(".yaml"):
-                            files.append(os.path.join(root, filename))
+        for folder_path in directory_list:
+            for root, _, filenames in os.walk(folder_path):
+                for filename in filenames:
+                    if filename.endswith(".yaml"):
+                        files.append(os.path.join(root, filename))
     output_directory = args.output_directory
     if args.output_directory is None:
         output_directory = os.path.join(os.getcwd(), "manifest")
