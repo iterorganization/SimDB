@@ -302,13 +302,17 @@ class SimulationList(Resource):
                     if sim_file.uri.scheme == "imas":
                         from simdb.imas.utils import convert_uri
 
-                        path = secure_path(
-                            Path(sim_file.uri.query["path"]),
-                            common_root,
-                            staging_dir,
-                            is_file=common_root is not None,
-                        )
-                        sim_file.uri = convert_uri(sim_file.uri, path, config)
+                        if config.get_option("server.copy_files", default=True):
+                            path = secure_path(
+                                Path(sim_file.uri.query["path"]),
+                                common_root,
+                                staging_dir,
+                                is_file=common_root is not None,
+                            )
+                            sim_file.uri = convert_uri(sim_file.uri, path, config)
+                        else:
+                            path = Path(sim_file.uri.query["path"])
+                            sim_file.uri = convert_uri(sim_file.uri, path, config)
 
             result = {
                 "ingested": simulation.uuid.hex,
