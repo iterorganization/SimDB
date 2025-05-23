@@ -413,7 +413,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
                 f"dataset_description.machine (yaml,ids):[{machine_from_yaml}],"
                 f"[{machine_from_ids}]"
             )
-
+        dataset_description["machine"] = machine_from_ids.value
     else:
         validation_logger.info("\tids_dataset_description.machine is not set in the IDS, setting it from yaml file")
         validation_logger.info(f"\t>  (yaml,ids):[{machine_from_yaml}]," f"[{machine_from_ids}]")
@@ -431,7 +431,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
                 f"\t>  yaml['characteristics']['shot'], dataset_description.pulse (yaml,ids):[{pulse_from_yaml}],"
                 f"[{pulse_from_ids}]"
             )
-
+        dataset_description["pulse"] = pulse_from_ids.value
     else:
         validation_logger.info("\tids_dataset_description.pulse is not set in the IDS, setting it from yaml file")
         validation_logger.info(f"\t>  (yaml,ids):[{pulse_from_yaml}]," f"[{pulse_from_ids}]")
@@ -723,12 +723,12 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary):
                 "\t> ids_summary.heating_current_drive.power_ec.value is empty and "
                 "p_ec from yaml is empty, nothing to set"
             )
-            validation_logger.info(f"\t>  (yaml,ids):[{p_ec}],[{ids_summary.heating_current_drive.power_ec.value}]")
+            validation_logger.info(f"\t>  (yaml,ids):[{p_ec_yaml}],[{ids_summary.heating_current_drive.power_ec.value}]")
     else:
         validation_logger.info(
             "\t> ids_summary.heating_current_drive.power_ec.value is already set in the IDS, not setting"
         )
-        validation_logger.info(f"\t>  (yaml,ids):[{p_ec}],[{ids_summary.heating_current_drive.power_ec.value.value}]")
+        validation_logger.info(f"\t>  (yaml,ids):[{p_ec_yaml}],[{ids_summary.heating_current_drive.power_ec.value.value}]")
 
     p_ic_yaml = float(legacy_yaml_data["hcd"]["p_ic"])
     p_ic_ids = float(p_ic * 1.0e-6)
@@ -745,12 +745,12 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary):
                 "\t> ids_summary.heating_current_drive.power_ic.value is empty and "
                 "p_ic from yaml is empty, nothing to set"
             )
-            validation_logger.info(f"\t>  (yaml,ids):[{p_ic}],[{ids_summary.heating_current_drive.power_ic.value}]")
+            validation_logger.info(f"\t>  (yaml,ids):[{p_ic_yaml}],[{ids_summary.heating_current_drive.power_ic.value}]")
     else:
         validation_logger.info(
             "\t> ids_summary.heating_current_drive.power_ic.value is already set in the IDS, not setting"
         )
-        validation_logger.info(f"\t>  (yaml,ids):[{p_ic}],[{ids_summary.heating_current_drive.power_ic.value.value}]")
+        validation_logger.info(f"\t>  (yaml,ids):[{p_ic_yaml}],[{ids_summary.heating_current_drive.power_ic.value.value}]")
 
     p_nbi_yaml = float(legacy_yaml_data["hcd"]["p_nbi"])
     p_nbi_ids = float(p_nbi * 1.0e-6)
@@ -767,12 +767,12 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary):
             validation_logger.info(
                 "\t> ids_summary.heating_current_drive.power_nbi.value and p_nbi from yaml is empty, nothing to set"
             )
-            validation_logger.info(f"\t>  (yaml,ids):[{p_nbi}],[{ids_summary.heating_current_drive.power_nbi.value}]")
+            validation_logger.info(f"\t>  (yaml,ids):[{p_nbi_yaml}],[{ids_summary.heating_current_drive.power_nbi.value}]")
     else:
         validation_logger.info(
             "\t> ids_summary.heating_current_drive.power_nbi.value is already set in the IDS, not setting"
         )
-        validation_logger.info(f"\t>  (yaml,ids):[{p_nbi}],[{ids_summary.heating_current_drive.power_nbi.value}]")
+        validation_logger.info(f"\t>  (yaml,ids):[{p_nbi_yaml}],[{ids_summary.heating_current_drive.power_nbi.value}]")
 
     p_lh_yaml = float(legacy_yaml_data["hcd"]["p_lh"])
     p_lh_ids = float(p_lh * 1.0e-6)
@@ -789,12 +789,12 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary):
                 "\t> ids_summary.heating_current_drive.power_lh.value is empty and "
                 "p_lh from yaml is empty, nothing to set"
             )
-            validation_logger.info(f"\t>  (yaml,ids):[{p_lh}],[{ids_summary.heating_current_drive.power_lh.value}]")
+            validation_logger.info(f"\t>  (yaml,ids):[{p_lh_yaml}],[{ids_summary.heating_current_drive.power_lh.value}]")
     else:
         validation_logger.info(
             "\t> ids_summary.heating_current_drive.power_lh.value is already set in the IDS, not setting"
         )
-        validation_logger.info(f"\t>  (yaml,ids):[{p_lh}],[{ids_summary.heating_current_drive.power_lh.value}]")
+        validation_logger.info(f"\t>  (yaml,ids):[{p_lh_yaml}],[{ids_summary.heating_current_drive.power_lh.value}]")
 
     p_hcd_yaml = float(legacy_yaml_data["hcd"]["p_hcd"])
     p_hcd_ids = float(p_hcd * 1.0e-6)
@@ -812,14 +812,14 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary):
                 "p_hcd from yaml is empty, nothing to set"
             )
             validation_logger.info(
-                f"\t>  (yaml,ids):[{p_hcd}],[{ids_summary.heating_current_drive.power_additional.value}]"
+                f"\t>  (yaml,ids):[{p_hcd_yaml}],[{ids_summary.heating_current_drive.power_additional.value}]"
             )
     else:
         validation_logger.info(
             "\t> ids_summary.heating_current_drive.power_additional.value is already set in the IDS, not setting"
         )
         validation_logger.info(
-            f"\t>  (yaml,ids):[{p_hcd}],[{ids_summary.heating_current_drive.power_additional.value}]"
+            f"\t>  (yaml,ids):[{p_hcd_yaml}],[{ids_summary.heating_current_drive.power_additional.value}]"
         )
     return heating_current_drive
 
