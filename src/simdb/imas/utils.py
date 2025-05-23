@@ -222,9 +222,10 @@ def imas_timestamp(uri: URI) -> datetime:
     creation = ids_obj.ids_properties.creation_date
     if creation:
         try:
-            timestamp = parser.parse(creation)
-        except parser.ParserError:
-            raise ValueError(f"invalid IMAS creation time {creation}")
+            timestamp = parser.parse(creation)            
+        except Exception:            
+            timestamp = datetime.now()    
+            # raise ValueError(f"invalid IMAS creation time {creation}")
     else:
         timestamp = datetime.now()
     entry.close()
