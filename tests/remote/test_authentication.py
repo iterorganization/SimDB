@@ -46,13 +46,13 @@ def test_check_auth(get_option):
     easy_ad = patcher.start()
 
     config = Config()
-    get_option.side_effect = lambda a: {
+    get_option.side_effect = lambda name, default=None: {
         "server.admin_password": "abc123",
         "authentication.type": "ActiveDirectory",
         "authentication.ad_server": "test.server",
         "authentication.ad_domain": "test.domain",
         "authentication.ad_cert": "test.cert",
-    }[a]   
+    }.get(name, default)   
     class request:
         class authorization:
             username = ""
@@ -87,3 +87,4 @@ def test_check_auth(get_option):
     request.authorization.password = "wrong"
     ok = check_auth(config, request)
     assert not ok
+
