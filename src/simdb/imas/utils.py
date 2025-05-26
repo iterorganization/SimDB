@@ -333,3 +333,16 @@ def convert_uri(uri: URI, path: Path, config: Config) -> URI:
     else:
         port = int(port)
         return URI(f"imas://{host}:{port}/uda?path={path}&backend={backend}")
+
+
+def extract_ids_occurrence(ids: str) -> tuple[str, int]:
+    """Extract IDS name and occurrence number.
+    Returns tuple of (ids_name, occurrence)"""
+    last_underscore = ids.rfind('_')
+    if last_underscore == -1:
+        return ids, 0
+        
+    potential_occurrence = ids[last_underscore + 1:]
+    if potential_occurrence.isdigit():
+        return ids[:last_underscore], int(potential_occurrence)
+    return ids, 0

@@ -140,17 +140,14 @@ class Simulation(Base):
         
         for input in manifest.inputs:
             if input.type == DataObject.Type.IMAS:
-                from ...imas.utils import open_imas, list_idss, check_time
+                from ...imas.utils import open_imas, list_idss, check_time, extract_ids_occurrence
                 from ...imas.metadata import load_metadata
 
                 entry = open_imas(input.uri)
                 idss = list_idss(entry)
 
                 for ids in idss:
-                    occurrence = 0                   
-                    if ids.find("_", len(ids) - 2, len(ids)) != -1:
-                        occurrence = ids.split("_", len(ids) - 1)[1]
-                        ids = ids.split("_", len(ids) - 1)[0]
+                    ids_name, occurrence = extract_ids_occurrence(ids)
                     check_time(entry, ids, occurrence)
 
                 all_input_idss += idss
@@ -169,18 +166,14 @@ class Simulation(Base):
 
         for output in manifest.outputs:
             if output.type == DataObject.Type.IMAS:
-                from ...imas.utils import open_imas, list_idss, check_time
+                from ...imas.utils import open_imas, list_idss, check_time, extract_ids_occurrence
                 from ...imas.metadata import load_metadata
 
                 entry = open_imas(output.uri)
                 idss = list_idss(entry)
-
                 for ids in idss:
-                    occurrence = 0                   
-                    if ids.find("_", len(ids) - 2, len(ids)) != -1:
-                        occurrence = ids.split("_", len(ids) - 1)[1]
-                        ids = ids.split("_", len(ids) - 1)[0]
-                    check_time(entry, ids, occurrence)
+                    ids_name, occurrence = extract_ids_occurrence(ids)
+                    check_time(entry, ids_name, occurrence)
 
                 all_output_idss += idss
 
