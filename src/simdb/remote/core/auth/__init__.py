@@ -77,13 +77,21 @@ def check_auth(
     if username == "admin" and password == config.get_option("server.admin_password"):
         return User("admin", None)
 
-    authentication_types = config.get_option("authentication.type").split(",")
-    #authentication_types = ['token'] + authentication_types
+    authentication_types = config.get_string_option("authentication.type").lower().split(",")
+    if 'token' not in authentication_types:
+        authentication_types = ['token'] + authentication_types
+
     for authentication_type in authentication_types:
         authenticator = Authenticator.get(authentication_type)
-        user = authenticator.authenticate(config, request)
-        if user is not None:
-            return user
+        try:
+            user = authenticator.authenticate(config, request)
+            if user is not None:
+                return user
+        except AuthenticationError:
+            AuthenticationError(
+                f"Authentication failed for user {username} using {authentication_type} authenticator."
+            )
+            ...
 
     return None
 

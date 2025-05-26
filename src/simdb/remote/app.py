@@ -46,10 +46,14 @@ def create_app(
         endpoints = []
         for ver in blueprints:
             endpoints.append(f"{request.url}{ver}")
-        authentication_type = config.get_option("authentication.type")
-        authenticator = Authenticator.get(authentication_type)
+        authentication_types = config.get_string_option("authentication.type").split(",")
+        authenticators = [Authenticator.get(auth_type) for auth_type in authentication_types]
         return jsonify(
-            {"endpoints": endpoints, "authentication": type(authenticator).Name}
+            {
+                "endpoints": endpoints,
+                "authentication": authenticators[0].Name,
+                "authenticators": [auth.Name for auth in authenticators],
+            }
         )
 
     for version, blueprint in blueprints.items():
