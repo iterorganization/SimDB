@@ -57,6 +57,7 @@ def test_check_auth(get_option):
         class authorization:
             username = ""
             password = ""
+        headers = {}
     request.authorization.username = "admin"
     request.authorization.password = "abc123"
     ok = check_auth(config, request)    
@@ -85,6 +86,7 @@ def test_check_auth(get_option):
     )
     request.authorization.username = "user"
     request.authorization.password = "wrong"
+    request.headers = {"Authorization": ""}
     ok = check_auth(config, request)
     assert not ok
 
