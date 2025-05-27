@@ -7,8 +7,8 @@ class IdsValidator(FileValidatorBase):
 
     def configure(self, arguments: dict):
 
-        from ids_validator.validate_options import ValidateOptions
-        from ids_validator.validate_options import RuleFilter
+        from imas_validator.validate_options import ValidateOptions
+        from imas_validator.validate_options import RuleFilter
 
         # needs to be able to configure from both the [file_validation] server configuration section and the dictionary
         # returned from options()
@@ -79,8 +79,8 @@ class IdsValidator(FileValidatorBase):
             return
 
         from ..validator import ValidationError
-        from ids_validator.validate.validate import validate
-        from ids_validator.report.validationReportGenerator import ValidationReportGenerator
+        from imas_validator.validate.validate import validate
+        from imas_validator.report.validationReportGenerator import ValidationReportGenerator
 
         try:
             backend = uri.query.get("backend")

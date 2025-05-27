@@ -79,6 +79,11 @@ def checksum(uri: URI, ids_list: list) -> str:
     import hashlib
     sha1 = hashlib.sha1()
 
+    if not ids_list:
+        entry = open_imas(uri)
+        ids_list = list_idss(entry)
+        entry.close()
+
     for path in imas_files(uri):
         with open(path, "rb") as file:
             ids_name = Path(path).name.split(".")
@@ -87,5 +92,4 @@ def checksum(uri: URI, ids_list: list) -> str:
                     continue
             for chunk in iter(lambda: file.read(4096), b""):
                 sha1.update(chunk)
-
     return sha1.hexdigest()

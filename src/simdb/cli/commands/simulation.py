@@ -393,13 +393,16 @@ def simulation_validate(
     for schema in schemas:
         Validator(schema).validate(simulation)
 
+    ids_list = []
     for file in chain(simulation.inputs, simulation.outputs):
-        checksum = file.generate_checksum(config)
+        try:
+            # Pass config and ids_list parameters
+            current_checksum = file.generate_checksum(config, ids_list)
 
-        if checksum != file.checksum:
-            raise ValidationError("Checksum doest not match for file " + str(file))
+            if current_checksum != file.checksum:
+                raise ValidationError(f"Checksum mismatch for file {file.uri}. "
+                                    f"Expected: {file.checksum}, Got: {current_checksum}")
+        except Exception as e:
+            raise ValidationError(f"Failed to validate checksum for file {file.uri}: {str(e)}")
 
-    # options = api.get_upload_options()
-    # _validate_simulation_outputs(options, simulation)
-
-    click.echo("success")
+    click.echo("validation successful")

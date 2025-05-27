@@ -50,7 +50,6 @@ Note: please don't reply to this email, replies to this address are not monitore
 
 def _validate(simulation, user) -> Dict:
     from ....validation import ValidationError, Validator
-   
 
     schemas = Validator.validation_schemas(current_app.simdb_config, simulation)
     try:
@@ -70,7 +69,7 @@ def _validate(simulation, user) -> Dict:
     file_validator_options = current_app.simdb_config.get_section("file_validation", default={})
     if file_validator_type not in [None, "none",""]:
         from ....validation.file import find_file_validator
-        from ids_validator.validate_options import ValidateOptions
+        from imas_validator.validate_options import ValidateOptions
         validator_type, validator_options  = find_file_validator(file_validator_type, file_validator_options)
         if validator_type:
         
