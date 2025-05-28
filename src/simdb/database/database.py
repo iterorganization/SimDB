@@ -107,9 +107,17 @@ class Database:
             kwargs.setdefault("user", "simdb")
             kwargs.setdefault("password", "simdb")
             kwargs.setdefault("db_name", "simdb")
+            # self.engine: "sqlalchemy.engine.Engine" = create_engine(
+            #     "postgresql://%(user)s:%(password)s@%(host)s:%(port)d/%(db_name)s"
+            #     % kwargs
+            # )
             self.engine: "sqlalchemy.engine.Engine" = create_engine(
-                "postgresql://%(user)s:%(password)s@%(host)s:%(port)d/%(db_name)s"
-                % kwargs
+                "postgresql+psycopg2://%(user)s:%(password)s@%(host)s:%(port)s/%(db_name)s"
+                % kwargs,
+                pool_size=25,
+                max_overflow=50,
+                pool_pre_ping=True,
+                pool_recycle=3600
             )
             with contextlib.closing(self.engine.connect()) as con:
                 res: sqlalchemy.engine.ResultProxy = con.execute(
@@ -144,6 +152,19 @@ class Database:
             scoped_session(sessionmaker(bind=self.engine), scopefunc=scopefunc),
         )
 
+    def close(self):
+        """Close the database session and dispose of the engine."""
+        if hasattr(self, 'session'):
+            self.session.remove()  # For scoped_session
+        if hasattr(self, 'engine'):
+            self.engine.dispose()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        
     def _get_simulation_data(self, limit, query, meta_keys, page) -> Tuple[int, List]:
         if limit:
             limit = limit * len(meta_keys) if meta_keys else limit
