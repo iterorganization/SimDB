@@ -582,7 +582,9 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
                     f"\t>  (yaml,ids):"
                     f"[{pulse_time_begin_epoch_nanoseconds_yaml}],[{pulse_time_begin_epoch_nanoseconds_ids}]"
                 )
-            dataset_description["pulse_time_begin_epoch"]["nanoseconds"] = pulse_time_begin_epoch_nanoseconds_ids.value
+            dataset_description["pulse_time_begin_epoch"]["nanoseconds"] = int(
+                pulse_time_begin_epoch_nanoseconds_ids.value
+            )
         else:
             validation_logger.info(
                 "\tdataset_description.pulse_time_begin_epoch.nanoseconds is not set in the IDS, "
@@ -592,7 +594,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
                 f"\t>  (yaml,ids):[{pulse_time_begin_epoch_nanoseconds_yaml}],"
                 f"[{pulse_time_begin_epoch_nanoseconds_ids}]"
             )
-            dataset_description["pulse_time_begin_epoch"]["nanoseconds"] = (start - round(start)) * 10**9
+            dataset_description["pulse_time_begin_epoch"]["nanoseconds"] = int((start - round(start)) * 10**9)
 
         if pulse_time_end_epoch_seconds_ids:
             if pulse_time_end_epoch_seconds_ids != pulse_time_end_epoch_seconds_yaml:
@@ -616,7 +618,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
                     f"\t>  (yaml,ids):[{pulse_time_end_epoch_nanoseconds_yaml}],"
                     f"[{pulse_time_end_epoch_nanoseconds_ids}]"
                 )
-            dataset_description["pulse_time_end_epoch"]["nanoseconds"] = pulse_time_end_epoch_nanoseconds_ids.value
+            dataset_description["pulse_time_end_epoch"]["nanoseconds"] = int(pulse_time_end_epoch_nanoseconds_ids.value)
         else:
             validation_logger.info(
                 "\tdataset_description.pulse_time_end_epoch.nanoseconds is not set in the IDS"
@@ -625,7 +627,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
             validation_logger.info(
                 f"\t>  (yaml,ids):[{pulse_time_end_epoch_nanoseconds_yaml}],[{pulse_time_end_epoch_nanoseconds_ids}]"
             )
-            dataset_description["pulse_time_end_epoch"]["nanoseconds"] = (end - round(end)) * 10**9
+            dataset_description["pulse_time_end_epoch"]["nanoseconds"] = int((end - round(end)) * 10**9)
 
         if simulation_time_begin_ids:
             if simulation_time_begin_ids != simulation_time_begin_yaml:
@@ -723,12 +725,16 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary):
                 "\t> ids_summary.heating_current_drive.power_ec.value is empty and "
                 "p_ec from yaml is empty, nothing to set"
             )
-            validation_logger.info(f"\t>  (yaml,ids):[{p_ec_yaml}],[{ids_summary.heating_current_drive.power_ec.value}]")
+            validation_logger.info(
+                f"\t>  (yaml,ids):[{p_ec_yaml}],[{ids_summary.heating_current_drive.power_ec.value}]"
+            )
     else:
         validation_logger.info(
             "\t> ids_summary.heating_current_drive.power_ec.value is already set in the IDS, not setting"
         )
-        validation_logger.info(f"\t>  (yaml,ids):[{p_ec_yaml}],[{ids_summary.heating_current_drive.power_ec.value.value}]")
+        validation_logger.info(
+            f"\t>  (yaml,ids):[{p_ec_yaml}],[{ids_summary.heating_current_drive.power_ec.value.value}]"
+        )
 
     p_ic_yaml = float(legacy_yaml_data["hcd"]["p_ic"])
     p_ic_ids = float(p_ic * 1.0e-6)
@@ -745,12 +751,16 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary):
                 "\t> ids_summary.heating_current_drive.power_ic.value is empty and "
                 "p_ic from yaml is empty, nothing to set"
             )
-            validation_logger.info(f"\t>  (yaml,ids):[{p_ic_yaml}],[{ids_summary.heating_current_drive.power_ic.value}]")
+            validation_logger.info(
+                f"\t>  (yaml,ids):[{p_ic_yaml}],[{ids_summary.heating_current_drive.power_ic.value}]"
+            )
     else:
         validation_logger.info(
             "\t> ids_summary.heating_current_drive.power_ic.value is already set in the IDS, not setting"
         )
-        validation_logger.info(f"\t>  (yaml,ids):[{p_ic_yaml}],[{ids_summary.heating_current_drive.power_ic.value.value}]")
+        validation_logger.info(
+            f"\t>  (yaml,ids):[{p_ic_yaml}],[{ids_summary.heating_current_drive.power_ic.value.value}]"
+        )
 
     p_nbi_yaml = float(legacy_yaml_data["hcd"]["p_nbi"])
     p_nbi_ids = float(p_nbi * 1.0e-6)
@@ -767,7 +777,9 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary):
             validation_logger.info(
                 "\t> ids_summary.heating_current_drive.power_nbi.value and p_nbi from yaml is empty, nothing to set"
             )
-            validation_logger.info(f"\t>  (yaml,ids):[{p_nbi_yaml}],[{ids_summary.heating_current_drive.power_nbi.value}]")
+            validation_logger.info(
+                f"\t>  (yaml,ids):[{p_nbi_yaml}],[{ids_summary.heating_current_drive.power_nbi.value}]"
+            )
     else:
         validation_logger.info(
             "\t> ids_summary.heating_current_drive.power_nbi.value is already set in the IDS, not setting"
@@ -789,7 +801,9 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary):
                 "\t> ids_summary.heating_current_drive.power_lh.value is empty and "
                 "p_lh from yaml is empty, nothing to set"
             )
-            validation_logger.info(f"\t>  (yaml,ids):[{p_lh_yaml}],[{ids_summary.heating_current_drive.power_lh.value}]")
+            validation_logger.info(
+                f"\t>  (yaml,ids):[{p_lh_yaml}],[{ids_summary.heating_current_drive.power_lh.value}]"
+            )
     else:
         validation_logger.info(
             "\t> ids_summary.heating_current_drive.power_lh.value is already set in the IDS, not setting"
@@ -1115,7 +1129,7 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
         )
         if local and local != {}:
             summary["local"] = local
-        summary["plasma_composition"] = get_plasma_composition(legacy_yaml_data["plasma_composition"])
+        # summary["plasma_composition"] = get_plasma_composition(legacy_yaml_data["plasma_composition"])
         manifest_metadata["summary"] = summary
 
         stat = os.stat(legacy_yaml_file)
