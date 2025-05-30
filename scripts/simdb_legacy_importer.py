@@ -420,22 +420,22 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
         dataset_description["machine"] = machine_from_yaml.upper()
 
     # dataset_description.pulse
-    pulse_from_yaml = legacy_yaml_data["characteristics"]["shot"]
-    pulse_from_ids = None
-    if ids_dataset_description is not None and hasattr(ids_dataset_description, "pulse"):
-        pulse_from_ids = ids_dataset_description.pulse if ids_dataset_description.pulse.has_value else None
-    if pulse_from_ids:
-        if pulse_from_ids != pulse_from_yaml:
-            validation_logger.info("\tdiscrepancies found in pulse")
-            validation_logger.info(
-                f"\t>  yaml['characteristics']['shot'], dataset_description.pulse (yaml,ids):[{pulse_from_yaml}],"
-                f"[{pulse_from_ids}]"
-            )
-        dataset_description["pulse"] = pulse_from_ids.value
-    else:
-        validation_logger.info("\tids_dataset_description.pulse is not set in the IDS, setting it from yaml file")
-        validation_logger.info(f"\t>  (yaml,ids):[{pulse_from_yaml}]," f"[{pulse_from_ids}]")
-        dataset_description["pulse"] = pulse_from_yaml
+    # pulse_from_yaml = legacy_yaml_data["characteristics"]["shot"]
+    # pulse_from_ids = None
+    # if ids_dataset_description is not None and hasattr(ids_dataset_description, "pulse"):
+    #     pulse_from_ids = ids_dataset_description.pulse if ids_dataset_description.pulse.has_value else None
+    # if pulse_from_ids:
+    #     if pulse_from_ids != pulse_from_yaml:
+    #         validation_logger.info("\tdiscrepancies found in pulse")
+    #         validation_logger.info(
+    #             f"\t>  yaml['characteristics']['shot'], dataset_description.pulse (yaml,ids):[{pulse_from_yaml}],"
+    #             f"[{pulse_from_ids}]"
+    #         )
+    #     dataset_description["pulse"] = pulse_from_ids.value
+    # else:
+    #     validation_logger.info("\tids_dataset_description.pulse is not set in the IDS, setting it from yaml file")
+    #     validation_logger.info(f"\t>  (yaml,ids):[{pulse_from_yaml}]," f"[{pulse_from_ids}]")
+    #     dataset_description["pulse"] = pulse_from_yaml
 
     # dataset_description.code
     code_from_yaml = legacy_yaml_data["characteristics"]["workflow"]
@@ -480,6 +480,22 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
             continue
         characteristics += f"    {key}: {value}\n"
     description_yaml += characteristics
+
+    plasma_composition = get_plasma_composition(legacy_yaml_data["plasma_composition"])
+    output_parts = []
+    plasma_composition_parts = {}
+    for key, props in plasma_composition.items():
+        plasma_composition_parts[key] = props["n_over_ne"]
+    sorted_items = dict(sorted(plasma_composition_parts.items(), key=lambda x: x[1], reverse=True))
+    for key, val in sorted_items.items():
+        if val < 0.01:
+            formatted = f"{key}({val:.2e})"
+        else:
+            formatted = f"{key}({val:.3f})"
+            output_parts.append(formatted)
+    output = ",".join(output_parts)
+
+    description_yaml += f"plasma_composition:{output}"
     description_yaml = Literal(description_yaml)
     simulation = {}
     simulation["description"] = description_yaml
@@ -1129,15 +1145,17 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
         )
         if local and local != {}:
             summary["local"] = local
+
+        if not ids_summary.ids_properties.creation_date.has_value:
+            stat = os.stat(legacy_yaml_file)
+            creation_time = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+            summary["ids_properties"] = {"creation_date": creation_time}
+
         # summary["plasma_composition"] = get_plasma_composition(legacy_yaml_data["plasma_composition"])
         manifest_metadata["summary"] = summary
-
-        stat = os.stat(legacy_yaml_file)
-        creation_time = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
         out_data = {
             "manifest_version": 2,
             "responsible_name": legacy_yaml_data["responsible_name"],
-            "creation_date": creation_time,
             "alias": alias,
             "outputs": [{"uri": uri}],
             "inputs": [],
