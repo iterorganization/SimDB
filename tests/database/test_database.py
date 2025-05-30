@@ -17,12 +17,14 @@ def test_create_sqlite_database_with_missing_parameters():
 
 @mock.patch("sqlalchemy.create_engine")
 def test_create_postrges_database(create_engine):
-    db = Database(Database.DBMS.POSTGRESQL, host="test.server.com", port=5432, pool_size=25,
-                max_overflow=50,
-                pool_pre_ping=True,
-                pool_recycle=3600)
+    db = Database(Database.DBMS.POSTGRESQL, host="test.server.com", port=5432)
+
     create_engine.assert_called_once_with(
-        "postgresql://simdb:simdb@test.server.com:5432/simdb"
+        "postgresql+psycopg2://simdb:simdb@test.server.com:5432/simdb",
+        pool_size=25,
+        max_overflow=50,
+        pool_pre_ping=True,
+        pool_recycle=3600
     )
     assert db.engine == create_engine.return_value
 
