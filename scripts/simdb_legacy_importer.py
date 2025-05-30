@@ -496,6 +496,10 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
     output = ",".join(output_parts)
 
     description_yaml += f"plasma_composition:{output}"
+
+    density_peaking_yaml = legacy_yaml_data["scenario_key_parameters"].get("density_peaking", "")
+    if density_peaking_yaml != "tbd" and density_peaking_yaml != "":
+        description_yaml += f"density_peaking:{density_peaking_yaml}"
     description_yaml = Literal(description_yaml)
     simulation = {}
     simulation["description"] = description_yaml
@@ -1136,6 +1140,7 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
         global_quantities = get_global_quantities(legacy_yaml_data, slice_index, ids_summary, ids_equilibrium)
         if global_quantities and global_quantities != {}:
             summary["global_quantities"] = global_quantities
+
         local = get_local(
             legacy_yaml_data["scenario_key_parameters"],
             slice_index,
