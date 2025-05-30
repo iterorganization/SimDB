@@ -464,7 +464,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
     description_yaml = (
         "reference_name:" + str(legacy_yaml_data["reference_name"]) + "\ndescription:" + _description_yaml
     )
-    scenario_key_parameters = "\nscenario_key_parameters:\n"
+    scenario_key_parameters = "scenario_key_parameters:\n"
     for key, value in legacy_yaml_data["scenario_key_parameters"].items():
         scenario_key_parameters += f"    {key}: {value}\n"
     description_yaml += scenario_key_parameters
@@ -488,6 +488,9 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
         plasma_composition_parts[key] = props["n_over_ne"]
     sorted_items = dict(sorted(plasma_composition_parts.items(), key=lambda x: x[1], reverse=True))
     for key, val in sorted_items.items():
+        if val is None or val == "tbd" or val == "":
+            continue
+        val = float(val)
         if val < 0.01:
             formatted = f"{key}({val:.2e})"
         else:
