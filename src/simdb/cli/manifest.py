@@ -1,4 +1,4 @@
-import datetime
+# import datetime
 import re
 import os
 import urllib
@@ -280,23 +280,23 @@ class AliasValidator(ManifestValidator):
         if urllib.parse.quote(value) != value:
             raise InvalidAlias(f"illegal characters in alias: {value}")
 
-class CreationDateValidator(ManifestValidator):
-    """
-    Validator for simulation CreationDate.
-    """
+# class CreationDateValidator(ManifestValidator):
+#     """
+#     Validator for simulation CreationDate.
+#     """
 
-    def __init__(self, version: int):
-        super().__init__(version)
+#     def __init__(self, version: int):
+#         super().__init__(version)
     
-    def validate(self, value):
-        if not isinstance(value, str):
-            raise InvalidManifest("CreationDate must be a string")
+#     def validate(self, value):
+#         if not isinstance(value, str):
+#             raise InvalidManifest("CreationDate must be a string")
         
-        # Validate the datetime format
-        try:
-            datetime.datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-        except ValueError:
-            raise InvalidManifest(f"Invalid datetime format for CreationDate: {value}. Expected format: YYYY-MM-DD HH:MM:SS")
+#         # Validate the datetime format
+#         try:
+#             datetime.datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+#         except ValueError:
+#             raise InvalidManifest(f"Invalid datetime format for CreationDate: {value}. Expected format: YYYY-MM-DD HH:MM:SS")
 
 
 class DescriptionValidator(ManifestValidator):
@@ -452,12 +452,6 @@ class Manifest:
         return None
 
     @property
-    def creation_date(self) -> Optional[str]:
-        if isinstance(self._data, dict):
-            return self._data.get("creation_date", None)
-        return None
-
-    @property
     def responsible_name(self) -> Optional[str]:
         if isinstance(self._data, dict):
             return self._data.get("responsible_name", None)
@@ -594,7 +588,6 @@ class Manifest:
                 "inputs": InputsValidator(version),
                 "outputs": OutputsValidator(version),
                 "metadata": MetaDataValidator(version),
-                "creation_date": CreationDateValidator(version),
                 "responsible_name": ResponsibleValidator(version),
             }
         else:
@@ -604,7 +597,7 @@ class Manifest:
             if section not in section_validators.keys():
                 raise InvalidManifest(f"Unknown manifest section found {section}.")
 
-        required_sections = ("manifest_version", "alias", "outputs", "metadata")
+        required_sections = ("manifest_version", "outputs", "inputs") 
         for section in required_sections:
             if section not in self._data.keys():
                 raise InvalidManifest(f"Required manifest section \'{section}\' not found.")

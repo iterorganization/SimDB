@@ -235,6 +235,10 @@ class SimulationList(Resource):
             add_watcher = data.get("add_watcher", True)
 
             simulation = models_sim.Simulation.from_data(data["simulation"])
+
+            #Simulation Upload (Push) Date
+            simulation.datetime = datetime.datetime.now().isoformat()
+
             if data["uploaded_by"] is not None:
                 simulation.set_meta("uploaded_by", data["uploaded_by"])
             elif user.email is not None:
@@ -252,12 +256,15 @@ class SimulationList(Resource):
 
             if "alias" in data["simulation"]:
                 alias = data["simulation"]["alias"]
-                (updated_alias, next_id) = _set_alias(alias)
-                if updated_alias:
-                    simulation.meta.append(models_meta.MetaData("seqid", next_id))
-                    simulation.alias = updated_alias
+                if alias is not None:
+                    (updated_alias, next_id) = _set_alias(alias)
+                    if updated_alias:
+                        simulation.meta.append(models_meta.MetaData("seqid", next_id))
+                        simulation.alias = updated_alias
+                    else:
+                        simulation.alias = alias
                 else:
-                    simulation.alias = alias
+                    simulation.alias = simulation.uuid.hex[0:8]
             else:
                 simulation.alias = simulation.uuid.hex[0:8]
 
@@ -477,6 +484,7 @@ class SimulationMeta(Resource):
             else:
                 status = models_sim.Simulation.Status(value)
                 _update_simulation_status(simulation, status, user)
+
             current_app.db.insert_simulation(simulation)
             clear_cache()
             return old_values

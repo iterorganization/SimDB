@@ -116,15 +116,7 @@ class Simulation(Base):
         if manifest is None:
             return
         self.uuid = uuid.uuid1()
-        
-        # For legacy simulation import creation datetime is from manifest
-        # If no creation datetime is provided, use the current date and time
-        if manifest.creation_date:
-            self.datetime = date_parser.parse(manifest.creation_date)
-            self.meta.append(MetaData("creation_date", manifest.creation_date))
-        else:            
-            self.datetime = datetime.now()
-            self.meta.append(MetaData("creation_date", self.datetime.isoformat()))
+        self.datetime = datetime.now()
         
         # For legacy simulation import responsible_name is from manifest else it will be the user.email
         if manifest.responsible_name:
@@ -317,7 +309,8 @@ class Simulation(Base):
 
         simulation = Simulation(None)
         simulation.uuid = checked_get(data, "uuid", uuid.UUID)
-        simulation.alias = checked_get(data, "alias", str)
+        # Alias is optional, so we check if it exists before assigning
+        # simulation.alias = checked_get(data, "alias", str)
         if "datetime" not in data:
             data["datetime"] = datetime.now().isoformat()
         simulation.datetime = datetime.fromisoformat(checked_get(data, "datetime", str))

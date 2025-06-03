@@ -32,45 +32,57 @@ Will print the help available for the `simulation` command.
 
 ## Local simulation management
 
-In order to ingest a locat simulation you need a manifest file. This is a `yaml` file which contains details about the simulation and what data is associated with it.
+In order to ingest a local simulation you need a manifest file. This is a `yaml` file which contains details about the simulation and what data is associated with it.
 
 An example manifest file is:
 
 ```yaml
-version: 1
-alias: my-simulation
+manifest_version: 2
+alias: simulation-alias
 inputs:
 - uri: file:///my/input/file
 - uri: imas:hdf5?path=/path/to/imas/data
 outputs:
 - uri: imas:hdf5?path=/path/to/more/data
-meta:
-- values:
-    workflow:
-      name: Workflow Name
-      git: ssh://git@git.iter.org/wf/workflow.git
-      branch: master
-      commit: 079e84d5ae8a0eec6dcf3819c98f3c05f48e952f
-      codes:
-        - Code 1:
-            git: ssh://git@git.iter.org/eq/code.git
-            commit: 079e84d5ae8a0eec6dcf3819c98f3c05f48e952f
+metadata:
+- summary:
+    machine: name of machine i.e. ITER.
+    code:
+      name: code name i.e. ASTRA, JETTO, DINA, CORSICA, MITES, SOLPS, JINTRAC etc.
+    simulation:
+      description: |-
+      Sample plasma physics simulation for ITER tokamak modeling
+      reference_name: ITER simulation
+    ids_properties:
+      creation_date: 'YYYY-MM-DD HH:mm:ss'
 ```
 
 | Key | Description |
 | --- | --- |
-| version | The version of the manifest file being written. This is to allow for legacy manifest files to be read, and should always be set to the latest version for newly created manifest files. The latest manifest version is 1. |
-| alias | An optional entry which can be used to provide an alias for the simulation. This alias can also be provided via the CLI on ingest (see below). |
-| inputs/outputs | Simulation inputs and outputs. The URIs that can be handled currently are: <ul><li>file - standard file URI</li><li>imas - IMAS entry URI (see below for schema)</li></ul> |
-| meta |  The meta section is where any metadata about the simulation can be associated with the data. The entries in the meta section must be of the following: <ul><li>values - a nested dictionary of keys/value pairs</li><li>files - a file path which can be used to load an additional yaml file containing metadata.</li></ul> |
+| manifest_version | The version of the manifest file format. Always use the latest version (currently 2) for new manifest files. This ensures compatibility and access to the latest features. |
+| alias | An optional unique identifier for the simulation. If not provided here, you can specify it via the CLI during ingestion. Must follow alias naming rules (see below). |
+| inputs/outputs | Lists of simulation input and output files. Supported URI schemes:<br/>• file - Standard file system paths<br/>• imas - IMAS entry URIs (see IMAS URI schema below) |
+| metadata |  Contains simulation metadata and properties. The metadata section associates information with the summary IDS data:<br/>• summary - A hierarchical dictionary structure containing key-value pairs that provide summary information extracted from IDS datasets. This includes condensed representations of simulation results, computed quantities, free descriptions, any references, and creation dates if not available in summary IDS.</li>
+<!-- <li>files - a file path which can be used to load an additional yaml file containing metadata.</li></ul>  -->
 
-You can create a new manifest file to population using the command
+## Alias Naming Rules
+<ul><li>Must be unique within the SimDB</ul></li>
+<ul><li>Cannot start with a digit (0-9) or forward slash (/)</ul></li>
+<ul><li>Cannot end with a forward slash (/)</ul></li>
+<ul><li>Should be descriptive and meaningful for easy identification</ul></li>
+
+<br/>Examples of valid aliases:
+<ul><li>iter-baseline-scenario</ul></li>
+<ul><li>100001/1 (pulse_number/run_number)</ul></li>
+
+## Creating a Manifest File
+You can create a new manifest file template using the command:
 
 ```bash
 simdb manifest create <FILE_NAME>
 ```
 
-Once you have a manifest file ready you can ingest the simulation into SimDB using the following command:
+Once you have a manifest file ready, you can ingest the simulation into SimDB using the following command:
 
 ```bash
 simdb simulation ingest <MANIFEST_FILE>

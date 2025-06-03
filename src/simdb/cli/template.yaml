@@ -9,17 +9,3 @@ inputs:
 outputs:
   - uri: file:///home/user/path/to/a/file2
   - uri: imas:hdf5?path=/path/to/results/folder
-metadata:
-- summary:
-    machine: ITER # machine name such as ITER, JAT, EAST, etc.
-    pulse: 123456 # 6 digits simulation pulse number
-    code:
-      name: #workflow code name i.e. SOLPS, METIS, etc.
-    simulation:
-      description: |
-        ITER-third-field-H
-        - H-mode: Description of H-mode
-        - Density: Description of density      
-        - Confinement: Description of confinement
-        - Pedestal: Description of pedestal
-        - L-H transition: Description of L-H transition

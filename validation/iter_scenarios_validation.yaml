@@ -12,8 +12,6 @@ summary:
   schema:
     machine:
       type: string
-    pulse:
-      type: integer
     code:
       type: dict
       schema:
