@@ -466,17 +466,23 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
     )
     scenario_key_parameters = "scenario_key_parameters:\n"
     for key, value in legacy_yaml_data["scenario_key_parameters"].items():
+        if value == "tbd" or value == "":
+            continue
         scenario_key_parameters += f"    {key}: {value}\n"
     description_yaml += scenario_key_parameters
 
     hcd_data = "hcd:\n"
     for key, value in legacy_yaml_data["hcd"].items():
+        if value == "tbd" or value == "":
+            continue
         hcd_data += f"    {key}: {value}\n"
     description_yaml += hcd_data
 
     characteristics = "characteristics:\n"
     for key, value in legacy_yaml_data["characteristics"].items():
         if key == "shot" or key == "run":
+            continue
+        if value == "tbd" or value == "":
             continue
         characteristics += f"    {key}: {value}\n"
     description_yaml += characteristics
@@ -502,7 +508,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
 
     density_peaking_yaml = legacy_yaml_data["scenario_key_parameters"].get("density_peaking", "")
     if density_peaking_yaml != "tbd" and density_peaking_yaml != "":
-        description_yaml += f"density_peaking:{density_peaking_yaml}"
+        description_yaml += f"\ndensity_peaking:{density_peaking_yaml}"
     description_yaml = Literal(description_yaml)
     simulation = {}
     simulation["description"] = description_yaml
@@ -526,45 +532,45 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
         start = float(start)
         end = float(end)
 
-        pulse_time_begin_epoch_seconds_ids = 0
-        pulse_time_begin_epoch_nanoseconds_ids = 0
-        pulse_time_end_epoch_seconds_ids = 0
-        pulse_time_end_epoch_nanoseconds_ids = 0
+        # pulse_time_begin_epoch_seconds_ids = 0
+        # pulse_time_begin_epoch_nanoseconds_ids = 0
+        # pulse_time_end_epoch_seconds_ids = 0
+        # pulse_time_end_epoch_nanoseconds_ids = 0
         simulation_time_begin_ids = 0.0
         simulation_time_end_ids = 0.0
         simulation_time_step_ids = 0
 
-        pulse_time_begin_epoch_seconds_yaml = round(start)
-        pulse_time_begin_epoch_nanoseconds_yaml = (start - round(start)) * 10**9
-        pulse_time_end_epoch_seconds_yaml = round(end)
-        pulse_time_end_epoch_nanoseconds_yaml = (end - round(end)) * 10**9
+        # pulse_time_begin_epoch_seconds_yaml = round(start)
+        # pulse_time_begin_epoch_nanoseconds_yaml = (start - round(start)) * 10**9
+        # pulse_time_end_epoch_seconds_yaml = round(end)
+        # pulse_time_end_epoch_nanoseconds_yaml = (end - round(end)) * 10**9
         simulation_time_begin_yaml = start
         simulation_time_end_yaml = end
         simulation_time_step_yaml = float(step)
 
-        dataset_description["pulse_time_begin_epoch"] = {}
-        dataset_description["pulse_time_end_epoch"] = {}
+        # dataset_description["pulse_time_begin_epoch"] = {}
+        # dataset_description["pulse_time_end_epoch"] = {}
         if ids_dataset_description is not None:
-            pulse_time_begin_epoch_seconds_ids = (
-                ids_dataset_description.pulse_time_begin_epoch.seconds
-                if ids_dataset_description.pulse_time_begin_epoch.seconds.has_value
-                else 0
-            )
-            pulse_time_begin_epoch_nanoseconds_ids = (
-                ids_dataset_description.pulse_time_begin_epoch.nanoseconds
-                if ids_dataset_description.pulse_time_begin_epoch.nanoseconds.has_value
-                else 0
-            )
-            pulse_time_end_epoch_seconds_ids = (
-                ids_dataset_description.pulse_time_end_epoch.seconds
-                if ids_dataset_description.pulse_time_end_epoch.seconds.has_value
-                else 0
-            )
-            pulse_time_end_epoch_nanoseconds_ids = (
-                ids_dataset_description.pulse_time_end_epoch.nanoseconds
-                if ids_dataset_description.pulse_time_end_epoch.nanoseconds.has_value
-                else 0
-            )
+            # pulse_time_begin_epoch_seconds_ids = (
+            #     ids_dataset_description.pulse_time_begin_epoch.seconds
+            #     if ids_dataset_description.pulse_time_begin_epoch.seconds.has_value
+            #     else 0
+            # )
+            # pulse_time_begin_epoch_nanoseconds_ids = (
+            #     ids_dataset_description.pulse_time_begin_epoch.nanoseconds
+            #     if ids_dataset_description.pulse_time_begin_epoch.nanoseconds.has_value
+            #     else 0
+            # )
+            # pulse_time_end_epoch_seconds_ids = (
+            #     ids_dataset_description.pulse_time_end_epoch.seconds
+            #     if ids_dataset_description.pulse_time_end_epoch.seconds.has_value
+            #     else 0
+            # )
+            # pulse_time_end_epoch_nanoseconds_ids = (
+            #     ids_dataset_description.pulse_time_end_epoch.nanoseconds
+            #     if ids_dataset_description.pulse_time_end_epoch.nanoseconds.has_value
+            #     else 0
+            # )
             simulation_time_begin_ids = (
                 ids_dataset_description.simulation.time_begin
                 if ids_dataset_description.simulation.time_begin.has_value
@@ -581,76 +587,76 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
                 else 0
             )
 
-        if pulse_time_begin_epoch_seconds_ids:
-            if pulse_time_begin_epoch_seconds_ids != pulse_time_begin_epoch_seconds_yaml:
-                validation_logger.info("\tdiscrepancies found in dataset_description.pulse_time_begin_epoch.seconds")
-                validation_logger.info(
-                    f"\t>  (yaml,ids):[{pulse_time_begin_epoch_seconds_yaml}],[{pulse_time_begin_epoch_seconds_ids}]"
-                )
-            dataset_description["pulse_time_begin_epoch"]["seconds"] = pulse_time_begin_epoch_seconds_ids.value
-        else:
-            validation_logger.info(
-                "\tdataset_description.pulse_time_begin_epoch.seconds is not set in the IDS, setting it from yaml file"
-            )
-            validation_logger.info(
-                f"\t>  (yaml,ids):[{pulse_time_begin_epoch_seconds_yaml}],[{pulse_time_begin_epoch_seconds_ids}]"
-            )
-            dataset_description["pulse_time_begin_epoch"]["seconds"] = round(start)
-        if pulse_time_begin_epoch_nanoseconds_ids:
-            if pulse_time_begin_epoch_nanoseconds_ids != pulse_time_begin_epoch_nanoseconds_yaml:
-                validation_logger.info(
-                    "\tdiscrepancies found in dataset_description.pulse_time_begin_epoch.nanoseconds"
-                )
-                validation_logger.info(
-                    f"\t>  (yaml,ids):"
-                    f"[{pulse_time_begin_epoch_nanoseconds_yaml}],[{pulse_time_begin_epoch_nanoseconds_ids}]"
-                )
-            dataset_description["pulse_time_begin_epoch"]["nanoseconds"] = int(
-                pulse_time_begin_epoch_nanoseconds_ids.value
-            )
-        else:
-            validation_logger.info(
-                "\tdataset_description.pulse_time_begin_epoch.nanoseconds is not set in the IDS, "
-                "setting it from yaml file"
-            )
-            validation_logger.info(
-                f"\t>  (yaml,ids):[{pulse_time_begin_epoch_nanoseconds_yaml}],"
-                f"[{pulse_time_begin_epoch_nanoseconds_ids}]"
-            )
-            dataset_description["pulse_time_begin_epoch"]["nanoseconds"] = int((start - round(start)) * 10**9)
+        # if pulse_time_begin_epoch_seconds_ids:
+        #     if pulse_time_begin_epoch_seconds_ids != pulse_time_begin_epoch_seconds_yaml:
+        #         validation_logger.info("\tdiscrepancies found in dataset_description.pulse_time_begin_epoch.seconds")
+        #         validation_logger.info(
+        #             f"\t>  (yaml,ids):[{pulse_time_begin_epoch_seconds_yaml}],[{pulse_time_begin_epoch_seconds_ids}]"
+        #         )
+        #     dataset_description["pulse_time_begin_epoch"]["seconds"] = pulse_time_begin_epoch_seconds_ids.value
+        # else:
+        #     validation_logger.info(
+        #         "\tdataset_description.pulse_time_begin_epoch.seconds is not set in the IDS, setting it from yaml file"
+        #     )
+        #     validation_logger.info(
+        #         f"\t>  (yaml,ids):[{pulse_time_begin_epoch_seconds_yaml}],[{pulse_time_begin_epoch_seconds_ids}]"
+        #     )
+        #     dataset_description["pulse_time_begin_epoch"]["seconds"] = round(start)
+        # if pulse_time_begin_epoch_nanoseconds_ids:
+        #     if pulse_time_begin_epoch_nanoseconds_ids != pulse_time_begin_epoch_nanoseconds_yaml:
+        #         validation_logger.info(
+        #             "\tdiscrepancies found in dataset_description.pulse_time_begin_epoch.nanoseconds"
+        #         )
+        #         validation_logger.info(
+        #             f"\t>  (yaml,ids):"
+        #             f"[{pulse_time_begin_epoch_nanoseconds_yaml}],[{pulse_time_begin_epoch_nanoseconds_ids}]"
+        #         )
+        #     dataset_description["pulse_time_begin_epoch"]["nanoseconds"] = int(
+        #         pulse_time_begin_epoch_nanoseconds_ids.value
+        #     )
+        # else:
+        #     validation_logger.info(
+        #         "\tdataset_description.pulse_time_begin_epoch.nanoseconds is not set in the IDS, "
+        #         "setting it from yaml file"
+        #     )
+        #     validation_logger.info(
+        #         f"\t>  (yaml,ids):[{pulse_time_begin_epoch_nanoseconds_yaml}],"
+        #         f"[{pulse_time_begin_epoch_nanoseconds_ids}]"
+        #     )
+        #     dataset_description["pulse_time_begin_epoch"]["nanoseconds"] = int((start - round(start)) * 10**9)
 
-        if pulse_time_end_epoch_seconds_ids:
-            if pulse_time_end_epoch_seconds_ids != pulse_time_end_epoch_seconds_yaml:
-                validation_logger.info("\tdiscrepancies found in dataset_description.pulse_time_end_epoch.seconds")
-                validation_logger.info(
-                    f"\t>  (yaml,ids):[{pulse_time_end_epoch_seconds_yaml}],[{pulse_time_end_epoch_seconds_ids}]"
-                )
-            dataset_description["pulse_time_end_epoch"]["seconds"] = pulse_time_end_epoch_seconds_ids.value
-        else:
-            validation_logger.info(
-                "\tdataset_description.pulse_time_end_epoch.seconds is not set in the IDS, setting it from yaml file"
-            )
-            validation_logger.info(
-                f"\t>  (yaml,ids):[{pulse_time_end_epoch_seconds_yaml}],[{pulse_time_end_epoch_seconds_ids}]"
-            )
-            dataset_description["pulse_time_end_epoch"]["seconds"] = round(end)
-        if pulse_time_end_epoch_nanoseconds_ids:
-            if pulse_time_end_epoch_nanoseconds_ids != pulse_time_end_epoch_nanoseconds_yaml:
-                validation_logger.info("\tdiscrepancies found in dataset_description.pulse_time_end_epoch.nanoseconds")
-                validation_logger.info(
-                    f"\t>  (yaml,ids):[{pulse_time_end_epoch_nanoseconds_yaml}],"
-                    f"[{pulse_time_end_epoch_nanoseconds_ids}]"
-                )
-            dataset_description["pulse_time_end_epoch"]["nanoseconds"] = int(pulse_time_end_epoch_nanoseconds_ids.value)
-        else:
-            validation_logger.info(
-                "\tdataset_description.pulse_time_end_epoch.nanoseconds is not set in the IDS"
-                ", setting it from yaml file"
-            )
-            validation_logger.info(
-                f"\t>  (yaml,ids):[{pulse_time_end_epoch_nanoseconds_yaml}],[{pulse_time_end_epoch_nanoseconds_ids}]"
-            )
-            dataset_description["pulse_time_end_epoch"]["nanoseconds"] = int((end - round(end)) * 10**9)
+        # if pulse_time_end_epoch_seconds_ids:
+        #     if pulse_time_end_epoch_seconds_ids != pulse_time_end_epoch_seconds_yaml:
+        #         validation_logger.info("\tdiscrepancies found in dataset_description.pulse_time_end_epoch.seconds")
+        #         validation_logger.info(
+        #             f"\t>  (yaml,ids):[{pulse_time_end_epoch_seconds_yaml}],[{pulse_time_end_epoch_seconds_ids}]"
+        #         )
+        #     dataset_description["pulse_time_end_epoch"]["seconds"] = pulse_time_end_epoch_seconds_ids.value
+        # else:
+        #     validation_logger.info(
+        #         "\tdataset_description.pulse_time_end_epoch.seconds is not set in the IDS, setting it from yaml file"
+        #     )
+        #     validation_logger.info(
+        #         f"\t>  (yaml,ids):[{pulse_time_end_epoch_seconds_yaml}],[{pulse_time_end_epoch_seconds_ids}]"
+        #     )
+        #     dataset_description["pulse_time_end_epoch"]["seconds"] = round(end)
+        # if pulse_time_end_epoch_nanoseconds_ids:
+        #     if pulse_time_end_epoch_nanoseconds_ids != pulse_time_end_epoch_nanoseconds_yaml:
+        #         validation_logger.info("\tdiscrepancies found in dataset_description.pulse_time_end_epoch.nanoseconds")
+        #         validation_logger.info(
+        #             f"\t>  (yaml,ids):[{pulse_time_end_epoch_nanoseconds_yaml}],"
+        #             f"[{pulse_time_end_epoch_nanoseconds_ids}]"
+        #         )
+        #     dataset_description["pulse_time_end_epoch"]["nanoseconds"] = int(pulse_time_end_epoch_nanoseconds_ids.value)
+        # else:
+        #     validation_logger.info(
+        #         "\tdataset_description.pulse_time_end_epoch.nanoseconds is not set in the IDS"
+        #         ", setting it from yaml file"
+        #     )
+        #     validation_logger.info(
+        #         f"\t>  (yaml,ids):[{pulse_time_end_epoch_nanoseconds_yaml}],[{pulse_time_end_epoch_nanoseconds_ids}]"
+        #     )
+        #     dataset_description["pulse_time_end_epoch"]["nanoseconds"] = int((end - round(end)) * 10**9)
 
         if simulation_time_begin_ids:
             if simulation_time_begin_ids != simulation_time_begin_yaml:
