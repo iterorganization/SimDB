@@ -30,10 +30,10 @@ def _update_simulation_status(
 
     old_status = simulation.status
     simulation.status = status
-    simulation.set_meta(
-        status.value.lower().replace(" ", "_") + "_on",
-        datetime.datetime.now().isoformat(),
-    )
+    # simulation.set_meta(
+    #     status.value.lower().replace(" ", "_") + "_on",
+    #     datetime.datetime.now().isoformat(),
+    # )
     if status != old_status and simulation.watchers.count():
         server = EmailServer(current_app.simdb_config)
         msg = f"""\
@@ -45,7 +45,10 @@ Note: please don't reply to this email, replies to this address are not monitore
 """
         to_addresses = [w.email for w in simulation.watchers]
         if to_addresses:
-            server.send_message(f"Simulation {simulation.alias}", msg, to_addresses)
+            if (simulation.alias is None or simulation.alias == ""):
+                server.send_message(f"Simulation {simulation.uuid.hex}", msg, to_addresses)
+            else:
+                server.send_message(f"Simulation {simulation.alias}", msg, to_addresses)
 
 
 def _validate(simulation, user) -> Dict:
@@ -263,10 +266,8 @@ class SimulationList(Resource):
                         simulation.alias = updated_alias
                     else:
                         simulation.alias = alias
-                else:
-                    simulation.alias = simulation.uuid.hex[0:8]
-            else:
-                simulation.alias = simulation.uuid.hex[0:8]
+            # else:
+            #     simulation.alias = simulation.uuid.hex[0:8]
 
             files = list(itertools.chain(simulation.inputs, simulation.outputs))
             sim_file_paths = simulation.file_paths()

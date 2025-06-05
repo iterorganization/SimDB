@@ -309,8 +309,7 @@ class Simulation(Base):
 
         simulation = Simulation(None)
         simulation.uuid = checked_get(data, "uuid", uuid.UUID)
-        # Alias is optional, so we check if it exists before assigning
-        # simulation.alias = checked_get(data, "alias", str)
+        simulation.alias = checked_get(data, "alias", str)
         if "datetime" not in data:
             data["datetime"] = datetime.now().isoformat()
         simulation.datetime = datetime.fromisoformat(checked_get(data, "datetime", str))

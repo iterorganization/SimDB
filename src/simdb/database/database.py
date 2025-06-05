@@ -662,7 +662,10 @@ class Database:
         from .models.simulation import Simulation
 
         if name == "alias":
-            query = self.session.query(Simulation.alias)
+            query = (
+                self.session.query(Simulation.alias)
+                .filter(Simulation.alias != None)
+            )
         else:
             query = (
                 self.session.query(MetaData.value)
