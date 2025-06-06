@@ -112,9 +112,12 @@ def load_imas_metadata(ids_dist, entry) -> dict:
     :return: Dictionary containing metadata.
     """
     import imas
+    
     metadata = {}
     for ids_name, v in ids_dist.items():
-        ids = entry.get(ids_name)
+        ids = entry.get(ids_name, autoconvert=False)
+        # Explicitly convert the IDS to the target version
+        ids = imas.convert_ids(ids, "4.0.0")
         for node in imas.util.tree_iter(ids):
             metadata[ ids_name + "." + extract_ids_path(str(node.coordinates)).replace("/",".")] = node.value
     return metadata
