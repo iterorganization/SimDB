@@ -748,7 +748,7 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary):
 
     if not ids_summary.heating_current_drive.power_ec.value.has_value:
         if float(p_ec_yaml) != 0.0:
-            heating_current_drive["power_ec"] = {"value": float(p_ec_yaml)}
+            heating_current_drive["power_ec"] = {"value": float(p_ec_yaml) / 1.0e-6}
         else:
             validation_logger.info(
                 "\t> ids_summary.heating_current_drive.power_ec.value is empty and "
@@ -774,7 +774,7 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary):
 
     if not ids_summary.heating_current_drive.power_ic.value.has_value:
         if float(p_ic_yaml) != 0.0:
-            heating_current_drive["power_ic"] = {"value": float(p_ic_yaml)}
+            heating_current_drive["power_ic"] = {"value": float(p_ic_yaml) / 1.0e-6}
         else:
             validation_logger.info(
                 "\t> ids_summary.heating_current_drive.power_ic.value is empty and "
@@ -800,7 +800,7 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary):
 
     if not ids_summary.heating_current_drive.power_nbi.value.has_value:
         if float(p_nbi_yaml) != 0.0:
-            heating_current_drive["power_nbi"] = {"value": float(p_nbi_yaml)}
+            heating_current_drive["power_nbi"] = {"value": float(p_nbi_yaml) / 1.0e-6}
 
         else:
             validation_logger.info(
@@ -824,7 +824,7 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary):
 
     if not ids_summary.heating_current_drive.power_lh.value.has_value:
         if float(p_lh_yaml) != 0.0:
-            heating_current_drive["power_lh"] = {"value": float(p_lh_yaml)}
+            heating_current_drive["power_lh"] = {"value": float(p_lh_yaml) / 1.0e-6}
         else:
             validation_logger.info(
                 "\t> ids_summary.heating_current_drive.power_lh.value is empty and "
@@ -848,7 +848,7 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary):
 
     if not ids_summary.heating_current_drive.power_additional.value.has_value:
         if float(p_hcd_yaml) != 0.0:
-            heating_current_drive["power_additional"] = {"value": float(p_hcd_yaml)}
+            heating_current_drive["power_additional"] = {"value": float(p_hcd_yaml) / 1.0e-6}
         else:
             validation_logger.info(
                 "\t> ids_summary.heating_current_drive.power_additional.value is empty and "
