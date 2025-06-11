@@ -184,7 +184,12 @@ def simulation_ingest(config: Config, manifest_file: str, alias: str):
 
     db = get_local_db(config)
     db.insert_simulation(simulation)
-    click.echo(simulation.uuid)
+
+    if not alias:
+        simulation.alias = simulation.uuid.hex
+        db.session.commit()
+
+    click.echo("ALIAS: " + simulation.alias + "\nUUID: " + str(simulation.uuid))
 
 
 def n_required_args_adaptor(n) -> Type[click.Command]:

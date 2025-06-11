@@ -266,8 +266,10 @@ class SimulationList(Resource):
                         simulation.alias = updated_alias
                     else:
                         simulation.alias = alias
-            # else:
-            #     simulation.alias = simulation.uuid.hex[0:8]
+                else:
+                    simulation.alias = simulation.uuid.hex
+            else:
+                simulation.alias = simulation.uuid.hex
 
             files = list(itertools.chain(simulation.inputs, simulation.outputs))
             sim_file_paths = simulation.file_paths()

@@ -55,11 +55,6 @@ def unflatten_dict(in_dict: Dict[str, Any]) -> Dict[str, Union[Dict, Any]]:
 def checked_get(data: Dict[str, Any], key, expected_type: Type, optional: bool = False):
     if key not in data:
         raise ValueError(f"Corrupted data - missing key {key}.")
-    # Alias is optional, so we check if it is not exists the set it to 'None'
-    if key is "alias":
-        if not isinstance(data[key], str):
-            data[key] = 'None'
-
     if data[key] is None:
         if optional:
             return None
