@@ -134,6 +134,8 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str) ->
     elif query_type == QueryType.AGT:
         if isinstance(value, np.ndarray):
             return np.any(value > float(compare))
+        elif isinstance(value, int) or isinstance(value, float):
+            return value > float(compare)
         else:
             raise ValueError(
                 f"Cannot use 'agt' query selection for non-array metadata field {name}."
@@ -141,6 +143,8 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str) ->
     elif query_type == QueryType.AGE:
         if isinstance(value, np.ndarray):
             return np.any(value >= float(compare))
+        elif isinstance(value, int) or isinstance(value, float):
+            return value >= float(compare)
         else:
             raise ValueError(
                 f"Cannot use 'age' query selection for non-array metadata field {name}."
@@ -148,6 +152,8 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str) ->
     elif query_type == QueryType.ALT:
         if isinstance(value, np.ndarray):
             return np.any(value < float(compare))
+        elif isinstance(value, int) or isinstance(value, float):
+            return value < float(compare)
         else:
             raise ValueError(
                 f"Cannot use 'alt' query selection for non-array metadata field {name}."
@@ -155,6 +161,8 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str) ->
     elif query_type == QueryType.ALE:
         if isinstance(value, np.ndarray):
             return np.any(value <= float(compare))
+        elif isinstance(value, int) or isinstance(value, float):
+            return value <= float(compare)
         else:
             raise ValueError(
                 f"Cannot use 'ale' query selection for non-array metadata field {name}."
