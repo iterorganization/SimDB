@@ -7,7 +7,7 @@ alias: simulation-alias
 inputs:
   - uri: file:///home/user/path/to/a/file1
   - uri: imas:hdf5?path=/path/to/folder
-  - uri: imas://host:port/uda?path=/path/to/folder/on/host&backend=mdsplus
+  - uri: imas://host:port/uda?path=/path/to/folder/on/host&backend=hdf5
 # Data and log files.
 outputs:
   - uri: file:///home/user/path/to/a/file2

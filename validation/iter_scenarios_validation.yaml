@@ -29,7 +29,7 @@ summary:
             value:
               type: numpy
               coerce: numpy
-#              lt: 0
+              lt: 0
         r0:
           type: dict
           schema:
@@ -68,7 +68,7 @@ summary:
             value:
               type: numpy
               coerce: numpy
-#              ge: 0
+              ge: 0
         energy_thermal:
           type: dict
           schema:
@@ -108,13 +108,14 @@ summary:
             value:
               type: numpy
               coerce: numpy
-              ge: 0
+              gt: 0
         v_loop:
           type: dict
           schema:
             value:
               type: numpy
               coerce: numpy
+              le: 0
     local:
       type: dict
       schema:
@@ -127,13 +128,14 @@ summary:
                 value:
                   type: numpy
                   coerce: numpy
-                  gt: 0
+                  ge: 0
             zeff:
               type: dict
               schema:
                 value:
                   type: numpy
-                  coerce: numpy    
+                  coerce: numpy
+                  ge: 0
     
 equilibrium:
 #  required: true
