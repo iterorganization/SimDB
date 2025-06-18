@@ -1,4 +1,7 @@
 manifest_version: 2
+# The alias is an optional human readable name for the simulation.
+# It is optional. It has to be unique. 
+# It can't be modified once the simulation is pushed to a server.
 alias: simulation-alias
 # Data and configuration files
 inputs:
