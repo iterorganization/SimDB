@@ -73,9 +73,11 @@ def check_auth(
     auth = request.authorization
     username = auth.username if auth is not None else None
     password = auth.password if auth is not None else None
-
-    if username == "admin" and password == config.get_option("server.admin_password"):
-        return User("admin", None)
+    if username == "admin":
+        if password == config.get_option("server.admin_password"):
+            return User("admin", None)
+        else:
+            raise AuthenticationError(f"Authentication failed for user {username}")
 
     authentication_types = config.get_string_option("authentication.type").lower().split(",")
     if 'token' not in authentication_types:

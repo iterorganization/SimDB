@@ -497,38 +497,38 @@ def remote_query(
     print_simulations(simulations, verbose=config.verbose, metadata_names=names)
 
 
-@remote.command("update", cls=remote_command_cls())
-@pass_api
-@click.argument("sim_id")
-@click.argument(
-    "update_type",
-    type=click.Choice(["validate", "accept", "deprecate"], case_sensitive=False),
-)
-def remote_update(api: RemoteAPI, sim_id: str, update_type: str):
-    """Mark remote simulation as published."""
-    from ...database.models import Simulation
+# @remote.command("update", cls=remote_command_cls())
+# @pass_api
+# @click.argument("sim_id")
+# @click.argument(
+#     "update_type",
+#     type=click.Choice(["validate", "accept", "deprecate"], case_sensitive=False),
+# )
+# def remote_update(api: RemoteAPI, sim_id: str, update_type: str):
+#     """Mark remote simulation as published."""
+#     from ...database.models import Simulation
 
-    if update_type == "accept":
-        # TODO: Check if simulation is validated.
-        # TODO: Error if not validated.
-        api.validate_simulation(sim_id)
-        api.update_simulation(sim_id, Simulation.Status.ACCEPTED)
-        click.echo(f"Simulation {sim_id} marked as accepted.")
-    elif update_type == "validate":
-        ok, err = api.validate_simulation(sim_id)
-        if ok:
-            click.echo(f"Simulation {sim_id} validated successfully.")
-        else:
-            click.echo(f"Validation error: {err}.")
-    elif update_type == "deprecate":
-        api.update_simulation(sim_id, Simulation.Status.DEPRECATED)
-        click.echo(f"Simulation {sim_id} marked as deprecated.")
-    elif update_type == "delete":
-        result = api.delete_simulation(sim_id)
-        click.echo(f"deleted simulation: {result['deleted']['simulation']}")
-        if result["deleted"]["files"]:
-            for file in result["deleted"]["files"]:
-                click.echo(f"              file: {file}")
+#     if update_type == "accept":
+#         # TODO: Check if simulation is validated.
+#         # TODO: Error if not validated.
+#         api.validate_simulation(sim_id)
+#         api.update_simulation(sim_id, Simulation.Status.ACCEPTED)
+#         click.echo(f"Simulation {sim_id} marked as accepted.")
+#     elif update_type == "validate":
+#         ok, err = api.validate_simulation(sim_id)
+#         if ok:
+#             click.echo(f"Simulation {sim_id} validated successfully.")
+#         else:
+#             click.echo(f"Validation error: {err}.")
+#     elif update_type == "deprecate":
+#         api.update_simulation(sim_id, Simulation.Status.DEPRECATED)
+#         click.echo(f"Simulation {sim_id} marked as deprecated.")
+#     elif update_type == "delete":
+#         result = api.delete_simulation(sim_id)
+#         click.echo(f"deleted simulation: {result['deleted']['simulation']}")
+#         if result["deleted"]["files"]:
+#             for file in result["deleted"]["files"]:
+#                 click.echo(f"              file: {file}")
 
 
 @remote.group(cls=RemoteSubGroup)

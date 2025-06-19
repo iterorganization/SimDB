@@ -211,6 +211,9 @@ class RemoteAPI:
         if self._firewall:
             self._server_auth = "None"
 
+        if username == "admin":
+            self._server_auth = "admin-auth"
+
         if self._server_auth != "None" and not self._use_token:
             if not username:
                 username = click.prompt("Username", default=getpass.getuser())
