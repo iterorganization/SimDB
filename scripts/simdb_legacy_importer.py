@@ -440,7 +440,8 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
     # dataset_description.code
     code_from_yaml = legacy_yaml_data["characteristics"]["workflow"]
     code_from_ids = None
-    code_from_ids = ids_summary.code.name
+    if ids_summary is not None:
+        code_from_ids = ids_summary.code.name
 
     code = {}
     if code_from_ids:
@@ -1165,7 +1166,15 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
             creation_time = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
             summary["ids_properties"] = {"creation_date": creation_time}
 
-        # summary["plasma_composition"] = get_plasma_composition(legacy_yaml_data["plasma_composition"])
+        _plasma_composition = get_plasma_composition(legacy_yaml_data["plasma_composition"])
+        composition = {}
+        composition["names"] = {}
+        composition["names"]["values"] = list(_plasma_composition.keys())
+
+        n_over_ne_list = [properties["n_over_ne"] for properties in _plasma_composition.values()]
+        composition["n_i_over_n_e"] = {}
+        composition["n_i_over_n_e"]["values"] = n_over_ne_list
+        summary["composition"] = composition
         manifest_metadata["summary"] = summary
         out_data = {
             "manifest_version": 2,
