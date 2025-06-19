@@ -242,7 +242,6 @@ Commands:
   test       Test that the remote is valid.
   token      Manage user authentication tokens.
   trace      Print provenance trace of simulation with given SIM_ID (UUID...
-  update     Mark remote simulation as published.
   version    Show the SimDB version of the remote.
   watcher    Manage simulation watchers on REMOTE SimDB server.
 ```
@@ -293,7 +292,7 @@ Usage: simdb remote [NAME] admin set-meta [OPTIONS] SIM_ID KEY VALUE
 
 Options:
   -t, --type [string|UUID|int|float]
-  --help                          Show this message and exit.
+  --help  Show this message and exit.
 ```
     
 
@@ -546,7 +545,7 @@ Usage: simdb remote [NAME] trace [OPTIONS] SIM_ID
 Options:
   --help  Show this message and exit.
 ```
-    
+<!--     
 
 ```text
 Usage: simdb remote [NAME] update [OPTIONS] SIM_ID {validate|accept|deprecate}
@@ -555,7 +554,7 @@ Usage: simdb remote [NAME] update [OPTIONS] SIM_ID {validate|accept|deprecate}
 
 Options:
   --help  Show this message and exit.
-```
+``` -->
     
 
 ```text
