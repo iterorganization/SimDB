@@ -101,7 +101,7 @@ summary:
               type: numpy
               coerce: numpy
               ge: -17000000
-#              le: 0
+              le: 0
         tau_energy:
           type: dict
           schema:
