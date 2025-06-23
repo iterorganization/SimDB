@@ -455,18 +455,23 @@ def remote_query(
 
     \b
     Where `[mod]` is an optional query modifier. Available query modifiers are:
-        eq: - This checks for equality (this is the same behaviour as not providing any modifier).
-        in: - This searches inside the value instead of looking for exact matches.
-        gt: - This checks for values greater than the given quantity.
-        ge: - This checks for values greater than or equal to the given quantity.
-        lt: - This checks for values less than the given quantity.
-        le: - This checks for values less than or equal to the given quantity.
+        eq:  - This checks for equality (this is the same behaviour as not providing any modifier).
+        in:  - This searches inside the value instead of looking for exact matches.
+        gt:  - This checks for values greater than the given quantity.
+        agt: - This checks for any array elements are greater than the given quantity.
+        ge:  - This checks for values greater than or equal to the given quantity.
+        age: - This checks for any array elements are greater than or equal to the given quantity.
+        lt:  - This checks for values less than the given quantity.
+        alt:  - This checks for any array elements are less than the given quantity.
+        le:  - This checks for values less than or equal to the given quantity.
+        ale:  - This checks for any array elements are less than or equal to the given quantity.
 
     \b
     Modifier examples:
-        responsible_name=foo        performs exact match
-        responsible_name=in:foo     matches all names containing foo
-        pulse=gt:1000               matches all pulses > 1000
+        alias=eq:foo                                                performs exact match
+        summary.code.name=in:foo                                    matches all names containing foo
+        summary.heating_current_drive.power_additional.value=agt:0  matches all simulations where any array element
+        of summary.heating_current_drive.power_additional.value is greater than 0
 
     \b
     Any string comparisons are done in a case-insensitive manner. If multiple constraints are provided then simulations
