@@ -1169,11 +1169,11 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
         _plasma_composition = get_plasma_composition(legacy_yaml_data["plasma_composition"])
         composition = {}
         composition["names"] = {}
-        composition["names"]["values"] = list(_plasma_composition.keys())
+        composition["names"]["values"] = ",".join(_plasma_composition.keys())
 
         n_over_ne_list = [properties["n_over_ne"] for properties in _plasma_composition.values()]
         composition["n_i_over_n_e"] = {}
-        composition["n_i_over_n_e"]["values"] = n_over_ne_list
+        composition["n_i_over_n_e"]["values"] = ",".join(str(n) for n in n_over_ne_list)
         summary["composition"] = composition
         manifest_metadata["summary"] = summary
         out_data = {
