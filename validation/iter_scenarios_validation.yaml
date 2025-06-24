@@ -81,13 +81,15 @@ summary:
             value:
               type: numpy
               coerce: numpy
-        h_98:
-          type: dict
-          schema:
-            value:
-              type: numpy
-              coerce: numpy
-              ge: 0
+        # Unclear enough definition of h_98 end up with negative values. 
+        # Later it will be replaced by imas-validator.
+        # h_98:
+        #   type: dict
+        #   schema:
+        #     value:
+        #       type: numpy
+        #       coerce: numpy
+        #       ge: 0
         h_mode:
           type: dict
           schema:
