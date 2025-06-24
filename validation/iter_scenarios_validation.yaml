@@ -81,7 +81,7 @@ summary:
             value:
               type: numpy
               coerce: numpy
-        # Unclear enough definition of h_98 end up with negative values. 
+        # h_98 validation temporarily disabled due to ambiguous specification. 
         # Later it will be replaced by imas-validator.
         # h_98:
         #   type: dict
