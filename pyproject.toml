@@ -1,6 +1,10 @@
 [build-system]
-requires = ["setuptools>=42.0", "wheel"]
+requires = ["setuptools>=42.0", "wheel", "setuptools_scm>8"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+write_to = "src/simdb/_version.py"
+local_scheme = "dirty-tag"
 
 [tool.pytest.ini_options]
 addopts = "--cov=simdb"

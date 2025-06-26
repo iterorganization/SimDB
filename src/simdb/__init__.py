@@ -10,18 +10,15 @@ The tool comes in two parts:
     * The remote REST API which is run in a centralised location to allow the users simulations to be pushed for
       staging and checking.
 """
+from pathlib import Path
 
-import pkg_resources
-from typing import Tuple, cast
-from . import _version
-
-__version__ = _version.get_versions()["version"]
-
-__version_info__: Tuple[str, str, str] = cast(
-    Tuple[str, str, str], tuple(__version__.split("."))
-)
 try:
-    __licence__: str = pkg_resources.require("simdb")[0].get_metadata("LICENCE")
-except FileNotFoundError:
-    # When installing with 'pip -e' in development environment
-    __licence__ = "see LICENCE"
+    from ._version import version as __version__
+except ImportError:
+    __version__ = "unknown"
+
+version = __version__
+
+
+def get_project_root() -> Path:
+    return Path(__file__).resolve().parent.parent
