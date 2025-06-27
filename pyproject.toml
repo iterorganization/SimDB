@@ -1,10 +1,147 @@
 [build-system]
-requires = ["setuptools>=42.0", "wheel", "setuptools_scm>8"]
+requires = ["setuptools>=64.0", "wheel", "setuptools_scm>8", "tomli;python_version<'3.11'"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "simdb"
+description = "ITER Simulation Management Tool"
+readme = {file = "README.md", content-type = "text/markdown"}
+license = {file = "LICENCE"}
+authors = [
+  {name = "ITER Organization"},
+  {email = "imas-support@iter.org"},
+]
+maintainers = [
+    {name = "ITER Organization"},
+    {email = "imas-support@iter.org"},
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: linux :: unix :: osx :: cygwin :: win32",
+    "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: System Administrators",
+    "Natural Language :: English",
+]
+dynamic = ["version"]
+dependencies = [
+    "Cerberus>=1.3.2",
+    "PyJWT>=1.4.0",
+    "appdirs>=1.4",
+    "appdirs>=1.4.0",
+    "argcomplete>=1.9.4",
+    "backports-datetime-fromisoformat>=1.0",
+    "click>=7.0,<=8.1.8",
+    "click_option_group>=0.5",
+    "distro>=1.8.0",
+    "email-validator>=1.1",
+    "numpy>=1.14",
+    "python-dateutil>=2.6",
+    "pyyaml>=3.13",
+    "requests>=2.27.0",
+    "semantic-version>=2.8",
+    "sqlalchemy>=1.2.12,<2.0",
+    "urllib3>=1.26",
+]
+
+[project.optional-dependencies]
+build-test = [
+    "pytest>=6.0",
+    "pytest-cov>=2.0",
+    "mypy>=0.910",
+    "flake8>=3.9",
+    "tox>=3.24",
+    "Flask>=2.0",
+    "flask-cors>=3",
+    "flask-compress>=1.12",
+    "Werkzeug==2.0.3",
+    "python-magic~=0.4",
+    "flask-caching>=1.10",
+    "flask-restx==0.5",
+    "flask-mail~=0.9.1",
+    "simplejson~=3.0",
+    "easyad>=1.0",
+]
+server = [
+    "Flask>=2.0",
+    "Werkzeug==2.0.3",
+    "flask-caching>=1.10",
+    "flask-compress>=1.12",
+    "flask-cors>=3",
+    "flask-mail~=0.9.1",
+    "flask-restx==0.5",
+    "python-magic~=0.4",
+    "simplejson~=3.0",
+]
+auth-ad = [
+    "easyad>=1.0",
+]
+auth-keycloak = [
+    "python-keycloak>=4.0",
+]
+auth-ldap = [
+    "ldap>=3.4",
+]
+imas-validator = [
+    "imas-validator>=1.0.0",
+]
+build-docs = [
+    "sphinx>=4.5",
+    "sphinx-rtd-theme>=1.0.0",
+    "sphinx-autodoc-typehints>=1.12.0",
+    "myst-parser>=0.18.0",
+    "nbsphinx>=0.8.0",
+    "docutils>=0.17",
+    "recommonmark>=0.7.0",
+]
+postgres = [
+    "psycopg2-binary>=2.8.0",
+]
+all = [
+    "simdb[server, imas-validator, postgres]"
+]
+
+[project.scripts]
+simdb = "simdb.cli.simdb:main"
+simdb_server = "simdb.remote.wsgi:run"
+
+[project.urls]
+Homepage = "https://simdb.iter.org/dashboard/"
+Documentation = "https://sharepoint.iter.org/departments/POP/CM/IMDesign/Code%20Documentation/simdb-doc/html/index.html"
+Repository = "https://git.iter.org/projects/IMEX/repos/simdb/browse"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+simdb = ["py.typed", "LICENSE"]
+"simdb.cli" = ["template.yaml"]
+"simdb.remote" = ["scripts/simdb.initd", "scripts/simdb.nginx"]
 
 [tool.setuptools_scm]
 write_to = "src/simdb/_version.py"
 local_scheme = "dirty-tag"
+
+[tool.flake8]
+max-line-length = 160
+extend-ignore = ["E203", "W503"]
+exclude = [
+    ".git",
+    "__pycache__",
+    ".venv", 
+    "venv",
+    "build",
+    "dist",
+    "*.egg-info"
+]
 
 [tool.pytest.ini_options]
 addopts = "--cov=simdb"

@@ -18,17 +18,35 @@ module list
 rm -rf venv
 python3 -m venv venv
 source venv/bin/activate
-pip3 install --upgrade pip
-pip3 install pytest pytest-cov wheel cobertura-clover-transform
-pip3 install -r dev_requirements.txt
-pip3 install easyad
 
-# Install simdb
-pip3 install .
+# Upgrade pip and build tools
+pip3 install --upgrade pip setuptools wheel
 
-# Run the tests
-python3 -m pytest --cov=simdb --junitxml=test-reports/pytest.xml
+echo "Installing simdb with documentation dependencies..."
 
+# Install build dependencies
+pip3 install setuptools_scm
+
+# Install simdb with test dependencies using pyproject.toml
+pip3 install -e .[build-test]
+
+echo "Checking version information..."
+python3 -c "import simdb; print(f'SimDB version: {simdb.__version__}')"
+
+echo "Running tests..."
+
+# Delete and create test reports directory
+rm -rf test-reports
+mkdir -p test-reports
+
+# Run tests with coverage
+python3 -m pytest \
+    --cov=simdb \
+    --junitxml=test-reports/pytest.xml \
+    -v \
+    --tb=short
+
+echo "Build and test completed successfully!"
 # Generate coverage report
 # coverage html -d simdb-coverage-report
 # tar czf simdb-coverage-report.tar.gz simdb-coverage-report/
