@@ -53,7 +53,7 @@ pip3 install -e .[build-docs]
 
 ### Multiple extras can be combined
 ```
-pip3 install .[server,postgres,imas-validator]
+pip3 install -e .[server,postgres,imas-validator]
 ```
 
 You should then be able to run the command:
