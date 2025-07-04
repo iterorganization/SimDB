@@ -19,10 +19,19 @@ rm -rf venv
 python3 -m venv venv
 source venv/bin/activate
 pip3 install --upgrade pip
-pip3 install -r dev_requirements.txt
 
-# Install simdb
-pip3 install .
+# Upgrade pip and build tools
+pip3 install --upgrade pip setuptools wheel
+
+echo "Installing simdb with documentation dependencies..."
+
+# Install build dependencies
+pip3 install setuptools_scm
+
+# Install simdb with docs dependencies using pyproject.toml
+pip3 install -e .[build-docs]
+
+echo "Building documentation..."
 
 # Build docs
 cd docs
@@ -32,5 +41,6 @@ cp *.svg sphinx
 make clean
 make html
 mv _build/html/ ../html/
-# cd ..
-# tar czf html.tar.gz html/
+
+echo "Documentation build completed successfully!"
+echo "Documentation available at: html/index.html"

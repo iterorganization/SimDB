@@ -25,7 +25,7 @@ copyright = '2018-2025, ITER Organization'
 author = 'J. Hollocombe, D. Muir'
 
 # The short X.Y version
-version = '.'.join(simdb.__version_info__[:2])
+version = '.'.join(simdb.version.split('.')[:2])
 project += f" Version {version}"
 # The full version, including alpha/beta/rc tags
 release = simdb.__version__

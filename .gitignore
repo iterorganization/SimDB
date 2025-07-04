@@ -27,3 +27,7 @@ test_manifest.yml
 *.xml
 simdb-coverage-report
 *.tar.gz
+src/simdb/_version.py
+*.egg-info
+*.egg
+*.whl
