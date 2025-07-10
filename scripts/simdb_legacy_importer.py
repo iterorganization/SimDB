@@ -69,6 +69,29 @@ def literal_presenter(dumper, data):
 
 yaml.add_representer(Literal, literal_presenter)
 
+ion_names_map = {
+    "H": "hydrogen",
+    "D": "deuterium",
+    "T": "tritium",
+    "He": "helium",
+    "He3": "helium_3",
+    "He4": "helium_4",
+    "Be": "beryllium",
+    "B": "boron",
+    "Li": "lithium",
+    "C": "carbon",
+    "N": "nitrogen",
+    "Ne": "neon",
+    "Ar": "argon",
+    "Xe": "xenon",
+    "O": "oxygen",
+    "Fe": "iron",
+    "Kr": "krypton",
+    "W": "tungsten",
+    "Mo": "molybdenum",
+    "DT": "deuterium_tritium",
+}
+
 
 def load_yaml_file(yaml_file, Loader=yaml.SafeLoader):
     if not os.path.exists(yaml_file):
@@ -597,7 +620,8 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
         #     dataset_description["pulse_time_begin_epoch"]["seconds"] = pulse_time_begin_epoch_seconds_ids.value
         # else:
         #     validation_logger.info(
-        #         "\tdataset_description.pulse_time_begin_epoch.seconds is not set in the IDS, setting it from yaml file"
+        #         "\tdataset_description.pulse_time_begin_epoch.seconds is "
+        # "not set in the IDS, setting it from yaml file"
         #     )
         #     validation_logger.info(
         #         f"\t>  (yaml,ids):[{pulse_time_begin_epoch_seconds_yaml}],[{pulse_time_begin_epoch_seconds_ids}]"
@@ -643,12 +667,14 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
         #     dataset_description["pulse_time_end_epoch"]["seconds"] = round(end)
         # if pulse_time_end_epoch_nanoseconds_ids:
         #     if pulse_time_end_epoch_nanoseconds_ids != pulse_time_end_epoch_nanoseconds_yaml:
-        #         validation_logger.info("\tdiscrepancies found in dataset_description.pulse_time_end_epoch.nanoseconds")
+        #         validation_logger.info(
+        # "\tdiscrepancies found in dataset_description.pulse_time_end_epoch.nanoseconds")
         #         validation_logger.info(
         #             f"\t>  (yaml,ids):[{pulse_time_end_epoch_nanoseconds_yaml}],"
         #             f"[{pulse_time_end_epoch_nanoseconds_ids}]"
         #         )
-        #     dataset_description["pulse_time_end_epoch"]["nanoseconds"] = int(pulse_time_end_epoch_nanoseconds_ids.value)
+        #     dataset_description["pulse_time_end_epoch"]["nanoseconds"] = \
+        # int(pulse_time_end_epoch_nanoseconds_ids.value)
         # else:
         #     validation_logger.info(
         #         "\tdataset_description.pulse_time_end_epoch.nanoseconds is not set in the IDS"
@@ -1096,41 +1122,41 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
             connection = imas.DBEntry(uri, "r")
         except Exception as e:  #
             validation_logger.error(f"{alias} {uri}: {e}")
+            return
         ids_summary = None
         ids_dataset_description = None
         ids_equilibrium = None
         ids_core_profiles = None
         ids_edge_profiles = None
-        if connection is not None:
-            try:
-                ids_summary = connection.get("summary", autoconvert=False, lazy=True, ignore_unknown_dd_version=True)
-            except Exception as e:  # noqa: F841
-                validation_logger.error(f"{alias}: {e}")
-                exit(0)
-            try:
-                ids_core_profiles = connection.get(
-                    "core_profiles", autoconvert=False, lazy=True, ignore_unknown_dd_version=True
-                )
-            except Exception as e:  # noqa: F841
-                pass
-            try:
-                ids_edge_profiles = connection.get(
-                    "edge_profiles", autoconvert=False, lazy=True, ignore_unknown_dd_version=True
-                )
-            except Exception as e:  # noqa: F841
-                pass
-            try:
-                ids_dataset_description = connection.get(
-                    "dataset_description", autoconvert=False, lazy=True, ignore_unknown_dd_version=True
-                )
-            except Exception as _:  # noqa: F841
-                pass
-            try:
-                ids_equilibrium = connection.get(
-                    "equilibrium", autoconvert=False, lazy=True, ignore_unknown_dd_version=True
-                )
-            except Exception as e:  # noqa: F841
-                pass
+        try:
+            ids_summary = connection.get("summary", autoconvert=False, lazy=True, ignore_unknown_dd_version=True)
+        except Exception as e:  # noqa: F841
+            validation_logger.error(f"{alias}: {e}")
+            exit(0)
+        try:
+            ids_core_profiles = connection.get(
+                "core_profiles", autoconvert=False, lazy=True, ignore_unknown_dd_version=True
+            )
+        except Exception as e:  # noqa: F841
+            pass
+        try:
+            ids_edge_profiles = connection.get(
+                "edge_profiles", autoconvert=False, lazy=True, ignore_unknown_dd_version=True
+            )
+        except Exception as e:  # noqa: F841
+            pass
+        try:
+            ids_dataset_description = connection.get(
+                "dataset_description", autoconvert=False, lazy=True, ignore_unknown_dd_version=True
+            )
+        except Exception as _:  # noqa: F841
+            pass
+        try:
+            ids_equilibrium = connection.get(
+                "equilibrium", autoconvert=False, lazy=True, ignore_unknown_dd_version=True
+            )
+        except Exception as e:  # noqa: F841
+            pass
         slice_index = 0
         if ids_core_profiles:
             central_electron_density, slice_index = get_central_electron_density(ids_core_profiles)
@@ -1168,12 +1194,12 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
 
         _plasma_composition = get_plasma_composition(legacy_yaml_data["plasma_composition"])
         composition = {}
-        composition["names"] = {}
-        composition["names"]["value"] = ",".join(_plasma_composition.keys())
+        for species, properties in _plasma_composition.items():
+            species_name = ion_names_map[species]  # if species in ion_names_map.keys() else species
+            composition[species_name] = {}
+            if "n_over_ne" in properties:
+                composition[species_name]["value"] = properties["n_over_ne"]
 
-        n_over_ne_list = [properties["n_over_ne"] for properties in _plasma_composition.values()]
-        composition["n_i_over_n_e"] = {}
-        composition["n_i_over_n_e"]["value"] = ",".join(str(n) for n in n_over_ne_list)
         summary["composition"] = composition
         manifest_metadata["summary"] = summary
         out_data = {
