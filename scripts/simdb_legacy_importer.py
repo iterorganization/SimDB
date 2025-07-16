@@ -1200,7 +1200,7 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
             if "n_over_ne" in properties:
                 composition[species_name]["value"] = properties["n_over_ne"]
 
-        summary["composition"] = composition
+        summary["summary_species_constant"] = composition
         manifest_metadata["summary"] = summary
         out_data = {
             "manifest_version": 2,
