@@ -89,7 +89,6 @@ ion_names_map = {
     "Kr": "krypton",
     "W": "tungsten",
     "Mo": "molybdenum",
-    "DT": "deuterium_tritium",
 }
 
 
@@ -1195,12 +1194,20 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
         _plasma_composition = get_plasma_composition(legacy_yaml_data["plasma_composition"])
         composition = {}
         for species, properties in _plasma_composition.items():
-            species_name = ion_names_map[species]  # if species in ion_names_map.keys() else species
-            composition[species_name] = {}
-            if "n_over_ne" in properties:
-                composition[species_name]["value"] = properties["n_over_ne"]
+            if species == "DT":
+                if "n_over_ne" in properties:
+                    species_value = properties["n_over_ne"]
+                    composition["deuterium"] = {}
+                    composition["tritium"] = {}
+                    composition["deuterium"]["value"] = species_value / 2.0
+                    composition["tritium"]["value"] = species_value / 2.0
+            else:
+                species_name = ion_names_map[species]  # if species in ion_names_map.keys() else species
+                composition[species_name] = {}
+                if "n_over_ne" in properties:
+                    composition[species_name]["value"] = properties["n_over_ne"]
 
-        summary["summary_species_constant"] = composition
+        summary["composition"] = composition
         manifest_metadata["summary"] = summary
         out_data = {
             "manifest_version": 2,
