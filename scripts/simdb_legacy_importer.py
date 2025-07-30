@@ -89,7 +89,7 @@ ion_names_map = {
     "Kr": "krypton",
     "W": "tungsten",
     "Mo": "molybdenum",
-    "DT": "DT",
+    "DT": "deuterium_tritium",
 }
 
 
