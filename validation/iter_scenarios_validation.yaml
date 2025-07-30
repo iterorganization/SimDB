@@ -137,7 +137,7 @@ summary:
                 value:
                   type: numpy
                   coerce: numpy
-                  ge: 0
+                  ge: 1
     
 equilibrium:
 #  required: true
