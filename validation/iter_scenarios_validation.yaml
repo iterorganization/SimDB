@@ -110,14 +110,14 @@ summary:
             value:
               type: numpy
               coerce: numpy
-              gt: 0
+              ge: 0
         v_loop:
           type: dict
           schema:
             value:
               type: numpy
               coerce: numpy
-              le: 0
+                #le: 0
     local:
       type: dict
       schema:

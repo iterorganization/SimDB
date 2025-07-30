@@ -68,11 +68,59 @@ class CustomValidator(cerberus.Validator):
         if comparison is None:
             return
         if isinstance(value, np.ndarray):
-            if not getattr(value, comparator)(comparison).all():
-                self._error(field, "Values are not %s %s" % (message, comparison))
+            if comparator in ["__eq__", "__ne__"]:
+                # Use numpy's allclose for equality comparisons with floating point tolerance
+                if comparator == "__eq__":
+                    if not np.allclose(value, comparison, rtol=1e-9, atol=1e-12):
+                        self._error(field, "Values are not %s %s" % (message, comparison))
+                else:  # __ne__
+                    if np.allclose(value, comparison, rtol=1e-9, atol=1e-12):
+                        self._error(field, "Values are not %s %s" % (message, comparison))
+            else:
+                # For other comparisons, use a small tolerance
+                tolerance = 1e-10
+                comparison_func = getattr(value, comparator)
+
+                if comparator == "__ge__":
+                    # For >= comparison, account for floating point precision
+                    result = comparison_func(comparison - tolerance)
+                elif comparator == "__le__":
+                    # For <= comparison, account for floating point precision
+                    result = comparison_func(comparison + tolerance)
+                elif comparator == "__gt__":
+                    # For > comparison, use small tolerance
+                    result = (value > comparison - tolerance) & ~np.isclose(value, comparison, rtol=1e-9, atol=1e-12)
+                elif comparator == "__lt__":
+                    # For < comparison, use small tolerance
+                    result = (value < comparison + tolerance) & ~np.isclose(value, comparison, rtol=1e-9, atol=1e-12)
+                else:
+                    result = comparison_func(comparison)
+
+                if not result.all():
+                    self._error(field, "Values are not %s %s" % (message, comparison))
         elif isinstance(value, float):
-            if not getattr(value, comparator)(comparison):
-                self._error(field, "Value is not %s %s" % (message, comparison))
+            if comparator in ["__eq__", "__ne__"]:
+                if comparator == "__eq__":
+                    if not np.isclose(value, comparison, rtol=1e-9, atol=1e-12):
+                        self._error(field, "Value is not %s %s" % (message, comparison))
+                else:  # __ne__
+                    if np.isclose(value, comparison, rtol=1e-9, atol=1e-12):
+                        self._error(field, "Value is not %s %s" % (message, comparison))
+            else:
+                tolerance = 1e-10
+                if comparator == "__ge__":
+                    result = value >= (comparison - tolerance)
+                elif comparator == "__le__":
+                    result = value <= (comparison + tolerance)
+                elif comparator == "__gt__":
+                    result = value > (comparison - tolerance) and not np.isclose(value, comparison, rtol=1e-9, atol=1e-12)
+                elif comparator == "__lt__":
+                    result = value < (comparison + tolerance) and not np.isclose(value, comparison, rtol=1e-9, atol=1e-12)
+                else:
+                    result = getattr(value, comparator)(comparison)
+
+                if not result:
+                    self._error(field, "Value is not %s %s" % (message, comparison))
         else:
             self._error(field, "Value is not a numpy array or a float")
 
