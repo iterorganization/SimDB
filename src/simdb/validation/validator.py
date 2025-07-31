@@ -65,7 +65,7 @@ class CustomValidator(cerberus.Validator):
     def _compare(self, comparison, field, value, comparator: str, message: str):
         import numpy as np
 
-        if comparison is None:
+        if comparison is None or value is None:
             return
         if isinstance(value, np.ndarray):
             if comparator in ["__eq__", "__ne__"]:
