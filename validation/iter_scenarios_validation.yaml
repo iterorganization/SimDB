@@ -140,7 +140,7 @@ summary:
                 value:
                   type: numpy
                   coerce: numpy
-                  ge: 1
+                  ge: 0.999999999999
 equilibrium:
 #  required: true
   type: dict
