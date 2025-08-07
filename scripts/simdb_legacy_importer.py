@@ -474,12 +474,12 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
                 f"\t>  yaml['characteristics']['workflow'], summary.code.name  "
                 f"(yaml,ids):[{code_from_yaml}],[{code_from_ids}]"
             )
-        code["name"] = code_from_ids.upper()
-    else:
-        validation_logger.info("\tsummary.code.name is not set in the IDS, setting it from yaml file")
-        validation_logger.info(f"\t>  (yaml,ids):[{code_from_yaml}], [{code_from_ids}]")
+        # code["name"] = code_from_ids.upper()
+    # else:
+    #     validation_logger.info("\tsummary.code.name is not set in the IDS, setting it from yaml file")
+    #     validation_logger.info(f"\t>  (yaml,ids):[{code_from_yaml}], [{code_from_ids}]")
 
-        code["name"] = code_from_yaml.upper()
+    code["name"] = code_from_yaml.upper()
     dataset_description["code"] = code
 
     # dataset_description.simulation.description
