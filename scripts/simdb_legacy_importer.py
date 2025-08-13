@@ -250,6 +250,7 @@ def get_local(scenario_key_parameters: dict, slice_index, ids_summary, ids_core_
     # sepmid_electron_density
     if ids_edge_profiles:
         sepmid_electron_density_ids, _ = get_sepmid_electron_density(ids_summary)
+    
     sepmid_electron_density_yaml = scenario_key_parameters.get("sepmid_electron_density", np.nan)
     if sepmid_electron_density_yaml == "tbd" or sepmid_electron_density_yaml == "":
         sepmid_electron_density_yaml = np.nan
@@ -536,9 +537,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
     if density_peaking_yaml != "tbd" and density_peaking_yaml != "":
         description_yaml += f"\ndensity_peaking:{density_peaking_yaml}"
     description_yaml = Literal(description_yaml)
-    simulation = {}
-    simulation["description"] = description_yaml
-    dataset_description["simulation"] = simulation
+    dataset_description["description"] = description_yaml
 
     if "summary" in legacy_yaml_data["idslist"]:
         start = end = step = 0.0
@@ -686,7 +685,7 @@ def get_dataset_description(legacy_yaml_data: dict, ids_summary=None, ids_datase
         #         f"\t>  (yaml,ids):[{pulse_time_end_epoch_nanoseconds_yaml}],[{pulse_time_end_epoch_nanoseconds_ids}]"
         #     )
         #     dataset_description["pulse_time_end_epoch"]["nanoseconds"] = int((end - round(end)) * 10**9)
-
+        dataset_description["simulation"] = {}
         if simulation_time_begin_ids:
             if simulation_time_begin_ids != simulation_time_begin_yaml:
                 validation_logger.info("\tdiscrepancies found in dataset_description.simulation.time_start")
@@ -1120,11 +1119,16 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
         run = legacy_yaml_data["characteristics"]["run"]
         alias = str(shot) + "/" + str(run)
         manifest_file_path = os.path.join(output_directory, f"manifest_{shot:06d}{run:04d}.yaml")
-        # data_entry_path_parts = legacy_yaml_file.strip("/").split("/")
-        # print("data_entry_path_parts", data_entry_path_parts)
-        # folder_path = "/".join(data_entry_path_parts[:6])
-        folder_path = os.path.dirname(legacy_yaml_file)
-        uri = f"imas:hdf5?path=/{folder_path}"
+        data_entry_path_parts = legacy_yaml_file.strip("/").split("/")
+        folder_path = "/".join(data_entry_path_parts[:6])
+        uri=""
+        if os.path.exists(f"/{folder_path}/{shot}/{run}/master.h5"):
+            uri = f"imas:hdf5?path=/{folder_path}/{shot}/{run}"
+        else:
+            folder_path = os.path.dirname(legacy_yaml_file)
+            if os.path.exists(folder_path):
+                uri = f"imas:hdf5?path=/{folder_path}"
+        
         connection = None
         try:
             connection = imas.DBEntry(uri, "r")
