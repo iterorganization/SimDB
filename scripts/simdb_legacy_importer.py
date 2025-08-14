@@ -250,7 +250,7 @@ def get_local(scenario_key_parameters: dict, slice_index, ids_summary, ids_core_
     # sepmid_electron_density
     if ids_edge_profiles:
         sepmid_electron_density_ids, _ = get_sepmid_electron_density(ids_summary)
-    
+
     sepmid_electron_density_yaml = scenario_key_parameters.get("sepmid_electron_density", np.nan)
     if sepmid_electron_density_yaml == "tbd" or sepmid_electron_density_yaml == "":
         sepmid_electron_density_yaml = np.nan
@@ -313,38 +313,41 @@ def get_local(scenario_key_parameters: dict, slice_index, ids_summary, ids_core_
         validation_logger.info(f"\t> (yaml,ids):[{sepmid_zeff_yaml}]," f"[{ids_summary.local.separatrix.zeff.value}]")
 
     # central_electron_density
-    central_electron_density_yaml = scenario_key_parameters.get("central_electron_density", np.nan)
-    if central_electron_density_yaml == "tbd" or central_electron_density_yaml == "":
-        central_electron_density_yaml = np.nan
+    if "disruption_type" not in scenario_key_parameters:
+        central_electron_density_yaml = scenario_key_parameters.get("central_electron_density", np.nan)
+        if central_electron_density_yaml == "tbd" or central_electron_density_yaml == "":
+            central_electron_density_yaml = np.nan
 
-    if not np.isnan(central_electron_density_ids):
-        if np.isnan(central_electron_density_yaml):
-            validation_logger.info(
-                f"\t> central_electron_density, yaml value empty (yaml,ids):[{central_electron_density_yaml}],"
-                f"[{central_electron_density_ids}]"
-            )
-        are_values_same = abs(central_electron_density_yaml - central_electron_density_ids) < 5e-2
-        if are_values_same is False:
-            validation_logger.info(
-                f"\t> central_electron_density (yaml,ids):[{central_electron_density_yaml}],"
-                f"[{central_electron_density_ids}]"
-            )
-            debug_info = "\n\t> central_zeff is not same in legacy yaml and core_profiles"
-            validation_logger.info(f"\t> {debug_info}")
+        if not np.isnan(central_electron_density_ids):
+            if np.isnan(central_electron_density_yaml):
+                validation_logger.info(
+                    f"\t> central_electron_density, yaml value empty (yaml,ids):[{central_electron_density_yaml}],"
+                    f"[{central_electron_density_ids}]"
+                )
+            are_values_same = abs(central_electron_density_yaml - central_electron_density_ids) < 5e-2
+            if are_values_same is False:
+                validation_logger.info(
+                    f"\t> central_electron_density (yaml,ids):[{central_electron_density_yaml}],"
+                    f"[{central_electron_density_ids}]"
+                )
+                debug_info = "\n\t> central_zeff is not same in legacy yaml and core_profiles"
+                validation_logger.info(f"\t> {debug_info}")
 
-    if not ids_summary.local.magnetic_axis.n_e.value.has_value:
-        if central_electron_density_yaml is not None and not np.isnan(central_electron_density_yaml):
-            magnetic_axis["n_e"] = {"value": central_electron_density_yaml}
+        if not ids_summary.local.magnetic_axis.n_e.value.has_value:
+            if central_electron_density_yaml is not None and not np.isnan(central_electron_density_yaml):
+                magnetic_axis["n_e"] = {"value": central_electron_density_yaml}
+            else:
+                validation_logger.info(
+                    "\t> ids_summary.local.magnetic_axis.n_e.value is empty "
+                    "and central_electron_density from yaml is empty, nothing to set"
+                )
         else:
             validation_logger.info(
-                "\t> ids_summary.local.magnetic_axis.n_e.value is empty "
-                "and central_electron_density from yaml is empty, nothing to set"
+                "\t> ids_summary.local.magnetic_axis.n_e.value is already set in the IDS, not setting"
             )
-    else:
-        validation_logger.info("\t> ids_summary.local.magnetic_axis.n_e.value is already set in the IDS, not setting")
-        validation_logger.info(
-            f"\t> (yaml,ids):[{central_electron_density_yaml}]," f"[{ids_summary.local.magnetic_axis.n_e.value}]"
-        )
+            validation_logger.info(
+                f"\t> (yaml,ids):[{central_electron_density_yaml}]," f"[{ids_summary.local.magnetic_axis.n_e.value}]"
+            )
 
     # central_zeff
     central_zeff_yaml = scenario_key_parameters.get("central_zeff", np.nan)
@@ -380,6 +383,27 @@ def get_local(scenario_key_parameters: dict, slice_index, ids_summary, ids_core_
     if magnetic_axis and magnetic_axis != {}:
         local["magnetic_axis"] = magnetic_axis
     return local
+
+
+def get_disruption(scenario_key_parameters: dict, ids_summary):
+    # get values from IDS
+    disruption_type = scenario_key_parameters.get("disruption_type", "unknown")
+    VD_direction = scenario_key_parameters.get("VD_direction", "unknown")
+    magnetic_field = scenario_key_parameters.get("magnetic_field", np.nan)
+    I_RE_max = scenario_key_parameters.get("I_RE_max", np.nan)
+    plasma_current = scenario_key_parameters.get("plasma_current", np.nan)
+    halo_fraction = scenario_key_parameters.get("halo_fraction", np.nan)
+    central_electron_density = scenario_key_parameters.get("central_electron_density", np.nan)
+
+    disruption_dict = {
+        "type": disruption_type,
+        "VD_direction": VD_direction,
+        "pre_disruptive_values": {"b0": magnetic_field, "Ip": plasma_current, "n_e": central_electron_density},
+        "runaway_electrons": {"current_max": I_RE_max},
+        "halo_current": {"fraction_poloidal_max": halo_fraction},
+    }
+
+    return disruption_dict
 
 
 def flatten_description(data, indent=0):
@@ -842,7 +866,9 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary):
             validation_logger.info(
                 "\t> ids_summary.heating_current_drive.power_nbi.value is already set in the IDS, not setting"
             )
-            validation_logger.info(f"\t>  (yaml,ids):[{p_nbi_yaml}],[{ids_summary.heating_current_drive.power_nbi.value}]")
+            validation_logger.info(
+                f"\t>  (yaml,ids):[{p_nbi_yaml}],[{ids_summary.heating_current_drive.power_nbi.value}]"
+            )
 
         p_lh_yaml = float(legacy_yaml_data["hcd"]["p_lh"])
         p_lh_ids = float(p_lh * 1.0e-6)
@@ -866,7 +892,9 @@ def get_heating_current_drive(legacy_yaml_data: dict, ids_summary):
             validation_logger.info(
                 "\t> ids_summary.heating_current_drive.power_lh.value is already set in the IDS, not setting"
             )
-            validation_logger.info(f"\t>  (yaml,ids):[{p_lh_yaml}],[{ids_summary.heating_current_drive.power_lh.value}]")
+            validation_logger.info(
+                f"\t>  (yaml,ids):[{p_lh_yaml}],[{ids_summary.heating_current_drive.power_lh.value}]"
+            )
 
         p_hcd_yaml = float(legacy_yaml_data["hcd"]["p_hcd"])
         p_hcd_ids = float(p_hcd * 1.0e-6)
@@ -995,69 +1023,77 @@ def get_global_quantities(legacy_yaml_data: dict, slice_index, ids_summary, ids_
                     "and confinement regime from yaml is empty, nothing to set"
                 )
         else:
-            validation_logger.info("\t> ids_summary.global_quantities.h_mode.value is already set in the IDS, not setting")
+            validation_logger.info(
+                "\t> ids_summary.global_quantities.h_mode.value is already set in the IDS, not setting"
+            )
             validation_logger.info(
                 f"\t>  (yaml,ids):[{confinement_regime_from_yaml}],[{ids_summary.global_quantities.h_mode.value}]"
             )
 
     # plasma_current
-    if "plasma_current" in legacy_yaml_data["scenario_key_parameters"]:
-        plasma_current_from_ids, debug_info = get_plasma_current(ids_summary, ids_equilibrium)
-        plasma_current_from_yaml = legacy_yaml_data["scenario_key_parameters"]["plasma_current"]
-        if plasma_current_from_yaml == "tbd":
-            plasma_current_from_yaml = np.nan
-        plasma_current_from_ids_MA = plasma_current_from_ids * 1e-6
-        plasma_current_from_yaml = plasma_current_from_yaml
-        are_values_same = abs(plasma_current_from_ids_MA - plasma_current_from_yaml) < 5e-2
+    if "disruption_type" not in legacy_yaml_data["scenario_key_parameters"]:
+        if "plasma_current" in legacy_yaml_data["scenario_key_parameters"]:
+            plasma_current_from_ids, debug_info = get_plasma_current(ids_summary, ids_equilibrium)
+            plasma_current_from_yaml = legacy_yaml_data["scenario_key_parameters"]["plasma_current"]
+            if plasma_current_from_yaml == "tbd":
+                plasma_current_from_yaml = np.nan
+            plasma_current_from_ids_MA = plasma_current_from_ids * 1e-6
+            plasma_current_from_yaml = plasma_current_from_yaml
+            are_values_same = abs(plasma_current_from_ids_MA - plasma_current_from_yaml) < 5e-2
 
-        if are_values_same is False:
-            validation_logger.info(
-                f"\t>  discrepancies found in plasma_current (yaml,ids):[{plasma_current_from_yaml}],"
-                f"[{plasma_current_from_ids}]"
-            )
-            validation_logger.info(f"\t> {debug_info}")
+            if are_values_same is False:
+                validation_logger.info(
+                    f"\t>  discrepancies found in plasma_current (yaml,ids):[{plasma_current_from_yaml}],"
+                    f"[{plasma_current_from_ids}]"
+                )
+                validation_logger.info(f"\t> {debug_info}")
 
-        if not ids_summary.global_quantities.ip.value.has_value:
-            if not np.isnan(plasma_current_from_ids) and plasma_current_from_ids != 0.0:
-                global_quantities["ip"] = {"value": float(plasma_current_from_ids)}
-                validation_logger.info("\t> ids_summary.global_quantities.ip.value setting from ids")
+            if not ids_summary.global_quantities.ip.value.has_value:
+                if not np.isnan(plasma_current_from_ids) and plasma_current_from_ids != 0.0:
+                    global_quantities["ip"] = {"value": float(plasma_current_from_ids)}
+                    validation_logger.info("\t> ids_summary.global_quantities.ip.value setting from ids")
+                else:
+                    validation_logger.info(
+                        "\t> ids_summary.global_quantities.ip.value is empty "
+                        "and plasma current from ids is empty, nothing to set"
+                    )
             else:
                 validation_logger.info(
-                    "\t> ids_summary.global_quantities.ip.value is empty "
-                    "and plasma current from ids is empty, nothing to set"
+                    "\t> ids_summary.global_quantities.ip.value is already set in the IDS, not setting"
                 )
-        else:
-            validation_logger.info("\t> ids_summary.global_quantities.ip.value is already set in the IDS, not setting")
-            validation_logger.info(
-                f"\t>  (yaml,ids):[{plasma_current_from_yaml}],[{ids_summary.global_quantities.ip.value}]"
-            )
+                validation_logger.info(
+                    f"\t>  (yaml,ids):[{plasma_current_from_yaml}],[{ids_summary.global_quantities.ip.value}]"
+                )
 
     # magnetic_field
-    if "magnetic_field" in legacy_yaml_data["scenario_key_parameters"]:
-        magnetic_field_from_ids, debug_info = get_magnetic_field(ids_summary, ids_equilibrium)
-        magnetic_field_from_yaml = legacy_yaml_data["scenario_key_parameters"]["magnetic_field"]
+    if "disruption_type" not in legacy_yaml_data["scenario_key_parameters"]:
+        if "magnetic_field" in legacy_yaml_data["scenario_key_parameters"]:
+            magnetic_field_from_ids, debug_info = get_magnetic_field(ids_summary, ids_equilibrium)
+            magnetic_field_from_yaml = legacy_yaml_data["scenario_key_parameters"]["magnetic_field"]
 
-        are_values_same = abs(magnetic_field_from_ids - magnetic_field_from_yaml) < 5e-2
-        if are_values_same is False:
-            validation_logger.info(
-                f"\t>  discrepancies found in magnetic_field (yaml,ids):[{magnetic_field_from_yaml}],"
-                f"[{magnetic_field_from_ids}]"
-            )
-            validation_logger.info(f"\t> {debug_info}")
+            are_values_same = abs(magnetic_field_from_ids - magnetic_field_from_yaml) < 5e-2
+            if are_values_same is False:
+                validation_logger.info(
+                    f"\t>  discrepancies found in magnetic_field (yaml,ids):[{magnetic_field_from_yaml}],"
+                    f"[{magnetic_field_from_ids}]"
+                )
+                validation_logger.info(f"\t> {debug_info}")
 
-        if not ids_summary.global_quantities.b0.value.has_value:
-            if magnetic_field_from_ids != 0.0:
-                global_quantities["b0"] = {"value": float(magnetic_field_from_ids)}
+            if not ids_summary.global_quantities.b0.value.has_value:
+                if magnetic_field_from_ids != 0.0:
+                    global_quantities["b0"] = {"value": float(magnetic_field_from_ids)}
+                else:
+                    validation_logger.info(
+                        "\t> ids_summary.global_quantities.b0.value is empty "
+                        "and magnetic field from ids is empty, nothing to set"
+                    )
             else:
                 validation_logger.info(
-                    "\t> ids_summary.global_quantities.b0.value is empty "
-                    "and magnetic field from ids is empty, nothing to set"
+                    "\t> ids_summary.global_quantities.b0.value is already set in the IDS, not setting"
                 )
-        else:
-            validation_logger.info("\t> ids_summary.global_quantities.b0.value is already set in the IDS, not setting")
-            validation_logger.info(
-                f"\t>  (yaml,ids):[{magnetic_field_from_yaml}],[{ids_summary.global_quantities.b0.value}]"
-            )
+                validation_logger.info(
+                    f"\t>  (yaml,ids):[{magnetic_field_from_yaml}],[{ids_summary.global_quantities.b0.value}]"
+                )
     # power_loss
     if "hcd" in legacy_yaml_data and "p_sol" in legacy_yaml_data["hcd"]:
         p_sol_from_ids, debug_info = get_power_loss(ids_summary, slice_index)
@@ -1121,14 +1157,14 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
         manifest_file_path = os.path.join(output_directory, f"manifest_{shot:06d}{run:04d}.yaml")
         data_entry_path_parts = legacy_yaml_file.strip("/").split("/")
         folder_path = "/".join(data_entry_path_parts[:6])
-        uri=""
+        uri = ""
         if os.path.exists(f"/{folder_path}/{shot}/{run}/master.h5"):
             uri = f"imas:hdf5?path=/{folder_path}/{shot}/{run}"
         else:
             folder_path = os.path.dirname(legacy_yaml_file)
             if os.path.exists(folder_path):
                 uri = f"imas:hdf5?path=/{folder_path}"
-        
+
         connection = None
         try:
             connection = imas.DBEntry(uri, "r")
@@ -1199,6 +1235,10 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
         if local and local != {}:
             summary["local"] = local
 
+        if "disruption_type" in legacy_yaml_data["scenario_key_parameters"]:
+            disruption = get_disruption(legacy_yaml_data["scenario_key_parameters"], ids_summary)
+            if disruption and disruption != {}:
+                summary["disruption"] = disruption
         if not ids_summary.ids_properties.creation_date.has_value:
             stat = os.stat(legacy_yaml_file)
             creation_time = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
