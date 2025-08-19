@@ -5,7 +5,7 @@
 ### Installing from source:
 
 ```
-git clone ssh://git@git.iter.org/imex/simdb.git
+git clone git@github.com:iterorganization/SimDB.git
 cd simdb
 python3 -m venv ./venv
 . venv/bin/activate
@@ -15,7 +15,7 @@ pip3 install -e .
 ### Installing directly from git:
 
 ```
-pip3 install git+ssh://git@git.iter.org/imex/simdb.git@master
+pip3 install git@github.com:iterorganization/SimDB.git
 ```
 
 ### installing all dependencies (server, imas-validator, database):
