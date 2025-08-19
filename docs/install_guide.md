@@ -6,7 +6,7 @@
 
 ```
 git clone git@github.com:iterorganization/SimDB.git
-cd simdb
+cd SimDB
 python3 -m venv ./venv
 . venv/bin/activate
 pip3 install -e .
