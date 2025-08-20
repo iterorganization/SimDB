@@ -113,7 +113,7 @@ summary:
             value:
               type: numpy
               coerce: numpy
-              ge: 0
+              #ge: 0
         v_loop:
           type: dict
           schema:
