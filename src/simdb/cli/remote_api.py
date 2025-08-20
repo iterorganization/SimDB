@@ -425,6 +425,17 @@ class RemoteAPI:
         post_data = json.dumps(data, cls=CustomEncoder, indent=2) if data else {}
         headers['User-Agent'] = 'it_script_basic'
 
+        # Compress the data if it is larger than 2 MB
+        if len(post_data) > 2 * 1024 * 1024:
+            import gzip
+            from io import BytesIO
+            buf = BytesIO()
+            with gzip.GzipFile(fileobj=buf, mode="wb") as gz:
+                gz.write(post_data.encode("utf-8"))
+            post_data = buf.getvalue()
+            headers["Content-Encoding"] = "gzip"
+            headers["Content-Type"] = "application/json"
+
         if self._server_auth != "None":
             res = requests.post(
                 self._api_url + url,

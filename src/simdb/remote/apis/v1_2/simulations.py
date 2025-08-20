@@ -148,6 +148,55 @@ def _build_trace(sim_id: str) -> dict:
 
     return data
 
+def _get_json_aware(force: bool = False, silent: bool = False):
+    """
+    Parse JSON like Flask's request.get_json, but handle Content-Encoding: gzip.
+    - force/silent mimic request.get_json behavior.
+    - Uses Flask's JSON provider to ensure identical types/decoding.
+    """
+    from flask import current_app
+    import gzip
+
+    # Match request.get_json content-type check unless forced
+    if not force:
+        mimetype = (request.mimetype or "")
+        if mimetype != "application/json":
+            if silent:
+                return None
+            raise ValueError("Invalid Content-Type (application/json required)")
+
+    raw = request.get_data(cache=False)
+    enc = (request.headers.get("Content-Encoding") or "").lower()
+    if "gzip" in enc:
+        try:
+            raw = gzip.decompress(raw)
+        except OSError:
+            # Not actually gzipped; keep raw bytes
+            pass
+
+    # Use the same charset resolution as Flask (defaults to utf-8)
+    charset = "utf-8"
+    try:
+        params = request.mimetype_params or {}
+        charset = params.get("charset", "utf-8")
+    except Exception:
+        pass
+
+    data = raw.decode(charset, errors="strict")
+
+    # Use Flask's JSON provider for identical behavior
+    try:
+        loads = current_app.json.loads  # Flask >= 2.2
+    except Exception:
+        from flask import json as flask_json  # fallback
+        loads = flask_json.loads
+
+    try:
+        return loads(data)
+    except Exception:
+        if silent:
+            return None
+        raise
 
 @api.route("/simulations")
 class SimulationList(Resource):
@@ -230,7 +279,14 @@ class SimulationList(Resource):
     @requires_auth()
     def post(self, user: User):
         try:
-            data = request.get_json()
+            # _get_json_aware is a custom function to handle JSON parsing
+            # similar to Flask's request.get_json, but with gzip support.
+            # It returns None if the content type is not application/json.
+            # If silent=True, it returns None instead of raising an error.
+            # If force=True, it ignores the content type check.
+            data = _get_json_aware()
+            if not data:
+                return error("Invalid or missing JSON data")
 
             if "simulation" not in data:
                 return error("Simulation data not provided")
