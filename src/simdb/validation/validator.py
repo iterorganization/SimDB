@@ -47,6 +47,9 @@ class CustomValidator(cerberus.Validator):
         import numpy as np
 
         if not isinstance(value, np.ndarray):
+            value = value[~np.isnan(value)]
+            if value.size == 0:
+                self._error(field, "Values in numpy array are NaN or empty")
             self._error(field, "Value is not a numpy array")
         if min_value is not None and value.min() < min_value:
             self._error(field, "Minimum %s less than %s" % (value.min(), min_value))
@@ -58,6 +61,9 @@ class CustomValidator(cerberus.Validator):
         import numpy as np
 
         if not isinstance(value, np.ndarray):
+            value = value[~np.isnan(value)]
+            if value.size == 0:
+                self._error(field, "Values in numpy array are NaN or empty")
             self._error(field, "Value is not a numpy array")
         if max_value is not None and value.max() > max_value:
             self._error(field, "Maximum %s greater than %s" % (value.max(), max_value))
@@ -67,6 +73,9 @@ class CustomValidator(cerberus.Validator):
         if comparison is None:
             return        
         if isinstance(value, np.ndarray):
+            value = value[~np.isnan(value)]
+            if value.size == 0:
+                self._error(field, "Values in numpy array are NaN or empty")
             if not getattr(value, comparator)(comparison).all():
                 self._error(field, "Values are not %s %s" % (message, comparison))
         elif isinstance(value, float):
