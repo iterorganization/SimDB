@@ -425,8 +425,8 @@ class RemoteAPI:
         post_data = json.dumps(data, cls=CustomEncoder, indent=2) if data else {}
         headers['User-Agent'] = 'it_script_basic'
 
-        # Compress the data if it is larger than 2 MB
-        if len(post_data) > 2 * 1024 * 1024:
+        # Compress the data if it is larger than 2 MB and the URL is for simulations
+        if url == "simulations" and len(post_data) > 2 * 1024 * 1024:
             import gzip
             from io import BytesIO
             buf = BytesIO()
@@ -760,12 +760,26 @@ class RemoteAPI:
         :param add_watcher: Add the current user as a watcher of the simulation on the remote server
         """
         from ..imas.utils import imas_files
-        
+
         sim_data = simulation.data(recurse=True)
         
+        try:
+            sim_json = json.dumps(sim_data, cls=CustomEncoder, separators=(",", ":")).encode("utf-8")
+            sim_json_size = len(sim_json)
+        except Exception as e:
+            sim_json_size = 0
+
+        # Target max request (10MB minus headroom); adjust chunk size so (chunk + sim_data JSON) fits
+        MAX_REQUEST_BYTES = 9 * 1024 * 1024  # nominal 10 MB limit
+        HEADROOM = 2048                       # for JSON envelope & headers
+        # Base chunk size before adjustment (previous constant)
+        base_chunk_size = 8 * 1024 * 1024
+        # Compute allowed chunk payload
+        allowed_chunk = max(1024, min(base_chunk_size, MAX_REQUEST_BYTES - sim_json_size - HEADROOM))
+
         options = self.get_upload_options()
         if options.get("copy_files", True):
-            chunk_size = 9 * 1024 * 1024  # 9 MB < 10 MB limit on ITER network
+            chunk_size = allowed_chunk  # 10 MB limit on ITER network
 
             copy_ids = options.get("copy_ids", True)
 
