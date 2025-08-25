@@ -388,19 +388,39 @@ def get_local(scenario_key_parameters: dict, slice_index, ids_summary, ids_core_
 def get_disruption(scenario_key_parameters: dict, ids_summary):
     # get values from IDS
     disruption_type = scenario_key_parameters.get("disruption_type", "unknown")
-    VD_direction = scenario_key_parameters.get("VD_direction", "unknown")
+
+    vd_direction = scenario_key_parameters.get("VD_direction", "unknown")
     magnetic_field = scenario_key_parameters.get("magnetic_field", np.nan)
-    I_RE_max = scenario_key_parameters.get("I_RE_max", np.nan)
+    i_re_max = scenario_key_parameters.get("I_RE_max", np.nan)
     plasma_current = scenario_key_parameters.get("plasma_current", np.nan)
     halo_fraction = scenario_key_parameters.get("halo_fraction", np.nan)
     central_electron_density = scenario_key_parameters.get("central_electron_density", np.nan)
 
+    # Disruption type mapping with index and description
+    disruption_type_map = {
+        "major": {"name": "major", "index": 1, "description": "Thermal quench precedes the vertical displacement"},
+        "vde": {"name": "vde", "index": 2, "description": "Vertical displacement precedes the thermal quench"},
+    }
+    disruption_type_dict = disruption_type_map["major"]
+    if "vde" in disruption_type.lower():
+        disruption_type_dict = disruption_type_map["vde"]
+
+    vd_direction_dict = {"value": 0}
+    if "up" in vd_direction.lower():
+        vd_direction_dict["value"] = 1
+    elif "down" in vd_direction.lower():
+        vd_direction_dict["value"] = -1
+
     disruption_dict = {
-        "type": disruption_type,
-        "VD_direction": VD_direction,
-        "pre_disruptive_values": {"b0": magnetic_field, "Ip": plasma_current, "n_e": central_electron_density},
-        "runaway_electrons": {"current_max": I_RE_max},
-        "halo_current": {"fraction_poloidal_max": halo_fraction},
+        "type": disruption_type_dict,
+        "VD_direction": vd_direction_dict,
+        "pre_disruptive_values": {
+            "b0": {"value": magnetic_field},
+            "ip": {"value": plasma_current},
+            "n_e_line_average": {"value": central_electron_density},
+        },
+        "runaway_electrons": {"current_max": i_re_max},
+        "halo_current": {"fraction_pol_max": {"value": halo_fraction}},
     }
 
     return disruption_dict
@@ -1235,10 +1255,11 @@ def write_manifest_file(legacy_yaml_file: str, output_directory: str = None):
         if local and local != {}:
             summary["local"] = local
 
-        if "disruption_type" in legacy_yaml_data["scenario_key_parameters"]:
-            disruption = get_disruption(legacy_yaml_data["scenario_key_parameters"], ids_summary)
-            if disruption and disruption != {}:
-                summary["disruption"] = disruption
+        # TODO enable if required
+        # if "disruption_type" in legacy_yaml_data["scenario_key_parameters"]:
+        #     disruption = get_disruption(legacy_yaml_data["scenario_key_parameters"], ids_summary)
+        #     if disruption and disruption != {}:
+        #         summary["disruption"] = disruption
         if not ids_summary.ids_properties.creation_date.has_value:
             stat = os.stat(legacy_yaml_file)
             creation_time = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
