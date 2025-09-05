@@ -381,11 +381,18 @@ def remote_show_validation_schema(api: RemoteAPI, depth: int):
     show_default=True,
     callback=validate_non_negative,
 )
-def remote_list(config: "Config", api: RemoteAPI, meta: List[str], limit: int):
+@click.option(
+    "--uuid",
+    "show_uuid",
+    is_flag=True,
+    help="Include UUID in the output.",
+    default=False,
+)
+def remote_list(config: "Config", api: RemoteAPI, meta: List[str], limit: int, show_uuid: bool):
     """List simulations available on remote."""
     check_meta_args(meta)
     simulations = api.list_simulations(meta, limit)
-    print_simulations(simulations, verbose=config.verbose, metadata_names=meta)
+    print_simulations(simulations, verbose=config.verbose, metadata_names=meta, show_uuid=show_uuid)
 
 
 @remote.command("version", cls=remote_command_cls())
@@ -440,12 +447,20 @@ def remote_trace(api: RemoteAPI, sim_id: str):
     show_default=True,
     callback=validate_non_negative,
 )
+@click.option(
+    "--uuid",
+    "show_uuid",
+    is_flag=True,
+    help="Include UUID in the output.",
+    default=False,
+)
 def remote_query(
     config: "Config",
     api: RemoteAPI,
     constraints: List[str],
     meta: Tuple[str],
     limit: int,
+    show_uuid: bool,
 ):
     """Perform a metadata query to find matching remote simulations.
 
@@ -499,7 +514,7 @@ def remote_query(
         names.append(name)
     names += meta
 
-    print_simulations(simulations, verbose=config.verbose, metadata_names=names)
+    print_simulations(simulations, verbose=config.verbose, metadata_names=names, show_uuid=show_uuid)
 
 
 # @remote.command("update", cls=remote_command_cls())
