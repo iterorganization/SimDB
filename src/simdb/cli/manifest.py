@@ -155,10 +155,10 @@ class ListValuesValidator(ManifestValidator):
                     f"badly formatted manifest - {self.section_name} values should be a name value pair"
                 )
             name = next(iter(item))
-            if isinstance(self.expected_keys, tuple) and name not in self.expected_keys:
-                raise InvalidManifest(
-                    f"unknown {self.section_name} entry in manifest: {name}"
-                )
+            # if isinstance(self.expected_keys, tuple) and name not in self.expected_keys:
+            #     raise InvalidManifest(
+            #         f"unknown {self.section_name} entry in manifest: {name}"
+            #     )
             if isinstance(self.required_keys, tuple) and name not in self.required_keys:
                 raise InvalidManifest(
                     f"required {self.section_name} key not found in manifest: {name}"
@@ -333,9 +333,9 @@ class MetaDataValidator(ListValuesValidator):
 
     def __init__(self, version: int) -> None:
         section_name = "metadata"
-        expected_keys = ("path", "summary")
-        
-        super().__init__(version, section_name, expected_keys)
+        expected_keys = ()
+        required_keys = ("machine", "code", "description")
+        super().__init__(version, section_name, required_keys)
 
     def validate(self, values: Union[list, dict]) -> None:
         super().validate(values)
@@ -542,14 +542,15 @@ class Manifest:
 
         if isinstance(self._data, dict) and "metadata" in self._data:
             metadata = self._data["metadata"] or []
-            for item in metadata:
-                if "path" in item:
-                    path = Path(item["path"])
-                    if not path.exists():
-                        raise InvalidManifest("metadata path %s does not exist" % path)
-                    self._load_metadata(file_path, path)
-                elif "summary" in item:
-                    self._metadata["summary"] = item["summary"]
+            self._metadata["metadata"] = self._data["metadata"]
+            # for item in metadata:
+            #     if "path" in item:
+            #         path = Path(item["path"])
+            #         if not path.exists():
+            #             raise InvalidManifest("metadata path %s does not exist" % path)
+            #         self._load_metadata(file_path, path)
+            #     elif "summary" in item:
+            #         self._metadata["summary"] = item["summary"]
                     # _update_dict(self._metadata, item["values"])
 
     def save(self, out_file: TextIO) -> None:

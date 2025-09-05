@@ -45,16 +45,15 @@ inputs:
 outputs:
 - uri: imas:hdf5?path=/path/to/more/data
 metadata:
-- summary:
-    machine: name of machine i.e. ITER.
-    code:
-      name: code name i.e. ASTRA, JETTO, DINA, CORSICA, MITES, SOLPS, JINTRAC etc.
-    simulation:
-      description: |-
-      Sample plasma physics simulation for ITER tokamak modeling
-      reference_name: ITER simulation
-    ids_properties:
-      creation_date: 'YYYY-MM-DD HH:mm:ss'
+- machine: name of machine i.e. ITER.
+- code:
+    name: code name i.e. ASTRA, JETTO, DINA, CORSICA, MITES, SOLPS, JINTRAC etc.
+- simulation:
+    description: |-
+    Sample plasma physics simulation for ITER tokamak modeling
+    reference_name: ITER simulation
+- ids_properties:
+    creation_date: 'YYYY-MM-DD HH:mm:ss'
 ```
 
 | Key | Description |
@@ -274,3 +273,21 @@ and you can see all the stored metadata against a remote simulation using:
 ```bash
 simdb remote info <SIM_ID>
 ```
+
+## Accessing Simulation Metadata via the SimDB Dashboard
+
+You can view a simulation’s metadata directly in the SimDB dashboard using its UUID.
+
+Format:
+```
+https://<SERVER>/dashboard/uuid/<SIMULATION_UUID>
+```
+
+Example (server: https://simdb.iter.org, UUID: `abcdef12345678901234567890abcdef`):
+```
+https://simdb.iter.org/dashboard/uuid/abcdef12345678901234567890abcdef
+```
+
+Notes:
+- Use the full 32-character UUID (no dashes) if that is how it is stored.
+- If your deployment uses a different base path, adjust `<SERVER>` accordingly.

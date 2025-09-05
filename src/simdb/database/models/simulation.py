@@ -190,6 +190,9 @@ class Simulation(Base):
         flatten_dict(flattened_dict, manifest.metadata)
 
         for key, value in flattened_dict.items():
+            if "metadata#" in key:
+                import re
+                key = re.sub(r"^metadata#\d+\.?", "", key)
             self.set_meta(key, value)
         if not self.find_meta("status"):
             self.set_meta("status", Simulation.Status.NOT_VALIDATED.value)        

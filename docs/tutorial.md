@@ -70,16 +70,15 @@ inputs:
 outputs:
 - uri: imas:hdf5?path=/path/to/more/data
 metadata:
-- summary:
-    machine: name of machine i.e. ITER.
-    code:
-      name: code name i.e. ASTRA, JETTO, DINA, CORSICA, MITES, SOLPS, JINTRAC etc.
-    simulation:
-      description: |-
-      Sample plasma physics simulation for ITER tokamak modeling
-      reference_name: ITER simulation
-    ids_properties:
-      creation_date: 'YYYY-MM-DD HH:mm:ss'
+- machine: name of machine i.e. ITER.
+- code:
+    name: code name i.e. ASTRA, JETTO, DINA, CORSICA, MITES, SOLPS, JINTRAC etc.
+- simulation:
+    description: |-
+    Sample plasma physics simulation for ITER tokamak modeling
+    reference_name: ITER simulation
+- ids_properties:
+    creation_date: 'YYYY-MM-DD HH:mm:ss'
 ```
 
 The `version` field is mandatory and specifies which manifest version you are using. This should be set 1 for the latest
