@@ -1,5 +1,6 @@
 from typing import List, Dict, Tuple, TYPE_CHECKING, TypeVar, Optional, Any
 from collections import OrderedDict
+import uuid
 import click
 import numpy
 
@@ -44,17 +45,19 @@ def print_simulations(
     simulations: List["Simulation"],
     verbose: bool = False,
     metadata_names: Optional[List[str]] = None,
+    show_uuid: bool = False,
 ) -> None:
     """
     Print a table of simulations to the console.
 
-    By default, only the simulation UUID and alias is printed on each row. If verbose is True
+    By default, only the simulation alias is printed on each row. If verbose is True
     then the simulation datetime and status are also printed and metadata_names allows additional
     columns to be specified.
 
     :param simulations: The simulations to print.
     :param verbose: Whether to print a more verbose table.
     :param metadata_names: Additional metadata fields to print as extra columns.
+    :param show_uuid: Whether to include UUID column.
     :return: None
     """
     if len(simulations) == 0:
@@ -62,17 +65,26 @@ def print_simulations(
         return
 
     lines = []
-    column_widths: Dict[str, int] = OrderedDict(UUID=4, alias=5)
+    if show_uuid:
+        column_widths: Dict[str, int] = OrderedDict(alias=5, UUID=4)
+    else:
+        column_widths: Dict[str, int] = OrderedDict(alias=5)
     if verbose:
         column_widths["datetime"] = 8
         column_widths["status"] = 6
 
     for sim in simulations:
-        line = [str(sim.uuid), sim.alias if sim.alias else ""]
-        column_widths["UUID"] = max(column_widths["UUID"], len(str(sim.uuid)))
-        column_widths["alias"] = max(
-            column_widths["alias"], len(sim.alias) if sim.alias else 0
-        )
+        if show_uuid:
+            line = [sim.alias if sim.alias else "", str(sim.uuid)]
+            column_widths["alias"] = max(
+                column_widths["alias"], len(sim.alias) if sim.alias else 0
+            )
+            column_widths["UUID"] = max(column_widths["UUID"], len(str(sim.uuid)))
+        else:
+            line = [sim.alias if sim.alias else ""]
+            column_widths["alias"] = max(
+                column_widths["alias"], len(sim.alias) if sim.alias else 0
+            )
 
         if verbose:
             line.append(sim.datetime)
