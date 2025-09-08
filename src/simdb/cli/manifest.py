@@ -228,11 +228,15 @@ class DataObjectValidator(ListValuesValidator):
         super().validate(values)
         if values is None:
             return
+        seen_uris = set()
         for value in values:
             if self.version > 0:
                 uri = URI(value["uri"])
                 if uri.scheme not in ("uda", "file", "imas"):
                     raise InvalidManifest(f"unknown uri scheme: {uri.scheme}")
+                if str(uri) in seen_uris:
+                    raise InvalidManifest(f"Duplicate URI found in {self.section_name}: {uri}")
+                seen_uris.add(str(uri))
 
 
 class InputsValidator(DataObjectValidator):
@@ -244,7 +248,7 @@ class InputsValidator(DataObjectValidator):
         super().__init__(version, "inputs")
 
 
-class OutputsValidator(ListValuesValidator):
+class OutputsValidator(DataObjectValidator):
     """
     Validator for the manifest outputs list.
     """
