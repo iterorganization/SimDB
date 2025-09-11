@@ -14,6 +14,13 @@ python:
       path: .
       extra_requirements:
         - docs
+        - sphinx>=4.5
+        - sphinx-rtd-theme>=1.0.0
+        - sphinx-autodoc-typehints>=1.12.0
+        - myst-parser>=0.18.0
+        - nbsphinx>=0.8.0
+        - docutils>=0.17
+        - recommonmark>=0.7.0
 
 sphinx:
   builder: html
