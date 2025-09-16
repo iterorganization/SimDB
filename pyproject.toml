@@ -88,7 +88,7 @@ auth-keycloak = [
     "python-keycloak>=4.0",
 ]
 auth-ldap = [
-    "ldap>=3.4",
+    "python-ldap>=3.4",
 ]
 imas-validator = [
     "imas-validator>=1.0.0",
