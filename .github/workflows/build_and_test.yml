@@ -28,7 +28,8 @@ jobs:
           python -m venv venv
           source venv/bin/activate
           pip install --upgrade pip setuptools wheel
-          pip install .[build-test,auth-ldap]
+          python -m pip install python-ldap
+          pip install .[build-test]
 
       - name: Show version
         run: python -c "import simdb; print('SimDB version:', simdb.__version__)"
