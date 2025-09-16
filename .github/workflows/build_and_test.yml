@@ -1,0 +1,52 @@
+name: SimDB CI
+
+on: 
+    push:
+    pull_request:
+      types: [opened, synchronize, reopened]
+  
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ "3.11" ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+            python-version: ${{ matrix.python-version }}
+            cache: pip
+
+      - name: Install build/test deps
+        run: |
+          python -m venv venv
+          source venv/bin/activat
+          pip install --upgrade pip setuptools wheel
+          pip install .[build-test]
+
+      - name: Show version
+        run: python -c "import simdb; print('SimDB version:', simdb.__version__)"
+
+      - name: Run tests
+        run: |
+          source venv/bin/activate
+          mkdir -p test-reports
+          python -m pytest -n=auto --cov=simdb --cov-report=term-missing --cov-report=xml:coverage.xml --cov-report=html:htmlcov --junit-xml=junit.xml
+
+      - name: Upload coverage report ${{ matrix.python-version }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-${{ matrix.python-version }}
+          path: htmlcov
+
+      - name: Upload test report ${{ matrix.python-version }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-${{ matrix.python-version }}
+          path: junit.xml
