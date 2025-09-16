@@ -26,7 +26,7 @@ jobs:
       - name: Install build/test deps
         run: |
           python -m venv venv
-          source venv/bin/activat
+          source venv/bin/activate
           pip install --upgrade pip setuptools wheel
           pip install .[build-test]
 
