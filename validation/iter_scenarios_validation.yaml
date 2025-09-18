@@ -6,142 +6,138 @@ alias:
     - '^/.*$'      # does not start with /
     - '^.*/$'      # does not end with /
 
-summary:
+machine:
+  type: string
+code:
+  type: dict
   required: true
+  schema:
+    name:
+      type: string
+time:
+  type: numpy
+  coerce: numpy
+global_quantities:
   type: dict
   schema:
-    machine:
-      type: string
-    code:
+    b0:
       type: dict
       required: true
       schema:
-        name:
-          type: string
-    time:
-      type: numpy
-      coerce: numpy
-    global_quantities:
+        value:
+          type: numpy
+          coerce: numpy
+          lt: 0
+    r0:
       type: dict
       schema:
-        b0:
-          type: dict
-          required: true
-          schema:
-            value:
-              type: numpy
-              coerce: numpy
-              lt: 0
-        r0:
-          type: dict
-          schema:
-            value:
-              type: float
-#              coerce: numpy
-              gt: 0
-        beta_pol:
+        value:
+          type: float
+#         coerce: numpy
+          gt: 0
+    beta_pol:
+      type: dict
+      schema:
+        value:
+          type: numpy
+          coerce: numpy
+          ge: 0
+    current_bootstrap:
+      type: dict
+      schema:
+        value:
+          type: numpy
+          coerce: numpy
+    current_non_inductive:
+      type: dict
+      schema:
+        value:
+          type: numpy
+          coerce: numpy
+    current_ohm:
+      type: dict
+      schema:
+        value:
+          type: numpy
+          coerce: numpy
+    energy_diamagnetic:
+      type: dict
+      schema:
+        value:
+          type: numpy
+          coerce: numpy
+          ge: 0
+    energy_thermal:
+      type: dict
+      schema:
+        value:
+          type: numpy
+          coerce: numpy
+    energy_total:
+      type: dict
+      schema:
+        value:
+          type: numpy
+          coerce: numpy
+      # h_98 validation temporarily disabled due to ambiguous specification.
+      # Later it will be replaced by imas-validator.
+      #h_98:
+        #  type: dict
+        #  schema:
+        #    value:
+        #      type: numpy
+        #      coerce: numpy
+        #      ge: 0
+    h_mode:
+      type: dict
+      schema:
+        value:
+          type: numpy
+          coerce: numpy
+    ip:
+      type: dict
+      required: true
+      schema:
+        value:
+          type: numpy
+          coerce: numpy
+          ge: -17000000
+          le: 0
+    tau_energy:
+      type: dict
+      schema:
+        value:
+          type: numpy
+          coerce: numpy
+          # ge: 0
+    v_loop:
+      type: dict
+      schema:
+        value:
+          type: numpy
+          coerce: numpy
+          # le: 0
+local:
+  type: dict
+  schema:
+    separatrix:
+      type: dict
+      schema:
+        n_e:
           type: dict
           schema:
             value:
               type: numpy
               coerce: numpy
               ge: 0
-        current_bootstrap:
+        zeff:
           type: dict
           schema:
             value:
               type: numpy
               coerce: numpy
-        current_non_inductive:
-          type: dict
-          schema:
-            value:
-              type: numpy
-              coerce: numpy
-        current_ohm:
-          type: dict
-          schema:
-            value:
-              type: numpy
-              coerce: numpy
-        energy_diamagnetic:
-          type: dict
-          schema:
-            value:
-              type: numpy
-              coerce: numpy
-              ge: 0
-        energy_thermal:
-          type: dict
-          schema:
-            value:
-              type: numpy
-              coerce: numpy
-        energy_total:
-          type: dict
-          schema:
-            value:
-              type: numpy
-              coerce: numpy
-        # h_98 validation temporarily disabled due to ambiguous specification. 
-        # Later it will be replaced by imas-validator.
-        # h_98:
-        #   type: dict
-        #   schema:
-        #     value:
-        #       type: numpy
-        #       coerce: numpy
-        #       ge: 0
-        h_mode:
-          type: dict
-          schema:
-            value:
-              type: numpy
-              coerce: numpy
-        ip:
-          type: dict
-          required: true
-          schema:
-            value:
-              type: numpy
-              coerce: numpy
-              ge: -17000000
-              le: 0
-        tau_energy:
-          type: dict
-          schema:
-            value:
-              type: numpy
-              coerce: numpy
-              #ge: 0
-        v_loop:
-          type: dict
-          schema:
-            value:
-              type: numpy
-              coerce: numpy
-                #le: 0
-    local:
-      type: dict
-      schema:
-        separatrix:
-          type: dict
-          schema:
-            n_e:
-              type: dict
-              schema:
-                value:
-                  type: numpy
-                  coerce: numpy
-                  ge: 0
-            zeff:
-              type: dict
-              schema:
-                value:
-                  type: numpy
-                  coerce: numpy
-                  # Tolerance set to 0.999999999999 for floating point precision handling when comparing to 1
-                  ge: 0.999999999999
+              # Tolerance set to 0.999999999999 for floating point precision handling when comparing to 1
+              ge: 0.999999999999
 equilibrium:
 #  required: true
   type: dict

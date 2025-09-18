@@ -431,6 +431,7 @@ Options:
   -m, --meta-data NAME  Additional meta-data field to print.
   -l, --limit INTEGER   Limit number of returned entries (use 0 for no limit).
                         [default: 100]
+  --uuid                Include UUID column in the output.                        
   --help                Show this message and exit.
 ```
     
@@ -472,6 +473,7 @@ Options:
   -m, --meta-data TEXT  Additional meta-data field to print.
   -l, --limit INTEGER   Limit number of returned entries (use 0 for no limit).
                         [default: 100]
+  --uuid                Include UUID column in the output.                        
   --help                Show this message and exit.
 ```
     
@@ -687,6 +689,7 @@ Options:
   -m, --meta-data TEXT  Additional meta-data field to print.
   -l, --limit INTEGER   Limit number of returned entries (use 0 for no limit).
                         [default: 100]
+  --uuid                Include UUID column in the output.                        
   --help                Show this message and exit.
 ```
     

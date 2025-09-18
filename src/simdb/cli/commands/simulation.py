@@ -65,15 +65,22 @@ def simulation():
     show_default=True,
     callback=validate_non_negative,
 )
-def simulation_list(config: Config, meta: List[str], limit: int):
+@click.option(
+    "--uuid",
+    "show_uuid",
+    is_flag=True,
+    help="Include UUID in the output.",
+    default=False,
+)
+def simulation_list(config: Config, meta: List[str], limit: int, show_uuid: bool):
     """List ingested simulations."""
     from ...database import get_local_db
     from .utils import print_simulations
-
+    
     check_meta_args(meta)
     db = get_local_db(config)
     simulations = db.list_simulations(meta_keys=meta, limit=limit)
-    print_simulations(simulations, verbose=config.verbose, metadata_names=meta)
+    print_simulations(simulations, verbose=config.verbose, metadata_names=meta, show_uuid=show_uuid)
 
 
 class NameValueOption(click.Option):
@@ -309,7 +316,14 @@ def simulation_pull(
     multiple=True,
     default=[],
 )
-def simulation_query(config: Config, constraints: List[str], meta: List[str]):
+@click.option(
+    "--uuid",
+    "show_uuid",
+    is_flag=True,
+    help="Include UUID in the output.",
+    default=False,
+)
+def simulation_query(config: Config, constraints: List[str], meta: List[str], show_uuid: bool):
     """Perform a metadata query to find matching local simulations.
 
     \b
@@ -367,7 +381,7 @@ def simulation_query(config: Config, constraints: List[str], meta: List[str]):
 
     db = get_local_db(config)
     simulations = db.query_meta(parsed_constraints)
-    print_simulations(simulations, verbose=config.verbose, metadata_names=names)
+    print_simulations(simulations, verbose=config.verbose, metadata_names=names, show_uuid=show_uuid)
 
 
 @simulation.command("validate", cls=n_required_args_adaptor(1))
