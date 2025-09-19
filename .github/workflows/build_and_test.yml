@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ "3.11" ]
+        python-version: [ "3.11", "3.12", "3.13" ]
 
     steps:
       - name: Install OpenLDAP development libraries
@@ -26,7 +26,7 @@ jobs:
             python-version: ${{ matrix.python-version }}
             cache: pip
 
-      - name: Install build/test deps
+      - name: Install build and test dependencies
         run: |
           python -m venv venv
           source venv/bin/activate
