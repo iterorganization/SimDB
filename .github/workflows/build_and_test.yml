@@ -39,7 +39,7 @@ jobs:
         run: |
           source venv/bin/activate
           mkdir -p test-reports
-          python -m pytest -n=auto --cov=simdb --cov-report=term-missing --cov-report=xml:coverage.xml --cov-report=html:htmlcov --junit-xml=junit.xml
+          python -m pytest --cov=simdb --junit-xml=test-reports/pytest.xml -v --tb=short
 
       - name: Upload coverage report ${{ matrix.python-version }}
         uses: actions/upload-artifact@v4
