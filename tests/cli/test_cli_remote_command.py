@@ -134,7 +134,7 @@ def test_remote_list_command(
     list_simulations.return_value = sims
     config_file = config_test_file()
     runner = CliRunner()
-    result = runner.invoke(cli, [f"--config-file={config_file}", "remote", "list"])
+    result = runner.invoke(cli, [f"--config-file={config_file}", "remote", "list", "--uuid"])
     assert result.exception is None
     assert list_simulations.called
     for el in data:
@@ -172,7 +172,7 @@ def test_remote_list_command_with_verbose(
     config_file = config_test_file()
     runner = CliRunner()
     result = runner.invoke(
-        cli, [f"--config-file={config_file}", "--verbose", "remote", "list"]
+        cli, [f"--config-file={config_file}", "--verbose", "remote", "list", "--uuid"]
     )
     assert result.exception is None
     assert list_simulations.called
@@ -238,7 +238,7 @@ def test_remote_query_command(
     config_file = config_test_file()
     runner = CliRunner()
     result = runner.invoke(
-        cli, [f"--config-file={config_file}", "remote", "query", *constraints]
+        cli, [f"--config-file={config_file}", "remote", "query", "--uuid", *constraints]
     )
     assert result.exception is None
     for el in data:
@@ -281,7 +281,7 @@ def test_remote_query_command_with_verbose(
     runner = CliRunner()
     result = runner.invoke(
         cli,
-        [f"--config-file={config_file}", "--verbose", "remote", "query", *constraints],
+        [f"--config-file={config_file}", "--verbose", "remote", "query", "--uuid", *constraints],
     )
     assert result.exception is None
     for el in data:
