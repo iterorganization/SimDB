@@ -14,6 +14,9 @@ jobs:
         python-version: [ "3.11" ]
 
     steps:
+      - name: Install OpenLDAP development libraries
+        run: sudo apt-get update && sudo apt-get install -y libldap2-dev libsasl2-dev
+      
       - name: Checkout repository
         uses: actions/checkout@v4
 
