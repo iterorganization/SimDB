@@ -34,9 +34,6 @@ jobs:
           python -m pip install python-ldap
           pip install .[build-test]
 
-      - name: Show version
-        run: python -c "import simdb; print('SimDB version:', simdb.__version__)"
-
       - name: Run tests
         run: |
           source venv/bin/activate
