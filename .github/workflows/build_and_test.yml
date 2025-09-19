@@ -32,6 +32,7 @@ jobs:
           source venv/bin/activate
           pip install --upgrade pip setuptools wheel
           python -m pip install python-ldap
+          pip install pytest-xdist
           pip install .[build-test]
 
       - name: Run tests
