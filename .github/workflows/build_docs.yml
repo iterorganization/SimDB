@@ -1,0 +1,52 @@
+name: Build Docs
+
+on: 
+    push:
+    pull_request:
+      types: [opened, synchronize, reopened]
+      paths:
+      - "docs/**" 
+      - "src/simdb/**"
+  
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+          cache: pip
+      
+      - name: Install dependencies
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip setuptools wheel
+          pip install .[build-docs]
+
+      - name: Build Documentation
+        run: |
+          cd docs
+          sphinx-apidoc -f -o sphinx -e -M ../src/simdb
+          rm -f sphinx/modules.rst || true
+          cp -f *.md sphinx/ 2>/dev/null || true
+          cp -f *.svg sphinx/ 2>/dev/null || true
+          make clean html
+
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation
+          path: docs/_build/html
+
+      - name: Check build warnings
+        run: |
+          if grep -q "WARNING\|ERROR" docs/_build/html/.doctrees/environment.pickle 2>/dev/null; then
+            echo "Documentation build has warnings/errors"
+            exit 1
+          fi
+          
