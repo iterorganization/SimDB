@@ -22,7 +22,6 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
-    "Operating System :: linux :: unix :: osx :: cygwin :: win32",
     "Operating System :: OS Independent",
     "Development Status :: 4 - Beta",
     "Topic :: Scientific/Engineering :: Physics",
