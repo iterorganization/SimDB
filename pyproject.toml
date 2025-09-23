@@ -3,7 +3,7 @@ requires = ["setuptools>=64.0", "wheel", "setuptools_scm>8", "tomli;python_versi
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "simdb"
+name = "imas-simdb"
 description = "ITER Simulation Management Tool"
 readme = {file = "README.md", content-type = "text/markdown"}
 license = {file = "LICENCE"}
@@ -22,7 +22,6 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
-    "Operating System :: linux :: unix :: osx :: cygwin :: win32",
     "Operating System :: OS Independent",
     "Development Status :: 4 - Beta",
     "Topic :: Scientific/Engineering :: Physics",
