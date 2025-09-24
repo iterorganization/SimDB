@@ -192,7 +192,7 @@ def simulation_ingest(config: Config, manifest_file: str, alias: str):
     db = get_local_db(config)
     db.insert_simulation(simulation)
 
-    if not alias:
+    if not simulation.alias and not alias:
         simulation.alias = simulation.uuid.hex
         db.session.commit()
 
