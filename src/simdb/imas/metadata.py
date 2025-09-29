@@ -117,7 +117,10 @@ def load_imas_metadata(ids_dist, entry) -> dict:
     for ids_name, v in ids_dist.items():
         ids = entry.get(ids_name, autoconvert=False)
         # Explicitly convert the IDS to the target version
-        ids = imas.convert_ids(ids, "4.1.0")
+        latest_dd_version = imas.dd_zip.latest_dd_version()
+        if latest_dd_version is None:
+            raise ValueError("Could not determine the latest DD version.")
+        ids = imas.convert_ids(ids, latest_dd_version)
         for node in imas.util.tree_iter(ids):
             metadata[extract_ids_path(str(node.coordinates)).replace("/",".")] = node.value
     return metadata
