@@ -48,10 +48,9 @@ metadata:
 - machine: name of machine i.e. ITER.
 - code:
     name: code name i.e. ASTRA, JETTO, DINA, CORSICA, MITES, SOLPS, JINTRAC etc.
-- simulation:
-    description: |-
+- description: |-
     Sample plasma physics simulation for ITER tokamak modeling
-    reference_name: ITER simulation
+- reference_name: ITER simulation
 - ids_properties:
     creation_date: 'YYYY-MM-DD HH:mm:ss'
 ```
