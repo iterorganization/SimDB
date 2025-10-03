@@ -6,20 +6,20 @@ SimDB is a tool designed to track, manage, upload and query simulations. The sim
 
 SimDB consists of a command line interface (CLI) tool which interacts with one or more remote services.
 
-For details on how to install the CLI see [here](docs/install_guide.md) and for information on how to use the CLI see [here](docs/user_guide.md).
+For details on how to install the CLI see [here](https://simdb.readthedocs.io/en/stable/install_guide.html) and for information on how to use the CLI see [here](https://simdb.readthedocs.io/en/stable/user_guide.html).
 
 ### Accessing ITER remotes
 
-To access data from the ITER remotes from outside of the ITER systems you'll need to [add and configure a SimDB remote](docs/iter_remotes.md).
+To access data from the ITER remotes from outside of the ITER systems you'll need to [add and configure a SimDB remote](https://simdb.readthedocs.io/en/stable/iter_remotes.html).
 
 ### Installing ITER certificate
 
-To access the ITER remote from within the ITER systems you will need to install the ITER SSL certificate. Details for how to do this can be found [here](docs/iter_certificate.md).
+To access the ITER remote from within the ITER systems you will need to install the ITER SSL certificate. Details for how to do this can be found [here](https://simdb.readthedocs.io/en/stable/iter_certificate.html).
 
 ## Server setup
 
-For information on setting and maintaining a remote CLI server see [here](docs/maintenance_guide.md).
+For information on setting and maintaining a remote CLI server see [here](https://simdb.readthedocs.io/en/stable/maintenance_guide.html).
 
 ## Developer guide
 
-Information about setting up a developer environment can be found [here](docs/developer_guide.md).
+Information about setting up a developer environment can be found [here](https://simdb.readthedocs.io/en/stable/developer_guide.html).
