@@ -660,11 +660,17 @@ class Database:
     def list_metadata_values(self, name: str) -> List[str]:
         from .models.metadata import MetaData
         from .models.simulation import Simulation
+        from sqlalchemy import cast, String
 
         if name == "alias":
             query = (
                 self.session.query(Simulation.alias)
                 .filter(Simulation.alias != None)
+            )
+        elif name == "uuid":
+            query = (
+                self.session.query(cast(Simulation.uuid, String))
+                .filter(Simulation.uuid != None)
             )
         else:
             query = (
