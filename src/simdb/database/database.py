@@ -409,6 +409,15 @@ class Database:
                             "%{}%".format(value.replace("-", ""))
                         )
                     )
+            elif query_type == QueryType.NI:
+                if name == "alias":
+                    query = query.filter(Simulation.alias.notilike("%{}%".format(value)))
+                elif name == "uuid":
+                    query = query.filter(
+                        func.REPLACE(cast(Simulation.uuid, String), "-", "").notilike(
+                            "%{}%".format(value.replace("-", ""))
+                        )
+                    )
             elif query_type == QueryType.GT:
                 if name == "creation_date":
                     query = query.filter(Simulation.datetime > date_time)
@@ -424,9 +433,12 @@ class Database:
             elif query_type == QueryType.NE:
                 if name == "creation_date":
                     query = query.filter(Simulation.datetime != date_time)
+                if name == "alias":
+                    query = query.filter(func.lower(Simulation.alias) != value.lower())
+                if name == "uuid":
+                    query = query.filter(Simulation.uuid != uuid.UUID(value))
             elif name in ("uuid", "alias"):
                 raise ValueError(f"Invalid query type {query_type} for alias or uuid.")
-
         names_filters = []
         for name, _, _ in constraints:
             if name in ("alias", "uuid", "creation_date"):
@@ -450,7 +462,7 @@ class Database:
 
         for row in rows:
             for name, value, query_type in constraints:
-                if name in ("alias", "uuid"):
+                if name in ("alias", "uuid", "creation_date"):
                     sim_id_sets[(name, value, query_type)].add(row.simulation.id)
                 if row.metadata.element == name:
                     if query_type == QueryType.EXIST:
@@ -666,11 +678,6 @@ class Database:
             query = (
                 self.session.query(Simulation.alias)
                 .filter(Simulation.alias != None)
-            )
-        elif name == "uuid":
-            query = (
-                self.session.query(cast(Simulation.uuid, String))
-                .filter(Simulation.uuid != None)
             )
         else:
             query = (
