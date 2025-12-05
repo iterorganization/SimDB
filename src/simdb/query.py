@@ -79,7 +79,7 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str) ->
             return str(value) == compare
     elif query_type == QueryType.NE:
         if isinstance(value, np.ndarray):
-            return np.any(value != float(compare))
+            return np.all(value != float(compare))
             # raise ValueError(f"Cannot compare value to array element {name}.")
         elif isinstance(value, int):
             return value != int(float(compare))
