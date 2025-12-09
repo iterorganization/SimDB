@@ -1,4 +1,5 @@
 import configparser
+import platform
 
 import appdirs
 import os
@@ -95,8 +96,10 @@ class Config:
         self._parser.read(self._site_config_path)
 
     def _load_user_config(self):
+        # Skip permission check on Windows as it doesn't support Unix-style file modes
         if (
-            self._user_config_path.exists()
+            platform.system() != "Windows"
+            and self._user_config_path.exists()
             and self._user_config_path.stat().st_mode != 0o100600
         ):
             raise Exception(
