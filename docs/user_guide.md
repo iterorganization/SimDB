@@ -40,7 +40,7 @@ Before diving into SimDB functionality, it's important to understand these key t
 
 **Local vs Remote IMAS Data:**
 - **Local IMAS data**: IMAS datasets accessible directly from the file system where you're running the SimDB CLI.
-- **Remote IMAS data**: IMAS datasets hosted on a remote data server (e.g., UDA server) and accessed via network protocols.
+- **Remote IMAS data**: IMAS datasets hosted on a remote data server and accessed via network protocols.
 
 **Workflow**: Typically, you create and manage simulations locally, then push them to a remote SimDB server for sharing. The data referenced by your simulation can be either local (on your machine) or remote (on a data server).
 
@@ -78,7 +78,7 @@ metadata:
 
 ### IMAS URI schema
 
-IMAS URIs specified in the manifest can either be in the form of remote data URIs or local data URIS.
+IMAS URIs specified in the manifest can either be in the form of remote data URIs or local data URIs.
 
 The IMAS local data URI is used to locate an IMAS data entry accessible from the machine where the client
 is being run. The URI schema looks like:
@@ -168,7 +168,9 @@ simdb remote config set-default <NAME>
 
 ### Authentication
 
-In order to interact with SimDB remote servers you must be authenticated against that server. By default, this is done using username/password which will need to be entered upon each remote command run. In order to reduce the number of times you have to manually enter your authentication details you can generate an authentication token from the server which is stored against that remote. While that token is valid (token lifetimes are determined on a per-server basis) you can run remote commands against that server without having to provide authentication details.
+In order to interact with SimDB remote servers you must be authenticated against that server. By default, this is done using username/password which will need to be entered whenever your session times out or expires.
+
+If your server supports token-based authentication, you can generate an authentication token using username/password, which is then stored against that remote to reduce the number of times you have to manually enter your authentication details. While that token is valid (token lifetimes are determined on a per-server basis) you can run remote commands against that server without having to provide authentication details.
 
 In order to generate a remote authentication token you need to run:
 

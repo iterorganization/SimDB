@@ -145,7 +145,7 @@ simdb manifest check manifest.yaml
 
 This command will check your manifest file for:
 - Correct YAML syntax
-- Required fields (manifest_version)
+- Required fields (manifest_version, outputs, metadata etc.)
 - Valid URI formats for inputs and outputs
 - Proper metadata structure
 - Alias naming rules compliance

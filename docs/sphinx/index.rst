@@ -18,13 +18,13 @@ Contents
    user_guide
    cli
    iter_remotes
-   iter_certificate
+   .. iter_certificate
 
 .. toctree::
    :maxdepth: 2
    :caption: Developer Documentation
 
-   design
    developer_guide
    maintenance_guide
    simdb
+   design
