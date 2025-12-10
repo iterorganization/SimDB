@@ -115,8 +115,8 @@ simdb_server = "simdb.remote.wsgi:run"
 
 [project.urls]
 Homepage = "https://simdb.iter.org/dashboard/"
-Documentation = "https://sharepoint.iter.org/departments/POP/CM/IMDesign/Code%20Documentation/simdb-doc/html/index.html"
-Repository = "https://git.iter.org/projects/IMEX/repos/simdb/browse"
+Documentation = "https://simdb.readthedocs.io/en/latest/"
+Repository = "https://github.com/iterorganization/SimDB"
 
 [tool.setuptools.packages.find]
 where = ["src"]
