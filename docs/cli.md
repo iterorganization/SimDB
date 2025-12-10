@@ -292,7 +292,7 @@ Usage: simdb remote [NAME] admin set-meta [OPTIONS] SIM_ID KEY VALUE
 
 Options:
   -t, --type [string|UUID|int|float]
-  --help  Show this message and exit.
+  --help                          Show this message and exit.
 ```
     
 
@@ -431,7 +431,7 @@ Options:
   -m, --meta-data NAME  Additional meta-data field to print.
   -l, --limit INTEGER   Limit number of returned entries (use 0 for no limit).
                         [default: 100]
-  --uuid                Include UUID column in the output.                        
+  --uuid                Include UUID in the output.
   --help                Show this message and exit.
 ```
     
@@ -459,7 +459,8 @@ Usage: simdb remote [NAME] query [OPTIONS] [CONSTRAINTS]...
   Modifier examples:
       alias=eq:foo                                                performs exact match
       summary.code.name=in:foo                                    matches all names containing foo
-      summary.heating_current_drive.power_additional.value=agt:0  matches all simulations where any array element of summary.heating_current_drive.power_additional.value is greater than 0
+      summary.heating_current_drive.power_additional.value=agt:0  matches all simulations where any array element
+      of summary.heating_current_drive.power_additional.value is greater than 0
 
   Any string comparisons are done in a case-insensitive manner. If multiple constraints are provided then simulations
   are returned that match all given constraints.
@@ -473,7 +474,7 @@ Options:
   -m, --meta-data TEXT  Additional meta-data field to print.
   -l, --limit INTEGER   Limit number of returned entries (use 0 for no limit).
                         [default: 100]
-  --uuid                Include UUID column in the output.                        
+  --uuid                Include UUID in the output.
   --help                Show this message and exit.
 ```
     
@@ -551,16 +552,6 @@ Usage: simdb remote [NAME] trace [OPTIONS] SIM_ID
 Options:
   --help  Show this message and exit.
 ```
-<!--     
-
-```text
-Usage: simdb remote [NAME] update [OPTIONS] SIM_ID {validate|accept|deprecate}
-
-  Mark remote simulation as published.
-
-Options:
-  --help  Show this message and exit.
-``` -->
     
 
 ```text
@@ -689,7 +680,7 @@ Options:
   -m, --meta-data TEXT  Additional meta-data field to print.
   -l, --limit INTEGER   Limit number of returned entries (use 0 for no limit).
                         [default: 100]
-  --uuid                Include UUID column in the output.                        
+  --uuid                Include UUID in the output.
   --help                Show this message and exit.
 ```
     
@@ -771,6 +762,7 @@ Usage: simdb simulation query [OPTIONS] [CONSTRAINTS]...
 
 Options:
   -m, --meta-data TEXT  Additional meta-data field to print.
+  --uuid                Include UUID in the output.
   --help                Show this message and exit.
 ```
     

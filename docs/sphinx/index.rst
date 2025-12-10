@@ -11,14 +11,20 @@ Contents
 
 .. toctree::
    :maxdepth: 2
+   :caption: User Documentation
 
+   install_guide
+   tutorial
    user_guide
    cli
-   design
-   developer_guide
-   install_guide
    iter_remotes
-   iter_certificate
+   .. iter_certificate
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Developer Documentation
+
+   developer_guide
    maintenance_guide
-   tutorial
    simdb
+   design

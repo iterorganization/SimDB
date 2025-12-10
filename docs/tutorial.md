@@ -56,43 +56,99 @@ Commands:
 
 ## Creating a simulation manifest
 
-The first step in ingesting a simulation is to create the manifest file. This file is a small YAML file that specifies
-some key elements about the simulation as well as allowing additional meta-data to be attached.
+The first step in ingesting a simulation is to create the manifest file. This is a YAML document that describes your simulation and its associated data.
 
-Create a file called `manifest.yaml` which contains the following.
+### Quick Start
 
-```yaml
-manifest_version: 2
-alias: simulation-alias
-inputs:
-- uri: file:///my/input/file
-- uri: imas:hdf5?path=/path/to/imas/data
-outputs:
-- uri: imas:hdf5?path=/path/to/more/data
-metadata:
-- machine: name of machine i.e. ITER.
-- code:
-    name: code name i.e. ASTRA, JETTO, DINA, CORSICA, MITES, SOLPS, JINTRAC etc.
-- description: |-
-    Sample plasma physics simulation for ITER tokamak modeling
-- reference_name: ITER simulation
-- ids_properties:
-    creation_date: 'YYYY-MM-DD HH:mm:ss'
+You can create a new manifest file template using the command:
+
+```bash
+simdb manifest create manifest.yaml
 ```
 
-The `version` field is mandatory and specifies which manifest version you are using. This should be set 1 for the latest
-version.
+This generates a basic template that you can customize for your simulation.
 
-The `alias` field is optional and provides a way of providing an alias which can be used to find the simulation later.
-This alias can also be provided on the command line when the manifest file is read, see later.
+### Manifest Structure Guidelines
 
-The `metadata` field is a list of `values` or `path` elements. The `values` elements are dictionaries of metadata to be
-stored with the simulation. The `path` elements are paths to YAML files containing metadata in case the metadata is
-better written in a separate file.
+**Manifest Version**
 
-The `inputs` and `outputs` are lists of `uri`s which specify the location of the input and output data for the
-simulation. These data will be checksummed when the simulation is ingested and copied to the remote server if you decide
-to push the simulation, see later.
+Always use the latest manifest version to ensure compatibility:
+```yaml
+manifest_version: 2
+```
+
+**Simulation Alias**
+
+Provide a unique, descriptive identifier for your simulation:
+```yaml
+alias: iter-baseline-scenario-2024
+```
+
+Best Practices:
+- Use descriptive names that indicate the simulation purpose
+- Consider using a naming convention like `machine-scenario-date`
+- Common patterns include: `pulse_number/run_number` (e.g., `100001/1`)
+- Ensure uniqueness within your SimDB instance
+
+**Input and Output Files**
+
+Specify all data files associated with your simulation:
+
+```yaml
+inputs:
+  - uri: file:///path/to/input/parameters.txt
+  - uri: imas:hdf5?path=/work/imas/input_data
+  
+outputs:
+  - uri: file:///path/to/results/output.nc
+  - uri: imas:mdsplus?path=/work/imas/simulation_output
+```
+
+Guidelines:
+- Use absolute paths for `file://` URIs
+- For IMAS data, specify the correct backend (`hdf5` or `mdsplus`)
+- Include all relevant input files (initial conditions, parameters, configuration)
+- List all output files (results, diagnostics, visualizations)
+
+**Metadata Section**
+
+The metadata section contains descriptive information about your simulation:
+
+```yaml
+metadata:
+  - machine: ITER
+  - code:
+      name: JETTO
+      version: "2024.1"
+  - description: |-
+      Baseline H-mode scenario simulation for ITER
+      15MA plasma current with Q=10 target
+  - reference_name: ITER_Baseline_2024
+  - ids_properties:
+      creation_date: '2024-12-05 10:30:00'  
+```
+
+Metadata Best Practices:
+- **machine**: Always specify the tokamak or device name
+- **code**: Include both name and version for reproducibility
+- **description**: Provide context about the simulation purpose and key features
+- **reference_name**: Use a human-readable reference identifier
+- **ids_properties**: Include creation date if not available in IDS data
+
+### Validating a Manifest File
+
+Before ingesting your manifest, it's important to validate it to ensure it's well-formed. SimDB provides a validation command:
+
+```bash
+simdb manifest check manifest.yaml
+```
+
+This command will check your manifest file for:
+- Correct YAML syntax
+- Required fields (manifest_version, outputs, metadata etc.)
+- Valid URI formats for inputs and outputs
+- Proper metadata structure
+- Alias naming rules compliance
 
 ## Ingesting the manifest
 
@@ -126,7 +182,7 @@ simdb remote --list
 First, you will need to add the remote server and set it as default:
 
 ```bash
-simdb remote --new test https://io-ls-simdb01.iter.org:6000
+simdb remote --new test https://simdb.iter.org/scenarios/api
 simdb remote --set-default test
 ```
 

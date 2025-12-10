@@ -5,7 +5,7 @@
 Checking out develop branch of SimDB:
 
 ```bash
-git clone ssh://git@git.iter.org/imex/simdb.git
+git clone https://github.com/iterorganization/SimDB.git
 cd simdb
 git checkout develop
 ```

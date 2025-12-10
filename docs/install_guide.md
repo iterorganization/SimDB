@@ -5,17 +5,17 @@
 ### Installing from source:
 
 ```
-git clone git@github.com:iterorganization/SimDB.git
+git clone https://github.com/iterorganization/SimDB.git
 cd SimDB
 python3 -m venv ./venv
 . venv/bin/activate
 pip3 install -e .
 ```
 
-### Installing directly from git:
+### Installing directly from PyPI:
 
 ```
-pip3 install git@github.com:iterorganization/SimDB.git
+pip install imas-simdb
 ```
 
 ### installing all dependencies (server, imas-validator, database):

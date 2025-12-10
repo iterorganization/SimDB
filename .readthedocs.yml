@@ -8,6 +8,7 @@ build:
     post_checkout:
       - git fetch --unshallow || true
       - cp docs/*.md docs/sphinx/ || true
+      - cp docs/*.svg docs/sphinx/ || true
     pre_build:
       - cd docs && sphinx-apidoc -f -o sphinx -e -M ../src/simdb
     

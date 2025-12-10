@@ -68,11 +68,8 @@ class DataObject:
     """
     Simulation data object, either a file, an IDS or an already registered object identifiable by the UUID.
 
-    UUID: simdb:///<UUID>
     PATH: file:///<PATH>
-    IMAS: AL4 imas:///?shot=<SHOT>&run=<RUN>&machine=<MACHINE>&user=<USER>&backend=<BACKEND>
-          AL5 imas:///<BACKEND>?path=<PATH>
-    UDA:  uda:///?signal=<SIGNAL>&source=<SOURCE>
+    IMAS: imas:<BACKEND>?path=<PATH>
     """
 
     class Type(Enum):

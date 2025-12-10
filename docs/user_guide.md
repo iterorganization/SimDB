@@ -30,9 +30,23 @@ simdb simulation --help
 
 Will print the help available for the `simulation` command.
 
+## Key Concepts
+
+Before diving into SimDB functionality, it's important to understand these key terms:
+
+**Local vs Remote Simulations:**
+- **Local simulation**: Simulation metadata and data stored in your personal SimDB database on your machine. Only you can access it.
+- **Remote simulation**: Simulation metadata and data stored on a SimDB server, accessible to authorized users across the organization.
+
+**Local vs Remote IMAS Data:**
+- **Local IMAS data**: IMAS datasets accessible directly from the file system where you're running the SimDB CLI.
+- **Remote IMAS data**: IMAS datasets hosted on a remote data server and accessed via network protocols.
+
+**Workflow**: Typically, you create and manage simulations locally, then push them to a remote SimDB server for sharing. The data referenced by your simulation can be either local (on your machine) or remote (on a data server).
+
 ## Local simulation management
 
-In order to ingest a local simulation you need a manifest file. This is a `yaml` file which contains details about the simulation and what data is associated with it.
+In order to ingest a local simulation you need a manifest file. This is a `yaml` file which contains details about the simulation and what data is associated with it. See the [Tutorial - Creating a simulation manifest](tutorial.md#creating-a-simulation-manifest) for detailed guidelines on how to create a well-formed manifest.
 
 An example manifest file is:
 
@@ -61,59 +75,10 @@ metadata:
 | alias | An optional unique identifier for the simulation. If not provided here, you can specify it via the CLI during ingestion. Must follow alias naming rules (see below). |
 | inputs/outputs | Lists of simulation input and output files. Supported URI schemes:<br/>• file - Standard file system paths<br/>• imas - IMAS entry URIs (see IMAS URI schema below) |
 | metadata |  Contains simulation metadata and properties. The metadata section associates information with the summary IDS data:<br/>• summary - A hierarchical dictionary structure containing key-value pairs that provide summary information extracted from IDS datasets. This includes condensed representations of simulation results, computed quantities, free descriptions, any references, and creation dates if not available in summary IDS.</li>
-<!-- <li>files - a file path which can be used to load an additional yaml file containing metadata.</li></ul>  -->
-
-## Alias Naming Rules
-<ul><li>Must be unique within the SimDB</ul></li>
-<ul><li>Cannot start with a digit (0-9) or forward slash (/)</ul></li>
-<ul><li>Cannot end with a forward slash (/)</ul></li>
-<ul><li>Should be descriptive and meaningful for easy identification</ul></li>
-
-<br/>Examples of valid aliases:
-<ul><li>iter-baseline-scenario</ul></li>
-<ul><li>100001/1 (pulse_number/run_number)</ul></li>
-
-## Creating a Manifest File
-You can create a new manifest file template using the command:
-
-```bash
-simdb manifest create <FILE_NAME>
-```
-
-Once you have a manifest file ready, you can ingest the simulation into SimDB using the following command:
-
-```bash
-simdb simulation ingest <MANIFEST_FILE>
-```
-
-If you have not provided an alias in the manifest file (or want to override the alias provided there) you can provide an alias for the simulation on ingest:
-
-```bash
-simdb simulation ingest --alias <ALIAS> <MANIFEST_FILE>
-```
-
-You can list all the simulations you have stored locally using:
-
-```bash
-simdb simulation list
-```
-
-and you can see all the stored metadata for a simulation using:
-
-```bash
-simdb simulation info <SIM_ID>
-```
-
-**Note:** Whenever a command takes a `<SIM_ID>` this can either be the full UUID of the simulation, the short UUID (the first 8 characters of the UUID), or the simulation alias.
 
 ### IMAS URI schema
 
-> **Note**
-> 
-> All use of IMAS URIs require IMAS AL5 to be installed and available from SimDB. If using IMAS AL4 you'll need to use
-> legacy URI syntax see below.
-
-IMAS URIs specified in the manifest can either be in the form of remote data URIs or local data URIS.
+IMAS URIs specified in the manifest can either be in the form of remote data URIs or local data URIs.
 
 The IMAS local data URI is used to locate an IMAS data entry accessible from the machine where the client
 is being run. The URI schema looks like:
@@ -136,8 +101,8 @@ imas:mdsplus?path=/work/imas/shared/imasdb/iter/3/135011/2
 imas:hdf5?path=/work/imas/shared/imasdb/ITER_SCENARIOS/3/131002/60
 ```
 
-When a local IMAS URI is pushed to the server the URI will be transformed into a remote data URI
-so that it can be accessed from machines remote from the server.
+When a local IMAS URI is pushed to the server, it is automatically transformed into a remote data URI
+to enable access from machines that are remote from the server.
 
 The IMAS remote data URI is used to locate a remote IMAS data entry. The IMAS URI schema for remote data looks like:
 ```
@@ -153,33 +118,15 @@ Where:
 | Path     | The path to the data files on the remote server           |
 | Backend  | The backend to use to open the files on the remote server |
 
-An example URI is
+Example URIs:
 
-`imas://io-ls-uda01.iter.org:56565/uda?path=/work/imas/shared/imasdb/ITER/3/131024/51&backend=hdf5`
+With explicit port:
+`imas://uda.iter.org:56565/uda?path=/work/imas/shared/imasdb/ITER/3/131024/51&backend=hdf5`
 
-> **Legacy IMAS URIs**
-> 
-> If only IMAS AL4 is available on the machine where the SimDB client is running it is
-> still possible to ingest IMAS data created with the HDF5 backend (HDF5 is the only supported backend).
-> When this data is pushed to the server the URI will be converted into an AL5 remote data access URI.
-> 
-> The URI syntax for legacy data is:
-> ```
-> imas:?shot=<shot>&run=<run>&user=<user>&database=<database>&version=<version>&backend=<backend>
-> ```
-> 
-> | Argument | Description                                                                                                                                   |
-> |----------|-----------------------------------------------------------------------------------------------------------------------------------------------|
-> | Shot     | The IMAS shot number                                                                                                                          |
-> | Run      | The IMAS run number                                                                                                                           |
-> | User     | The user (or path to imasdb) that the database lives in (or 'public' for the `$IMAS_HOME` database, defaults to current user if not provided) |
-> | Database | The name of the database                                                                                                                      |
-> | Version  | The IMAS version number (defaults to 3 if not provided)                                                                                       |
-> | Backend  | The backend which is used to read the file                                                                                                    |
-> 
-> An example legacy URI is:
-> 
-> ```imas:?shot=30420&run=1&user=public&database=iter&version=3&backend=hdf5```
+Without port (uses default):
+`imas://uda.iter.org/uda?path=/work/imas/shared/imasdb/ITER/3/131024/51&backend=hdf5`
+
+**Note:** Ensure that the specified port is accessible through your network firewall. Contact your system administrator if you experience connectivity issues.
 
 ## Remote SimDB servers
 
@@ -210,7 +157,7 @@ simdb remote config new <NAME> <URL>
 i.e.
 
 ```bash
-simdb remote config new ITER https://simdb.iter.org
+simdb remote config new ITER https://simdb.iter.org/scenarios/api/
 ```
 
 In order to not have to specify the remote name when using any of the SimDB CLI remote subcommands you can set a remote to be default. The default remote will be used whenever the remote name is not explicitly passed to a remote subcommand. Setting a default remote can be done using:
@@ -221,7 +168,9 @@ simdb remote config set-default <NAME>
 
 ### Authentication
 
-In order to interact with SimDB remote servers you must be authenticated against that server. By default, this is done using username/password which will need to be entered upon each remote command run. In order to reduce the number of times you have to manually enter your authentication details you can generate an authentication token from the server which is stored against that remote. While that token is valid (token lifetimes are determined on a per-server basis) you can run remote commands against that server without having to provide authentication details.
+In order to interact with SimDB remote servers you must be authenticated against that server. By default, this is done using username/password which will need to be entered whenever your session times out or expires.
+
+If your server supports token-based authentication, you can generate an authentication token using username/password, which is then stored against that remote to reduce the number of times you have to manually enter your authentication details. While that token is valid (token lifetimes are determined on a per-server basis) you can run remote commands against that server without having to provide authentication details.
 
 In order to generate a remote authentication token you need to run:
 
@@ -275,7 +224,7 @@ simdb remote info <SIM_ID>
 
 ## Accessing Simulation Metadata via the SimDB Dashboard
 
-You can view a simulation’s metadata directly in the SimDB dashboard using its UUID.
+You can view a simulation's metadata directly in the SimDB dashboard using its UUID.
 
 Format:
 ```
@@ -286,6 +235,8 @@ Example (server: https://simdb.iter.org, UUID: `abcdef12345678901234567890abcdef
 ```
 https://simdb.iter.org/dashboard/uuid/abcdef12345678901234567890abcdef
 ```
+
+Alternatively, you can search for simulations in the SimDB dashboard by entering the UUID or alias in the **Alias/UUID** search field on the dashboard interface.
 
 Notes:
 - Use the full 32-character UUID (no dashes) if that is how it is stored.
