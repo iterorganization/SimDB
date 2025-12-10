@@ -7,7 +7,7 @@ This guide describes the steps needed to set up and maintain a SimDB server as a
 First clone the master branch of SimDB:
 
 ```bash
-git clone ssh://git@git.iter.org/imex/simdb.git
+git clone https://github.com/iterorganization/SimDB.git
 ```
 
 Next set up the virtual environment:

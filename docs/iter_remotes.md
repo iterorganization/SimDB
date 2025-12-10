@@ -43,10 +43,11 @@ or if you have set the iter remote to be your default:
 simdb remote list
 ```
 
-This will ask for your username and password. To avoid having to enter your username and password
+This will ask for your username and password for authentication against the server. 
+<!-- To avoid having to enter your username and password
 for each request you can create a SimDB token with:
 
 ```shell
 simdb remote iter token new
-```
+``` -->
 
