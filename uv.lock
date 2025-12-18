@@ -1177,6 +1177,8 @@ server = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "pytest" },
+    { name = "pytest-cov" },
     { name = "ruff" },
 ]
 
@@ -1238,7 +1240,11 @@ requires-dist = [
 provides-extras = ["build-test", "server", "auth-ad", "auth-keycloak", "auth-ldap", "imas-validator", "build-docs", "postgres", "all"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "ruff", specifier = ">=0.14.9" }]
+dev = [
+    { name = "pytest", specifier = ">=9.0.2" },
+    { name = "pytest-cov", specifier = ">=7.0.0" },
+    { name = "ruff", specifier = ">=0.14.9" },
+]
 
 [[package]]
 name = "imas-validator"
