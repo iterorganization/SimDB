@@ -1,0 +1,8 @@
+# CODEOWNERS: Controls automatic assignment of reviewers for pull requests.
+# -----------------------------------------------------------------------------
+# When a pull request modifies files matching a pattern, the listed code owners will be requested as reviewers.
+# Each line is a file pattern followed by one or more code owners (users or teams) who must review changes to that file.
+# Do not edit unless specifically mandated to do so.
+
+# Global/fallback and technical modifications.
+*   @SimonPinches @olivhoenen @deepakmaroo
