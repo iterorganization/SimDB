@@ -1,23 +1,8 @@
 # SimDB simulation management tool
 
 [![PyPI](https://img.shields.io/pypi/v/imas-simdb.svg)](https://pypi.org/project/imas-simdb/)
-[![Documentation Status](https://readthedocs.org/projects/simdb/badge/?version=stable)](https://simdb.readthedocs.io/en/stable/)
+[![Documentation Status](https://readthedocs.org/projects/simdb/badge/?version=latest)](https://simdb.readthedocs.io/en/latest/)
 [![CI](https://github.com/iterorganization/SimDB/actions/workflows/build_and_test.yml/badge.svg)](https://github.com/iterorganization/SimDB/actions)
-
----
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Features](#features)
-- [Quickstart](#quickstart)
-- [Command Line Interface](#command-line-interface)
-- [Usage Examples](#usage-examples)
-- [Accessing ITER Remotes](#accessing-iter-remotes)
-- [Server Setup](#server-setup)
-- [Developer Guide](#developer-guide)
-- [License](#license)
-- [Contact](#contact)
 
 ---
 
@@ -70,7 +55,7 @@ _where:_
 - `MANIFEST_FILE` — YAML document that describes your simulation and its associated data
 - `OPTION` - Additional optional parameters for the given command (see `--help` output)
 
-[See full installation guide in the documentation &rarr;](https://simdb.readthedocs.io/en/stable/install_guide.html)
+[See full installation guide in the documentation &rarr;](https://simdb.readthedocs.io/en/latest/install_guide.html)
 
 ---
 
@@ -83,7 +68,7 @@ To view help and subcommands:
 simdb --help
 ```
 
-[Full CLI usage reference &rarr;](https://simdb.readthedocs.io/en/stable/cli.html)
+[Full CLI usage reference &rarr;](https://simdb.readthedocs.io/en/latest/cli.html)
 
 ---
 
@@ -108,20 +93,20 @@ simdb --help
 
 ## Accessing ITER Remotes
 
-To access data from the ITER remotes outside ITER systems, you'll need to [configure a SimDB remote](https://simdb.readthedocs.io/en/stable/iter_remotes.html).
+To access data from the ITER remotes outside ITER systems, you'll need to [configure a SimDB remote](https://simdb.readthedocs.io/en/latest/iter_remotes.html).
 
 ---
 
 ## Server Setup
 
-Setting up and maintaining a remote CLI server is documented [here](https://simdb.readthedocs.io/en/stable/maintenance_guide.html).
+Setting up and maintaining a remote CLI server is documented [here](https://simdb.readthedocs.io/en/latest/maintenance_guide.html).
 
 ---
 
 ## Developer Guide
 
 Want to contribute or run SimDB from source?  
-[See the developer guide &rarr;](https://simdb.readthedocs.io/en/stable/developer_guide.html)
+[See the developer guide &rarr;](https://simdb.readthedocs.io/en/latest/developer_guide.html)
 
 ---
 
@@ -135,6 +120,6 @@ Details can be found in [LICENSE-LGPL](LICENSE.txt).
 ## Contact
 
 - Issues & Feature Requests: [GitHub Issues](https://github.com/deepakmaroo/SimDB/issues)
-- Documentation: [simdb.readthedocs.io](https://simdb.readthedocs.io/en/stable/)
+- Documentation: [simdb.readthedocs.io](https://simdb.readthedocs.io/en/latest/)
 
 ---
