@@ -218,7 +218,7 @@ def imas_timestamp(uri: URI) -> datetime:
     @return: the timestamp as a datetime object
     """
     entry = open_imas(uri)
-    ids_obj = entry.get("summary")
+    ids_obj = entry.get("summary", autoconvert=False, lazy=True)
     creation = ids_obj.ids_properties.creation_date
     if creation:
         try:
