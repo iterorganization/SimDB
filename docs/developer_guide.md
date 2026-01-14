@@ -17,16 +17,16 @@ python3 -m venv venv
 source venv/bin/activate
 ```
 
-Installing server dependencies:
-
-```bash
-pip3 install -r requirements.txt
-```
-
 Installing editable version of SimDB:
 
 ```bash
-pip3 install -e .
+pip install -e .
+```
+
+Installing server dependencies:
+
+```bash
+pip install -e .[all]
 ```
 
 ## Running the tests
