@@ -21,7 +21,7 @@ source venv/bin/activate
 And install SimDB:
 
 ```bash
-pip3 install -e .[all]
+pip install -e .[all]
 ```
 
 **Note:** If you plan to run the server with a PostgreSQL database you will also need to install the `psycopg2-binary` library.

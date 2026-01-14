@@ -20,13 +20,13 @@ source venv/bin/activate
 Installing editable version of SimDB:
 
 ```bash
-pip3 install -e .
+pip install -e .
 ```
 
 Installing server dependencies:
 
 ```bash
-pip3 install -e .[all]
+pip install -e .[all]
 ```
 
 ## Running the tests
