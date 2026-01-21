@@ -1,11 +1,12 @@
 from typing import Optional
+
 from flask import Request
 
 from ....config import Config
 from ..typing import current_app
 from ._authenticator import Authenticator
-from ._user import User
 from ._exceptions import AuthenticationError
+from ._user import User
 
 
 class TokenAuthenticator(Authenticator):
@@ -14,8 +15,9 @@ class TokenAuthenticator(Authenticator):
     Name = "Token"
 
     def authenticate(self, config: Config, request: Request) -> Optional[User]:
-        import jwt
         import datetime
+
+        import jwt
 
         try:
             token = request.headers.get(TokenAuthenticator.TOKEN_HEADER_NAME, "")

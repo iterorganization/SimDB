@@ -1,7 +1,8 @@
-from werkzeug.utils import secure_filename
-from pathlib import Path
 import os
+from pathlib import Path
 from typing import Collection, Optional
+
+from werkzeug.utils import secure_filename
 
 
 def secure_path(

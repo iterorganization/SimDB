@@ -1,10 +1,11 @@
 import abc
-from typing import Optional, Dict, Type
+from typing import Dict, Optional, Type
+
 from flask import Request
 
 from ....config import Config
-from ._user import User
 from ._exceptions import AuthenticationError
+from ._user import User
 
 
 class Authenticator(abc.ABC):

@@ -1,7 +1,8 @@
 import base64
 import os
-import pytest
 import tempfile
+
+import pytest
 
 try:
     import flask
@@ -10,8 +11,8 @@ try:
 except ImportError:
     has_flask = False
 
-from simdb.database.models import Simulation
 from simdb.cli.manifest import Manifest
+from simdb.database.models import Simulation
 
 TEST_PASSWORD = "test123"
 CREDENTIALS = base64.b64encode(f"admin:{TEST_PASSWORD}".encode()).decode()
@@ -24,8 +25,8 @@ for _ in range(100):
 
 @pytest.fixture(scope="session")
 def client():
-    from simdb.remote.app import create_app
     from simdb.config import Config
+    from simdb.remote.app import create_app
 
     config = Config()
     config.load()

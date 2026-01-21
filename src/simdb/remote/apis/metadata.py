@@ -1,10 +1,10 @@
 from flask import jsonify
-from flask_restx import Resource, Namespace
+from flask_restx import Namespace, Resource
 
-from ..core.typing import current_app
-from ...remote.core.errors import error
 from ...database import DatabaseError
 from ...remote.core.cache import cache, cache_key
+from ...remote.core.errors import error
+from ..core.typing import current_app
 
 api = Namespace("metadata", path="/")
 

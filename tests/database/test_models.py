@@ -1,9 +1,9 @@
-import datetime
-from unittest import mock
-from simdb.database.models import Simulation
-from simdb.cli.manifest import DataObject
-from simdb.uri import URI
 from pathlib import Path
+from unittest import mock
+
+from simdb.cli.manifest import DataObject
+from simdb.database.models import Simulation
+from simdb.uri import URI
 
 
 def test_create_simulation_without_manifest_creates_empty_sim():

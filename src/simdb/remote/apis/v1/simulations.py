@@ -12,12 +12,12 @@ from ....database.models import metadata as models_meta
 from ....database.models import simulation as models_sim
 from ....uri import URI
 from ... import APIConstants
-from ...core.typing import current_app
 from ...core.alias import create_alias_dir
 from ...core.auth import User, requires_auth
 from ...core.cache import cache, cache_key, clear_cache
 from ...core.errors import error
 from ...core.path import secure_path
+from ...core.typing import current_app
 
 api = Namespace("simulations", path="/")
 

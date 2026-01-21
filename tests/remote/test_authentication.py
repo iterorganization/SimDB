@@ -1,5 +1,7 @@
-import pytest
 from unittest import mock
+
+import pytest
+
 from simdb.config import Config
 
 try:
@@ -19,8 +21,9 @@ except ImportError:
 @mock.patch("simdb.config.Config.get_option")
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_check_role(get_option):
-    from simdb.remote.core.auth import check_role, User
     from flask import Flask
+
+    from simdb.remote.core.auth import User, check_role
 
     app = Flask("test")
     config = Config()

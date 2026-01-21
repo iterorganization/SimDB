@@ -1,11 +1,12 @@
 import os
-from typing import List, Any
 from datetime import datetime
 from pathlib import Path
+from typing import Any, List
+
 from dateutil import parser
 
-from ..uri import URI
 from ..config import Config
+from ..uri import URI
 
 
 class ImasError(Exception):
@@ -75,7 +76,6 @@ def list_idss(entry: DBEntry) -> List[str]:
     @param entry: the IMAS data entry
     @return: the list of found IDSs
     """
-    import imas
 
     idss = []
 

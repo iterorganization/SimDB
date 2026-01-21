@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """SimDB.
 
 SimDB is the IMAS simulation database management tool designed to track, manage and validate simulations and allow for

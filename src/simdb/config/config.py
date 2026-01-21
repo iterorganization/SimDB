@@ -1,10 +1,10 @@
 import configparser
+import os
 import platform
+from pathlib import Path
+from typing import Dict, List, Optional, TextIO, Tuple, Union, cast
 
 import appdirs
-import os
-from pathlib import Path
-from typing import Tuple, List, Optional, TextIO, Union, Dict, cast
 
 
 class ConfigError(Exception):
@@ -255,7 +255,7 @@ User configuration file {self._user_config_path} has incorrect permissions (must
         try:
             items = self._parser.items(name)
             return {k: _convert(v) for (k, v) in items}
-        except (configparser.NoSectionError,):
+        except configparser.NoSectionError:
             if default is not None:
                 return default
             raise KeyError(f"Section {name} not found in configuration")

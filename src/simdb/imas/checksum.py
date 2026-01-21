@@ -1,12 +1,9 @@
 import hashlib
-from pathlib import Path
-import struct
 import multiprocessing as mp
-from typing import cast
+from pathlib import Path
 
-from .utils import open_imas, list_idss, imas_files
 from ..uri import URI
-
+from .utils import imas_files, list_idss, open_imas
 
 IGNORED_FIELDS = ("data_dictionary", "access_layer", "access_layer_language")
 

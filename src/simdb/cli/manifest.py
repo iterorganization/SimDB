@@ -1,11 +1,12 @@
 # import datetime
-import re
+import glob
 import os
+import re
 import urllib
 from enum import Enum, auto
-from typing import Iterable, Union, Dict, List, Tuple, Optional, TextIO, Type
-import glob
 from pathlib import Path
+from typing import Dict, Iterable, List, Optional, TextIO, Tuple, Type, Union
+
 import numpy as np
 import yaml
 
@@ -607,7 +608,7 @@ class Manifest:
             raise InvalidManifest(f"Unknown manifest version {version}.")
 
         for section in self._data.keys():
-            if section not in section_validators.keys():
+            if section not in section_validators:
                 raise InvalidManifest(f"Unknown manifest section found {section}.")
 
         required_sections = ("manifest_version", "outputs", "inputs")

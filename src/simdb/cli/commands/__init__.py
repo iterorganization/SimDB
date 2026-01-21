@@ -1,5 +1,6 @@
-import click
 from typing import Iterable
+
+import click
 
 from ...config import Config
 

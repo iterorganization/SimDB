@@ -1,7 +1,9 @@
 from unittest import mock
+
 from click.testing import CliRunner
-from simdb.cli.simdb import cli
 from utils import config_test_file
+
+from simdb.cli.simdb import cli
 
 LOCAL_ALIASES = ["hello", "world", "foo-123"]
 REMOTE_ALIASES = ["foo#1", "bar", "barfoo", "123foo", "barbaz"]

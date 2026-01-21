@@ -1,20 +1,20 @@
-from enum import Enum
-import uuid
-import sys
 import itertools
-from collections.abc import Iterable
+import sys
+import uuid
 from collections import defaultdict
+from collections.abc import Iterable
 from datetime import datetime
-from typing import List, Union, Dict, Any, TYPE_CHECKING, Optional, Set
+from enum import Enum
 from getpass import getuser
 from pathlib import Path
-from dateutil import parser as date_parser
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
 
 if sys.version_info < (3, 11):
     from backports.datetime_fromisoformat import MonkeyPatch
 
+from sqlalchemy import Column, ForeignKey, Table
+from sqlalchemy import types as sql_types
 from sqlalchemy.orm import relationship
-from sqlalchemy import Table, ForeignKey, Column, types as sql_types
 
 if "sphinx" in sys.modules:
     # Patch to allow sphix doc generation
@@ -22,14 +22,13 @@ if "sphinx" in sys.modules:
 
     ClauseElement.__bool__ = lambda self: True
 
-from .utils import flatten_dict, unflatten_dict, checked_get
-from .types import UUID
+from ...cli.manifest import DataObject, Manifest
+from ...config.config import Config
+from ...docstrings import inherit_docstrings
 from .base import Base
 from .file import File
-from ...cli.manifest import Manifest, DataObject
-from ...docstrings import inherit_docstrings
-from ...config.config import Config
-
+from .types import UUID
+from .utils import checked_get, flatten_dict, unflatten_dict
 
 if sys.version_info < (3, 11):
     MonkeyPatch.patch_fromisoformat()
@@ -132,13 +131,13 @@ class Simulation(Base):
 
         for input in manifest.inputs:
             if input.type == DataObject.Type.IMAS:
+                from ...imas.metadata import load_metadata
                 from ...imas.utils import (
-                    open_imas,
-                    list_idss,
                     check_time,
                     extract_ids_occurrence,
+                    list_idss,
+                    open_imas,
                 )
-                from ...imas.metadata import load_metadata
 
                 entry = open_imas(input.uri)
                 idss = list_idss(entry)
@@ -163,13 +162,13 @@ class Simulation(Base):
 
         for output in manifest.outputs:
             if output.type == DataObject.Type.IMAS:
+                from ...imas.metadata import load_metadata
                 from ...imas.utils import (
-                    open_imas,
-                    list_idss,
                     check_time,
                     extract_ids_occurrence,
+                    list_idss,
+                    open_imas,
                 )
-                from ...imas.metadata import load_metadata
 
                 entry = open_imas(output.uri)
                 idss = list_idss(entry)

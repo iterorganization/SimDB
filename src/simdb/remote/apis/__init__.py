@@ -1,18 +1,22 @@
-from flask import request, jsonify, Blueprint, _app_ctx_stack, Response
-from flask_restx import Resource
-from pathlib import Path
 import datetime
-import jwt
 import os
+from pathlib import Path
+
+import jwt
+from flask import Blueprint, Response, _app_ctx_stack, jsonify, request
+from flask_restx import Resource
 
 from ... import __version__
-from ..core.typing import current_app
-from ..core.auth import User, requires_auth, AuthenticationError
 from ...database import Database
 from ...validation.file import find_file_validator
-from .v1 import api as api_v1, namespaces as namespaces_v1
-from .v1_1 import api as api_v1_1, namespaces as namespaces_v1_1
-from .v1_2 import api as api_v1_2, namespaces as namespaces_v1_2
+from ..core.auth import AuthenticationError, User, requires_auth
+from ..core.typing import current_app
+from .v1 import api as api_v1
+from .v1 import namespaces as namespaces_v1
+from .v1_1 import api as api_v1_1
+from .v1_1 import namespaces as namespaces_v1_1
+from .v1_2 import api as api_v1_2
+from .v1_2 import namespaces as namespaces_v1_2
 
 
 def error(message: str) -> Response:

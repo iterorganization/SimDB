@@ -1,26 +1,27 @@
 import re
+import shutil
 import sys
 import uuid
-import shutil
+from collections.abc import Iterable
+from pprint import pprint
+from typing import TYPE_CHECKING, List, Optional, Tuple, Type, Union
 
 import click
-from collections.abc import Iterable
-from typing import List, TYPE_CHECKING, Optional, Tuple, Union, Type
 from semantic_version import Version
-from pprint import pprint
 
-from ..remote_api import RemoteAPI
-from . import pass_config, check_meta_args
-from .utils import print_simulations, print_trace
-from ...notifications import Notification
-from .validators import validate_non_negative, validate_positive
 from ...database.models.simulation import Simulation
+from ...notifications import Notification
+from ..remote_api import RemoteAPI
+from . import check_meta_args, pass_config
+from .utils import print_simulations, print_trace
+from .validators import validate_non_negative, validate_positive
 
 pass_api = click.make_pass_decorator(RemoteAPI)
 
 if TYPE_CHECKING or "sphinx" in sys.modules:
-    from ...config import Config
     from click import Context
+
+    from ...config import Config
 
 
 class RemoteGroup(click.Group):

@@ -1,10 +1,11 @@
 from typing import Optional
+
 from flask import Request
 
 from ....config import Config
 from ._authenticator import Authenticator
-from ._user import User
 from ._exceptions import AuthenticationError
+from ._user import User
 
 
 class KeyCloakAuthenticator(Authenticator):
@@ -12,7 +13,7 @@ class KeyCloakAuthenticator(Authenticator):
     Name = "KeyCloak"
 
     def authenticate(self, config: Config, request: Request) -> Optional[User]:
-        from keycloak import KeycloakOpenID, KeycloakError
+        from keycloak import KeycloakError, KeycloakOpenID
 
         sever_url = config.get_option("authentication.sever_url")
         realm_name = config.get_option("authentication.realm_name")

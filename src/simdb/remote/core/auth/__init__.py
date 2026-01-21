@@ -1,19 +1,19 @@
-from flask import Response, request, Request
-from typing import Optional
 from functools import wraps
+from typing import Optional
 
-from ._user import User
-from ._exceptions import AuthenticationError
+from flask import Request, Response, request
+
+from ....config import Config
+from ..typing import current_app
 from ._authenticator import Authenticator
-
+from ._exceptions import AuthenticationError
+from ._user import User
 from .active_directory import ActiveDirectoryAuthenticator
 from .firewall import FirewallAuthenticator
 from .keycloak import KeyCloakAuthenticator
 from .ldap import LdapAuthenticator
 from .no_authentication import NoopAuthenticator
 from .token import TokenAuthenticator
-from ..typing import current_app
-from ....config import Config
 
 __all__ = [
     User,

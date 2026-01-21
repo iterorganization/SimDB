@@ -1,5 +1,5 @@
 from collections import deque
-from typing import Dict, Any, Union, List, Tuple, Deque, Type
+from typing import Any, Deque, Dict, List, Tuple, Type, Union
 
 FLATTEN_DICT_DELIM = "."
 

@@ -1,7 +1,8 @@
 import enum
 import uuid
 from enum import Enum
-from typing import Optional, Dict
+from typing import Dict, Optional
+
 from sqlalchemy import types as sql_types
 
 from ... import uri as urilib

@@ -1,17 +1,18 @@
 import logging
 import os
-from flask import Flask, jsonify, request
-from flask_cors import CORS
-from flask_compress import Compress
-from typing import Optional, cast, Type
-from flask.json import JSONEncoder, JSONDecoder
+from typing import Optional, Type, cast
 
+from flask import Flask, jsonify, request
+from flask.json import JSONDecoder, JSONEncoder
+from flask_compress import Compress
+from flask_cors import CORS
+
+from ..config import Config
+from ..json import CustomDecoder, CustomEncoder
 from .apis import blueprints
+from .core.auth._authenticator import Authenticator
 from .core.cache import cache
 from .core.typing import SimDBApp
-from ..config import Config
-from ..json import CustomEncoder, CustomDecoder
-from .core.auth._authenticator import Authenticator
 
 compress = Compress()
 

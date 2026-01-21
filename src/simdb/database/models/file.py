@@ -1,18 +1,19 @@
 import uuid
 from datetime import datetime
-from typing import Dict, Optional
 from pathlib import Path
+from typing import Dict, Optional
 
 from dateutil import parser as date_parser
-from sqlalchemy import Column, types as sql_types
+from sqlalchemy import Column
+from sqlalchemy import types as sql_types
 
-from ...cli.manifest import DataObject
-from .base import Base
-from .types import UUID, URI
-from ...docstrings import inherit_docstrings
-from ...config.config import Config
-from .utils import checked_get
 from ... import uri as urilib
+from ...cli.manifest import DataObject
+from ...config.config import Config
+from ...docstrings import inherit_docstrings
+from .base import Base
+from .types import URI, UUID
+from .utils import checked_get
 
 
 @inherit_docstrings

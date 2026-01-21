@@ -1,10 +1,11 @@
 from typing import Optional
+
 from flask import Request
 
 from ....config import Config
 from ._authenticator import Authenticator
-from ._user import User
 from ._exceptions import AuthenticationError
+from ._user import User
 
 
 class FirewallAuthenticator(Authenticator):

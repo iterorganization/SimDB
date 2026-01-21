@@ -1,9 +1,8 @@
-import click
 import os
 import platform
+from typing import Dict, List, NewType, Union
 
-from typing import Dict, Union, List, NewType
-
+import click
 
 PlatformDetails = NewType("PlatformDetails", Dict[str, str])
 EnvironmentDetails = NewType("EnvironmentDetails", Dict[str, Union[str, List[str]]])

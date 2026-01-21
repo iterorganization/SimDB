@@ -1,6 +1,8 @@
 import smtplib
 from typing import List
+
 from email_validator import validate_email
+
 from ..config import Config
 
 

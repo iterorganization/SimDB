@@ -5,8 +5,9 @@ def checksum(uri: URI) -> str:
     if uri.scheme != "uda":
         raise ValueError("invalid scheme for UDA checksum: %s" % uri.scheme)
 
-    import pyuda
     import hashlib
+
+    import pyuda
 
     if uri.query is None:
         raise ValueError(

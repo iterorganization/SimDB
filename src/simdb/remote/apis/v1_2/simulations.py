@@ -12,13 +12,12 @@ from ....database.models import metadata as models_meta
 from ....database.models import simulation as models_sim
 from ....database.models import watcher as models_watcher
 from ....uri import URI
-from ....cli.manifest import DataObject
-from ...core.typing import current_app
 from ...core.alias import create_alias_dir
 from ...core.auth import User, requires_auth
 from ...core.cache import cache, cache_key, clear_cache
 from ...core.errors import error
-from ...core.path import secure_path, find_common_root
+from ...core.path import find_common_root, secure_path
+from ...core.typing import current_app
 
 api = Namespace("simulations", path="/")
 
@@ -77,8 +76,8 @@ def _validate(simulation, user) -> Dict:
         "file_validation", default={}
     )
     if file_validator_type not in [None, "none", ""]:
+
         from ....validation.file import find_file_validator
-        from imas_validator.validate_options import ValidateOptions
 
         validator_type, validator_options = find_file_validator(
             file_validator_type, file_validator_options
@@ -164,8 +163,9 @@ def _get_json_aware(force: bool = False, silent: bool = False):
     - force/silent mimic request.get_json behavior.
     - Uses Flask's JSON provider to ensure identical types/decoding.
     """
-    from flask import current_app
     import gzip
+
+    from flask import current_app
 
     # Match request.get_json content-type check unless forced
     if not force:

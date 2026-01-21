@@ -1,10 +1,10 @@
-from datetime import datetime
-import uuid
+import contextlib
 import os
 import sys
-import contextlib
-from typing import Optional, List, Tuple, TYPE_CHECKING, cast, Any, Iterable
+import uuid
+from datetime import datetime
 from enum import Enum, auto
+from typing import TYPE_CHECKING, Any, Iterable, List, Optional, Tuple, cast
 
 from ..config import Config
 
@@ -17,13 +17,14 @@ TYPING = TYPE_CHECKING or "sphinx" in sys.modules
 
 if TYPING:
     # Only importing these for type checking and documentation generation in order to speed up runtime startup.
-    from sqlalchemy.orm import scoped_session
     import sqlalchemy
-    from .models import Base
-    from .models.simulation import Simulation
-    from .models.file import File
-    from .models.watcher import Watcher
+    from sqlalchemy.orm import scoped_session
+
     from ..query import QueryType
+    from .models import Base
+    from .models.file import File
+    from .models.simulation import Simulation
+    from .models.watcher import Watcher
 
     class Session(scoped_session):
         def query(self, obj: Base, *args, **kwargs) -> Any:
@@ -69,7 +70,8 @@ class Database:
 
     def __init__(self, db_type: DBMS, scopefunc=None, **kwargs) -> None:
         from sqlalchemy import create_engine
-        from sqlalchemy.orm import sessionmaker, scoped_session
+        from sqlalchemy.orm import scoped_session, sessionmaker
+
         from .models import Base
 
         """
@@ -90,7 +92,7 @@ class Database:
             if "file" not in kwargs:
                 raise ValueError("Missing file parameter for SQLITE database")
             # new_db = (not os.path.exists(kwargs["file"]))
-            self.engine: "sqlalchemy.engine.Engine" = create_engine(
+            self.engine: sqlalchemy.engine.Engine = create_engine(
                 "sqlite:///%(file)s" % kwargs
             )
             with contextlib.closing(self.engine.connect()) as con:
@@ -111,7 +113,7 @@ class Database:
             #     "postgresql://%(user)s:%(password)s@%(host)s:%(port)d/%(db_name)s"
             #     % kwargs
             # )
-            self.engine: "sqlalchemy.engine.Engine" = create_engine(
+            self.engine: sqlalchemy.engine.Engine = create_engine(
                 "postgresql+psycopg2://%(user)s:%(password)s@%(host)s:%(port)s/%(db_name)s"
                 % kwargs,
                 pool_size=25,
@@ -132,7 +134,7 @@ class Database:
                 raise ValueError("Missing password parameter for MSSQL database")
             if "dsnname" not in kwargs:
                 raise ValueError("Missing dsnname parameter for MSSQL database")
-            self.engine: "sqlalchemy.engine.Engine" = create_engine(
+            self.engine: sqlalchemy.engine.Engine = create_engine(
                 "mssql+pyodbc://%(user)s:%(password)s@%(dsnname)s" % kwargs
             )
             new_db = False
@@ -147,7 +149,7 @@ class Database:
             def scopefunc():
                 return 0
 
-        self.session: "Session" = cast(
+        self.session: Session = cast(
             "Session",
             scoped_session(sessionmaker(bind=self.engine), scopefunc=scopefunc),
         )
@@ -192,10 +194,13 @@ class Database:
             return query.count(), list(data.values())
 
     def _find_simulation(self, sim_ref: str) -> "Simulation":
-        from .models.simulation import Simulation
-        from sqlalchemy import cast as sql_cast, Text, or_ as sql_or
-        from sqlalchemy.orm import joinedload
+        from sqlalchemy import Text
+        from sqlalchemy import cast as sql_cast
+        from sqlalchemy import or_ as sql_or
         from sqlalchemy.exc import SQLAlchemyError
+        from sqlalchemy.orm import joinedload
+
+        from .models.simulation import Simulation
 
         try:
             sim_uuid = uuid.UUID(sim_ref)
@@ -253,9 +258,10 @@ class Database:
 
         :return: A list of Simulations.
         """
-        from .models.simulation import Simulation
-        from .models.metadata import MetaData
         from sqlalchemy.orm import joinedload
+
+        from .models.metadata import MetaData
+        from .models.simulation import Simulation
 
         if meta_keys:
             query = (
@@ -286,10 +292,11 @@ class Database:
 
         :return: A list of Simulations.
         """
-        from .models.simulation import Simulation
-        from .models.metadata import MetaData
+        from sqlalchemy import asc, desc, func, or_
         from sqlalchemy.orm import Bundle
-        from sqlalchemy import or_, func, desc, asc
+
+        from .models.metadata import MetaData
+        from .models.simulation import Simulation
 
         sort_query = None
         if sort_by:
@@ -378,11 +385,12 @@ class Database:
     def _get_metadata(
         self, constraints: List[Tuple[str, str, "QueryType"]]
     ) -> Iterable:
-        from sqlalchemy import func, String, or_
+        from sqlalchemy import String, func, or_
         from sqlalchemy.orm import Bundle
+
         from ..query import QueryType
-        from .models.simulation import Simulation
         from .models.metadata import MetaData
+        from .models.simulation import Simulation
 
         m_b = Bundle("metadata", MetaData.element, MetaData.value)
         s_b = Bundle("simulation", Simulation.id, Simulation.alias, Simulation.uuid)
@@ -404,7 +412,7 @@ class Database:
                     query = query.filter(Simulation.datetime == date_time)
             elif query_type == QueryType.IN:
                 if name == "alias":
-                    query = query.filter(Simulation.alias.ilike("%{}%".format(value)))
+                    query = query.filter(Simulation.alias.ilike(f"%{value}%"))
                 elif name == "uuid":
                     query = query.filter(
                         func.REPLACE(cast(Simulation.uuid, String), "-", "").ilike(
@@ -414,7 +422,7 @@ class Database:
             elif query_type == QueryType.NI:
                 if name == "alias":
                     query = query.filter(
-                        Simulation.alias.notilike("%{}%".format(value))
+                        Simulation.alias.notilike(f"%{value}%")
                     )
                 elif name == "uuid":
                     query = query.filter(
@@ -456,7 +464,7 @@ class Database:
     def _get_sim_ids(
         self, constraints: List[Tuple[str, str, "QueryType"]]
     ) -> Iterable[int]:
-        from ..query import query_compare, QueryType
+        from ..query import QueryType, query_compare
 
         rows = self._get_metadata(constraints)
 
@@ -469,9 +477,7 @@ class Database:
                 if name in ("alias", "uuid", "creation_date"):
                     sim_id_sets[(name, value, query_type)].add(row.simulation.id)
                 if row.metadata.element == name:
-                    if query_type == QueryType.EXIST:
-                        sim_id_sets[(name, value, query_type)].add(row.simulation.id)
-                    elif query_compare(query_type, name, row.metadata.value, value):
+                    if query_type == QueryType.EXIST or query_compare(query_type, name, row.metadata.value, value):
                         sim_id_sets[(name, value, query_type)].add(row.simulation.id)
 
         if sim_id_sets:
@@ -487,8 +493,9 @@ class Database:
 
         :return:
         """
-        from .models.simulation import Simulation
         from sqlalchemy.orm import joinedload
+
+        from .models.simulation import Simulation
 
         sim_ids = self._get_sim_ids(constraints)
         if not sim_ids:
@@ -515,10 +522,11 @@ class Database:
 
         :return:
         """
-        from .models.simulation import Simulation
-        from .models.metadata import MetaData
+        from sqlalchemy import asc, desc, func
         from sqlalchemy.orm import Bundle
-        from sqlalchemy import desc, asc, func
+
+        from .models.metadata import MetaData
+        from .models.simulation import Simulation
 
         sim_ids = self._get_sim_ids(constraints)
         if not sim_ids:
@@ -575,8 +583,8 @@ class Database:
         return simulation
 
     def get_simulation_parents(self, simulation: "Simulation") -> List[dict]:
-        from .models.simulation import Simulation
         from .models.file import File
+        from .models.simulation import Simulation
 
         subquery = (
             self.session.query(File.checksum)
@@ -594,8 +602,8 @@ class Database:
         return [{"uuid": r.uuid, "alias": r.alias} for r in query.all()]
 
     def get_simulation_children(self, simulation: "Simulation") -> List[dict]:
-        from .models.simulation import Simulation
         from .models.file import File
+        from .models.simulation import Simulation
 
         subquery = (
             self.session.query(File.checksum)
@@ -674,9 +682,9 @@ class Database:
         return [{"name": row[0], "type": type(row[1]).__name__} for row in query.all()]
 
     def list_metadata_values(self, name: str) -> List[str]:
+
         from .models.metadata import MetaData
         from .models.simulation import Simulation
-        from sqlalchemy import cast, String
 
         if name == "alias":
             query = self.session.query(Simulation.alias).filter(
@@ -722,8 +730,9 @@ class Database:
             raise DatabaseError(str(err.orig))
 
     def get_aliases(self, prefix: Optional[str]) -> List[str]:
-        from .models.simulation import Simulation
         from sqlalchemy.sql import column
+
+        from .models.simulation import Simulation
 
         if prefix:
             return [

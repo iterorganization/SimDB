@@ -1,12 +1,12 @@
-import click
 from pathlib import Path
-from typing import Optional, List, Tuple, Any, Type
+from typing import Any, List, Optional, Tuple, Type
 
-from . import pass_config, check_meta_args
+import click
+
 from ...config.config import Config
 from ...query import QueryType, parse_query_arg
+from . import check_meta_args, pass_config
 from .validators import validate_non_negative
-
 
 # def _validate_simulation_outputs(options: dict, simulation):
 #     file_validator_type = options.get("file_validator", None)
@@ -172,9 +172,10 @@ def simulation_info(config: Config, sim_id: str):
 def simulation_ingest(config: Config, manifest_file: str, alias: str):
     """Ingest a MANIFEST_FILE."""
     import urllib.parse
+
     from ...database import get_local_db
     from ...database.models import Simulation
-    from ..manifest import Manifest, InvalidAlias
+    from ..manifest import InvalidAlias, Manifest
 
     manifest = Manifest()
     manifest.load(Path(manifest_file))
@@ -235,10 +236,11 @@ def simulation_push(
     add_watcher: bool,
 ):
     """Push the simulation with the given SIM_ID (UUID or alias) to the REMOTE."""
-    from ...database import get_local_db
-    from ..remote_api import RemoteAPI
-    from ...validation import Validator, ValidationError
     import sys
+
+    from ...database import get_local_db
+    from ...validation import ValidationError, Validator
+    from ..remote_api import RemoteAPI
 
     api = RemoteAPI(remote, username, password, config)
     db = get_local_db(config)
@@ -281,9 +283,10 @@ def simulation_pull(
     password: Optional[str],
 ):
     """Pull the simulation with the given SIM_ID (UUID or alias) from the REMOTE."""
-    from ...database import get_local_db, DatabaseError
-    from ..remote_api import RemoteAPI, RemoteError
     import sys
+
+    from ...database import DatabaseError, get_local_db
+    from ..remote_api import RemoteAPI, RemoteError
 
     api = RemoteAPI(remote, username, password, config)
     db = get_local_db(config)
@@ -401,6 +404,7 @@ def simulation_validate(
 ):
     """Validate the ingested simulation with given SIM_ID (UUID or alias) using validation schema from REMOTE."""
     from itertools import chain
+
     from ...database import get_local_db
     from ...validation import ValidationError, Validator
     from ..remote_api import RemoteAPI
@@ -431,7 +435,7 @@ def simulation_validate(
                 )
         except Exception as e:
             raise ValidationError(
-                f"Failed to validate checksum for file {file.uri}: {str(e)}"
+                f"Failed to validate checksum for file {file.uri}: {e!s}"
             )
 
     click.echo("validation successful")

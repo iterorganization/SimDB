@@ -1,6 +1,6 @@
-from typing import List, Dict, Tuple, TYPE_CHECKING, TypeVar, Optional, Any
 from collections import OrderedDict
-import uuid
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, TypeVar
+
 import click
 import numpy
 
@@ -16,10 +16,10 @@ def _flatten_dict(values: Dict) -> List[Tuple[str, str]]:
     for k, v in values.items():
         if isinstance(v, list):
             for n, i in enumerate(v):
-                items.append(("{}[{}]".format(k, n), i))
+                items.append((f"{k}[{n}]", i))
         elif isinstance(v, dict):
             for i in _flatten_dict(v):
-                items.append(("{}.{}".format(k, i[0]), i[1]))
+                items.append((f"{k}.{i[0]}", i[1]))
         else:
             items.append((k, v))
     return items

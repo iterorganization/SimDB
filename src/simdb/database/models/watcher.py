@@ -1,11 +1,13 @@
 from typing import Dict
-from sqlalchemy import Column, types as sql_types
+
+from sqlalchemy import Column
+from sqlalchemy import types as sql_types
 from sqlalchemy.orm import validates
 
+from ...docstrings import inherit_docstrings
+from ...notifications import Notification
 from .base import Base
 from .types import ChoiceType
-from ...notifications import Notification
-from ...docstrings import inherit_docstrings
 from .utils import checked_get
 
 

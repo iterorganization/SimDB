@@ -1,14 +1,15 @@
 import os
 from pathlib import Path
-from flask_restx import Api, Resource
-from flask import jsonify
 
+from flask import jsonify
+from flask_restx import Api, Resource
+
+from ...core.auth import TokenAuthenticator, User, requires_auth
 from ...core.typing import current_app
-from ...core.auth import TokenAuthenticator, requires_auth, User
-from .simulations import api as sim_ns
 from ..files import api as file_ns
 from ..metadata import api as metadata_ns
 from ..watchers import api as watcher_ns
+from .simulations import api as sim_ns
 
 api = Api(
     title="SimDB REST API",

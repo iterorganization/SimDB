@@ -1,39 +1,40 @@
-import os
-import shutil
+import getpass
+import gzip
+import hashlib
+import io
+import itertools
 import json
+import os
+import pickle
+import shutil
+import sys
 import uuid
+from pathlib import Path
 from typing import (
-    List,
-    Dict,
-    Callable,
-    Tuple,
     IO,
-    Iterable,
-    Optional,
-    Union,
     TYPE_CHECKING,
     Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Union,
 )
-import gzip
-import io
-import sys
-import click
-import itertools
-import hashlib
-import appdirs
-import pickle
-import getpass
 from urllib.parse import urlparse
-from pathlib import Path
+
+import appdirs
+import click
 from semantic_version import Version
 
-from .manifest import DataObject
 from ..config import Config
-from ..json import CustomDecoder, CustomEncoder
 from ..imas.utils import imas_files
+from ..json import CustomDecoder, CustomEncoder
+from .manifest import DataObject
 
 if TYPE_CHECKING:
-    from ..database.models import Simulation, Watcher, File
+    from ..database.models import File, Simulation, Watcher
 
 if TYPE_CHECKING or "sphinx" in sys.modules:
     # Only importing these for type checking and documentation generation in order to speed up runtime startup.
@@ -602,9 +603,10 @@ class RemoteAPI:
     def query_simulations(
         self, constraints: List[str], meta: List[str], limit=0
     ) -> List["Simulation"]:
+        from collections import defaultdict
+
         from ..database.models import Simulation
         from ..remote import APIConstants
-        from collections import defaultdict
 
         params = defaultdict(list)
         for item in constraints:
@@ -769,7 +771,7 @@ class RemoteAPI:
                 sim_data, cls=CustomEncoder, separators=(",", ":")
             ).encode("utf-8")
             sim_json_size = len(sim_json)
-        except Exception as e:
+        except Exception:
             sim_json_size = 0
 
         # Target max request (10MB minus headroom); adjust chunk size so (chunk + sim_data JSON) fits
@@ -805,7 +807,7 @@ class RemoteAPI:
                             ):
                                 continue
                         sim_file = next(
-                            (f for f in sim_data["inputs"] if f["uuid"] == file.uuid)
+                            f for f in sim_data["inputs"] if f["uuid"] == file.uuid
                         )
                         sim_file["uri"] = f"file:{path}"
                         self._push_file(
@@ -862,7 +864,7 @@ class RemoteAPI:
                             ):
                                 continue
                         sim_file = next(
-                            (f for f in sim_data["outputs"] if f["uuid"] == file.uuid)
+                            f for f in sim_data["outputs"] if f["uuid"] == file.uuid
                         )
                         sim_file["uri"] = f"file:{path}"
                         self._push_file(

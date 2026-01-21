@@ -1,11 +1,12 @@
-import cerberus
-import yaml
 import re
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from ..database.models.simulation import Simulation
+import cerberus
+import yaml
+
 from ..config import Config, ConfigError
+from ..database.models.simulation import Simulation
 
 
 class TestParameters:
@@ -134,7 +135,7 @@ def _load_schema(path: Path):
         return [{}]
 
     # load schema from file
-    with open(path, "r") as file:
+    with open(path) as file:
         try:
             schema = yaml.load(file, Loader=yaml.SafeLoader)
             return schema
