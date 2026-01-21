@@ -58,7 +58,7 @@ def walk_dict(d: Dict, node, depth: int, read_values: ReadValues) -> Dict:
     for k, v in d.items():
         if depth == 0:
             ids = node.get(k)
-            meta[k] = walk_dict(d[k], ids, depth + 1, read_values)
+            meta[k] = walk_dict(v, ids, depth + 1, read_values)
             continue
 
         if k == "values":
@@ -87,10 +87,10 @@ def walk_dict(d: Dict, node, depth: int, read_values: ReadValues) -> Dict:
             if "structArray" in str(type(child)):
                 values = []
                 for _i, el in enumerate(child):
-                    values.append(walk_dict(d[k], el, depth + 1, read_values))
+                    values.append(walk_dict(v, el, depth + 1, read_values))
                 meta[k] = values
             else:
-                meta[k] = walk_dict(d[k], child, depth + 1, read_values)
+                meta[k] = walk_dict(v, child, depth + 1, read_values)
     if read_values == ReadValues.ALL:
         return walk_imas(node)
     return meta

@@ -115,16 +115,15 @@ def remote(
     """
     if not ctx.invoked_subcommand and not any(is_empty(i) for i in ctx.params.values()):
         click.echo(ctx.get_help())
-    else:
-        if ctx.invoked_subcommand in ["config"]:
-            pass
-        elif ctx.invoked_subcommand:
-            if ctx.invoked_subcommand == "token" and sys.argv[-1] == "new":
-                ctx.obj = RemoteAPI(name, username, password, config, use_token=False)
-            else:
-                ctx.obj = RemoteAPI(name, username, password, config)
+    elif ctx.invoked_subcommand in ["config"]:
+        pass
+    elif ctx.invoked_subcommand:
+        if ctx.invoked_subcommand == "token" and sys.argv[-1] == "new":
+            ctx.obj = RemoteAPI(name, username, password, config, use_token=False)
         else:
-            click.echo(ctx.get_help())
+            ctx.obj = RemoteAPI(name, username, password, config)
+    else:
+        click.echo(ctx.get_help())
 
 
 @remote.command("test", cls=remote_command_cls())

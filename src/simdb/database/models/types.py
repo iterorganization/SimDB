@@ -36,14 +36,13 @@ class UUID(sql_types.TypeDecorator):
             return value
         elif dialect.name == "postgresql":
             return str(value)
+        elif not isinstance(value, uuid.UUID):
+            try:
+                return uuid.UUID(value).hex
+            except ValueError:
+                return value
         else:
-            if not isinstance(value, uuid.UUID):
-                try:
-                    return uuid.UUID(value).hex
-                except ValueError:
-                    return value
-            else:
-                return value.hex
+            return value.hex
 
     def process_result_value(self, value, dialect):
         if value is None:
