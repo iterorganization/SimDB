@@ -22,9 +22,10 @@ if "sphinx" in sys.modules:
 
     ClauseElement.__bool__ = lambda self: True
 
-from ...cli.manifest import DataObject, Manifest
-from ...config.config import Config
-from ...docstrings import inherit_docstrings
+from simdb.cli.manifest import DataObject, Manifest
+from simdb.config.config import Config
+from simdb.docstrings import inherit_docstrings
+
 from .base import Base
 from .file import File
 from .types import UUID
@@ -62,8 +63,8 @@ simulation_watchers = Table(
 
 
 def _update_legacy_uri(data_object: DataObject):
-    from ...imas.utils import get_path_for_legacy_uri
-    from ...uri import URI
+    from simdb.imas.utils import get_path_for_legacy_uri
+    from simdb.uri import URI
 
     path = get_path_for_legacy_uri(data_object.uri)
     backend = data_object.uri.query.get("backend", default="hdf5")
@@ -131,8 +132,8 @@ class Simulation(Base):
 
         for input in manifest.inputs:
             if input.type == DataObject.Type.IMAS:
-                from ...imas.metadata import load_metadata
-                from ...imas.utils import (
+                from simdb.imas.metadata import load_metadata
+                from simdb.imas.utils import (
                     check_time,
                     extract_ids_occurrence,
                     list_idss,
@@ -156,14 +157,14 @@ class Simulation(Base):
             self.inputs.append(file)
 
         if all_input_idss:
-            self.meta.append(MetaData("input_ids", "[%s]" % ", ".join(all_input_idss)))
+            self.meta.append(MetaData("input_ids", "[{}]".format(", ".join(all_input_idss))))
 
         all_output_idss = []
 
         for output in manifest.outputs:
             if output.type == DataObject.Type.IMAS:
-                from ...imas.metadata import load_metadata
-                from ...imas.utils import (
+                from simdb.imas.metadata import load_metadata
+                from simdb.imas.utils import (
                     check_time,
                     extract_ids_occurrence,
                     list_idss,
@@ -193,7 +194,7 @@ class Simulation(Base):
             self.outputs.append(file)
 
         if all_output_idss:
-            self.meta.append(MetaData("ids", "[%s]" % ", ".join(all_output_idss)))
+            self.meta.append(MetaData("ids", "[{}]".format(", ".join(all_output_idss))))
 
         flattened_dict: Dict[str, str] = {}
         flatten_dict(flattened_dict, manifest.metadata)
@@ -227,7 +228,7 @@ class Simulation(Base):
 
         result = ""
         for name in ("uuid", "alias"):
-            result += "%s:%s%s\n" % (
+            result += "{}:{}{}\n".format(
                 name,
                 ((10 - len(name)) * " "),
                 getattr(self, name),
@@ -343,11 +344,11 @@ class Simulation(Base):
     def data(
         self, recurse: bool = False, meta_keys: Optional[List[str]] = None
     ) -> Dict[str, Union[str, List]]:
-        data = dict(
-            uuid=self.uuid,
-            alias=self.alias,
-            datetime=self.datetime.isoformat(),
-        )
+        data = {
+            "uuid": self.uuid,
+            "alias": self.alias,
+            "datetime": self.datetime.isoformat(),
+        }
         if recurse:
             data["inputs"] = [f.data(recurse=True) for f in self.inputs]
             data["outputs"] = [f.data(recurse=True) for f in self.outputs]

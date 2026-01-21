@@ -2,7 +2,8 @@ from typing import Optional
 
 from flask import Request
 
-from ....config import Config
+from simdb.config import Config
+
 from ._authenticator import Authenticator
 from ._exceptions import AuthenticationError
 from ._user import User

@@ -7,8 +7,9 @@ from flask.json import JSONDecoder, JSONEncoder
 from flask_compress import Compress
 from flask_cors import CORS
 
-from ..config import Config
-from ..json import CustomDecoder, CustomEncoder
+from simdb.config import Config
+from simdb.json import CustomDecoder, CustomEncoder
+
 from .apis import blueprints
 from .core.auth._authenticator import Authenticator
 from .core.cache import cache

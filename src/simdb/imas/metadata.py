@@ -66,8 +66,7 @@ def walk_dict(d: Dict, node, depth: int, read_values: ReadValues) -> Dict:
                 read_values = ReadValues[v.upper()]
             except KeyError:
                 raise ValueError(
-                    "Invalid values option: %s (valid options are [%s])"
-                    % (v, ", ".join(i.name.lower() for i in ReadValues))
+                    "Invalid values option: {} (valid options are [{}])".format(v, ", ".join(i.name.lower() for i in ReadValues))
                 )
         if k == "metrics":
             if k not in meta:
@@ -85,7 +84,7 @@ def walk_dict(d: Dict, node, depth: int, read_values: ReadValues) -> Dict:
             child = getattr(node, k)
             if "structArray" in str(type(child)):
                 values = []
-                for i, el in enumerate(child):
+                for _i, el in enumerate(child):
                     values.append(walk_dict(d[k], el, depth + 1, read_values))
                 meta[k] = values
             else:
@@ -118,7 +117,7 @@ def load_imas_metadata(ids_dist, entry) -> dict:
     import imas
 
     metadata = {}
-    for ids_name, v in ids_dist.items():
+    for ids_name, _v in ids_dist.items():
         ids = entry.get(ids_name, autoconvert=False)
         # Explicitly convert the IDS to the target version
         latest_dd_version = imas.dd_zip.latest_dd_version()

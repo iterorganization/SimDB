@@ -9,9 +9,10 @@ from typing import TYPE_CHECKING, List, Optional, Tuple, Type, Union
 import click
 from semantic_version import Version
 
-from ...database.models.simulation import Simulation
-from ...notifications import Notification
-from ..remote_api import RemoteAPI
+from simdb.cli.remote_api import RemoteAPI
+from simdb.database.models.simulation import Simulation
+from simdb.notifications import Notification
+
 from . import check_meta_args, pass_config
 from .utils import print_simulations, print_trace
 from .validators import validate_non_negative, validate_positive
@@ -21,7 +22,7 @@ pass_api = click.make_pass_decorator(RemoteAPI)
 if TYPE_CHECKING or "sphinx" in sys.modules:
     from click import Context
 
-    from ...config import Config
+    from simdb.config import Config
 
 
 class RemoteGroup(click.Group):
@@ -316,7 +317,7 @@ def remove_watcher(config: "Config", api: RemoteAPI, sim_id: str, user: str):
 @click.option(
     "-n",
     "--notification",
-    type=click.Choice(list(i.name for i in Notification), case_sensitive=False),
+    type=click.Choice([i.name for i in Notification], case_sensitive=False),
     default=Notification.ALL.name,
     show_default=True,
 )

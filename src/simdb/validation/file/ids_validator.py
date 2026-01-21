@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from ...uri import URI
+from simdb.uri import URI
+
 from .validator_base import FileValidatorBase
 
 
@@ -86,7 +87,7 @@ class IdsValidator(FileValidatorBase):
         )
         from imas_validator.validate.validate import validate
 
-        from ..validator import ValidationError
+        from simdb.validation.validator import ValidationError
 
         try:
             backend = uri.query.get("backend")
@@ -98,12 +99,12 @@ class IdsValidator(FileValidatorBase):
             )
 
             validate_result = all(
-                [result.success for result in validate_output.results]
+                result.success for result in validate_output.results
             )
 
             report_generator = ValidationReportGenerator(validate_output)
 
-            if validate_result == False:
+            if not validate_result:
                 raise ValidationError(
                     f"Validation of following URI: [{validate_uri}], failed with following report: \n{report_generator.txt}"
                 )

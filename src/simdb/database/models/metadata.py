@@ -3,7 +3,8 @@ from typing import Any, Dict
 from sqlalchemy import Column, ForeignKey, Index
 from sqlalchemy import types as sql_types
 
-from ...docstrings import inherit_docstrings
+from simdb.docstrings import inherit_docstrings
+
 from .base import Base
 from .simulation import Simulation
 
@@ -33,10 +34,10 @@ class MetaData(Base):
         return meta
 
     def data(self, recurse: bool = False) -> Dict[str, str]:
-        data = dict(
-            element=self.element,
-            value=self.value,
-        )
+        data = {
+            "element": self.element,
+            "value": self.value,
+        }
         return data
 
 

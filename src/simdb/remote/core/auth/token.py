@@ -2,8 +2,9 @@ from typing import Optional
 
 from flask import Request
 
-from ....config import Config
-from ..typing import current_app
+from simdb.config import Config
+from simdb.remote.core.typing import current_app
+
 from ._authenticator import Authenticator
 from ._exceptions import AuthenticationError
 from ._user import User

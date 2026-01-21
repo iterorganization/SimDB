@@ -11,7 +11,7 @@ def manifest():
 @click.argument("file_name", type=click.Path(exists=True))
 def check(file_name):
     """Check manifest FILE_NAME."""
-    from ..manifest import InvalidManifest, Manifest
+    from simdb.cli.manifest import InvalidManifest, Manifest
 
     manifest = Manifest()
     manifest.load(file_name)
@@ -28,7 +28,7 @@ def create(manifest_file):
     """Create a new MANIFEST_FILE."""
     from pathlib import Path
 
-    from ..manifest import Manifest
+    from simdb.cli.manifest import Manifest
 
     Manifest.from_template().save(manifest_file)
     path = Path(manifest_file.name).absolute()

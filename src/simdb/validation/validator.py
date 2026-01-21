@@ -5,8 +5,8 @@ from typing import Dict, List, Optional
 import cerberus
 import yaml
 
-from ..config import Config, ConfigError
-from ..database.models.simulation import Simulation
+from simdb.config import Config, ConfigError
+from simdb.database.models.simulation import Simulation
 
 
 class TestParameters:
@@ -38,7 +38,7 @@ class CustomValidator(cerberus.Validator):
         """The rule's arguments are validated against this schema:
         {'type': ['string'],
              'check_with': 'type'}"""
-        if check_checksum and False:
+        if False:
             self._error(field, "File checksum must be valid")
 
     def _validate_min_value(self, min_value, field, value):
@@ -53,7 +53,7 @@ class CustomValidator(cerberus.Validator):
                 self._error(field, "Values in numpy array are NaN or empty")
             self._error(field, "Value is not a numpy array")
         if min_value is not None and value.min() < min_value:
-            self._error(field, "Minimum %s less than %s" % (value.min(), min_value))
+            self._error(field, f"Minimum {value.min()} less than {min_value}")
 
     def _validate_max_value(self, max_value, field, value):
         """The rule's arguments are validated against this schema:
@@ -67,7 +67,7 @@ class CustomValidator(cerberus.Validator):
                 self._error(field, "Values in numpy array are NaN or empty")
             self._error(field, "Value is not a numpy array")
         if max_value is not None and value.max() > max_value:
-            self._error(field, "Maximum %s greater than %s" % (value.max(), max_value))
+            self._error(field, f"Maximum {value.max()} greater than {max_value}")
 
     def _compare(self, comparison, field, value, comparator: str, message: str):
         import numpy as np
@@ -79,10 +79,10 @@ class CustomValidator(cerberus.Validator):
             if value.size == 0:
                 self._error(field, "Values in numpy array are NaN or empty")
             if not getattr(value, comparator)(comparison).all():
-                self._error(field, "Values are not %s %s" % (message, comparison))
+                self._error(field, f"Values are not {message} {comparison}")
         elif isinstance(value, float):
             if not getattr(value, comparator)(comparison):
-                self._error(field, "Value is not %s %s" % (message, comparison))
+                self._error(field, f"Value is not {message} {comparison}")
         else:
             self._error(field, "Value is not a numpy array or a float")
 
@@ -140,7 +140,7 @@ def _load_schema(path: Path):
             schema = yaml.load(file, Loader=yaml.SafeLoader)
             return schema
         except yaml.YAMLError:
-            raise LoadError("Failed to read validation schema from file %s" % file)
+            raise LoadError(f"Failed to read validation schema from file {file}")
 
 
 class Validator:

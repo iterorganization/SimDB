@@ -1,3 +1,4 @@
+import contextlib
 import datetime
 import itertools
 import os
@@ -7,17 +8,17 @@ from typing import Dict, List, Optional, Tuple
 from flask import jsonify, request
 from flask_restx import Namespace, Resource
 
-from ....database import DatabaseError
-from ....database.models import metadata as models_meta
-from ....database.models import simulation as models_sim
-from ....uri import URI
-from ... import APIConstants
-from ...core.alias import create_alias_dir
-from ...core.auth import User, requires_auth
-from ...core.cache import cache, cache_key, clear_cache
-from ...core.errors import error
-from ...core.path import secure_path
-from ...core.typing import current_app
+from simdb.database import DatabaseError
+from simdb.database.models import metadata as models_meta
+from simdb.database.models import simulation as models_sim
+from simdb.remote import APIConstants
+from simdb.remote.core.alias import create_alias_dir
+from simdb.remote.core.auth import User, requires_auth
+from simdb.remote.core.cache import cache, cache_key, clear_cache
+from simdb.remote.core.errors import error
+from simdb.remote.core.path import secure_path
+from simdb.remote.core.typing import current_app
+from simdb.uri import URI
 
 api = Namespace("simulations", path="/")
 
@@ -25,7 +26,7 @@ api = Namespace("simulations", path="/")
 def _update_simulation_status(
     simulation: models_sim.Simulation, status: models_sim.Simulation.Status, user
 ) -> None:
-    from ....email.server import EmailServer
+    from simdb.email.server import EmailServer
 
     old_status = simulation.status
     simulation.status = status
@@ -48,7 +49,7 @@ Note: please don't reply to this email, replies to this address are not monitore
 
 
 def _validate(simulation, user) -> Dict:
-    from ....validation import ValidationError, Validator
+    from simdb.validation import ValidationError, Validator
 
     schemas = Validator.validation_schemas(current_app.simdb_config, simulation)
     try:
@@ -157,7 +158,7 @@ class SimulationList(Resource):
     @requires_auth()
     @cache.cached(key_prefix=cache_key)
     def get(self, user: User):
-        from ....query import QueryType, parse_query_arg
+        from simdb.query import QueryType, parse_query_arg
 
         limit = int(request.headers.get(SimulationList.LIMIT_HEADER, 100))
         page = int(request.headers.get(SimulationList.PAGE_HEADER, 1))
@@ -177,7 +178,7 @@ class SimulationList(Resource):
                 for value in values:
                     constraint = parse_query_arg(value)
                     if constraint[0]:
-                        constraints.append((name,) + constraint)
+                        constraints.append((name, *constraint))
 
         if constraints:
             count, data = current_app.db.query_meta_data(
@@ -236,7 +237,7 @@ class SimulationList(Resource):
             for sim_file in files:
                 path = secure_path(sim_file.uri.path, common_root, staging_dir)
                 if not path.exists():
-                    raise ValueError("simulation file %s not uploaded" % sim_file.uuid)
+                    raise ValueError(f"simulation file {sim_file.uuid} not uploaded")
                 if sim_file.uri.scheme.name == "file":
                     sim_file.uri = URI(scheme="file", path=path)
 
@@ -287,10 +288,8 @@ class SimulationList(Resource):
             current_app.db.insert_simulation(simulation)
             clear_cache()
 
-            try:
+            with contextlib.suppress(OSError):
                 create_alias_dir(simulation)
-            except OSError:
-                pass
 
             return jsonify(result)
         except (DatabaseError, ValueError) as err:
@@ -345,7 +344,7 @@ class Simulation(Resource):
             clear_cache()
             files = []
             for file in itertools.chain(simulation.inputs, simulation.outputs):
-                files.append("%s (%s)" % (file.uuid, file.uri.path.name))
+                files.append(f"{file.uuid} ({file.uri.path.name})")
                 os.remove(file.uri.path)
             if simulation.inputs or simulation.outputs:
                 directory = (

@@ -1,6 +1,6 @@
 import os
 
-from ..core.typing import current_app
+from simdb.remote.core.typing import current_app
 
 
 def create_alias_dir(simulation):

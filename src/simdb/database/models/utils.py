@@ -11,12 +11,12 @@ def flatten_dict(
 ):
     for key, value in in_dict.items():
         if isinstance(value, dict):
-            flatten_dict(out_dict, value, prefix + (key,))
+            flatten_dict(out_dict, value, (*prefix, key))
         elif isinstance(value, list):
             for i, el in enumerate(value):
-                flatten_dict(out_dict, el, prefix + (f"{key}#{i + 1}",))
+                flatten_dict(out_dict, el, (*prefix, f"{key}#{i + 1}"))
         else:
-            out_dict[FLATTEN_DICT_DELIM.join(prefix + (key,))] = value
+            out_dict[FLATTEN_DICT_DELIM.join((*prefix, key))] = value
 
 
 def _parse_index(head: str) -> Tuple[bool, str, int]:

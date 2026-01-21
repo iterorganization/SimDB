@@ -5,8 +5,8 @@ from typing import Any, List
 
 from dateutil import parser
 
-from ..config import Config
-from ..uri import URI
+from simdb.config import Config
+from simdb.uri import URI
 
 
 class ImasError(Exception):
@@ -81,12 +81,11 @@ def list_idss(entry: DBEntry) -> List[str]:
 
     for ids_name in entry.factory.ids_names():
         occurrences = entry.list_all_occurrences(ids_name)
-        if occurrences:
-            if len(occurrences) > 0:
-                for occurrence in range(len(occurrences)):
-                    if occurrence > 0:
-                        idss.append(ids_name + "_" + str(occurrence))
-                idss.append(ids_name)
+        if occurrences and len(occurrences) > 0:
+            for occurrence in range(len(occurrences)):
+                if occurrence > 0:
+                    idss.append(ids_name + "_" + str(occurrence))
+            idss.append(ids_name)
     return idss
 
 
@@ -296,7 +295,7 @@ def imas_files(uri: URI) -> List[Path]:
             )
 
     if backend == "hdf5":
-        return list(p.absolute() for p in path.glob("*.h5"))
+        return [p.absolute() for p in path.glob("*.h5")]
     elif backend == "mdsplus":
         return [
             path / "ids_001.characteristics",
@@ -304,7 +303,7 @@ def imas_files(uri: URI) -> List[Path]:
             path / "ids_001.tree",
         ]
     elif backend == "ascii":
-        return list(p.absolute() for p in path.glob("*.ids"))
+        return [p.absolute() for p in path.glob("*.ids")]
     else:
         raise ValueError(f"Unknown IMAS backend {backend}")
 

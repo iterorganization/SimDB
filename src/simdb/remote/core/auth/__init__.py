@@ -3,8 +3,9 @@ from typing import Optional
 
 from flask import Request, Response, request
 
-from ....config import Config
-from ..typing import current_app
+from simdb.config import Config
+from simdb.remote.core.typing import current_app
+
 from ._authenticator import Authenticator
 from ._exceptions import AuthenticationError
 from ._user import User
@@ -56,10 +57,7 @@ def check_role(config: Config, user: User, role: Optional[str]) -> bool:
 
         users = config.get_option(f"role.{role}.users", default="")
         reader = csv.reader([users])
-        for row in reader:
-            if user.name in row:
-                return True
-        return False
+        return any(user.name in row for row in reader)
 
     return True
 
@@ -81,7 +79,7 @@ def check_auth(config: Config, request: Request) -> Optional[User]:
         config.get_string_option("authentication.type").lower().split(",")
     )
     if "token" not in authentication_types:
-        authentication_types = ["token"] + authentication_types
+        authentication_types = ["token", *authentication_types]
 
     for authentication_type in authentication_types:
         authenticator = Authenticator.get(authentication_type)

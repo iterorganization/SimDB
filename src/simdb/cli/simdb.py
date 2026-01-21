@@ -4,10 +4,10 @@ from typing import IO
 
 import click
 
-from .. import __version__
+from simdb import __version__
 
 # from trogon import tui
-from ..config import Config
+from simdb.config import Config
 
 g_debug = False
 

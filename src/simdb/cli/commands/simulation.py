@@ -1,10 +1,12 @@
+import contextlib
 from pathlib import Path
 from typing import Any, List, Optional, Tuple, Type
 
 import click
 
-from ...config.config import Config
-from ...query import QueryType, parse_query_arg
+from simdb.config.config import Config
+from simdb.query import QueryType, parse_query_arg
+
 from . import check_meta_args, pass_config
 from .validators import validate_non_negative
 
@@ -74,7 +76,8 @@ def simulation():
 )
 def simulation_list(config: Config, meta: List[str], limit: int, show_uuid: bool):
     """List ingested simulations."""
-    from ...database import get_local_db
+    from simdb.database import get_local_db
+
     from .utils import print_simulations
 
     check_meta_args(meta)
@@ -106,7 +109,7 @@ def simulation_modify(
     del_meta: Optional[str],
 ):
     """Modify the ingested simulation."""
-    from ...database import get_local_db
+    from simdb.database import get_local_db
 
     if alias is not None:
         db = get_local_db(config)
@@ -139,7 +142,7 @@ def simulation_modify(
 @click.argument("sim_id")
 def simulation_delete(config: Config, sim_id: str):
     """Delete the ingested simulation with given SIM_ID (UUID or alias)."""
-    from ...database import get_local_db
+    from simdb.database import get_local_db
 
     db = get_local_db(config)
     sim = db.delete_simulation(sim_id)
@@ -152,7 +155,7 @@ def simulation_delete(config: Config, sim_id: str):
 @click.argument("sim_id")
 def simulation_info(config: Config, sim_id: str):
     """Print information on the simulation with given SIM_ID (UUID or alias)."""
-    from ...database import get_local_db
+    from simdb.database import get_local_db
 
     db = get_local_db(config)
     simulation = db.get_simulation(sim_id)
@@ -173,9 +176,9 @@ def simulation_ingest(config: Config, manifest_file: str, alias: str):
     """Ingest a MANIFEST_FILE."""
     import urllib.parse
 
-    from ...database import get_local_db
-    from ...database.models import Simulation
-    from ..manifest import InvalidAlias, Manifest
+    from simdb.cli.manifest import InvalidAlias, Manifest
+    from simdb.database import get_local_db
+    from simdb.database.models import Simulation
 
     manifest = Manifest()
     manifest.load(Path(manifest_file))
@@ -238,9 +241,9 @@ def simulation_push(
     """Push the simulation with the given SIM_ID (UUID or alias) to the REMOTE."""
     import sys
 
-    from ...database import get_local_db
-    from ...validation import ValidationError, Validator
-    from ..remote_api import RemoteAPI
+    from simdb.cli.remote_api import RemoteAPI
+    from simdb.database import get_local_db
+    from simdb.validation import ValidationError, Validator
 
     api = RemoteAPI(remote, username, password, config)
     db = get_local_db(config)
@@ -285,17 +288,15 @@ def simulation_pull(
     """Pull the simulation with the given SIM_ID (UUID or alias) from the REMOTE."""
     import sys
 
-    from ...database import DatabaseError, get_local_db
-    from ..remote_api import RemoteAPI, RemoteError
+    from simdb.cli.remote_api import RemoteAPI, RemoteError
+    from simdb.database import DatabaseError, get_local_db
 
     api = RemoteAPI(remote, username, password, config)
     db = get_local_db(config)
 
     local_sim = None
-    try:
+    with contextlib.suppress(DatabaseError):
         local_sim = db.get_simulation(sim_id)
-    except DatabaseError:
-        pass
 
     if local_sim is not None:
         raise click.ClickException(f"Simulation with sim_id {sim_id} already exists")
@@ -373,7 +374,8 @@ def simulation_query(
 
     check_meta_args(meta)
 
-    from ...database import get_local_db
+    from simdb.database import get_local_db
+
     from .utils import print_simulations
 
     parsed_constraints: List[Tuple[str, str, QueryType]] = []
@@ -383,7 +385,7 @@ def simulation_query(
             raise click.ClickException(f"Invalid constraint {constraint}.")
         key, value = constraint.split("=")
         names.append(key)
-        parsed_constraints.append((key,) + parse_query_arg(value))
+        parsed_constraints.append((key, *parse_query_arg(value)))
     names += meta
 
     db = get_local_db(config)
@@ -405,9 +407,9 @@ def simulation_validate(
     """Validate the ingested simulation with given SIM_ID (UUID or alias) using validation schema from REMOTE."""
     from itertools import chain
 
-    from ...database import get_local_db
-    from ...validation import ValidationError, Validator
-    from ..remote_api import RemoteAPI
+    from simdb.cli.remote_api import RemoteAPI
+    from simdb.database import get_local_db
+    from simdb.validation import ValidationError, Validator
 
     db = get_local_db(config)
     simulation = db.get_simulation(sim_id)

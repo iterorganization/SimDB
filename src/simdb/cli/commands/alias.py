@@ -3,7 +3,8 @@ from typing import TYPE_CHECKING, Iterable
 
 import click
 
-from ..remote_api import RemoteAPI
+from simdb.cli.remote_api import RemoteAPI
+
 from . import pass_config
 
 pass_api = click.make_pass_decorator(RemoteAPI)
@@ -11,7 +12,7 @@ pass_api = click.make_pass_decorator(RemoteAPI)
 if TYPE_CHECKING or "sphinx" in sys.modules:
     from click import Context
 
-    from ...config import Config
+    from simdb.config import Config
 
 
 class AliasCommand(click.Command):
@@ -50,9 +51,8 @@ def alias(config: "Config", ctx: "Context", remote, username, password):
     """Query remote and local aliases."""
     if not ctx.invoked_subcommand and not any(is_empty(i) for i in ctx.params.values()):
         click.echo(ctx.get_help())
-    elif "--help" not in sys.argv:
-        if ctx.invoked_subcommand:
-            ctx.obj = RemoteAPI(remote, username, password, config)
+    elif "--help" not in sys.argv and ctx.invoked_subcommand:
+        ctx.obj = RemoteAPI(remote, username, password, config)
 
 
 @alias.command("make-unique", cls=AliasCommand)
@@ -61,7 +61,7 @@ def alias(config: "Config", ctx: "Context", remote, username, password):
 @click.argument("alias")
 def alias_make_unique(config: "Config", api: RemoteAPI, alias: str):
     """Make the given alias unique, checking locally stored simulations and the remote."""
-    from ...database import get_local_db
+    from simdb.database import get_local_db
 
     trans = str.maketrans("#/()=,*%", "________")
     alias = alias.translate(trans)
@@ -87,7 +87,7 @@ def alias_make_unique(config: "Config", api: RemoteAPI, alias: str):
 @click.argument("alias")
 def alias_search(config: "Config", api: RemoteAPI, alias: str):
     """Search the REMOTE for all aliases that contain the given VALUE."""
-    from ...database import get_local_db
+    from simdb.database import get_local_db
 
     simulations = api.list_simulations()
 
@@ -105,7 +105,7 @@ def alias_search(config: "Config", api: RemoteAPI, alias: str):
 @click.option("--local", help="Only list the local aliases.", is_flag=True)
 def alias_list(config: "Config", api: RemoteAPI, local: bool):
     """List aliases from the local database and the REMOTE (if specified)."""
-    from ...database import get_local_db
+    from simdb.database import get_local_db
 
     if not local:
         remote_simulations = []

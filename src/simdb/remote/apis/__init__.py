@@ -6,11 +6,12 @@ import jwt
 from flask import Blueprint, Response, _app_ctx_stack, jsonify, request
 from flask_restx import Resource
 
-from ... import __version__
-from ...database import Database
-from ...validation.file import find_file_validator
-from ..core.auth import AuthenticationError, User, requires_auth
-from ..core.typing import current_app
+from simdb import __version__
+from simdb.database import Database
+from simdb.remote.core.auth import AuthenticationError, User, requires_auth
+from simdb.remote.core.typing import current_app
+from simdb.validation.file import find_file_validator
+
 from .v1 import api as api_v1
 from .v1 import namespaces as namespaces_v1
 from .v1_1 import api as api_v1_1
@@ -120,7 +121,7 @@ def register(api, version, namespaces):
     class ValidationSchema(Resource):
         @requires_auth()
         def get(self, user: User):
-            from ...validation.validator import Validator
+            from simdb.validation.validator import Validator
 
             config = current_app.simdb_config
             return jsonify(Validator.validation_schemas(config, None))
@@ -130,10 +131,10 @@ def register(api, version, namespaces):
         @requires_auth()
         def get(self, user: User):
             config = current_app.simdb_config
-            options = dict(
-                copy_files=config.get_option("server.copy_files", default=True),
-                copy_ids=config.get_option("server.copy_ids", default=True),
-            )
+            options = {
+                "copy_files": config.get_option("server.copy_files", default=True),
+                "copy_ids": config.get_option("server.copy_ids", default=True),
+            }
 
             return jsonify(options)
 

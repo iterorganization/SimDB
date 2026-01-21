@@ -28,13 +28,14 @@ import appdirs
 import click
 from semantic_version import Version
 
-from ..config import Config
-from ..imas.utils import imas_files
-from ..json import CustomDecoder, CustomEncoder
+from simdb.config import Config
+from simdb.imas.utils import imas_files
+from simdb.json import CustomDecoder, CustomEncoder
+
 from .manifest import DataObject
 
 if TYPE_CHECKING:
-    from ..database.models import File, Simulation, Watcher
+    from simdb.database.models import File, Simulation, Watcher
 
 if TYPE_CHECKING or "sphinx" in sys.modules:
     # Only importing these for type checking and documentation generation in order to speed up runtime startup.
@@ -579,7 +580,7 @@ class RemoteAPI:
     def list_simulations(
         self, meta: Optional[List[str]] = None, limit: int = 0
     ) -> List["Simulation"]:
-        from ..database.models import Simulation
+        from simdb.database.models import Simulation
 
         args = "?" + "&".join(meta) if meta else ""
         headers = {"simdb-result-limit": str(limit)}
@@ -589,7 +590,7 @@ class RemoteAPI:
 
     @try_request
     def get_simulation(self, sim_id: str) -> "Simulation":
-        from ..database.models import Simulation
+        from simdb.database.models import Simulation
 
         res = self.get("simulation/" + sim_id)
         return Simulation.from_data(res.json(cls=CustomDecoder))
@@ -605,8 +606,8 @@ class RemoteAPI:
     ) -> List["Simulation"]:
         from collections import defaultdict
 
-        from ..database.models import Simulation
-        from ..remote import APIConstants
+        from simdb.database.models import Simulation
+        from simdb.remote import APIConstants
 
         params = defaultdict(list)
         for item in constraints:
@@ -762,7 +763,7 @@ class RemoteAPI:
         :param out_stream: The IO stream to write messages to the user (default: stdout)
         :param add_watcher: Add the current user as a watcher of the simulation on the remote server
         """
-        from ..imas.utils import imas_files
+        from simdb.imas.utils import imas_files
 
         sim_data = simulation.data(recurse=True)
 
@@ -799,13 +800,12 @@ class RemoteAPI:
                     for path in imas_files(file.uri):
                         # Check if hdf5 ids_name is in ids_list
                         ids_name = Path(path).name.split(".")
-                        if ids_name[1] == "h5":
-                            if (
-                                ids_name[0] != "master"
-                                and ids_list is not None
-                                and ids_name[0] not in ids_list
-                            ):
-                                continue
+                        if ids_name[1] == "h5" and (
+                            ids_name[0] != "master"
+                            and ids_list is not None
+                            and ids_name[0] not in ids_list
+                        ):
+                            continue
                         sim_file = next(
                             f for f in sim_data["inputs"] if f["uuid"] == file.uuid
                         )
@@ -856,13 +856,12 @@ class RemoteAPI:
                     for path in imas_files(file.uri):
                         # Check if hdf5 ids_name is in ids_list
                         ids_name = Path(path).name.split(".")
-                        if ids_name[1] == "h5":
-                            if (
-                                ids_name[0] != "master"
-                                and ids_list is not None
-                                and ids_name[0] not in ids_list
-                            ):
-                                continue
+                        if ids_name[1] == "h5" and (
+                            ids_name[0] != "master"
+                            and ids_list is not None
+                            and ids_name[0] not in ids_list
+                        ):
+                            continue
                         sim_file = next(
                             f for f in sim_data["outputs"] if f["uuid"] == file.uuid
                         )
@@ -954,8 +953,7 @@ class RemoteAPI:
                     f.write(data)
                     done = int(50 * downloaded / total_length)
                     print(
-                        "\r[%s%s] %0.2f%%"
-                        % (
+                        "\r[{}{}] {:0.2f}%".format(
                             "=" * done,
                             " " * (50 - done),
                             100.0 * (downloaded / total_length),
@@ -973,7 +971,7 @@ class RemoteAPI:
     def pull_simulation(
         self, sim_id: str, directory: Path, out_stream: IO[str] = sys.stdout
     ) -> "Simulation":
-        from ..uri import URI
+        from simdb.uri import URI
 
         """
         Pull the simulation from the remote server.

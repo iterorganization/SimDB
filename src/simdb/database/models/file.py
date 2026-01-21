@@ -7,10 +7,11 @@ from dateutil import parser as date_parser
 from sqlalchemy import Column
 from sqlalchemy import types as sql_types
 
-from ... import uri as urilib
-from ...cli.manifest import DataObject
-from ...config.config import Config
-from ...docstrings import inherit_docstrings
+from simdb import uri as urilib
+from simdb.cli.manifest import DataObject
+from simdb.config.config import Config
+from simdb.docstrings import inherit_docstrings
+
 from .base import Base
 from .types import URI, UUID
 from .utils import checked_get
@@ -65,7 +66,7 @@ class File(Base):
             "embargo",
             "datetime",
         ):
-            result += "  %s:%s%s\n" % (
+            result += "  {}:{}{}\n".format(
                 name,
                 ((14 - len(name)) * " "),
                 getattr(self, name),
@@ -80,15 +81,15 @@ class File(Base):
         if config and config.get_option("development.disable_checksum", default=False):
             return ""
         if self.type == DataObject.Type.UDA:
-            from ...uda.checksum import checksum as uda_checksum
+            from simdb.uda.checksum import checksum as uda_checksum
 
             checksum = uda_checksum(self.uri)
         elif self.type == DataObject.Type.IMAS:
-            from ...imas.checksum import checksum as imas_checksum
+            from simdb.imas.checksum import checksum as imas_checksum
 
             checksum = imas_checksum(self.uri, ids_list)
         elif self.type == DataObject.Type.FILE:
-            from ...checksum import sha1_checksum
+            from simdb.checksum import sha1_checksum
 
             checksum = sha1_checksum(self.uri)
         else:
@@ -99,7 +100,7 @@ class File(Base):
         if self.type == DataObject.Type.UDA:
             return datetime.now()
         elif self.type == DataObject.Type.IMAS:
-            from ...imas.utils import imas_timestamp
+            from simdb.imas.utils import imas_timestamp
 
             return imas_timestamp(self.uri)
         elif self.type == DataObject.Type.FILE:
@@ -125,16 +126,16 @@ class File(Base):
         return file
 
     def data(self, recurse: bool = False) -> Dict[str, str]:
-        data = dict(
-            uuid=self.uuid,
-            usage=self.usage,
-            uri=str(self.uri),
-            checksum=self.checksum,
-            type=self.type.name,
-            purpose=self.purpose,
-            sensitivity=self.sensitivity,
-            access=self.access,
-            embargo=self.embargo,
-            datetime=self.datetime.isoformat(),
-        )
+        data = {
+            "uuid": self.uuid,
+            "usage": self.usage,
+            "uri": str(self.uri),
+            "checksum": self.checksum,
+            "type": self.type.name,
+            "purpose": self.purpose,
+            "sensitivity": self.sensitivity,
+            "access": self.access,
+            "embargo": self.embargo,
+            "datetime": self.datetime.isoformat(),
+        }
         return data

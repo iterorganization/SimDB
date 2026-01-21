@@ -1,9 +1,9 @@
-from ..uri import URI, Query
+from simdb.uri import URI, Query
 
 
 def checksum(uri: URI) -> str:
     if uri.scheme != "uda":
-        raise ValueError("invalid scheme for UDA checksum: %s" % uri.scheme)
+        raise ValueError(f"invalid scheme for UDA checksum: {uri.scheme}")
 
     import hashlib
 

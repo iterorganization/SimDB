@@ -6,7 +6,7 @@ import numpy
 
 if TYPE_CHECKING:
     # Only importing these for type checking and documentation generation in order to speed up runtime startup.
-    from ...database.models import Simulation
+    from simdb.database.models import Simulation
 else:
     Config = TypeVar("Config")
 
@@ -29,7 +29,7 @@ def _format_meta_value(meta_value: Any, max_len: int) -> str:
     """
     Format the meta value as a string, limiting array values to max_len.
     """
-    if isinstance(meta_value, list) or isinstance(meta_value, numpy.ndarray):
+    if isinstance(meta_value, (list, numpy.ndarray)):
         values = []
         for i, v in enumerate(meta_value):
             values.append(f"{v:.2f}")
@@ -113,7 +113,7 @@ def print_simulations(
     line_written = False
     for line in lines:
         for col, width in enumerate(column_widths.values()):
-            click.echo("%s" % str(line[col]).ljust(width + 1), nl=False)
+            click.echo(f"{str(line[col]).ljust(width + 1)}", nl=False)
         click.echo()
         if not line_written:
             click.echo("-" * (sum(column_widths.values()) + len(column_widths) - 1))
@@ -134,7 +134,7 @@ def _print_trace_sim(trace_data: dict, indentation: int):
 
     uuid = trace_data["uuid"]
     alias = trace_data["alias"]
-    status = trace_data["status"] if "status" in trace_data else "unknown"
+    status = trace_data.get("status", "unknown")
 
     click.echo(f"{spaces}Simulation: {uuid}")
     click.echo(f"{spaces}     Alias: {alias}")

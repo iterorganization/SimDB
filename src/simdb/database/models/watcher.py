@@ -4,8 +4,9 @@ from sqlalchemy import Column
 from sqlalchemy import types as sql_types
 from sqlalchemy.orm import validates
 
-from ...docstrings import inherit_docstrings
-from ...notifications import Notification
+from simdb.docstrings import inherit_docstrings
+from simdb.notifications import Notification
+
 from .base import Base
 from .types import ChoiceType
 from .utils import checked_get
@@ -53,9 +54,9 @@ class Watcher(Base):
         return watcher
 
     def data(self, recurse: bool = False) -> Dict[str, str]:
-        data = dict(
-            username=self.username,
-            email=self.email,
-            notification=str(self.notification),
-        )
+        data = {
+            "username": self.username,
+            "email": self.email,
+            "notification": str(self.notification),
+        }
         return data

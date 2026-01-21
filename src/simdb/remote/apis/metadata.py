@@ -1,10 +1,10 @@
 from flask import jsonify
 from flask_restx import Namespace, Resource
 
-from ...database import DatabaseError
-from ...remote.core.cache import cache, cache_key
-from ...remote.core.errors import error
-from ..core.typing import current_app
+from simdb.database import DatabaseError
+from simdb.remote.core.cache import cache, cache_key
+from simdb.remote.core.errors import error
+from simdb.remote.core.typing import current_app
 
 api = Namespace("metadata", path="/")
 

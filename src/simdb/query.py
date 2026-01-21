@@ -90,7 +90,7 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str) ->
     elif query_type == QueryType.IN:
         if isinstance(value, np.ndarray):
             return float(compare) in value
-        elif isinstance(value, int) or isinstance(value, float):
+        elif isinstance(value, (int, float)):
             raise ValueError(
                 f"Cannot use 'in' query selection for scalar metadata field {name}."
             )
@@ -99,7 +99,7 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str) ->
     elif query_type == QueryType.NI:
         if isinstance(value, np.ndarray):
             return float(compare) in value
-        elif isinstance(value, int) or isinstance(value, float):
+        elif isinstance(value, (int, float)):
             raise ValueError(
                 f"Cannot use 'ni' query selection for scalar metadata field {name}."
             )
@@ -108,35 +108,35 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str) ->
     elif query_type == QueryType.GT:
         if isinstance(value, np.ndarray):
             return np.all(value > float(compare))
-        elif isinstance(value, int) or isinstance(value, float):
+        elif isinstance(value, (int, float)):
             return value > float(compare)
         elif value is not None:
             return value > compare
     elif query_type == QueryType.GE:
         if isinstance(value, np.ndarray):
             return np.all(value >= float(compare))
-        elif isinstance(value, int) or isinstance(value, float):
+        elif isinstance(value, (int, float)):
             return value >= float(compare)
         elif value is not None:
             return value >= compare
     elif query_type == QueryType.LT:
         if isinstance(value, np.ndarray):
             return np.all(value < float(compare))
-        elif isinstance(value, int) or isinstance(value, float):
+        elif isinstance(value, (int, float)):
             return value < float(compare)
         elif value is not None:
             return value < compare
     elif query_type == QueryType.LE:
         if isinstance(value, np.ndarray):
             return np.all(value <= float(compare))
-        elif isinstance(value, int) or isinstance(value, float):
+        elif isinstance(value, (int, float)):
             return value <= float(compare)
         elif value is not None:
             return value <= compare
     elif query_type == QueryType.AGT:
         if isinstance(value, np.ndarray):
             return np.any(value > float(compare))
-        elif isinstance(value, int) or isinstance(value, float):
+        elif isinstance(value, (int, float)):
             return value > float(compare)
         else:
             raise ValueError(
@@ -145,7 +145,7 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str) ->
     elif query_type == QueryType.AGE:
         if isinstance(value, np.ndarray):
             return np.any(value >= float(compare))
-        elif isinstance(value, int) or isinstance(value, float):
+        elif isinstance(value, (int, float)):
             return value >= float(compare)
         else:
             raise ValueError(
@@ -154,7 +154,7 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str) ->
     elif query_type == QueryType.ALT:
         if isinstance(value, np.ndarray):
             return np.any(value < float(compare))
-        elif isinstance(value, int) or isinstance(value, float):
+        elif isinstance(value, (int, float)):
             return value < float(compare)
         else:
             raise ValueError(
@@ -163,7 +163,7 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str) ->
     elif query_type == QueryType.ALE:
         if isinstance(value, np.ndarray):
             return np.any(value <= float(compare))
-        elif isinstance(value, int) or isinstance(value, float):
+        elif isinstance(value, (int, float)):
             return value <= float(compare)
         else:
             raise ValueError(

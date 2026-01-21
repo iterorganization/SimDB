@@ -16,18 +16,18 @@ def _platform_version() -> str:
 
 def _platform_details() -> PlatformDetails:
     data = PlatformDetails(
-        dict(
-            architecture=" ".join(platform.architecture()),
-            libc_ver=" ".join(platform.libc_ver()),
-            machine=platform.machine(),
-            node=platform.node(),
-            platform=platform.platform(),
-            processor=platform.processor(),
-            python_version=platform.python_version(),
-            release=platform.release(),
-            system=platform.system(),
-            os_version=_platform_version(),
-        )
+        {
+            "architecture": " ".join(platform.architecture()),
+            "libc_ver": " ".join(platform.libc_ver()),
+            "machine": platform.machine(),
+            "node": platform.node(),
+            "platform": platform.platform(),
+            "processor": platform.processor(),
+            "python_version": platform.python_version(),
+            "release": platform.release(),
+            "system": platform.system(),
+            "os_version": _platform_version(),
+        }
     )
     return data
 
@@ -43,10 +43,10 @@ def _environmental_vars() -> EnvironmentDetails:
 
 
 def _get_provenance() -> Dict[str, Union[PlatformDetails, EnvironmentDetails]]:
-    prov: Dict[str, Union[PlatformDetails, EnvironmentDetails]] = dict(
-        environment=_environmental_vars(),
-        platform=_platform_details(),
-    )
+    prov: Dict[str, Union[PlatformDetails, EnvironmentDetails]] = {
+        "environment": _environmental_vars(),
+        "platform": _platform_details(),
+    }
     return prov
 
 

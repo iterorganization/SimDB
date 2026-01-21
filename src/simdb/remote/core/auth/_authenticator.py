@@ -3,7 +3,8 @@ from typing import Dict, Optional, Type
 
 from flask import Request
 
-from ....config import Config
+from simdb.config import Config
+
 from ._exceptions import AuthenticationError
 from ._user import User
 
