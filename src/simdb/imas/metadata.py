@@ -66,7 +66,9 @@ def walk_dict(d: Dict, node, depth: int, read_values: ReadValues) -> Dict:
                 read_values = ReadValues[v.upper()]
             except KeyError:
                 raise ValueError(
-                    "Invalid values option: {} (valid options are [{}])".format(v, ", ".join(i.name.lower() for i in ReadValues))
+                    "Invalid values option: {} (valid options are [{}])".format(
+                        v, ", ".join(i.name.lower() for i in ReadValues)
+                    )
                 )
         if k == "metrics":
             if k not in meta:

@@ -115,7 +115,9 @@ class Database:
             #     % kwargs
             # )
             self.engine: sqlalchemy.engine.Engine = create_engine(
-                "postgresql+psycopg2://{user}:{password}@{host}:{port}/{db_name}".format(**kwargs),
+                "postgresql+psycopg2://{user}:{password}@{host}:{port}/{db_name}".format(
+                    **kwargs
+                ),
                 pool_size=25,
                 max_overflow=50,
                 pool_pre_ping=True,
@@ -422,9 +424,7 @@ class Database:
                     )
             elif query_type == QueryType.NI:
                 if name == "alias":
-                    query = query.filter(
-                        Simulation.alias.notilike(f"%{value}%")
-                    )
+                    query = query.filter(Simulation.alias.notilike(f"%{value}%"))
                 elif name == "uuid":
                     query = query.filter(
                         func.REPLACE(cast(Simulation.uuid, String), "-", "").notilike(
@@ -478,7 +478,9 @@ class Database:
                 if name in ("alias", "uuid", "creation_date"):
                     sim_id_sets[(name, value, query_type)].add(row.simulation.id)
                 if row.metadata.element == name:
-                    if query_type == QueryType.EXIST or query_compare(query_type, name, row.metadata.value, value):
+                    if query_type == QueryType.EXIST or query_compare(
+                        query_type, name, row.metadata.value, value
+                    ):
                         sim_id_sets[(name, value, query_type)].add(row.simulation.id)
 
         if sim_id_sets:
@@ -683,7 +685,6 @@ class Database:
         return [{"name": row[0], "type": type(row[1]).__name__} for row in query.all()]
 
     def list_metadata_values(self, name: str) -> List[str]:
-
         from .models.metadata import MetaData
         from .models.simulation import Simulation
 

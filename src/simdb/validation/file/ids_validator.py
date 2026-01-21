@@ -98,9 +98,7 @@ class IdsValidator(FileValidatorBase):
                 imas_uri=URI(validate_uri), validate_options=validate_options
             )
 
-            validate_result = all(
-                result.success for result in validate_output.results
-            )
+            validate_result = all(result.success for result in validate_output.results)
 
             report_generator = ValidationReportGenerator(validate_output)
 

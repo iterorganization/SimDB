@@ -157,7 +157,9 @@ class Simulation(Base):
             self.inputs.append(file)
 
         if all_input_idss:
-            self.meta.append(MetaData("input_ids", "[{}]".format(", ".join(all_input_idss))))
+            self.meta.append(
+                MetaData("input_ids", "[{}]".format(", ".join(all_input_idss)))
+            )
 
         all_output_idss = []
 

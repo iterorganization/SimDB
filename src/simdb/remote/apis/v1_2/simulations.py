@@ -77,7 +77,6 @@ def _validate(simulation, user) -> Dict:
         "file_validation", default={}
     )
     if file_validator_type not in [None, "none", ""]:
-
         from simdb.validation.file import find_file_validator
 
         validator_type, validator_options = find_file_validator(

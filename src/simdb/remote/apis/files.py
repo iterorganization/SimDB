@@ -92,9 +92,7 @@ def _stage_file_from_chunks(
             file_uuid = uuid.UUID(file.filename)
             sim_file = next((f for f in sim_files if f.uuid == file_uuid), None)
             if sim_file is None:
-                raise ValueError(
-                    f"file with uuid {file_uuid} not found in simulation"
-                )
+                raise ValueError(f"file with uuid {file_uuid} not found in simulation")
             if sim_file.uri.scheme != "file":
                 raise ValueError("cannot upload non file URI")
             found_files.append((file, sim_file))
