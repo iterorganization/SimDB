@@ -52,8 +52,7 @@ def is_missing(value: Any):
 
 
 class DBEntry:
-    def partial_get(self, ids: str, path: str, occurrence = 0) -> Any:
-        ...
+    def partial_get(self, ids: str, path: str, occurrence=0) -> Any: ...
 
     def list_all_occurrences(self, ids: str) -> List[int]:
         """
@@ -66,6 +65,7 @@ class DBEntry:
         """
         ...
 
+
 def list_idss(entry: DBEntry) -> List[str]:
     """
     List all the IDSs found to be populated for the given IMAS data entry.
@@ -76,7 +76,7 @@ def list_idss(entry: DBEntry) -> List[str]:
     @return: the list of found IDSs
     """
     import imas
-    
+
     idss = []
 
     for ids_name in entry.factory.ids_names():
@@ -99,6 +99,7 @@ def check_time(entry: DBEntry, ids: str, occurrence) -> None:
     @return:
     """
     import imas
+
     ids_obj = entry.get(ids, occurrence, autoconvert=False, lazy=True)
     try:
         homo_time = ids_obj.ids_properties.homogeneous_time
@@ -110,6 +111,7 @@ def check_time(entry: DBEntry, ids: str, occurrence) -> None:
                 )
     except imas.exception.ValidationError as e:
         raise ImasError(f"IDS {ids} failed validation: {e}")
+
 
 def _is_al5() -> bool:
     import semantic_version
@@ -160,18 +162,14 @@ def _open_legacy(uri: URI) -> DBEntry:
                 data_version=version,
             )
         except:
-            raise ImasError(
-                f"failed to open IMAS data with URI {uri}"
-            )
+            raise ImasError(f"failed to open IMAS data with URI {uri}")
     else:
         try:
             entry = imas.DBEntry(
                 backend_id, database, int(shot), int(run), data_version=version
             )
         except:
-            raise ImasError(
-                f"failed to open IMAS data with URI {uri}"
-            )
+            raise ImasError(f"failed to open IMAS data with URI {uri}")
     (status, _) = entry.open()
     if status != 0:
         raise ImasError(f"failed to open IMAS data with URI {uri}")
@@ -206,7 +204,7 @@ def open_imas(uri: URI) -> DBEntry:
         entry = imas.DBEntry(str(uri), "r")
     except:
         raise ImasError(f"failed to open IMAS data with URI {uri}")
-    
+
     return entry
 
 
@@ -222,9 +220,9 @@ def imas_timestamp(uri: URI) -> datetime:
     creation = ids_obj.ids_properties.creation_date
     if creation:
         try:
-            timestamp = parser.parse(creation)            
-        except Exception:            
-            timestamp = datetime.now()    
+            timestamp = parser.parse(creation)
+        except Exception:
+            timestamp = datetime.now()
             # raise ValueError(f"invalid IMAS creation time {creation}")
     else:
         timestamp = datetime.now()
@@ -338,11 +336,11 @@ def convert_uri(uri: URI, path: Path, config: Config) -> URI:
 def extract_ids_occurrence(ids: str) -> tuple[str, int]:
     """Extract IDS name and occurrence number.
     Returns tuple of (ids_name, occurrence)"""
-    last_underscore = ids.rfind('_')
+    last_underscore = ids.rfind("_")
     if last_underscore == -1:
         return ids, 0
-        
-    potential_occurrence = ids[last_underscore + 1:]
+
+    potential_occurrence = ids[last_underscore + 1 :]
     if potential_occurrence.isdigit():
         return ids[:last_underscore], int(potential_occurrence)
     return ids, 0

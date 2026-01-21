@@ -64,9 +64,7 @@ def check_role(config: Config, user: User, role: Optional[str]) -> bool:
     return True
 
 
-def check_auth(
-    config: Config, request: Request
-) -> Optional[User]:
+def check_auth(config: Config, request: Request) -> Optional[User]:
     """
     This function is called to check if a request is authenticated.
     """
@@ -79,9 +77,11 @@ def check_auth(
         else:
             raise AuthenticationError(f"Authentication failed for user {username}")
 
-    authentication_types = config.get_string_option("authentication.type").lower().split(",")
-    if 'token' not in authentication_types:
-        authentication_types = ['token'] + authentication_types
+    authentication_types = (
+        config.get_string_option("authentication.type").lower().split(",")
+    )
+    if "token" not in authentication_types:
+        authentication_types = ["token"] + authentication_types
 
     for authentication_type in authentication_types:
         authenticator = Authenticator.get(authentication_type)

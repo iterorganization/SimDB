@@ -45,8 +45,10 @@ Note: please don't reply to this email, replies to this address are not monitore
 """
         to_addresses = [w.email for w in simulation.watchers]
         if to_addresses:
-            if (simulation.alias is None or simulation.alias == ""):
-                server.send_message(f"Simulation {simulation.uuid.hex}", msg, to_addresses)
+            if simulation.alias is None or simulation.alias == "":
+                server.send_message(
+                    f"Simulation {simulation.uuid.hex}", msg, to_addresses
+                )
             else:
                 server.send_message(f"Simulation {simulation.alias}", msg, to_addresses)
 
@@ -67,20 +69,28 @@ def _validate(simulation, user) -> Dict:
             "passed": False,
             "error": str(err),
         }
-    
-    file_validator_type = current_app.simdb_config.get_option("file_validation.type", default=None)
-    file_validator_options = current_app.simdb_config.get_section("file_validation", default={})
-    if file_validator_type not in [None, "none",""]:
+
+    file_validator_type = current_app.simdb_config.get_option(
+        "file_validation.type", default=None
+    )
+    file_validator_options = current_app.simdb_config.get_section(
+        "file_validation", default={}
+    )
+    if file_validator_type not in [None, "none", ""]:
         from ....validation.file import find_file_validator
         from imas_validator.validate_options import ValidateOptions
-        validator_type, validator_options  = find_file_validator(file_validator_type, file_validator_options)
+
+        validator_type, validator_options = find_file_validator(
+            file_validator_type, file_validator_options
+        )
         if validator_type:
-        
             for output in simulation.outputs:
                 try:
                     validator_type.validate_uri(output.uri, validator_options)
                 except ValidationError as err:
-                    _update_simulation_status(simulation, models_sim.Simulation.Status.FAILED, user)
+                    _update_simulation_status(
+                        simulation, models_sim.Simulation.Status.FAILED, user
+                    )
                     return {
                         "passed": False,
                         "error": str(err),
@@ -91,7 +101,6 @@ def _validate(simulation, user) -> Dict:
     return {
         "passed": True,
     }
-    
 
 
 def _set_alias(alias: str):
@@ -148,6 +157,7 @@ def _build_trace(sim_id: str) -> dict:
 
     return data
 
+
 def _get_json_aware(force: bool = False, silent: bool = False):
     """
     Parse JSON like Flask's request.get_json, but handle Content-Encoding: gzip.
@@ -159,7 +169,7 @@ def _get_json_aware(force: bool = False, silent: bool = False):
 
     # Match request.get_json content-type check unless forced
     if not force:
-        mimetype = (request.mimetype or "")
+        mimetype = request.mimetype or ""
         if mimetype != "application/json":
             if silent:
                 return None
@@ -189,6 +199,7 @@ def _get_json_aware(force: bool = False, silent: bool = False):
         loads = current_app.json.loads  # Flask >= 2.2
     except Exception:
         from flask import json as flask_json  # fallback
+
         loads = flask_json.loads
 
     try:
@@ -197,6 +208,7 @@ def _get_json_aware(force: bool = False, silent: bool = False):
         if silent:
             return None
         raise
+
 
 @api.route("/simulations")
 class SimulationList(Resource):
@@ -295,7 +307,7 @@ class SimulationList(Resource):
 
             simulation = models_sim.Simulation.from_data(data["simulation"])
 
-            #Simulation Upload (Push) Date
+            # Simulation Upload (Push) Date
             simulation.datetime = datetime.datetime.now().isoformat()
 
             if data["uploaded_by"] is not None:
@@ -399,7 +411,7 @@ class SimulationList(Resource):
                     result[
                         "error"
                     ] = f"""Simulation validation failed and server has error_on_fail=True.\n
-                    {result['validation']["error"]}"""
+                    {result["validation"]["error"]}"""
                     response = jsonify(result)
                     response.status_code = 400
                     return response
@@ -457,8 +469,9 @@ class Simulation(Resource):
 
     parser = api.parser()
     parser.add_argument(
-        'status', type=str, location="json", help = "status", required=True
+        "status", type=str, location="json", help="status", required=True
     )
+
     @api.expect(parser)
     @requires_auth("admin")
     def patch(self, sim_id: str, user: User = Optional[None]):
@@ -514,12 +527,11 @@ class SimulationMeta(Resource):
             return error(str(err))
 
     parser = api.parser()
+    parser.add_argument("key", type=str, location="json", help="status", required=True)
     parser.add_argument(
-        'key', type=str, location="json", help = "status", required=True
+        "value", type=str, location="json", help="status", required=True
     )
-    parser.add_argument(
-        'value', type=str, location="json", help = "status", required=True
-    )
+
     @api.expect(parser)
     @requires_auth("admin")
     def patch(self, sim_id: str, user: User = Optional[None]):
@@ -538,7 +550,7 @@ class SimulationMeta(Resource):
             if simulation is None:
                 raise ValueError(f"Simulation {sim_id} not found.")
             old_values = [meta.data() for meta in simulation.find_meta(key)]
-            if key.lower() != 'status':
+            if key.lower() != "status":
                 simulation.set_meta(key, value)
             else:
                 status = models_sim.Simulation.Status(value)
@@ -552,8 +564,9 @@ class SimulationMeta(Resource):
 
     parser_delete = api.parser()
     parser_delete.add_argument(
-        'key', type=str, location="json", help = "metadata key", required=True
+        "key", type=str, location="json", help="metadata key", required=True
     )
+
     @api.expect(parser_delete)
     @requires_auth("admin")
     def delete(self, sim_id: str, user: User = Optional[None]):

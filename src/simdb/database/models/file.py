@@ -38,7 +38,7 @@ class File(Base):
         self,
         type: DataObject.Type,
         uri: urilib.URI,
-        ids_list: Optional[list] = None,        
+        ids_list: Optional[list] = None,
         perform_integrity_check: bool = True,
         config: Optional[Config] = None,
     ) -> None:
@@ -99,8 +99,8 @@ class File(Base):
             return datetime.now()
         elif self.type == DataObject.Type.IMAS:
             from ...imas.utils import imas_timestamp
-            
-            return imas_timestamp(self.uri) 
+
+            return imas_timestamp(self.uri)
         elif self.type == DataObject.Type.FILE:
             return datetime.fromtimestamp(Path(self.uri.path).stat().st_ctime)
         else:

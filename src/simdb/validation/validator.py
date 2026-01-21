@@ -69,9 +69,10 @@ class CustomValidator(cerberus.Validator):
             self._error(field, "Maximum %s greater than %s" % (value.max(), max_value))
 
     def _compare(self, comparison, field, value, comparator: str, message: str):
-        import numpy as np        
+        import numpy as np
+
         if comparison is None:
-            return        
+            return
         if isinstance(value, np.ndarray):
             value = value[~np.isnan(value)]
             if value.size == 0:

@@ -2,6 +2,7 @@ from .validator_base import FileValidatorBase
 from .ids_validator import IdsValidator
 from typing import Optional
 
+
 def find_file_validator(name: str, options: dict) -> Optional[FileValidatorBase]:
     validators = {
         "ids_validator": IdsValidator,
@@ -14,4 +15,6 @@ def find_file_validator(name: str, options: dict) -> Optional[FileValidatorBase]
     return validator, validate_options
 
 
-__all__ = ["find_file_validator",]
+__all__ = [
+    "find_file_validator",
+]

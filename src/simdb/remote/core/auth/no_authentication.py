@@ -13,9 +13,7 @@ class NoopAuthenticator(Authenticator):
 
     Name = "None"
 
-    def authenticate(
-        self, config: Config, request: Request
-    ) -> Optional[User]:
+    def authenticate(self, config: Config, request: Request) -> Optional[User]:
         auth = request.authorization
         username = auth.username if auth is not None else None
 

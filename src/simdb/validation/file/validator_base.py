@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from ...uri import URI
 
+
 class FileValidatorBase(ABC):
     """
     Abstract base class for validating a simulation output file.

@@ -17,8 +17,8 @@ from .validators import validate_non_negative
 #         file_validator = find_file_validator(file_validator_type, file_validator_options)
 #         if not file_validator:
 #             raise click.ClickException(f"Requested file validator {file_validator_type} not available.")
-        # for output in simulation.outputs:
-        #     file_validator.validate(output)
+# for output in simulation.outputs:
+#     file_validator.validate(output)
 
 
 @click.group()
@@ -76,11 +76,13 @@ def simulation_list(config: Config, meta: List[str], limit: int, show_uuid: bool
     """List ingested simulations."""
     from ...database import get_local_db
     from .utils import print_simulations
-    
+
     check_meta_args(meta)
     db = get_local_db(config)
     simulations = db.list_simulations(meta_keys=meta, limit=limit)
-    print_simulations(simulations, verbose=config.verbose, metadata_names=meta, show_uuid=show_uuid)
+    print_simulations(
+        simulations, verbose=config.verbose, metadata_names=meta, show_uuid=show_uuid
+    )
 
 
 class NameValueOption(click.Option):
@@ -323,7 +325,9 @@ def simulation_pull(
     help="Include UUID in the output.",
     default=False,
 )
-def simulation_query(config: Config, constraints: List[str], meta: List[str], show_uuid: bool):
+def simulation_query(
+    config: Config, constraints: List[str], meta: List[str], show_uuid: bool
+):
     """Perform a metadata query to find matching local simulations.
 
     \b
@@ -381,7 +385,9 @@ def simulation_query(config: Config, constraints: List[str], meta: List[str], sh
 
     db = get_local_db(config)
     simulations = db.query_meta(parsed_constraints)
-    print_simulations(simulations, verbose=config.verbose, metadata_names=names, show_uuid=show_uuid)
+    print_simulations(
+        simulations, verbose=config.verbose, metadata_names=names, show_uuid=show_uuid
+    )
 
 
 @simulation.command("validate", cls=n_required_args_adaptor(1))
@@ -419,9 +425,13 @@ def simulation_validate(
             current_checksum = file.generate_checksum(config, ids_list)
 
             if current_checksum != file.checksum:
-                raise ValidationError(f"Checksum mismatch for file {file.uri}. "
-                                    f"Expected: {file.checksum}, Got: {current_checksum}")
+                raise ValidationError(
+                    f"Checksum mismatch for file {file.uri}. "
+                    f"Expected: {file.checksum}, Got: {current_checksum}"
+                )
         except Exception as e:
-            raise ValidationError(f"Failed to validate checksum for file {file.uri}: {str(e)}")
+            raise ValidationError(
+                f"Failed to validate checksum for file {file.uri}: {str(e)}"
+            )
 
     click.echo("validation successful")

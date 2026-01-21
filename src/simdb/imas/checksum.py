@@ -77,6 +77,7 @@ def checksum(uri: URI, ids_list: list) -> str:
         raise ValueError("invalid scheme for imas checksum: %s" % uri.scheme)
 
     import hashlib
+
     sha1 = hashlib.sha1()
 
     if not ids_list:
@@ -88,7 +89,11 @@ def checksum(uri: URI, ids_list: list) -> str:
         with open(path, "rb") as file:
             ids_name = Path(path).name.split(".")
             if ids_name[1] == "h5":
-                if ids_name[0] != "master" and ids_list is not None and ids_name[0] not in ids_list:
+                if (
+                    ids_name[0] != "master"
+                    and ids_list is not None
+                    and ids_name[0] not in ids_list
+                ):
                     continue
             for chunk in iter(lambda: file.read(4096), b""):
                 sha1.update(chunk)

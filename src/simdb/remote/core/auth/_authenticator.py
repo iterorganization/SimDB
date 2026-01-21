@@ -17,7 +17,9 @@ class Authenticator(abc.ABC):
 
     @abc.abstractmethod
     def authenticate(
-        self, config: Config, request: Request,
+        self,
+        config: Config,
+        request: Request,
     ) -> Optional[User]:
         """
         Authenticate the user using parameters passed in the current request - i.e. username/password passed as part of

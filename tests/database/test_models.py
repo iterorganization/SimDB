@@ -37,4 +37,8 @@ def test_create_simulation_with_manifest(manifest_cls, data_object_cls):
     assert sim.outputs[0].uri == URI(f"file://{path}")
     assert len(sim.meta) == 3
     meta = {m.element: m.value for m in sim.meta}
-    assert meta == {"description": "test description", "status": "not validated", "uploaded_by": "test user"}
+    assert meta == {
+        "description": "test description",
+        "status": "not validated",
+        "uploaded_by": "test user",
+    }

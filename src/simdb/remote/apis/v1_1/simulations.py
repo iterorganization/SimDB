@@ -257,9 +257,9 @@ class SimulationList(Resource):
                         "Validation config option error_on_fail=True without auto_validate=True."
                     )
                 elif simulation.status == models_sim.Simulation.Status.FAILED:
-                    result[
-                        "error"
-                    ] = "Simulation validation failed and server has error_on_fail=True."
+                    result["error"] = (
+                        "Simulation validation failed and server has error_on_fail=True."
+                    )
                     response = jsonify(result)
                     response.status_code = 400
                     return response
@@ -317,8 +317,9 @@ class Simulation(Resource):
 
     parser = api.parser()
     parser.add_argument(
-        'status', type=str, location="json", help = "Status", required=True
+        "status", type=str, location="json", help="Status", required=True
     )
+
     @api.expect(parser)
     @requires_auth("admin")
     def patch(self, sim_id: str, user: User = Optional[None]):
@@ -372,12 +373,11 @@ class SimulationMeta(Resource):
             return error(str(err))
 
     parser = api.parser()
+    parser.add_argument("key", type=str, location="json", help="status", required=True)
     parser.add_argument(
-        'key', type=str, location="json", help = "status", required=True        
+        "value", type=str, location="json", help="status", required=True
     )
-    parser.add_argument(
-        'value', type=str, location="json", help = "status", required=True       
-    )
+
     @api.expect(parser)
     @requires_auth("admin")
     def patch(self, sim_id: str, user: User = Optional[None]):
@@ -396,8 +396,8 @@ class SimulationMeta(Resource):
             if simulation is None:
                 raise ValueError(f"Simulation {sim_id} not found.")
             old_values = [meta.data() for meta in simulation.find_meta(key)]
-            if key.lower() != 'status':
-                simulation.set_meta(key, value)                
+            if key.lower() != "status":
+                simulation.set_meta(key, value)
             else:
                 status = models_sim.Simulation.Status(value)
                 _update_simulation_status(simulation, status, user)
@@ -409,8 +409,9 @@ class SimulationMeta(Resource):
 
     parser_delete = api.parser()
     parser_delete.add_argument(
-        'key', type=str, location="json", help = "metadata key", required=True       
+        "key", type=str, location="json", help="metadata key", required=True
     )
+
     @api.expect(parser_delete)
     @requires_auth("admin")
     def delete(self, sim_id: str, user: User = Optional[None]):

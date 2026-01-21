@@ -22,9 +22,7 @@ class LdapAuthenticator(Authenticator):
 
     Name = "LDAP"
 
-    def authenticate(
-        self, config: Config, request: Request
-    ) -> Optional[User]:
+    def authenticate(self, config: Config, request: Request) -> Optional[User]:
         import ldap
 
         ldap_host = config.get_option("authentication.ldap_server")

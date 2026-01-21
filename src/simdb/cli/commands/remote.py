@@ -388,11 +388,15 @@ def remote_show_validation_schema(api: RemoteAPI, depth: int):
     help="Include UUID in the output.",
     default=False,
 )
-def remote_list(config: "Config", api: RemoteAPI, meta: List[str], limit: int, show_uuid: bool):
+def remote_list(
+    config: "Config", api: RemoteAPI, meta: List[str], limit: int, show_uuid: bool
+):
     """List simulations available on remote."""
     check_meta_args(meta)
     simulations = api.list_simulations(meta, limit)
-    print_simulations(simulations, verbose=config.verbose, metadata_names=meta, show_uuid=show_uuid)
+    print_simulations(
+        simulations, verbose=config.verbose, metadata_names=meta, show_uuid=show_uuid
+    )
 
 
 @remote.command("version", cls=remote_command_cls())
@@ -514,7 +518,9 @@ def remote_query(
         names.append(name)
     names += meta
 
-    print_simulations(simulations, verbose=config.verbose, metadata_names=names, show_uuid=show_uuid)
+    print_simulations(
+        simulations, verbose=config.verbose, metadata_names=names, show_uuid=show_uuid
+    )
 
 
 # @remote.command("update", cls=remote_command_cls())
@@ -632,7 +638,7 @@ def admin_set_meta(api: RemoteAPI, sim_id: str, key: str, value: str, type: str)
 )
 def admin_set_status(api: RemoteAPI, sim_id: str, value: str):
     """Update the status metadata value for the given simulation."""
-    #old_value = api.set_metadata(sim_id, "status", value)
+    # old_value = api.set_metadata(sim_id, "status", value)
     old_value = api.update_simulation(sim_id, Simulation.Status(value.lower()))
     if old_value:
         click.echo(f"Update status for simulation {sim_id}: {old_value} -> {value}")

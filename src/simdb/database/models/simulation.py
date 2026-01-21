@@ -117,7 +117,7 @@ class Simulation(Base):
             return
         self.uuid = uuid.uuid1()
         self.datetime = datetime.now()
-        
+
         # For legacy simulation import responsible_name is from manifest else it will be the user.email
         if manifest.responsible_name:
             self.meta.append(MetaData("uploaded_by", manifest.responsible_name))
@@ -129,10 +129,15 @@ class Simulation(Base):
             self.alias = manifest.alias
 
         all_input_idss = []
-        
+
         for input in manifest.inputs:
             if input.type == DataObject.Type.IMAS:
-                from ...imas.utils import open_imas, list_idss, check_time, extract_ids_occurrence
+                from ...imas.utils import (
+                    open_imas,
+                    list_idss,
+                    check_time,
+                    extract_ids_occurrence,
+                )
                 from ...imas.metadata import load_metadata
 
                 entry = open_imas(input.uri)
@@ -158,7 +163,12 @@ class Simulation(Base):
 
         for output in manifest.outputs:
             if output.type == DataObject.Type.IMAS:
-                from ...imas.utils import open_imas, list_idss, check_time, extract_ids_occurrence
+                from ...imas.utils import (
+                    open_imas,
+                    list_idss,
+                    check_time,
+                    extract_ids_occurrence,
+                )
                 from ...imas.metadata import load_metadata
 
                 entry = open_imas(output.uri)
@@ -180,7 +190,7 @@ class Simulation(Base):
             file = File(output.type, output.uri, all_output_idss, config=config)
             if output.type == DataObject.Type.IMAS and "path" not in output.uri.query:
                 file.uri = _update_legacy_uri(output)
-            
+
             self.outputs.append(file)
 
         if all_output_idss:
@@ -192,10 +202,11 @@ class Simulation(Base):
         for key, value in flattened_dict.items():
             if "metadata#" in key:
                 import re
+
                 key = re.sub(r"^metadata#\d+\.?", "", key)
             self.set_meta(key, value)
         if not self.find_meta("status"):
-            self.set_meta("status", Simulation.Status.NOT_VALIDATED.value)        
+            self.set_meta("status", Simulation.Status.NOT_VALIDATED.value)
         self.validate_meta()
 
     @property
@@ -291,7 +302,7 @@ class Simulation(Base):
                 elif file.type == DataObject.Type.IMAS:
                     return file.uri.path.parent
                 else:
-                    raise ValueError(f'Unknown file type {file.type}')
+                    raise ValueError(f"Unknown file type {file.type}")
             elif file.uri.scheme == "imas":
                 return (
                     Path(file.uri.query["path"]) if "path" in file.uri.query else None

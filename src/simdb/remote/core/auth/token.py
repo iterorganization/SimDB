@@ -9,14 +9,11 @@ from ._exceptions import AuthenticationError
 
 
 class TokenAuthenticator(Authenticator):
-
     TOKEN_HEADER_NAME: str = "Authorization"
 
     Name = "Token"
 
-    def authenticate(
-        self, config: Config, request: Request
-    ) -> Optional[User]:
+    def authenticate(self, config: Config, request: Request) -> Optional[User]:
         import jwt
         import datetime
 

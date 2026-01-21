@@ -227,9 +227,9 @@ class SimulationList(Resource):
                         "Validation config option error_on_fail=True without auto_validate=True."
                     )
                 elif simulation.status == models_sim.Simulation.Status.FAILED:
-                    result[
-                        "error"
-                    ] = "Simulation validation failed and server has error_on_fail=True."
+                    result["error"] = (
+                        "Simulation validation failed and server has error_on_fail=True."
+                    )
                     response = jsonify(result)
                     response.status_code = 400
                     return response
@@ -282,8 +282,9 @@ class Simulation(Resource):
 
     parser = api.parser()
     parser.add_argument(
-        'status', type=str, location="json", help = "status", required=True
+        "status", type=str, location="json", help="status", required=True
     )
+
     @api.expect(parser)
     @requires_auth("admin")
     def patch(self, sim_id: str, user: User = Optional[None]):

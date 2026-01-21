@@ -101,9 +101,7 @@ def print_simulations(
                 if meta:
                     value = _format_meta_value(meta[0].value, 5)
                     line.append(value)
-                    column_widths[name] = max(
-                        column_widths[name], len(value)
-                    )
+                    column_widths[name] = max(column_widths[name], len(value))
                 else:
                     line.append("")
 
@@ -111,7 +109,7 @@ def print_simulations(
             lines.append(list(column_widths.keys()))
 
         lines.append(line)
-        
+
     line_written = False
     for line in lines:
         for col, width in enumerate(column_widths.values()):
@@ -121,7 +119,9 @@ def print_simulations(
             click.echo("-" * (sum(column_widths.values()) + len(column_widths) - 1))
             line_written = True
     if (lines.__len__() - 1) == 100:
-        click.echo("\n...first 100 entries shown, use command $simdb remote [NAME] list -l 0 to list all simulations.\n")
+        click.echo(
+            "\n...first 100 entries shown, use command $simdb remote [NAME] list -l 0 to list all simulations.\n"
+        )
 
 
 def _print_trace_sim(trace_data: dict, indentation: int):

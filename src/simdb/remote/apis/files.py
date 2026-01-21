@@ -23,7 +23,10 @@ api = Namespace("files", path="/")
 
 
 def _verify_file(
-    sim_uuid: uuid.UUID, sim_file: models.File, common_root: Optional[Path], ids_list: Optional[list]  = None
+    sim_uuid: uuid.UUID,
+    sim_file: models.File,
+    common_root: Optional[Path],
+    ids_list: Optional[list] = None,
 ):
     if current_app.simdb_config.get_option(
         "development.disable_checksum", default=False
@@ -40,20 +43,24 @@ def _verify_file(
         if sim_file.checksum != checksum:
             raise ValueError(f"checksum failed for file {sim_file!r}")
     elif sim_file.type == DataObject.Type.IMAS:
-        from ...imas.checksum import checksum as imas_checksum        
+        from ...imas.checksum import checksum as imas_checksum
+
         uri = sim_file.uri
-        path_value = uri.query.get("path")        
+        path_value = uri.query.get("path")
         if path_value is None:
             raise ValueError("The 'path' key is missing in the URI query")
         if common_root == Path("/"):
             uri.query.set("path", str(staging_dir) + path_value)
         elif common_root is not None and common_root == path_value:
-            uri.query.set("path", path_value.replace(str(common_root), str(staging_dir)))
+            uri.query.set(
+                "path", path_value.replace(str(common_root), str(staging_dir))
+            )
         else:
             uri.query.set("path", str(staging_dir))
         checksum = imas_checksum(uri, ids_list or [])
         if sim_file.checksum != checksum:
             raise ValueError("checksum failed for simulation %s" % sim_file.uri)
+
 
 def _save_chunked_file(
     file: FileStorage, chunk_info: Dict, path: Path, compressed: bool = True
@@ -123,12 +130,16 @@ def _process_simulation_data(data: dict) -> Response:
             _verify_file(simulation.uuid, sim_file, common_root)
     elif DataObject.Type(data["obj_type"]) == DataObject.Type.IMAS:
         file = data["files"][0]
-        sim_files = simulation.inputs if file["file_type"] == "input" else simulation.outputs
-        sim_file = next((f for f in sim_files if f.uuid == uuid.UUID(file["file_uuid"])), None)
-        _verify_file(simulation.uuid, sim_file, common_root, file["ids_list"])        
+        sim_files = (
+            simulation.inputs if file["file_type"] == "input" else simulation.outputs
+        )
+        sim_file = next(
+            (f for f in sim_files if f.uuid == uuid.UUID(file["file_uuid"])), None
+        )
+        _verify_file(simulation.uuid, sim_file, common_root, file["ids_list"])
     else:
         raise ValueError("Unsupported object type %s" % data["obj_type"])
-    
+
     return jsonify({})
 
 

@@ -10,13 +10,13 @@ conn = sqlite3.connect("sim.db")
 def create_db():
     with open("create.sql") as file:
         sql = file.readlines()
-    conn.executescript(''.join(sql))
+    conn.executescript("".join(sql))
 
 
 def drop_db():
     with open("drop.sql") as file:
         sql = file.readlines()
-    conn.executescript(''.join(sql))
+    conn.executescript("".join(sql))
 
 
 def main(args: List[str]):

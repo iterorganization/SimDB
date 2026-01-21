@@ -1,5 +1,5 @@
 import os
-import shutil 
+import shutil
 import json
 import uuid
 from typing import (
@@ -275,7 +275,7 @@ class RemoteAPI:
                     )
                 auth = (username, password)
                 with requests.Session() as s:
-                    s.headers['User-Agent'] = 'it_script_basic'
+                    s.headers["User-Agent"] = "it_script_basic"
                     p = s.post(f"{base_url}/my.policy", auth=auth)
                     if p.status_code != 200:
                         raise RuntimeError(
@@ -344,9 +344,9 @@ class RemoteAPI:
         params = params if params is not None else {}
         headers = headers if headers is not None else {}
         headers["Accept-encoding"] = "gzip"
-        headers['User-Agent'] = 'it_script_basic'
+        headers["User-Agent"] = "it_script_basic"
 
-        # Get token api expected basic auth in request 
+        # Get token api expected basic auth in request
         # if authenticate and url.startswith("token"):
         #     self._server_auth = ""
         if authenticate and self._server_auth != "None":
@@ -382,7 +382,7 @@ class RemoteAPI:
         import requests
 
         headers = {"Content-type": "application/json"}
-        headers['User-Agent'] = 'it_script_basic'
+        headers["User-Agent"] = "it_script_basic"
 
         if self._server_auth != "None":
             res = requests.put(
@@ -423,12 +423,13 @@ class RemoteAPI:
         else:
             headers = {"Content-type": "application/json"}
         post_data = json.dumps(data, cls=CustomEncoder, indent=2) if data else {}
-        headers['User-Agent'] = 'it_script_basic'
+        headers["User-Agent"] = "it_script_basic"
 
         # Compress the data if it is larger than 2 MB and the URL is for simulations
         if url == "simulations" and len(post_data) > 2 * 1024 * 1024:
             import gzip
             from io import BytesIO
+
             buf = BytesIO()
             with gzip.GzipFile(fileobj=buf, mode="wb") as gz:
                 gz.write(post_data.encode("utf-8"))
@@ -469,7 +470,7 @@ class RemoteAPI:
         import requests
 
         headers = {"Content-type": "application/json"}
-        headers['User-Agent'] = 'it_script_basic'
+        headers["User-Agent"] = "it_script_basic"
 
         if self._server_auth != "None":
             res = requests.patch(
@@ -504,7 +505,7 @@ class RemoteAPI:
         import requests
 
         headers = {"Content-type": "application/json"}
-        headers['User-Agent'] = 'it_script_basic'
+        headers["User-Agent"] = "it_script_basic"
 
         if self._server_auth != "None":
             res = requests.delete(
@@ -604,6 +605,7 @@ class RemoteAPI:
         from ..database.models import Simulation
         from ..remote import APIConstants
         from collections import defaultdict
+
         params = defaultdict(list)
         for item in constraints:
             (key, value) = item.split("=")
@@ -701,7 +703,6 @@ class RemoteAPI:
                     "files": [
                         {
                             "chunks": num_chunks,
-                            ""
                             "file_type": file_type,
                             "file_uuid": uuid.hex,
                             "ids_list": None,
@@ -762,20 +763,24 @@ class RemoteAPI:
         from ..imas.utils import imas_files
 
         sim_data = simulation.data(recurse=True)
-        
+
         try:
-            sim_json = json.dumps(sim_data, cls=CustomEncoder, separators=(",", ":")).encode("utf-8")
+            sim_json = json.dumps(
+                sim_data, cls=CustomEncoder, separators=(",", ":")
+            ).encode("utf-8")
             sim_json_size = len(sim_json)
         except Exception as e:
             sim_json_size = 0
 
         # Target max request (10MB minus headroom); adjust chunk size so (chunk + sim_data JSON) fits
         MAX_REQUEST_BYTES = 9 * 1024 * 1024  # nominal 10 MB limit
-        HEADROOM = 2048                       # for JSON envelope & headers
+        HEADROOM = 2048  # for JSON envelope & headers
         # Base chunk size before adjustment (previous constant)
         base_chunk_size = 8 * 1024 * 1024
         # Compute allowed chunk payload
-        allowed_chunk = max(1024, min(base_chunk_size, MAX_REQUEST_BYTES - sim_json_size - HEADROOM))
+        allowed_chunk = max(
+            1024, min(base_chunk_size, MAX_REQUEST_BYTES - sim_json_size - HEADROOM)
+        )
 
         options = self.get_upload_options()
         if options.get("copy_files", True):
@@ -793,16 +798,26 @@ class RemoteAPI:
                         # Check if hdf5 ids_name is in ids_list
                         ids_name = Path(path).name.split(".")
                         if ids_name[1] == "h5":
-                            if ids_name[0] != "master" and ids_list is not None and ids_name[0] not in ids_list:
+                            if (
+                                ids_name[0] != "master"
+                                and ids_list is not None
+                                and ids_name[0] not in ids_list
+                            ):
                                 continue
                         sim_file = next(
                             (f for f in sim_data["inputs"] if f["uuid"] == file.uuid)
                         )
                         sim_file["uri"] = f"file:{path}"
                         self._push_file(
-                            path, file.uuid, "input", sim_data, chunk_size, out_stream, file.type
+                            path,
+                            file.uuid,
+                            "input",
+                            sim_data,
+                            chunk_size,
+                            out_stream,
+                            file.type,
                         )
-                	
+
                     self.post(
                         "files",
                         data={
@@ -812,7 +827,7 @@ class RemoteAPI:
                                 {
                                     "file_type": "input",
                                     "file_uuid": file.uuid.hex,
-                                    "ids_list": ids_list, 
+                                    "ids_list": ids_list,
                                 }
                             ],
                         },
@@ -834,20 +849,30 @@ class RemoteAPI:
                     if not copy_ids:
                         print(f"Skipping IDS data {file}", file=out_stream, flush=True)
                         continue
-                    
+
                     ids_list = simulation.meta_dict().get("ids", [])
                     for path in imas_files(file.uri):
                         # Check if hdf5 ids_name is in ids_list
                         ids_name = Path(path).name.split(".")
                         if ids_name[1] == "h5":
-                            if ids_name[0] != "master" and ids_list is not None and ids_name[0] not in ids_list:
+                            if (
+                                ids_name[0] != "master"
+                                and ids_list is not None
+                                and ids_name[0] not in ids_list
+                            ):
                                 continue
                         sim_file = next(
                             (f for f in sim_data["outputs"] if f["uuid"] == file.uuid)
                         )
                         sim_file["uri"] = f"file:{path}"
                         self._push_file(
-                            path, file.uuid, "output", sim_data, chunk_size, out_stream, file.type
+                            path,
+                            file.uuid,
+                            "output",
+                            sim_data,
+                            chunk_size,
+                            out_stream,
+                            file.type,
                         )
 
                     self.post(
@@ -859,7 +884,7 @@ class RemoteAPI:
                                 {
                                     "file_type": "output",
                                     "file_uuid": file.uuid.hex,
-                                    "ids_list": ids_list, 
+                                    "ids_list": ids_list,
                                 }
                             ],
                         },
@@ -879,7 +904,12 @@ class RemoteAPI:
         uploaded_by = simulation.meta_dict().get("uploaded_by", None)
         print("Uploading simulation data ... ", file=out_stream, end="", flush=True)
         self.post(
-            "simulations", data={"simulation": sim_data, "add_watcher": add_watcher, "uploaded_by": uploaded_by}
+            "simulations",
+            data={
+                "simulation": sim_data,
+                "add_watcher": add_watcher,
+                "uploaded_by": uploaded_by,
+            },
         )
         print("Success", file=out_stream, flush=True)
 

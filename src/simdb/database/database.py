@@ -117,7 +117,7 @@ class Database:
                 pool_size=25,
                 max_overflow=50,
                 pool_pre_ping=True,
-                pool_recycle=3600
+                pool_recycle=3600,
             )
             with contextlib.closing(self.engine.connect()) as con:
                 res: sqlalchemy.engine.ResultProxy = con.execute(
@@ -154,9 +154,9 @@ class Database:
 
     def close(self):
         """Close the database session and dispose of the engine."""
-        if hasattr(self, 'session'):
+        if hasattr(self, "session"):
             self.session.remove()  # For scoped_session
-        if hasattr(self, 'engine'):
+        if hasattr(self, "engine"):
             self.engine.dispose()
 
     def __enter__(self):
@@ -164,7 +164,7 @@ class Database:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
-        
+
     def _get_simulation_data(self, limit, query, meta_keys, page) -> Tuple[int, List]:
         if limit:
             limit = limit * len(meta_keys) if meta_keys else limit
@@ -390,7 +390,9 @@ class Database:
         for name, value, query_type in constraints:
             date_time = datetime.now()
             if name == "creation_date":
-                date_time = datetime.strptime(value.replace("_", ":"), "%Y-%m-%d %H:%M:%S")
+                date_time = datetime.strptime(
+                    value.replace("_", ":"), "%Y-%m-%d %H:%M:%S"
+                )
             if query == QueryType.NONE:
                 pass
             elif query_type == QueryType.EQ:
@@ -411,7 +413,9 @@ class Database:
                     )
             elif query_type == QueryType.NI:
                 if name == "alias":
-                    query = query.filter(Simulation.alias.notilike("%{}%".format(value)))
+                    query = query.filter(
+                        Simulation.alias.notilike("%{}%".format(value))
+                    )
                 elif name == "uuid":
                     query = query.filter(
                         func.REPLACE(cast(Simulation.uuid, String), "-", "").notilike(
@@ -446,7 +450,7 @@ class Database:
             names_filters.append(MetaData.element.ilike(name))
         if names_filters:
             query = query.filter(or_(*names_filters))
-        
+
         return query
 
     def _get_sim_ids(
@@ -675,9 +679,8 @@ class Database:
         from sqlalchemy import cast, String
 
         if name == "alias":
-            query = (
-                self.session.query(Simulation.alias)
-                .filter(Simulation.alias != None)
+            query = self.session.query(Simulation.alias).filter(
+                Simulation.alias != None
             )
         else:
             query = (

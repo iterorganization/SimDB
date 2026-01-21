@@ -11,6 +11,7 @@ EnvironmentDetails = NewType("EnvironmentDetails", Dict[str, Union[str, List[str
 
 def _platform_version() -> str:
     import distro
+
     return distro.name(pretty=True)
 
 

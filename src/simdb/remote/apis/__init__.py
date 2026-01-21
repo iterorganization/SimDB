@@ -142,6 +142,7 @@ def register(api, version, namespaces):
             #     options["file_validator_options"] = validator_oprions
             #     options["file_validator_options"] = validator_options
 
+
 register(api_v1, "v1", namespaces_v1)
 register(api_v1_1, "v1.1", namespaces_v1_1)
 register(api_v1_2, "v1.2", namespaces_v1_2)
