@@ -49,8 +49,6 @@ dependencies = [
 
 [project.optional-dependencies]
 build-test = [
-    "pytest>=6.0",
-    "pytest-cov>=2.0",
     "tox>=3.24",
     "Flask>=2.0",
     "flask-cors>=3",
