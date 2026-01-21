@@ -7,7 +7,7 @@ name = "imas-simdb"
 description = "ITER Simulation Management Tool"
 readme = {file = "README.md", content-type = "text/markdown"}
 license = {file = "LICENCE"}
-requires-python = ">=3.11"
+requires-python = ">=3.8"
 authors = [
     {name = "ITER Organization", email = "imas-support@iter.org"},
 ]
@@ -17,6 +17,9 @@ maintainers = [
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Operating System :: OS Independent",
     "Development Status :: 4 - Beta",
@@ -169,7 +172,7 @@ testpaths = [
 
 [dependency-groups]
 dev = [
-    "pytest>=9.0.2",
-    "pytest-cov>=7.0.0",
+    "pytest>=8.3.5",
+    "pytest-cov>=5.0.0",
     "ruff>=0.14.9",
 ]
