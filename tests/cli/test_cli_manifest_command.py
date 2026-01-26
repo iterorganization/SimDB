@@ -1,7 +1,9 @@
 from unittest import mock
+
 from click.testing import CliRunner
-from simdb.cli.simdb import cli
 from utils import config_test_file, create_manifest, get_file_path
+
+from simdb.cli.simdb import cli
 
 
 @mock.patch("simdb.cli.manifest.Manifest")

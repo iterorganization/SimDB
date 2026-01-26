@@ -10,7 +10,7 @@ def sha1_checksum(uri: URI) -> str:
     :return: a string containing the hex representation of the computed SHA1 checksum
     """
     if uri.scheme != "file":
-        raise ValueError("invalid scheme for file checksum: %s" % uri.scheme)
+        raise ValueError(f"invalid scheme for file checksum: {uri.scheme}")
     path = Path(uri.path)
 
     import hashlib

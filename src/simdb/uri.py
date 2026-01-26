@@ -1,6 +1,7 @@
-from urllib3.util.url import parse_url, Url, LocationParseError
 from pathlib import Path
-from typing import Dict, Union, Optional
+from typing import Dict, Optional, Union
+
+from urllib3.util.url import LocationParseError, Url, parse_url
 
 
 class URIParserError(ValueError):
@@ -56,7 +57,7 @@ class Authority:
     Class representing URI authority.
     """
 
-    __slots__ = ("host", "port", "auth")
+    __slots__ = ("auth", "host", "port")
 
     def __init__(self, host: Optional[int], port: Optional[int], auth: Optional[str]):
         self.host: Optional[str] = host
@@ -89,7 +90,7 @@ class URI:
     Class for parsing and representing a URI.
     """
 
-    __slots__ = ("scheme", "query", "path", "authority", "fragment")
+    __slots__ = ("authority", "fragment", "path", "query", "scheme")
 
     def __init__(self, uri: Union[str, "URI", None] = None, *, scheme=None, path=None):
         """

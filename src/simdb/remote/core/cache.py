@@ -1,7 +1,7 @@
-from flask_caching import Cache
 from flask import request
+from flask_caching import Cache
 
-from ...config import Config
+from simdb.config import Config
 
 config = Config("app.cfg")
 config.load()
@@ -14,9 +14,9 @@ cache = Cache(config=cache_options)
 
 def cache_key(*args, **kwargs):
     headers = []
-    for key in request.headers.keys():
+    for key in request.headers:
         if "simdb-" in key.lower():
-            headers.append("{}:{}".format(key.lower(), request.headers.get(key, 0)))
+            headers.append(f"{key.lower()}:{request.headers.get(key, 0)}")
     return request.url + "?" + "&".join(headers)
 
 

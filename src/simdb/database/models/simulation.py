@@ -1,20 +1,20 @@
-from enum import Enum
-import uuid
-import sys
 import itertools
-from collections.abc import Iterable
+import sys
+import uuid
 from collections import defaultdict
+from collections.abc import Iterable
 from datetime import datetime
-from typing import List, Union, Dict, Any, TYPE_CHECKING, Optional, Set
+from enum import Enum
 from getpass import getuser
 from pathlib import Path
-from dateutil import parser as date_parser
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
 
 if sys.version_info < (3, 11):
     from backports.datetime_fromisoformat import MonkeyPatch
 
+from sqlalchemy import Column, ForeignKey, Table
+from sqlalchemy import types as sql_types
 from sqlalchemy.orm import relationship
-from sqlalchemy import Table, ForeignKey, Column, types as sql_types
 
 if "sphinx" in sys.modules:
     # Patch to allow sphix doc generation
@@ -22,14 +22,14 @@ if "sphinx" in sys.modules:
 
     ClauseElement.__bool__ = lambda self: True
 
-from .utils import flatten_dict, unflatten_dict, checked_get
-from .types import UUID
+from simdb.cli.manifest import DataObject, Manifest
+from simdb.config.config import Config
+from simdb.docstrings import inherit_docstrings
+
 from .base import Base
 from .file import File
-from ...cli.manifest import Manifest, DataObject
-from ...docstrings import inherit_docstrings
-from ...config.config import Config
-
+from .types import UUID
+from .utils import checked_get, flatten_dict, unflatten_dict
 
 if sys.version_info < (3, 11):
     MonkeyPatch.patch_fromisoformat()
@@ -63,8 +63,8 @@ simulation_watchers = Table(
 
 
 def _update_legacy_uri(data_object: DataObject):
-    from ...imas.utils import get_path_for_legacy_uri
-    from ...uri import URI
+    from simdb.imas.utils import get_path_for_legacy_uri
+    from simdb.uri import URI
 
     path = get_path_for_legacy_uri(data_object.uri)
     backend = data_object.uri.query.get("backend", default="hdf5")
@@ -117,7 +117,7 @@ class Simulation(Base):
             return
         self.uuid = uuid.uuid1()
         self.datetime = datetime.now()
-        
+
         # For legacy simulation import responsible_name is from manifest else it will be the user.email
         if manifest.responsible_name:
             self.meta.append(MetaData("uploaded_by", manifest.responsible_name))
@@ -129,11 +129,16 @@ class Simulation(Base):
             self.alias = manifest.alias
 
         all_input_idss = []
-        
+
         for input in manifest.inputs:
             if input.type == DataObject.Type.IMAS:
-                from ...imas.utils import open_imas, list_idss, check_time, extract_ids_occurrence
-                from ...imas.metadata import load_metadata
+                from simdb.imas.metadata import load_metadata
+                from simdb.imas.utils import (
+                    check_time,
+                    extract_ids_occurrence,
+                    list_idss,
+                    open_imas,
+                )
 
                 entry = open_imas(input.uri)
                 idss = list_idss(entry)
@@ -152,14 +157,21 @@ class Simulation(Base):
             self.inputs.append(file)
 
         if all_input_idss:
-            self.meta.append(MetaData("input_ids", "[%s]" % ", ".join(all_input_idss)))
+            self.meta.append(
+                MetaData("input_ids", "[{}]".format(", ".join(all_input_idss)))
+            )
 
         all_output_idss = []
 
         for output in manifest.outputs:
             if output.type == DataObject.Type.IMAS:
-                from ...imas.utils import open_imas, list_idss, check_time, extract_ids_occurrence
-                from ...imas.metadata import load_metadata
+                from simdb.imas.metadata import load_metadata
+                from simdb.imas.utils import (
+                    check_time,
+                    extract_ids_occurrence,
+                    list_idss,
+                    open_imas,
+                )
 
                 entry = open_imas(output.uri)
                 idss = list_idss(entry)
@@ -180,11 +192,11 @@ class Simulation(Base):
             file = File(output.type, output.uri, all_output_idss, config=config)
             if output.type == DataObject.Type.IMAS and "path" not in output.uri.query:
                 file.uri = _update_legacy_uri(output)
-            
+
             self.outputs.append(file)
 
         if all_output_idss:
-            self.meta.append(MetaData("ids", "[%s]" % ", ".join(all_output_idss)))
+            self.meta.append(MetaData("ids", "[{}]".format(", ".join(all_output_idss))))
 
         flattened_dict: Dict[str, str] = {}
         flatten_dict(flattened_dict, manifest.metadata)
@@ -192,10 +204,11 @@ class Simulation(Base):
         for key, value in flattened_dict.items():
             if "metadata#" in key:
                 import re
+
                 key = re.sub(r"^metadata#\d+\.?", "", key)
             self.set_meta(key, value)
         if not self.find_meta("status"):
-            self.set_meta("status", Simulation.Status.NOT_VALIDATED.value)        
+            self.set_meta("status", Simulation.Status.NOT_VALIDATED.value)
         self.validate_meta()
 
     @property
@@ -217,7 +230,7 @@ class Simulation(Base):
 
         result = ""
         for name in ("uuid", "alias"):
-            result += "%s:%s%s\n" % (
+            result += "{}:{}{}\n".format(
                 name,
                 ((10 - len(name)) * " "),
                 getattr(self, name),
@@ -291,7 +304,7 @@ class Simulation(Base):
                 elif file.type == DataObject.Type.IMAS:
                     return file.uri.path.parent
                 else:
-                    raise ValueError(f'Unknown file type {file.type}')
+                    raise ValueError(f"Unknown file type {file.type}")
             elif file.uri.scheme == "imas":
                 return (
                     Path(file.uri.query["path"]) if "path" in file.uri.query else None
@@ -333,11 +346,11 @@ class Simulation(Base):
     def data(
         self, recurse: bool = False, meta_keys: Optional[List[str]] = None
     ) -> Dict[str, Union[str, List]]:
-        data = dict(
-            uuid=self.uuid,
-            alias=self.alias,
-            datetime=self.datetime.isoformat(),
-        )
+        data = {
+            "uuid": self.uuid,
+            "alias": self.alias,
+            "datetime": self.datetime.isoformat(),
+        }
         if recurse:
             data["inputs"] = [f.data(recurse=True) for f in self.inputs]
             data["outputs"] = [f.data(recurse=True) for f in self.outputs]

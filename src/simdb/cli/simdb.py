@@ -1,13 +1,13 @@
 import copy
 import sys
-import click
 from typing import IO
 
+import click
+
+from simdb import __version__
+
 # from trogon import tui
-
-from ..config import Config
-from .. import __version__
-
+from simdb.config import Config
 
 g_debug = False
 
@@ -63,13 +63,13 @@ def dump_help():
 
 
 def add_commands():
-    from .commands.manifest import manifest
     from .commands.alias import alias
-    from .commands.simulation import simulation
     from .commands.config import config
     from .commands.database import database
-    from .commands.remote import remote
+    from .commands.manifest import manifest
     from .commands.provenance import provenance
+    from .commands.remote import remote
+    from .commands.simulation import simulation
 
     cli.add_command(manifest)
     cli.add_command(alias)

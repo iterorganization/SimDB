@@ -1,12 +1,11 @@
-from flask import request, jsonify
-from flask_restx import Resource, Namespace
+from flask import jsonify, request
+from flask_restx import Namespace, Resource
 
-from ..core.typing import current_app
-from ..core.auth import User, requires_auth
-from ..core.errors import error
-from ..core.cache import clear_cache
-from ...database import DatabaseError, models
-
+from simdb.database import DatabaseError, models
+from simdb.remote.core.auth import User, requires_auth
+from simdb.remote.core.cache import clear_cache
+from simdb.remote.core.errors import error
+from simdb.remote.core.typing import current_app
 
 api = Namespace("watchers", path="/")
 
@@ -20,13 +19,13 @@ class Watcher(Resource):
             if data is None:
                 return error("No data provided")
 
-            username = data["user"] if "user" in data else user.name
-            email = data["email"] if "email" in data else user.email
+            username = data.get("user", user.name)
+            email = data.get("email", user.email)
 
             if "notification" not in data:
                 return error("Watcher notification not provided")
 
-            from ...notifications import Notification
+            from simdb.notifications import Notification
 
             notification = getattr(Notification, data["notification"])
 
@@ -47,7 +46,7 @@ class Watcher(Resource):
         try:
             data = request.get_json()
 
-            username = data["user"] if "user" in data else user.name
+            username = data.get("user", user.name)
 
             current_app.db.remove_watcher(sim_id, username)
             clear_cache()

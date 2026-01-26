@@ -1,29 +1,32 @@
-from flask import request, jsonify, send_file, Response, stream_with_context
-from flask_restx import Resource, Namespace
-from typing import Optional, List, Iterable, Dict
-from pathlib import Path
-from werkzeug.datastructures import FileStorage
+import gzip
+import json
 import os
 import uuid
-import json
-import gzip
-import itertools
-import magic
+from pathlib import Path
+from typing import Dict, Iterable, List, Optional
 
-from ..core.typing import current_app
-from ...remote.core.auth import User, requires_auth
-from ...remote.core.path import find_common_root, secure_path
-from ...remote.core.errors import error
-from ...database import DatabaseError, models
-from ...cli.manifest import DataObject
-from ...checksum import sha1_checksum
-from ...uri import URI
+import magic
+from flask import Response, jsonify, request, send_file, stream_with_context
+from flask_restx import Namespace, Resource
+from werkzeug.datastructures import FileStorage
+
+from simdb.checksum import sha1_checksum
+from simdb.cli.manifest import DataObject
+from simdb.database import DatabaseError, models
+from simdb.remote.core.auth import User, requires_auth
+from simdb.remote.core.errors import error
+from simdb.remote.core.path import find_common_root, secure_path
+from simdb.remote.core.typing import current_app
+from simdb.uri import URI
 
 api = Namespace("files", path="/")
 
 
 def _verify_file(
-    sim_uuid: uuid.UUID, sim_file: models.File, common_root: Optional[Path], ids_list: Optional[list]  = None
+    sim_uuid: uuid.UUID,
+    sim_file: models.File,
+    common_root: Optional[Path],
+    ids_list: Optional[list] = None,
 ):
     if current_app.simdb_config.get_option(
         "development.disable_checksum", default=False
@@ -35,25 +38,29 @@ def _verify_file(
     if sim_file.type == DataObject.Type.FILE:
         path = secure_path(sim_file.uri.path, common_root, staging_dir)
         if not path.exists():
-            raise ValueError("file %s does not exist" % path)
+            raise ValueError(f"file {path} does not exist")
         checksum = sha1_checksum(URI(scheme="file", path=path))
         if sim_file.checksum != checksum:
             raise ValueError(f"checksum failed for file {sim_file!r}")
     elif sim_file.type == DataObject.Type.IMAS:
-        from ...imas.checksum import checksum as imas_checksum        
+        from simdb.imas.checksum import checksum as imas_checksum
+
         uri = sim_file.uri
-        path_value = uri.query.get("path")        
+        path_value = uri.query.get("path")
         if path_value is None:
             raise ValueError("The 'path' key is missing in the URI query")
         if common_root == Path("/"):
             uri.query.set("path", str(staging_dir) + path_value)
         elif common_root is not None and common_root == path_value:
-            uri.query.set("path", path_value.replace(str(common_root), str(staging_dir)))
+            uri.query.set(
+                "path", path_value.replace(str(common_root), str(staging_dir))
+            )
         else:
             uri.query.set("path", str(staging_dir))
         checksum = imas_checksum(uri, ids_list or [])
         if sim_file.checksum != checksum:
-            raise ValueError("checksum failed for simulation %s" % sim_file.uri)
+            raise ValueError(f"checksum failed for simulation {sim_file.uri}")
+
 
 def _save_chunked_file(
     file: FileStorage, chunk_info: Dict, path: Path, compressed: bool = True
@@ -85,9 +92,7 @@ def _stage_file_from_chunks(
             file_uuid = uuid.UUID(file.filename)
             sim_file = next((f for f in sim_files if f.uuid == file_uuid), None)
             if sim_file is None:
-                raise ValueError(
-                    "file with uuid %s not found in simulation" % file_uuid
-                )
+                raise ValueError(f"file with uuid {file_uuid} not found in simulation")
             if sim_file.uri.scheme != "file":
                 raise ValueError("cannot upload non file URI")
             found_files.append((file, sim_file))
@@ -107,7 +112,7 @@ def _check_file_is_in_simulation(
     sim_files = simulation.inputs if file_type == "input" else simulation.outputs
     sim_file = next((f for f in sim_files if f.uuid == file_uuid), None)
     if sim_file is None:
-        raise ValueError("file with uuid %s not found in simulation" % file_uuid)
+        raise ValueError(f"file with uuid {file_uuid} not found in simulation")
     return sim_file
 
 
@@ -123,17 +128,21 @@ def _process_simulation_data(data: dict) -> Response:
             _verify_file(simulation.uuid, sim_file, common_root)
     elif DataObject.Type(data["obj_type"]) == DataObject.Type.IMAS:
         file = data["files"][0]
-        sim_files = simulation.inputs if file["file_type"] == "input" else simulation.outputs
-        sim_file = next((f for f in sim_files if f.uuid == uuid.UUID(file["file_uuid"])), None)
-        _verify_file(simulation.uuid, sim_file, common_root, file["ids_list"])        
+        sim_files = (
+            simulation.inputs if file["file_type"] == "input" else simulation.outputs
+        )
+        sim_file = next(
+            (f for f in sim_files if f.uuid == uuid.UUID(file["file_uuid"])), None
+        )
+        _verify_file(simulation.uuid, sim_file, common_root, file["ids_list"])
     else:
-        raise ValueError("Unsupported object type %s" % data["obj_type"])
-    
+        raise ValueError("Unsupported object type {}".format(data["obj_type"]))
+
     return jsonify({})
 
 
 def _handle_file_upload() -> Response:
-    from ...json import CustomDecoder
+    from simdb.json import CustomDecoder
 
     data: dict = json.load(request.files["data"], cls=CustomDecoder)
 
@@ -192,7 +201,7 @@ class File(Resource):
                     }
                 ]
             else:
-                from ...imas.utils import imas_files
+                from simdb.imas.utils import imas_files
 
                 data["files"] = [
                     {"path": str(path), "checksum": sha1_checksum(URI(f"file:{path}"))}
@@ -233,7 +242,7 @@ class FileDownload(Resource):
                 mimetype = magic.from_file(file.uri.path, mime=True)
                 return send_file(file.uri.path, mimetype=mimetype)
             else:
-                from ...imas.utils import imas_files
+                from simdb.imas.utils import imas_files
 
                 file: models.File = current_app.db.get_file(file_uuid)
                 paths = imas_files(file.uri)

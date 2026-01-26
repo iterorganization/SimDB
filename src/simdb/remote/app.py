@@ -1,17 +1,19 @@
 import logging
 import os
+from typing import Optional, Type, cast
+
 from flask import Flask, jsonify, request
-from flask_cors import CORS
+from flask.json import JSONDecoder, JSONEncoder
 from flask_compress import Compress
-from typing import Optional, cast, Type
-from flask.json import JSONEncoder, JSONDecoder
+from flask_cors import CORS
+
+from simdb.config import Config
+from simdb.json import CustomDecoder, CustomEncoder
 
 from .apis import blueprints
+from .core.auth._authenticator import Authenticator
 from .core.cache import cache
 from .core.typing import SimDBApp
-from ..config import Config
-from ..json import CustomEncoder, CustomDecoder
-from .core.auth._authenticator import Authenticator
 
 compress = Compress()
 
@@ -46,8 +48,12 @@ def create_app(
         endpoints = []
         for ver in blueprints:
             endpoints.append(f"{request.url}{ver}")
-        authentication_types = config.get_string_option("authentication.type").split(",")
-        authenticators = [Authenticator.get(auth_type) for auth_type in authentication_types]
+        authentication_types = config.get_string_option("authentication.type").split(
+            ","
+        )
+        authenticators = [
+            Authenticator.get(auth_type) for auth_type in authentication_types
+        ]
         return jsonify(
             {
                 "endpoints": endpoints,

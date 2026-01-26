@@ -1,5 +1,7 @@
-import pytest
 from unittest import mock
+
+import pytest
+
 from simdb.database import Database
 
 
@@ -24,7 +26,7 @@ def test_create_postrges_database(create_engine):
         pool_size=25,
         max_overflow=50,
         pool_pre_ping=True,
-        pool_recycle=3600
+        pool_recycle=3600,
     )
     assert db.engine == create_engine.return_value
 

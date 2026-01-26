@@ -1,24 +1,24 @@
 from typing import Optional
+
 from flask import Request
 
-from ....config import Config
-from ..typing import current_app
+from simdb.config import Config
+from simdb.remote.core.typing import current_app
+
 from ._authenticator import Authenticator
-from ._user import User
 from ._exceptions import AuthenticationError
+from ._user import User
 
 
 class TokenAuthenticator(Authenticator):
-
     TOKEN_HEADER_NAME: str = "Authorization"
 
     Name = "Token"
 
-    def authenticate(
-        self, config: Config, request: Request
-    ) -> Optional[User]:
-        import jwt
+    def authenticate(self, config: Config, request: Request) -> Optional[User]:
         import datetime
+
+        import jwt
 
         try:
             token = request.headers.get(TokenAuthenticator.TOKEN_HEADER_NAME, "")

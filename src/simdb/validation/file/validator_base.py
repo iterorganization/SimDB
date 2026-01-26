@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
-from ...uri import URI
+
+from simdb.uri import URI
+
 
 class FileValidatorBase(ABC):
     """

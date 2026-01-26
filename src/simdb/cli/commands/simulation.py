@@ -1,12 +1,14 @@
-import click
+import contextlib
 from pathlib import Path
-from typing import Optional, List, Tuple, Any, Type
+from typing import Any, List, Optional, Tuple, Type
 
-from . import pass_config, check_meta_args
-from ...config.config import Config
-from ...query import QueryType, parse_query_arg
+import click
+
+from simdb.config.config import Config
+from simdb.query import QueryType, parse_query_arg
+
+from . import check_meta_args, pass_config
 from .validators import validate_non_negative
-
 
 # def _validate_simulation_outputs(options: dict, simulation):
 #     file_validator_type = options.get("file_validator", None)
@@ -17,8 +19,8 @@ from .validators import validate_non_negative
 #         file_validator = find_file_validator(file_validator_type, file_validator_options)
 #         if not file_validator:
 #             raise click.ClickException(f"Requested file validator {file_validator_type} not available.")
-        # for output in simulation.outputs:
-        #     file_validator.validate(output)
+# for output in simulation.outputs:
+#     file_validator.validate(output)
 
 
 @click.group()
@@ -74,13 +76,16 @@ def simulation():
 )
 def simulation_list(config: Config, meta: List[str], limit: int, show_uuid: bool):
     """List ingested simulations."""
-    from ...database import get_local_db
+    from simdb.database import get_local_db
+
     from .utils import print_simulations
-    
+
     check_meta_args(meta)
     db = get_local_db(config)
     simulations = db.list_simulations(meta_keys=meta, limit=limit)
-    print_simulations(simulations, verbose=config.verbose, metadata_names=meta, show_uuid=show_uuid)
+    print_simulations(
+        simulations, verbose=config.verbose, metadata_names=meta, show_uuid=show_uuid
+    )
 
 
 class NameValueOption(click.Option):
@@ -104,7 +109,7 @@ def simulation_modify(
     del_meta: Optional[str],
 ):
     """Modify the ingested simulation."""
-    from ...database import get_local_db
+    from simdb.database import get_local_db
 
     if alias is not None:
         db = get_local_db(config)
@@ -137,7 +142,7 @@ def simulation_modify(
 @click.argument("sim_id")
 def simulation_delete(config: Config, sim_id: str):
     """Delete the ingested simulation with given SIM_ID (UUID or alias)."""
-    from ...database import get_local_db
+    from simdb.database import get_local_db
 
     db = get_local_db(config)
     sim = db.delete_simulation(sim_id)
@@ -150,7 +155,7 @@ def simulation_delete(config: Config, sim_id: str):
 @click.argument("sim_id")
 def simulation_info(config: Config, sim_id: str):
     """Print information on the simulation with given SIM_ID (UUID or alias)."""
-    from ...database import get_local_db
+    from simdb.database import get_local_db
 
     db = get_local_db(config)
     simulation = db.get_simulation(sim_id)
@@ -170,9 +175,10 @@ def simulation_info(config: Config, sim_id: str):
 def simulation_ingest(config: Config, manifest_file: str, alias: str):
     """Ingest a MANIFEST_FILE."""
     import urllib.parse
-    from ...database import get_local_db
-    from ...database.models import Simulation
-    from ..manifest import Manifest, InvalidAlias
+
+    from simdb.cli.manifest import InvalidAlias, Manifest
+    from simdb.database import get_local_db
+    from simdb.database.models import Simulation
 
     manifest = Manifest()
     manifest.load(Path(manifest_file))
@@ -233,10 +239,11 @@ def simulation_push(
     add_watcher: bool,
 ):
     """Push the simulation with the given SIM_ID (UUID or alias) to the REMOTE."""
-    from ...database import get_local_db
-    from ..remote_api import RemoteAPI
-    from ...validation import Validator, ValidationError
     import sys
+
+    from simdb.cli.remote_api import RemoteAPI
+    from simdb.database import get_local_db
+    from simdb.validation import ValidationError, Validator
 
     api = RemoteAPI(remote, username, password, config)
     db = get_local_db(config)
@@ -279,18 +286,17 @@ def simulation_pull(
     password: Optional[str],
 ):
     """Pull the simulation with the given SIM_ID (UUID or alias) from the REMOTE."""
-    from ...database import get_local_db, DatabaseError
-    from ..remote_api import RemoteAPI, RemoteError
     import sys
+
+    from simdb.cli.remote_api import RemoteAPI, RemoteError
+    from simdb.database import DatabaseError, get_local_db
 
     api = RemoteAPI(remote, username, password, config)
     db = get_local_db(config)
 
     local_sim = None
-    try:
+    with contextlib.suppress(DatabaseError):
         local_sim = db.get_simulation(sim_id)
-    except DatabaseError:
-        pass
 
     if local_sim is not None:
         raise click.ClickException(f"Simulation with sim_id {sim_id} already exists")
@@ -323,7 +329,9 @@ def simulation_pull(
     help="Include UUID in the output.",
     default=False,
 )
-def simulation_query(config: Config, constraints: List[str], meta: List[str], show_uuid: bool):
+def simulation_query(
+    config: Config, constraints: List[str], meta: List[str], show_uuid: bool
+):
     """Perform a metadata query to find matching local simulations.
 
     \b
@@ -366,7 +374,8 @@ def simulation_query(config: Config, constraints: List[str], meta: List[str], sh
 
     check_meta_args(meta)
 
-    from ...database import get_local_db
+    from simdb.database import get_local_db
+
     from .utils import print_simulations
 
     parsed_constraints: List[Tuple[str, str, QueryType]] = []
@@ -376,12 +385,14 @@ def simulation_query(config: Config, constraints: List[str], meta: List[str], sh
             raise click.ClickException(f"Invalid constraint {constraint}.")
         key, value = constraint.split("=")
         names.append(key)
-        parsed_constraints.append((key,) + parse_query_arg(value))
+        parsed_constraints.append((key, *parse_query_arg(value)))
     names += meta
 
     db = get_local_db(config)
     simulations = db.query_meta(parsed_constraints)
-    print_simulations(simulations, verbose=config.verbose, metadata_names=names, show_uuid=show_uuid)
+    print_simulations(
+        simulations, verbose=config.verbose, metadata_names=names, show_uuid=show_uuid
+    )
 
 
 @simulation.command("validate", cls=n_required_args_adaptor(1))
@@ -395,9 +406,10 @@ def simulation_validate(
 ):
     """Validate the ingested simulation with given SIM_ID (UUID or alias) using validation schema from REMOTE."""
     from itertools import chain
-    from ...database import get_local_db
-    from ...validation import ValidationError, Validator
-    from ..remote_api import RemoteAPI
+
+    from simdb.cli.remote_api import RemoteAPI
+    from simdb.database import get_local_db
+    from simdb.validation import ValidationError, Validator
 
     db = get_local_db(config)
     simulation = db.get_simulation(sim_id)
@@ -419,9 +431,13 @@ def simulation_validate(
             current_checksum = file.generate_checksum(config, ids_list)
 
             if current_checksum != file.checksum:
-                raise ValidationError(f"Checksum mismatch for file {file.uri}. "
-                                    f"Expected: {file.checksum}, Got: {current_checksum}")
+                raise ValidationError(
+                    f"Checksum mismatch for file {file.uri}. "
+                    f"Expected: {file.checksum}, Got: {current_checksum}"
+                )
         except Exception as e:
-            raise ValidationError(f"Failed to validate checksum for file {file.uri}: {str(e)}")
+            raise ValidationError(
+                f"Failed to validate checksum for file {file.uri}: {e!s}"
+            )
 
     click.echo("validation successful")

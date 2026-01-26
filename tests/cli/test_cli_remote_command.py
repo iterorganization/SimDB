@@ -1,7 +1,9 @@
 from unittest import mock
+
 from click.testing import CliRunner
-from simdb.cli.simdb import cli
 from utils import config_test_file
+
+from simdb.cli.simdb import cli
 from simdb.notifications import Notification
 
 
@@ -11,7 +13,11 @@ from simdb.notifications import Notification
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_version")
 @mock.patch("simdb.cli.remote_api.RemoteAPI.list_watchers")
 def test_remote_watchers_list_command(
-    list_watchers, get_server_version, get_api_version, get_endpoints, get_server_authentication
+    list_watchers,
+    get_server_version,
+    get_api_version,
+    get_endpoints,
+    get_server_authentication,
 ):
     get_endpoints.return_value = ["v1", "v1.1", "v1.1.1", "v1.2"]
     get_api_version.return_value = "1.2"
@@ -39,7 +45,11 @@ def test_remote_watchers_list_command(
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_version")
 @mock.patch("simdb.cli.remote_api.RemoteAPI.remove_watcher")
 def test_remote_watcher_remove_command(
-    remove_watcher, get_server_version, get_api_version, get_endpoints, get_server_authentication
+    remove_watcher,
+    get_server_version,
+    get_api_version,
+    get_endpoints,
+    get_server_authentication,
 ):
     get_endpoints.return_value = ["v1", "v1.1", "v1.1.1", "v1.2"]
     get_api_version.return_value = "1.2"
@@ -75,7 +85,11 @@ def test_remote_watcher_remove_command(
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_version")
 @mock.patch("simdb.cli.remote_api.RemoteAPI.add_watcher")
 def test_remote_watcher_add_command(
-    add_watcher, get_server_version, get_api_version, get_endpoints, get_server_authentication
+    add_watcher,
+    get_server_version,
+    get_api_version,
+    get_endpoints,
+    get_server_authentication,
 ):
     get_endpoints.return_value = ["v1", "v1.1", "v1.1.1", "v1.2"]
     get_api_version.return_value = "1.2"
@@ -114,7 +128,11 @@ def test_remote_watcher_add_command(
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_version")
 @mock.patch("simdb.cli.remote_api.RemoteAPI.list_simulations")
 def test_remote_list_command(
-    list_simulations, get_server_version, get_api_version, get_endpoints, get_server_authentication
+    list_simulations,
+    get_server_version,
+    get_api_version,
+    get_endpoints,
+    get_server_authentication,
 ):
     get_endpoints.return_value = ["v1", "v1.1", "v1.1.1", "v1.2"]
     get_api_version.return_value = "1.2"
@@ -134,7 +152,9 @@ def test_remote_list_command(
     list_simulations.return_value = sims
     config_file = config_test_file()
     runner = CliRunner()
-    result = runner.invoke(cli, [f"--config-file={config_file}", "remote", "list", "--uuid"])
+    result = runner.invoke(
+        cli, [f"--config-file={config_file}", "remote", "list", "--uuid"]
+    )
     assert result.exception is None
     assert list_simulations.called
     for el in data:
@@ -149,7 +169,11 @@ def test_remote_list_command(
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_version")
 @mock.patch("simdb.cli.remote_api.RemoteAPI.list_simulations")
 def test_remote_list_command_with_verbose(
-    list_simulations, get_server_version, get_api_version, get_endpoints, get_server_authentication
+    list_simulations,
+    get_server_version,
+    get_api_version,
+    get_endpoints,
+    get_server_authentication,
 ):
     get_endpoints.return_value = ["v1", "v1.1", "v1.1.1", "v1.2"]
     get_api_version.return_value = "1.2"
@@ -188,7 +212,11 @@ def test_remote_list_command_with_verbose(
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_version")
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_simulation")
 def test_remote_info_command(
-    get_simulation, get_server_version, get_api_version, get_endpoints, get_server_authentication
+    get_simulation,
+    get_server_version,
+    get_api_version,
+    get_endpoints,
+    get_server_authentication,
 ):
     get_endpoints.return_value = ["v1", "v1.1", "v1.1.1", "v1.2"]
     get_api_version.return_value = "1.2"
@@ -217,7 +245,11 @@ def test_remote_info_command(
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_version")
 @mock.patch("simdb.cli.remote_api.RemoteAPI.query_simulations")
 def test_remote_query_command(
-    query_simulations, get_server_version, get_api_version, get_endpoints, get_server_authentication
+    query_simulations,
+    get_server_version,
+    get_api_version,
+    get_endpoints,
+    get_server_authentication,
 ):
     get_endpoints.return_value = ["v1", "v1.1", "v1.1.1", "v1.2"]
     get_api_version.return_value = "1.2"
@@ -257,7 +289,11 @@ def test_remote_query_command(
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_version")
 @mock.patch("simdb.cli.remote_api.RemoteAPI.query_simulations")
 def test_remote_query_command_with_verbose(
-    query_simulations, get_server_version, get_api_version, get_endpoints, get_server_authentication
+    query_simulations,
+    get_server_version,
+    get_api_version,
+    get_endpoints,
+    get_server_authentication,
 ):
     get_endpoints.return_value = ["v1", "v1.1", "v1.1.1", "v1.2"]
     get_api_version.return_value = "1.2"
@@ -281,7 +317,14 @@ def test_remote_query_command_with_verbose(
     runner = CliRunner()
     result = runner.invoke(
         cli,
-        [f"--config-file={config_file}", "--verbose", "remote", "query", "--uuid", *constraints],
+        [
+            f"--config-file={config_file}",
+            "--verbose",
+            "remote",
+            "query",
+            "--uuid",
+            *constraints,
+        ],
     )
     assert result.exception is None
     for el in data:

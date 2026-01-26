@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """CLI module.
 
 The CLI module contains the code for the SimDB Command Line Interface including the commands run by the argparse

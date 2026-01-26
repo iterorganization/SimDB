@@ -1,26 +1,28 @@
 import re
+import shutil
 import sys
 import uuid
-import shutil
+from collections.abc import Iterable
+from pprint import pprint
+from typing import TYPE_CHECKING, List, Optional, Tuple, Type, Union
 
 import click
-from collections.abc import Iterable
-from typing import List, TYPE_CHECKING, Optional, Tuple, Union, Type
 from semantic_version import Version
-from pprint import pprint
 
-from ..remote_api import RemoteAPI
-from . import pass_config, check_meta_args
+from simdb.cli.remote_api import RemoteAPI
+from simdb.database.models.simulation import Simulation
+from simdb.notifications import Notification
+
+from . import check_meta_args, pass_config
 from .utils import print_simulations, print_trace
-from ...notifications import Notification
 from .validators import validate_non_negative, validate_positive
-from ...database.models.simulation import Simulation
 
 pass_api = click.make_pass_decorator(RemoteAPI)
 
 if TYPE_CHECKING or "sphinx" in sys.modules:
-    from ...config import Config
     from click import Context
+
+    from simdb.config import Config
 
 
 class RemoteGroup(click.Group):
@@ -113,16 +115,15 @@ def remote(
     """
     if not ctx.invoked_subcommand and not any(is_empty(i) for i in ctx.params.values()):
         click.echo(ctx.get_help())
-    else:
-        if ctx.invoked_subcommand in ["config"]:
-            pass
-        elif ctx.invoked_subcommand:
-            if ctx.invoked_subcommand == "token" and sys.argv[-1] == "new":
-                ctx.obj = RemoteAPI(name, username, password, config, use_token=False)
-            else:
-                ctx.obj = RemoteAPI(name, username, password, config)
+    elif ctx.invoked_subcommand in ["config"]:
+        pass
+    elif ctx.invoked_subcommand:
+        if ctx.invoked_subcommand == "token" and sys.argv[-1] == "new":
+            ctx.obj = RemoteAPI(name, username, password, config, use_token=False)
         else:
-            click.echo(ctx.get_help())
+            ctx.obj = RemoteAPI(name, username, password, config)
+    else:
+        click.echo(ctx.get_help())
 
 
 @remote.command("test", cls=remote_command_cls())
@@ -315,7 +316,7 @@ def remove_watcher(config: "Config", api: RemoteAPI, sim_id: str, user: str):
 @click.option(
     "-n",
     "--notification",
-    type=click.Choice(list(i.name for i in Notification), case_sensitive=False),
+    type=click.Choice([i.name for i in Notification], case_sensitive=False),
     default=Notification.ALL.name,
     show_default=True,
 )
@@ -388,11 +389,15 @@ def remote_show_validation_schema(api: RemoteAPI, depth: int):
     help="Include UUID in the output.",
     default=False,
 )
-def remote_list(config: "Config", api: RemoteAPI, meta: List[str], limit: int, show_uuid: bool):
+def remote_list(
+    config: "Config", api: RemoteAPI, meta: List[str], limit: int, show_uuid: bool
+):
     """List simulations available on remote."""
     check_meta_args(meta)
     simulations = api.list_simulations(meta, limit)
-    print_simulations(simulations, verbose=config.verbose, metadata_names=meta, show_uuid=show_uuid)
+    print_simulations(
+        simulations, verbose=config.verbose, metadata_names=meta, show_uuid=show_uuid
+    )
 
 
 @remote.command("version", cls=remote_command_cls())
@@ -514,7 +519,9 @@ def remote_query(
         names.append(name)
     names += meta
 
-    print_simulations(simulations, verbose=config.verbose, metadata_names=names, show_uuid=show_uuid)
+    print_simulations(
+        simulations, verbose=config.verbose, metadata_names=names, show_uuid=show_uuid
+    )
 
 
 # @remote.command("update", cls=remote_command_cls())
@@ -632,7 +639,7 @@ def admin_set_meta(api: RemoteAPI, sim_id: str, key: str, value: str, type: str)
 )
 def admin_set_status(api: RemoteAPI, sim_id: str, value: str):
     """Update the status metadata value for the given simulation."""
-    #old_value = api.set_metadata(sim_id, "status", value)
+    # old_value = api.set_metadata(sim_id, "status", value)
     old_value = api.update_simulation(sim_id, Simulation.Status(value.lower()))
     if old_value:
         click.echo(f"Update status for simulation {sim_id}: {old_value} -> {value}")

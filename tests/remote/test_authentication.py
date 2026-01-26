@@ -1,5 +1,7 @@
-import pytest
 from unittest import mock
+
+import pytest
+
 from simdb.config import Config
 
 try:
@@ -15,12 +17,13 @@ try:
 except ImportError:
     has_flask = False
 
-        
+
 @mock.patch("simdb.config.Config.get_option")
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_check_role(get_option):
-    from simdb.remote.core.auth import check_role, User
     from flask import Flask
+
+    from simdb.remote.core.auth import User, check_role
 
     app = Flask("test")
     config = Config()
@@ -52,15 +55,18 @@ def test_check_auth(get_option):
         "authentication.ad_server": "test.server",
         "authentication.ad_domain": "test.domain",
         "authentication.ad_cert": "test.cert",
-    }.get(name, default)   
+    }.get(name, default)
+
     class request:
         class authorization:
             username = ""
             password = ""
+
         headers = {}
+
     request.authorization.username = "admin"
     request.authorization.password = "abc123"
-    ok = check_auth(config, request)    
+    ok = check_auth(config, request)
     assert ok
     get_option.assert_called_once_with("server.admin_password")
 
@@ -72,7 +78,7 @@ def test_check_auth(get_option):
     easy_ad().authenticate_user.side_effect = auth
     request.authorization.username = "user"
     request.authorization.password = "password"
-    ok = check_auth(config, request)    
+    ok = check_auth(config, request)
     assert ok
     easy_ad.assert_called_with(
         {
@@ -89,4 +95,3 @@ def test_check_auth(get_option):
     request.headers = {"Authorization": ""}
     ok = check_auth(config, request)
     assert not ok
-

@@ -1,39 +1,41 @@
-import os
-import shutil 
+import getpass
+import gzip
+import hashlib
+import io
+import itertools
 import json
+import os
+import pickle
+import shutil
+import sys
 import uuid
+from pathlib import Path
 from typing import (
-    List,
-    Dict,
-    Callable,
-    Tuple,
     IO,
-    Iterable,
-    Optional,
-    Union,
     TYPE_CHECKING,
     Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Union,
 )
-import gzip
-import io
-import sys
-import click
-import itertools
-import hashlib
-import appdirs
-import pickle
-import getpass
 from urllib.parse import urlparse
-from pathlib import Path
+
+import appdirs
+import click
 from semantic_version import Version
 
+from simdb.config import Config
+from simdb.imas.utils import imas_files
+from simdb.json import CustomDecoder, CustomEncoder
+
 from .manifest import DataObject
-from ..config import Config
-from ..json import CustomDecoder, CustomEncoder
-from ..imas.utils import imas_files
 
 if TYPE_CHECKING:
-    from ..database.models import Simulation, Watcher, File
+    from simdb.database.models import File, Simulation, Watcher
 
 if TYPE_CHECKING or "sphinx" in sys.modules:
     # Only importing these for type checking and documentation generation in order to speed up runtime startup.
@@ -275,7 +277,7 @@ class RemoteAPI:
                     )
                 auth = (username, password)
                 with requests.Session() as s:
-                    s.headers['User-Agent'] = 'it_script_basic'
+                    s.headers["User-Agent"] = "it_script_basic"
                     p = s.post(f"{base_url}/my.policy", auth=auth)
                     if p.status_code != 200:
                         raise RuntimeError(
@@ -344,9 +346,9 @@ class RemoteAPI:
         params = params if params is not None else {}
         headers = headers if headers is not None else {}
         headers["Accept-encoding"] = "gzip"
-        headers['User-Agent'] = 'it_script_basic'
+        headers["User-Agent"] = "it_script_basic"
 
-        # Get token api expected basic auth in request 
+        # Get token api expected basic auth in request
         # if authenticate and url.startswith("token"):
         #     self._server_auth = ""
         if authenticate and self._server_auth != "None":
@@ -382,7 +384,7 @@ class RemoteAPI:
         import requests
 
         headers = {"Content-type": "application/json"}
-        headers['User-Agent'] = 'it_script_basic'
+        headers["User-Agent"] = "it_script_basic"
 
         if self._server_auth != "None":
             res = requests.put(
@@ -423,12 +425,13 @@ class RemoteAPI:
         else:
             headers = {"Content-type": "application/json"}
         post_data = json.dumps(data, cls=CustomEncoder, indent=2) if data else {}
-        headers['User-Agent'] = 'it_script_basic'
+        headers["User-Agent"] = "it_script_basic"
 
         # Compress the data if it is larger than 2 MB and the URL is for simulations
         if url == "simulations" and len(post_data) > 2 * 1024 * 1024:
             import gzip
             from io import BytesIO
+
             buf = BytesIO()
             with gzip.GzipFile(fileobj=buf, mode="wb") as gz:
                 gz.write(post_data.encode("utf-8"))
@@ -469,7 +472,7 @@ class RemoteAPI:
         import requests
 
         headers = {"Content-type": "application/json"}
-        headers['User-Agent'] = 'it_script_basic'
+        headers["User-Agent"] = "it_script_basic"
 
         if self._server_auth != "None":
             res = requests.patch(
@@ -504,7 +507,7 @@ class RemoteAPI:
         import requests
 
         headers = {"Content-type": "application/json"}
-        headers['User-Agent'] = 'it_script_basic'
+        headers["User-Agent"] = "it_script_basic"
 
         if self._server_auth != "None":
             res = requests.delete(
@@ -577,7 +580,7 @@ class RemoteAPI:
     def list_simulations(
         self, meta: Optional[List[str]] = None, limit: int = 0
     ) -> List["Simulation"]:
-        from ..database.models import Simulation
+        from simdb.database.models import Simulation
 
         args = "?" + "&".join(meta) if meta else ""
         headers = {"simdb-result-limit": str(limit)}
@@ -587,7 +590,7 @@ class RemoteAPI:
 
     @try_request
     def get_simulation(self, sim_id: str) -> "Simulation":
-        from ..database.models import Simulation
+        from simdb.database.models import Simulation
 
         res = self.get("simulation/" + sim_id)
         return Simulation.from_data(res.json(cls=CustomDecoder))
@@ -601,9 +604,11 @@ class RemoteAPI:
     def query_simulations(
         self, constraints: List[str], meta: List[str], limit=0
     ) -> List["Simulation"]:
-        from ..database.models import Simulation
-        from ..remote import APIConstants
         from collections import defaultdict
+
+        from simdb.database.models import Simulation
+        from simdb.remote import APIConstants
+
         params = defaultdict(list)
         for item in constraints:
             (key, value) = item.split("=")
@@ -701,7 +706,6 @@ class RemoteAPI:
                     "files": [
                         {
                             "chunks": num_chunks,
-                            ""
                             "file_type": file_type,
                             "file_uuid": uuid.hex,
                             "ids_list": None,
@@ -759,23 +763,27 @@ class RemoteAPI:
         :param out_stream: The IO stream to write messages to the user (default: stdout)
         :param add_watcher: Add the current user as a watcher of the simulation on the remote server
         """
-        from ..imas.utils import imas_files
+        from simdb.imas.utils import imas_files
 
         sim_data = simulation.data(recurse=True)
-        
+
         try:
-            sim_json = json.dumps(sim_data, cls=CustomEncoder, separators=(",", ":")).encode("utf-8")
+            sim_json = json.dumps(
+                sim_data, cls=CustomEncoder, separators=(",", ":")
+            ).encode("utf-8")
             sim_json_size = len(sim_json)
-        except Exception as e:
+        except Exception:
             sim_json_size = 0
 
         # Target max request (10MB minus headroom); adjust chunk size so (chunk + sim_data JSON) fits
         MAX_REQUEST_BYTES = 9 * 1024 * 1024  # nominal 10 MB limit
-        HEADROOM = 2048                       # for JSON envelope & headers
+        HEADROOM = 2048  # for JSON envelope & headers
         # Base chunk size before adjustment (previous constant)
         base_chunk_size = 8 * 1024 * 1024
         # Compute allowed chunk payload
-        allowed_chunk = max(1024, min(base_chunk_size, MAX_REQUEST_BYTES - sim_json_size - HEADROOM))
+        allowed_chunk = max(
+            1024, min(base_chunk_size, MAX_REQUEST_BYTES - sim_json_size - HEADROOM)
+        )
 
         options = self.get_upload_options()
         if options.get("copy_files", True):
@@ -792,17 +800,26 @@ class RemoteAPI:
                     for path in imas_files(file.uri):
                         # Check if hdf5 ids_name is in ids_list
                         ids_name = Path(path).name.split(".")
-                        if ids_name[1] == "h5":
-                            if ids_name[0] != "master" and ids_list is not None and ids_name[0] not in ids_list:
-                                continue
+                        if ids_name[1] == "h5" and (
+                            ids_name[0] != "master"
+                            and ids_list is not None
+                            and ids_name[0] not in ids_list
+                        ):
+                            continue
                         sim_file = next(
-                            (f for f in sim_data["inputs"] if f["uuid"] == file.uuid)
+                            f for f in sim_data["inputs"] if f["uuid"] == file.uuid
                         )
                         sim_file["uri"] = f"file:{path}"
                         self._push_file(
-                            path, file.uuid, "input", sim_data, chunk_size, out_stream, file.type
+                            path,
+                            file.uuid,
+                            "input",
+                            sim_data,
+                            chunk_size,
+                            out_stream,
+                            file.type,
                         )
-                	
+
                     self.post(
                         "files",
                         data={
@@ -812,7 +829,7 @@ class RemoteAPI:
                                 {
                                     "file_type": "input",
                                     "file_uuid": file.uuid.hex,
-                                    "ids_list": ids_list, 
+                                    "ids_list": ids_list,
                                 }
                             ],
                         },
@@ -834,20 +851,29 @@ class RemoteAPI:
                     if not copy_ids:
                         print(f"Skipping IDS data {file}", file=out_stream, flush=True)
                         continue
-                    
+
                     ids_list = simulation.meta_dict().get("ids", [])
                     for path in imas_files(file.uri):
                         # Check if hdf5 ids_name is in ids_list
                         ids_name = Path(path).name.split(".")
-                        if ids_name[1] == "h5":
-                            if ids_name[0] != "master" and ids_list is not None and ids_name[0] not in ids_list:
-                                continue
+                        if ids_name[1] == "h5" and (
+                            ids_name[0] != "master"
+                            and ids_list is not None
+                            and ids_name[0] not in ids_list
+                        ):
+                            continue
                         sim_file = next(
-                            (f for f in sim_data["outputs"] if f["uuid"] == file.uuid)
+                            f for f in sim_data["outputs"] if f["uuid"] == file.uuid
                         )
                         sim_file["uri"] = f"file:{path}"
                         self._push_file(
-                            path, file.uuid, "output", sim_data, chunk_size, out_stream, file.type
+                            path,
+                            file.uuid,
+                            "output",
+                            sim_data,
+                            chunk_size,
+                            out_stream,
+                            file.type,
                         )
 
                     self.post(
@@ -859,7 +885,7 @@ class RemoteAPI:
                                 {
                                     "file_type": "output",
                                     "file_uuid": file.uuid.hex,
-                                    "ids_list": ids_list, 
+                                    "ids_list": ids_list,
                                 }
                             ],
                         },
@@ -879,7 +905,12 @@ class RemoteAPI:
         uploaded_by = simulation.meta_dict().get("uploaded_by", None)
         print("Uploading simulation data ... ", file=out_stream, end="", flush=True)
         self.post(
-            "simulations", data={"simulation": sim_data, "add_watcher": add_watcher, "uploaded_by": uploaded_by}
+            "simulations",
+            data={
+                "simulation": sim_data,
+                "add_watcher": add_watcher,
+                "uploaded_by": uploaded_by,
+            },
         )
         print("Success", file=out_stream, flush=True)
 
@@ -922,8 +953,7 @@ class RemoteAPI:
                     f.write(data)
                     done = int(50 * downloaded / total_length)
                     print(
-                        "\r[%s%s] %0.2f%%"
-                        % (
+                        "\r[{}{}] {:0.2f}%".format(
                             "=" * done,
                             " " * (50 - done),
                             100.0 * (downloaded / total_length),
@@ -941,7 +971,7 @@ class RemoteAPI:
     def pull_simulation(
         self, sim_id: str, directory: Path, out_stream: IO[str] = sys.stdout
     ) -> "Simulation":
-        from ..uri import URI
+        from simdb.uri import URI
 
         """
         Pull the simulation from the remote server.

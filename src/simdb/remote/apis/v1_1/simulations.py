@@ -1,3 +1,4 @@
+import contextlib
 import datetime
 import itertools
 import os
@@ -7,17 +8,17 @@ from typing import Dict, List, Optional, Tuple
 from flask import jsonify, request
 from flask_restx import Namespace, Resource
 
-from ....database import DatabaseError
-from ....database.models import metadata as models_meta
-from ....database.models import simulation as models_sim
-from ....uri import URI
-from ... import APIConstants
-from ...core.typing import current_app
-from ...core.alias import create_alias_dir
-from ...core.auth import User, requires_auth
-from ...core.cache import cache, cache_key, clear_cache
-from ...core.errors import error
-from ...core.path import secure_path
+from simdb.database import DatabaseError
+from simdb.database.models import metadata as models_meta
+from simdb.database.models import simulation as models_sim
+from simdb.remote import APIConstants
+from simdb.remote.core.alias import create_alias_dir
+from simdb.remote.core.auth import User, requires_auth
+from simdb.remote.core.cache import cache, cache_key, clear_cache
+from simdb.remote.core.errors import error
+from simdb.remote.core.path import secure_path
+from simdb.remote.core.typing import current_app
+from simdb.uri import URI
 
 api = Namespace("simulations", path="/")
 
@@ -25,7 +26,7 @@ api = Namespace("simulations", path="/")
 def _update_simulation_status(
     simulation: models_sim.Simulation, status: models_sim.Simulation.Status, user
 ) -> None:
-    from ....email.server import EmailServer
+    from simdb.email.server import EmailServer
 
     old_status = simulation.status
     simulation.status = status
@@ -48,7 +49,7 @@ Note: please don't reply to this email, replies to this address are not monitore
 
 
 def _validate(simulation, user) -> Dict:
-    from ....validation import ValidationError, Validator
+    from simdb.validation import ValidationError, Validator
 
     schemas = Validator.validation_schemas(current_app.simdb_config, simulation)
     try:
@@ -157,7 +158,7 @@ class SimulationList(Resource):
     @requires_auth()
     @cache.cached(key_prefix=cache_key)
     def get(self, user: User):
-        from ....query import QueryType, parse_query_arg
+        from simdb.query import QueryType, parse_query_arg
 
         limit = int(request.headers.get(SimulationList.LIMIT_HEADER, 100))
         page = int(request.headers.get(SimulationList.PAGE_HEADER, 1))
@@ -177,7 +178,7 @@ class SimulationList(Resource):
                 for value in values:
                     constraint = parse_query_arg(value)
                     if constraint[0]:
-                        constraints.append((name,) + constraint)
+                        constraints.append((name, *constraint))
 
         if constraints:
             count, data = current_app.db.query_meta_data(
@@ -236,7 +237,7 @@ class SimulationList(Resource):
             for sim_file in files:
                 path = secure_path(sim_file.uri.path, common_root, staging_dir)
                 if not path.exists():
-                    raise ValueError("simulation file %s not uploaded" % sim_file.uuid)
+                    raise ValueError(f"simulation file {sim_file.uuid} not uploaded")
                 if sim_file.uri.scheme.name == "file":
                     sim_file.uri = URI(scheme="file", path=path)
 
@@ -257,9 +258,9 @@ class SimulationList(Resource):
                         "Validation config option error_on_fail=True without auto_validate=True."
                     )
                 elif simulation.status == models_sim.Simulation.Status.FAILED:
-                    result[
-                        "error"
-                    ] = "Simulation validation failed and server has error_on_fail=True."
+                    result["error"] = (
+                        "Simulation validation failed and server has error_on_fail=True."
+                    )
                     response = jsonify(result)
                     response.status_code = 400
                     return response
@@ -287,10 +288,8 @@ class SimulationList(Resource):
             current_app.db.insert_simulation(simulation)
             clear_cache()
 
-            try:
+            with contextlib.suppress(OSError):
                 create_alias_dir(simulation)
-            except OSError:
-                pass
 
             return jsonify(result)
         except (DatabaseError, ValueError) as err:
@@ -317,8 +316,9 @@ class Simulation(Resource):
 
     parser = api.parser()
     parser.add_argument(
-        'status', type=str, location="json", help = "Status", required=True
+        "status", type=str, location="json", help="Status", required=True
     )
+
     @api.expect(parser)
     @requires_auth("admin")
     def patch(self, sim_id: str, user: User = Optional[None]):
@@ -344,7 +344,7 @@ class Simulation(Resource):
             clear_cache()
             files = []
             for file in itertools.chain(simulation.inputs, simulation.outputs):
-                files.append("%s (%s)" % (file.uuid, file.uri.path.name))
+                files.append(f"{file.uuid} ({file.uri.path.name})")
                 os.remove(file.uri.path)
             if simulation.inputs or simulation.outputs:
                 directory = (
@@ -372,12 +372,11 @@ class SimulationMeta(Resource):
             return error(str(err))
 
     parser = api.parser()
+    parser.add_argument("key", type=str, location="json", help="status", required=True)
     parser.add_argument(
-        'key', type=str, location="json", help = "status", required=True        
+        "value", type=str, location="json", help="status", required=True
     )
-    parser.add_argument(
-        'value', type=str, location="json", help = "status", required=True       
-    )
+
     @api.expect(parser)
     @requires_auth("admin")
     def patch(self, sim_id: str, user: User = Optional[None]):
@@ -396,8 +395,8 @@ class SimulationMeta(Resource):
             if simulation is None:
                 raise ValueError(f"Simulation {sim_id} not found.")
             old_values = [meta.data() for meta in simulation.find_meta(key)]
-            if key.lower() != 'status':
-                simulation.set_meta(key, value)                
+            if key.lower() != "status":
+                simulation.set_meta(key, value)
             else:
                 status = models_sim.Simulation.Status(value)
                 _update_simulation_status(simulation, status, user)
@@ -409,8 +408,9 @@ class SimulationMeta(Resource):
 
     parser_delete = api.parser()
     parser_delete.add_argument(
-        'key', type=str, location="json", help = "metadata key", required=True       
+        "key", type=str, location="json", help="metadata key", required=True
     )
+
     @api.expect(parser_delete)
     @requires_auth("admin")
     def delete(self, sim_id: str, user: User = Optional[None]):

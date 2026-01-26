@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """SimDB.
 
 SimDB is the IMAS simulation database management tool designed to track, manage and validate simulations and allow for
@@ -10,6 +9,7 @@ The tool comes in two parts:
     * The remote REST API which is run in a centralised location to allow the users simulations to be pushed for
       staging and checking.
 """
+
 from pathlib import Path
 
 try:

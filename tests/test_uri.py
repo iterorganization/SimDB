@@ -1,6 +1,7 @@
 import unittest
-from simdb.uri import URI
 from pathlib import Path
+
+from simdb.uri import URI
 
 
 class URITests(unittest.TestCase):

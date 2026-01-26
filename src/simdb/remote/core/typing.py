@@ -1,9 +1,10 @@
-from flask import Flask
-from flask import current_app as _current_app
 from typing import cast
 
-from ...config import Config
-from ...database import Database
+from flask import Flask
+from flask import current_app as _current_app
+
+from simdb.config import Config
+from simdb.database import Database
 
 
 class SimDBApp(Flask):

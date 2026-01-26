@@ -1,10 +1,11 @@
 import enum
 import uuid
 from enum import Enum
-from typing import Optional, Dict
+from typing import Dict, Optional
+
 from sqlalchemy import types as sql_types
 
-from ... import uri as urilib
+from simdb import uri as urilib
 
 
 class UUID(sql_types.TypeDecorator):
@@ -35,14 +36,13 @@ class UUID(sql_types.TypeDecorator):
             return value
         elif dialect.name == "postgresql":
             return str(value)
+        elif not isinstance(value, uuid.UUID):
+            try:
+                return uuid.UUID(value).hex
+            except ValueError:
+                return value
         else:
-            if not isinstance(value, uuid.UUID):
-                try:
-                    return uuid.UUID(value).hex
-                except ValueError:
-                    return value
-            else:
-                return value.hex
+            return value.hex
 
     def process_result_value(self, value, dialect):
         if value is None:
