@@ -9,6 +9,8 @@ import pickle
 import shutil
 import sys
 import uuid
+from collections import defaultdict
+from io import BytesIO
 from pathlib import Path
 from typing import (
     IO,
@@ -26,11 +28,16 @@ from urllib.parse import urlparse
 
 import appdirs
 import click
+import requests
+from requests.auth import AuthBase
 from semantic_version import Version
 
 from simdb.config import Config
+from simdb.database.models import Simulation
 from simdb.imas.utils import imas_files
 from simdb.json import CustomDecoder, CustomEncoder
+from simdb.remote import APIConstants
+from simdb.uri import URI
 
 from .manifest import DataObject
 
@@ -57,8 +64,6 @@ class RemoteError(APIError):
 
 def try_request(func: Callable) -> Callable:
     def wrapped_func(*args, **kwargs):
-        import requests
-
         try:
             return func(*args, **kwargs)
         except requests.ConnectionError as ex:
@@ -249,8 +254,6 @@ class RemoteAPI:
         self, remote: str, username: Optional[str], password: Optional[str]
     ) -> None:
         if self._firewall == "F5":
-            import requests
-
             headers = {"User-Agent": "it_script_basic"}
             cookies_file = f"{remote}-cookies.pkl"
             cookies_path = Path(appdirs.user_config_dir("simdb")) / cookies_file
@@ -303,8 +306,6 @@ class RemoteAPI:
         return self._remote
 
     def _get_auth(self) -> Union["AuthBase", Tuple]:
-        from requests.auth import AuthBase
-
         class JWTAuth(AuthBase):
             def __init__(self, token):
                 self._token = token
@@ -336,7 +337,6 @@ class RemoteAPI:
         @param stream: True to enable streaming.
         @return:
         """
-        import requests
 
         params = params if params is not None else {}
         headers = headers if headers is not None else {}
@@ -374,7 +374,6 @@ class RemoteAPI:
         @param kwargs: any additional keyword arguments to add to the request.
         @return:
         """
-        import requests
 
         headers = {"Content-type": "application/json"}
         headers["User-Agent"] = "it_script_basic"
@@ -409,7 +408,6 @@ class RemoteAPI:
         @param kwargs: any additional keyword arguments to add to the request.
         @return:
         """
-        import requests
 
         if "files" in kwargs:
             if data:
@@ -422,9 +420,6 @@ class RemoteAPI:
 
         # Compress the data if it is larger than 2 MB and the URL is for simulations
         if url == "simulations" and len(post_data) > 2 * 1024 * 1024:
-            import gzip
-            from io import BytesIO
-
             buf = BytesIO()
             with gzip.GzipFile(fileobj=buf, mode="wb") as gz:
                 gz.write(post_data.encode("utf-8"))
@@ -462,7 +457,6 @@ class RemoteAPI:
         @param kwargs: any additional keyword arguments to add to the request.
         @return:
         """
-        import requests
 
         headers = {"Content-type": "application/json"}
         headers["User-Agent"] = "it_script_basic"
@@ -497,7 +491,6 @@ class RemoteAPI:
         @param kwargs: any additional keyword arguments to add to the request.
         @return:
         """
-        import requests
 
         headers = {"Content-type": "application/json"}
         headers["User-Agent"] = "it_script_basic"
@@ -573,8 +566,6 @@ class RemoteAPI:
     def list_simulations(
         self, meta: Optional[List[str]] = None, limit: int = 0
     ) -> List["Simulation"]:
-        from simdb.database.models import Simulation
-
         args = "?" + "&".join(meta) if meta else ""
         headers = {"simdb-result-limit": str(limit)}
         res = self.get("simulations" + args, headers=headers)
@@ -583,8 +574,6 @@ class RemoteAPI:
 
     @try_request
     def get_simulation(self, sim_id: str) -> "Simulation":
-        from simdb.database.models import Simulation
-
         res = self.get("simulation/" + sim_id)
         return Simulation.from_data(res.json(cls=CustomDecoder))
 
@@ -597,11 +586,6 @@ class RemoteAPI:
     def query_simulations(
         self, constraints: List[str], meta: List[str], limit=0
     ) -> List["Simulation"]:
-        from collections import defaultdict
-
-        from simdb.database.models import Simulation
-        from simdb.remote import APIConstants
-
         params = defaultdict(list)
         for item in constraints:
             (key, value) = item.split("=")
@@ -756,7 +740,6 @@ class RemoteAPI:
         :param out_stream: The IO stream to write messages to the user (default: stdout)
         :param add_watcher: Add the current user as a watcher of the simulation on the remote server
         """
-        from simdb.imas.utils import imas_files
 
         sim_data = simulation.data(recurse=True)
 
@@ -964,8 +947,6 @@ class RemoteAPI:
     def pull_simulation(
         self, sim_id: str, directory: Path, out_stream: IO[str] = sys.stdout
     ) -> "Simulation":
-        from simdb.uri import URI
-
         """
         Pull the simulation from the remote server.
 

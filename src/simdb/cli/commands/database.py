@@ -1,5 +1,7 @@
 import click
 
+from simdb.database import get_local_db
+
 from . import pass_config
 
 
@@ -13,7 +15,6 @@ def database():
 @pass_config
 def clear(config):
     """Clear the database."""
-    from simdb.database import get_local_db
 
     db = get_local_db(config)
     db.reset()

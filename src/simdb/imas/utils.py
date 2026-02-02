@@ -3,6 +3,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, List
 
+import imas
+import semantic_version
 from dateutil import parser
 
 from simdb.config import Config
@@ -97,7 +99,6 @@ def check_time(entry: DBEntry, ids: str, occurrence) -> None:
     @param ids: the
     @return:
     """
-    import imas
 
     ids_obj = entry.get(ids, occurrence, autoconvert=False, lazy=True)
     try:
@@ -113,8 +114,6 @@ def check_time(entry: DBEntry, ids: str, occurrence) -> None:
 
 
 def _is_al5() -> bool:
-    import semantic_version
-
     al_env = os.environ.get("AL_VERSION", default=None)
     ual_env = os.environ.get("UAL_VERSION", default="5.0.0")
     version = (
@@ -126,8 +125,6 @@ def _is_al5() -> bool:
 
 
 def _open_legacy(uri: URI) -> DBEntry:
-    import imas
-
     path = uri.query.get("path", default=None)
     if path is not None:
         raise ImasError(f"cannot open AL5 URI {uri} with AL4")
@@ -182,7 +179,6 @@ def open_imas(uri: URI) -> DBEntry:
     @param uri: the IMAS URI to open
     @return: the IMAS data entry object
     """
-    import imas
 
     if uri.scheme != "imas":
         raise ValueError(f"invalid imas URI: {uri} - invalid scheme")

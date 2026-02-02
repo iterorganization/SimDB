@@ -1,6 +1,8 @@
 from enum import Enum, auto
 from typing import Any, Tuple
 
+import numpy as np
+
 
 class QueryType(Enum):
     """
@@ -61,7 +63,6 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str) ->
     :return: The result of the comparison.
     :raise ValueError: If the comparison could not be performed.
     """
-    import numpy as np
 
     compare = compare.lower()
     if isinstance(value, str):

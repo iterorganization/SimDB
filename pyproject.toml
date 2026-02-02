@@ -155,7 +155,7 @@ select = [
     # flake8-use-pathlib
     "PTH",
     # Pylint
-    # "PL",
+    "PLC0415",
     # Refurb
     "FURB",
     # Ruff specific rules

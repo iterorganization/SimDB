@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Dict, Optional
 
 from sqlalchemy import types as sql_types
+from sqlalchemy.dialects import postgresql
 
 from simdb import uri as urilib
 
@@ -24,8 +25,6 @@ class UUID(sql_types.TypeDecorator):
         return uuid.UUID
 
     def load_dialect_impl(self, dialect):
-        from sqlalchemy.dialects import postgresql
-
         if dialect.name == "postgresql":
             return dialect.type_descriptor(postgresql.UUID())
         else:

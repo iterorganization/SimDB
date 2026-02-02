@@ -1,23 +1,31 @@
 import contextlib
 import datetime
+import gzip
 import itertools
+import tarfile
+from io import BytesIO
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from flask import jsonify, request, send_file
+from flask import current_app, jsonify, request, send_file
+from flask import json as flask_json  # fallback
 from flask_restx import Namespace, Resource
 
 from simdb.database import DatabaseError
 from simdb.database.models import metadata as models_meta
 from simdb.database.models import simulation as models_sim
 from simdb.database.models import watcher as models_watcher
+from simdb.email.server import EmailServer
+from simdb.imas.utils import convert_uri
+from simdb.query import QueryType, parse_query_arg
 from simdb.remote.core.alias import create_alias_dir
 from simdb.remote.core.auth import User, requires_auth
 from simdb.remote.core.cache import cache, cache_key, clear_cache
 from simdb.remote.core.errors import error
 from simdb.remote.core.path import find_common_root, secure_path
-from simdb.remote.core.typing import current_app
 from simdb.uri import URI
+from simdb.validation import ValidationError, Validator
+from simdb.validation.file import find_file_validator
 
 api = Namespace("simulations", path="/")
 
@@ -25,8 +33,6 @@ api = Namespace("simulations", path="/")
 def _update_simulation_status(
     simulation: models_sim.Simulation, status: models_sim.Simulation.Status, user
 ) -> None:
-    from simdb.email.server import EmailServer
-
     old_status = simulation.status
     simulation.status = status
     if status != old_status and simulation.watchers.count():
@@ -49,8 +55,6 @@ Note: please don't reply to this email, replies to this address are not monitore
 
 
 def _validate(simulation, user) -> Dict:
-    from simdb.validation import ValidationError, Validator
-
     schemas = Validator.validation_schemas(current_app.simdb_config, simulation)
     try:
         for schema in schemas:
@@ -72,8 +76,6 @@ def _validate(simulation, user) -> Dict:
         "file_validation", default={}
     )
     if file_validator_type not in [None, "none", ""]:
-        from simdb.validation.file import find_file_validator
-
         validator_type, validator_options = find_file_validator(
             file_validator_type, file_validator_options
         )
@@ -158,9 +160,6 @@ def _get_json_aware(force: bool = False, silent: bool = False):
     - force/silent mimic request.get_json behavior.
     - Uses Flask's JSON provider to ensure identical types/decoding.
     """
-    import gzip
-
-    from flask import current_app
 
     # Match request.get_json content-type check unless forced
     if not force:
@@ -191,8 +190,6 @@ def _get_json_aware(force: bool = False, silent: bool = False):
     try:
         loads = current_app.json.loads  # Flask >= 2.2
     except Exception:
-        from flask import json as flask_json  # fallback
-
         loads = flask_json.loads
 
     try:
@@ -239,8 +236,6 @@ class SimulationList(Resource):
     @requires_auth()
     # @cache.cached(key_prefix=cache_key)
     def get(self, user: User):
-        from simdb.query import QueryType, parse_query_arg
-
         limit = int(request.headers.get(SimulationList.LIMIT_HEADER, 100))
         page = int(request.headers.get(SimulationList.PAGE_HEADER, 1))
         sort_by = request.headers.get(SimulationList.SORT_BY_HEADER, "")
@@ -353,8 +348,6 @@ class SimulationList(Resource):
                             )
                         sim_file.uri = URI(scheme="file", path=path)
                     elif sim_file.uri.scheme == "imas":
-                        from simdb.imas.utils import convert_uri
-
                         path = secure_path(
                             Path(sim_file.uri.query["path"]),
                             common_root,
@@ -370,8 +363,6 @@ class SimulationList(Resource):
 
                 for sim_file in files:
                     if sim_file.uri.scheme == "imas":
-                        from simdb.imas.utils import convert_uri
-
                         if config.get_option("server.copy_files", default=True):
                             path = secure_path(
                                 Path(sim_file.uri.query["path"]),
@@ -623,9 +614,6 @@ class SimulationPackage(Resource):
                 Path(current_app.simdb_config.get_option("server.upload_folder"))
                 / simulation.uuid.hex
             )
-
-            import tarfile
-            from io import BytesIO
 
             mem_file = BytesIO()
             with tarfile.open(mode="w:gz", fileobj=mem_file) as tar:

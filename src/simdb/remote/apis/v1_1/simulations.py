@@ -11,6 +11,8 @@ from flask_restx import Namespace, Resource
 from simdb.database import DatabaseError
 from simdb.database.models import metadata as models_meta
 from simdb.database.models import simulation as models_sim
+from simdb.email.server import EmailServer
+from simdb.query import QueryType, parse_query_arg
 from simdb.remote import APIConstants
 from simdb.remote.core.alias import create_alias_dir
 from simdb.remote.core.auth import User, requires_auth
@@ -19,6 +21,7 @@ from simdb.remote.core.errors import error
 from simdb.remote.core.path import secure_path
 from simdb.remote.core.typing import current_app
 from simdb.uri import URI
+from simdb.validation import ValidationError, Validator
 
 api = Namespace("simulations", path="/")
 
@@ -26,8 +29,6 @@ api = Namespace("simulations", path="/")
 def _update_simulation_status(
     simulation: models_sim.Simulation, status: models_sim.Simulation.Status, user
 ) -> None:
-    from simdb.email.server import EmailServer
-
     old_status = simulation.status
     simulation.status = status
     simulation.set_meta(
@@ -49,8 +50,6 @@ Note: please don't reply to this email, replies to this address are not monitore
 
 
 def _validate(simulation, user) -> Dict:
-    from simdb.validation import ValidationError, Validator
-
     schemas = Validator.validation_schemas(current_app.simdb_config, simulation)
     try:
         for schema in schemas:
@@ -158,8 +157,6 @@ class SimulationList(Resource):
     @requires_auth()
     @cache.cached(key_prefix=cache_key)
     def get(self, user: User):
-        from simdb.query import QueryType, parse_query_arg
-
         limit = int(request.headers.get(SimulationList.LIMIT_HEADER, 100))
         page = int(request.headers.get(SimulationList.PAGE_HEADER, 1))
         sort_by = request.headers.get(SimulationList.SORT_BY_HEADER, "")

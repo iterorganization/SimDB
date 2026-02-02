@@ -38,8 +38,6 @@ def _expand_path(path: Path, base_path: Path) -> Path:
 
 
 def _to_uri(uri_str: str, base_path: Path) -> Tuple["DataObject.Type", "URI"]:
-    from simdb.uri import URI
-
     uri = URI(uri_str)
     if uri.authority:
         raise InvalidManifest(f"invalid uri: {uri_str} - path must be absolute")
@@ -216,8 +214,6 @@ class DataObjectValidator(ListValuesValidator):
         super().__init__(version, section_name, expected_keys)
 
     def validate(self, values: Union[list, dict]) -> None:
-        from simdb.uri import URI
-
         super().validate(values)
         if values is None:
             return
@@ -500,8 +496,6 @@ class Manifest:
 
     @classmethod
     def _convert_files(cls, files: List[Dict[str, str]]) -> List[Dict[str, "URI"]]:
-        from simdb.uri import URI
-
         scheme_map = {
             "uuid": "simdb",
             "path": "file",
@@ -522,7 +516,6 @@ class Manifest:
         :param file_path: Path to the file read.
         :return: None
         """
-        import yaml
 
         self._path: Path = file_path
         with file_path.open() as file:
@@ -542,7 +535,6 @@ class Manifest:
         :param out_file: The output text stream to write the manifest to.
         :return: None
         """
-        import yaml
 
         yaml.dump(self._data, out_file, default_flow_style=False)
 

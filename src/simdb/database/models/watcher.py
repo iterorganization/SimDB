@@ -1,5 +1,6 @@
 from typing import Dict, Final
 
+from email_validator import validate_email
 from sqlalchemy import Column
 from sqlalchemy import types as sql_types
 from sqlalchemy.orm import validates
@@ -35,8 +36,6 @@ class Watcher(Base):
 
     @validates("email")
     def validate_email(self, key, address):
-        from email_validator import validate_email
-
         validate_email(address)
         return address
 

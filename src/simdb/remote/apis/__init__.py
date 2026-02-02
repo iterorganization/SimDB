@@ -1,6 +1,7 @@
 import datetime
 from pathlib import Path
 
+import appdirs
 import jwt
 from flask import Blueprint, Response, _app_ctx_stack, jsonify, request
 from flask_restx import Resource
@@ -9,6 +10,7 @@ from simdb import __version__
 from simdb.database import Database
 from simdb.remote.core.auth import AuthenticationError, User, requires_auth
 from simdb.remote.core.typing import current_app
+from simdb.validation.validator import Validator
 
 from .v1 import api as api_v1
 from .v1 import namespaces as namespaces_v1
@@ -49,10 +51,10 @@ def register(api, version, namespaces):
                 **args,
             )
         elif db_type == "sqlite":
-            import appdirs
-
             db_dir = appdirs.user_data_dir("simdb")
-            file = Path(config.get_option("database.file", default=None)) or Path(db_dir, "remote.db")
+            file = Path(config.get_option("database.file", default=None)) or Path(
+                db_dir, "remote.db"
+            )
             file.parent.mkdir(parents=True)
             setup_state.app.db = Database(
                 Database.DBMS.SQLITE, scopefunc=_app_ctx_stack.__ident_func__, file=file
@@ -118,8 +120,6 @@ def register(api, version, namespaces):
     class ValidationSchema(Resource):
         @requires_auth()
         def get(self, user: User):
-            from simdb.validation.validator import Validator
-
             config = current_app.simdb_config
             return jsonify(Validator.validation_schemas(config, None))
 

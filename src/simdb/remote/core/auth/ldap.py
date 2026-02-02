@@ -1,5 +1,6 @@
 from typing import Optional
 
+import ldap
 from flask import Request
 
 from simdb.config import Config
@@ -25,8 +26,6 @@ class LdapAuthenticator(Authenticator):
     Name = "LDAP"
 
     def authenticate(self, config: Config, request: Request) -> Optional[User]:
-        import ldap
-
         ldap_host = config.get_option("authentication.ldap_server")
         try:
             conn = ldap.initialize(ldap_host)

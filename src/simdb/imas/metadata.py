@@ -2,6 +2,8 @@ import re
 from enum import Enum
 from typing import Any, Dict
 
+import imas
+
 
 class MetricException(Exception):
     pass
@@ -25,8 +27,6 @@ class ReadValues(Enum):
 
 
 def walk_imas(ids_node) -> Dict:
-    import imas
-
     meta = {}
     for name in (i for i in dir(ids_node) if not i.startswith("_")):
         attr = getattr(ids_node, name)
@@ -116,7 +116,6 @@ def load_imas_metadata(ids_dist, entry) -> dict:
     :param entry: IMAS entry object.
     :return: Dictionary containing metadata.
     """
-    import imas
 
     metadata = {}
     for ids_name, _v in ids_dist.items():

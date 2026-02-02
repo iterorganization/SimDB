@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Iterable
 import click
 
 from simdb.cli.remote_api import RemoteAPI
+from simdb.database import get_local_db
 
 from . import pass_config
 
@@ -61,7 +62,6 @@ def alias(config: "Config", ctx: "Context", remote, username, password):
 @click.argument("alias")
 def alias_make_unique(config: "Config", api: RemoteAPI, alias: str):
     """Make the given alias unique, checking locally stored simulations and the remote."""
-    from simdb.database import get_local_db
 
     trans = str.maketrans("#/()=,*%", "________")
     alias = alias.translate(trans)
@@ -87,8 +87,6 @@ def alias_make_unique(config: "Config", api: RemoteAPI, alias: str):
 @click.argument("alias")
 def alias_search(config: "Config", api: RemoteAPI, alias: str):
     """Search the REMOTE for all aliases that contain the given VALUE."""
-    from simdb.database import get_local_db
-
     simulations = api.list_simulations()
 
     db = get_local_db(config)
@@ -105,7 +103,6 @@ def alias_search(config: "Config", api: RemoteAPI, alias: str):
 @click.option("--local", help="Only list the local aliases.", is_flag=True)
 def alias_list(config: "Config", api: RemoteAPI, local: bool):
     """List aliases from the local database and the REMOTE (if specified)."""
-    from simdb.database import get_local_db
 
     if not local:
         remote_simulations = []

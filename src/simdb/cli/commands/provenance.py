@@ -4,14 +4,14 @@ from pathlib import Path
 from typing import Dict, List, NewType, Union
 
 import click
+import distro
+import yaml
 
 PlatformDetails = NewType("PlatformDetails", Dict[str, str])
 EnvironmentDetails = NewType("EnvironmentDetails", Dict[str, Union[str, List[str]]])
 
 
 def _platform_version() -> str:
-    import distro
-
     return distro.name(pretty=True)
 
 
@@ -55,7 +55,7 @@ def _get_provenance() -> Dict[str, Union[PlatformDetails, EnvironmentDetails]]:
 @click.argument("provenance_file", type=click.Path(exists=True))
 def provenance(provenance_file):
     """Create the PROVENANCE_FILE from the current system."""
-    import yaml
+
     provenance_file = Path(provenance_file)
 
     with provenance_file.open("w") as file:

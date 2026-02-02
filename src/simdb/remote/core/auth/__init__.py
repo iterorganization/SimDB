@@ -1,3 +1,4 @@
+import csv
 from functools import wraps
 from typing import Optional
 
@@ -17,14 +18,14 @@ from .no_authentication import NoopAuthenticator
 from .token import TokenAuthenticator
 
 __all__ = [
-    User,
-    AuthenticationError,
-    ActiveDirectoryAuthenticator,
-    FirewallAuthenticator,
-    KeyCloakAuthenticator,
-    LdapAuthenticator,
-    NoopAuthenticator,
-    TokenAuthenticator,
+    "ActiveDirectoryAuthenticator",
+    "AuthenticationError",
+    "FirewallAuthenticator",
+    "KeyCloakAuthenticator",
+    "LdapAuthenticator",
+    "NoopAuthenticator",
+    "TokenAuthenticator",
+    "User",
 ]
 
 Authenticator.register(ActiveDirectoryAuthenticator)
@@ -53,8 +54,6 @@ def check_role(config: Config, user: User, role: Optional[str]) -> bool:
     If no role is specified then the function always returns true.
     """
     if role:
-        import csv
-
         users = config.get_option(f"role.{role}.users", default="")
         reader = csv.reader([users])
         return any(user.name in row for row in reader)

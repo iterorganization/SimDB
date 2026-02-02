@@ -1,3 +1,6 @@
+from inspect import getmembers, isfunction
+
+
 def inherit_docstrings(cls):
     """
     Inherit method docstrings from parent classes.
@@ -8,7 +11,6 @@ def inherit_docstrings(cls):
     :param cls: The class to decorate
     :return: The decorated class
     """
-    from inspect import getmembers, isfunction
 
     for name, func in getmembers(cls, isfunction):
         if func.__doc__:
