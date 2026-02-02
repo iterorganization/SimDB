@@ -30,7 +30,8 @@ class DatabaseError(RuntimeError):
 TYPING = TYPE_CHECKING or "sphinx" in sys.modules
 
 if TYPING:
-    # Only importing these for type checking and documentation generation in order to speed up runtime startup.
+    # Only importing these for type checking and documentation generation in order to
+    # speed up runtime startup.
     import sqlalchemy
     from sqlalchemy.orm import scoped_session
 
@@ -106,7 +107,8 @@ class Database:
             )
             with contextlib.closing(self.engine.connect()) as con:
                 res: sqlalchemy.engine.ResultProxy = con.execute(
-                    "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%';"
+                    "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT "
+                    "LIKE 'sqlite_%';"
                 )
                 new_db = res.rowcount == -1
 
@@ -675,7 +677,8 @@ class Database:
             self.session.rollback()
             if "alias" in str(err.orig):
                 raise DatabaseError(
-                    f"Simulation already exists with alias {simulation.alias} - please use a unique alias."
+                    f"Simulation already exists with alias {simulation.alias} - please "
+                    "use a unique alias."
                 ) from err
             elif "uuid" in str(err.orig):
                 raise DatabaseError(

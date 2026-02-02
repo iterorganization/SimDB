@@ -27,7 +27,8 @@ class QueryType(Enum):
 
 def parse_query_arg(value: str) -> Tuple[str, QueryType]:
     """
-    Parse the second half of a SimDB query argument and return the comparator type and value to be compared.
+    Parse the second half of a SimDB query argument and return the comparator type and
+    value to be compared.
 
     The strings being parsed will be of the form:
         value
@@ -53,12 +54,13 @@ def parse_query_arg(value: str) -> Tuple[str, QueryType]:
 
 def query_compare(query_type: QueryType, name: str, value: Any, compare: str) -> bool:
     """
-    Perform a comparison between the compare string and the given value based on the comparison type given in
-    query_type.
+    Perform a comparison between the compare string and the given value based on the
+    comparison type given in query_type.
 
     :param query_type: The type of comparison being performed.
     :param name: The name of the field being compared. Used when reporting an error.
-    :param value: The value being compared. This can be a string, a number or a numpy array.
+    :param value: The value being compared. This can be a string, a number or a numpy
+                  array.
     :param compare: The string representation of the value being compared against.
     :return: The result of the comparison.
     :raise ValueError: If the comparison could not be performed.

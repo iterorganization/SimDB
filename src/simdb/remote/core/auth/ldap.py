@@ -16,11 +16,13 @@ class LdapAuthenticator(Authenticator):
 
     This requires the following extra parameters in the server configuration:
     ldap_server         - the URI of the LDAP server
-    ldap_bind           - the bind string for the LDAP authentication (formatted to replace {username} with username)
+    ldap_bind           - the bind string for the LDAP authentication (formatted to
+                          replace {username} with username)
     ldap_query_user     - the bind string for the LDAP query
     ldap_query_password - the password for the LDAP query
     ldap_query_base     - the base point for the LDAP query
-    ldap_query_filter   - the filter to apply to the LDAP query (formatted to replace {username} with username)
+    ldap_query_filter   - the filter to apply to the LDAP query (formatted to replace
+                          {username} with username)
     """
 
     Name = "LDAP"

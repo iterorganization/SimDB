@@ -45,7 +45,8 @@ if TYPE_CHECKING:
     from simdb.database.models import File, Simulation, Watcher
 
 if TYPE_CHECKING or "sphinx" in sys.modules:
-    # Only importing these for type checking and documentation generation in order to speed up runtime startup.
+    # Only importing these for type checking and documentation generation in order to
+    # speed up runtime startup.
     import requests
     from requests.auth import AuthBase
 
@@ -165,15 +166,16 @@ class RemoteAPI:
         """
         Create a new RemoteAPI.
 
-        @param remote: the name of the remote - this is the name as created in the configuration file. If not provided
+        @param remote: the name of the remote - this is the name as created in the
+                       configuration file. If not provided
         this will use the remote that has been marked as default.
-        @param username: the username to use to authenticate with the remote - optional if a token has been created for
-        the remote.
-        @param password: the password to used to authenticate with the remote - only required if username is also
-        provided.
+        @param username: the username to use to authenticate with the remote - optional
+                         if a token has been created for the remote.
+        @param password: the password to used to authenticate with the remote - only
+                         required if username is also provided.
         @param config: the CLI configuration object.
-        @param use_token: override the default behaviour of only looking for a token if username and password are not
-        provided.
+        @param use_token: override the default behaviour of only looking for a token if
+                          username and password are not provided.
         """
         self._config: Config = config
         if not remote:
@@ -266,7 +268,8 @@ class RemoteAPI:
                     cookies = pickle.load(f)
                 r = requests.get(f"{self._url}/", headers=headers, cookies=cookies)
                 try:
-                    # check to see if the cookies are still valid by trying a simple request
+                    # check to see if the cookies are still valid by trying a simple
+                    # request
                     r.json()
                 except requests.JSONDecodeError:
                     cookies = None
@@ -333,7 +336,8 @@ class RemoteAPI:
         @param url: the URL of the request.
         @param params: any additional parameters to send along with the request.
         @param headers: additional headers to send with the request.
-        @param authenticate: True if we should send authentication headers with the request.
+        @param authenticate: True if we should send authentication headers with the
+                             request.
         @param stream: True to enable streaming.
         @return:
         """
@@ -734,11 +738,13 @@ class RemoteAPI:
         """
         Push the local simulation to the remote server.
 
-        First we upload any files associated with the simulation, then push the simulation metadata.
+        First we upload any files associated with the simulation, then push the
+        simulation metadata.
 
         :param simulation: The Simulation to push to remote server
         :param out_stream: The IO stream to write messages to the user (default: stdout)
-        :param add_watcher: Add the current user as a watcher of the simulation on the remote server
+        :param add_watcher: Add the current user as a watcher of the simulation on the
+                            remote server
         """
 
         sim_data = simulation.data(recurse=True)
@@ -751,7 +757,8 @@ class RemoteAPI:
         except Exception:
             sim_json_size = 0
 
-        # Target max request (10MB minus headroom); adjust chunk size so (chunk + sim_data JSON) fits
+        # Target max request (10MB minus headroom); adjust chunk size so
+        # (chunk + sim_data JSON) fits
         MAX_REQUEST_BYTES = 9 * 1024 * 1024  # nominal 10 MB limit
         HEADROOM = 2048  # for JSON envelope & headers
         # Base chunk size before adjustment (previous constant)
@@ -950,10 +957,12 @@ class RemoteAPI:
         """
         Pull the simulation from the remote server.
 
-        This involves downloading all the files associated with the simulation into the provided simulation directory.
+        This involves downloading all the files associated with the simulation into the
+        provided simulation directory.
 
         :param sim_id: The id of the Simulation to pull
-        :param directory: The local directory to use as the root directory of the simulation
+        :param directory: The local directory to use as the root directory of the
+                          simulation
         :param out_stream: The IO stream to write messages to the user (default: stdout)
         """
         simulation = self.get_simulation(sim_id)

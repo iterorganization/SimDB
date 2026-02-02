@@ -5,7 +5,8 @@ import click
 import numpy
 
 if TYPE_CHECKING:
-    # Only importing these for type checking and documentation generation in order to speed up runtime startup.
+    # Only importing these for type checking and documentation generation in order to
+    # speed up runtime startup.
     from simdb.database.models import Simulation
 else:
     Config = TypeVar("Config")
@@ -51,8 +52,8 @@ def print_simulations(
     Print a table of simulations to the console.
 
     By default, only the simulation alias is printed on each row. If verbose is True
-    then the simulation datetime and status are also printed and metadata_names allows additional
-    columns to be specified.
+    then the simulation datetime and status are also printed and metadata_names allows
+    additional columns to be specified.
 
     :param simulations: The simulations to print.
     :param verbose: Whether to print a more verbose table.
@@ -120,7 +121,8 @@ def print_simulations(
             line_written = True
     if (lines.__len__() - 1) == 100:
         click.echo(
-            "\n...first 100 entries shown, use command $simdb remote [NAME] list -l 0 to list all simulations.\n"
+            "\n...first 100 entries shown, use command $simdb remote [NAME] list -l 0 "
+            "to list all simulations.\n"
         )
 
 

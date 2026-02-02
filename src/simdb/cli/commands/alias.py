@@ -61,7 +61,7 @@ def alias(config: "Config", ctx: "Context", remote, username, password):
 @pass_config
 @click.argument("alias")
 def alias_make_unique(config: "Config", api: RemoteAPI, alias: str):
-    """Make the given alias unique, checking locally stored simulations and the remote."""
+    "Make the given alias unique, checking locally stored simulations and the remote."
 
     trans = str.maketrans("#/()=,*%", "________")
     alias = alias.translate(trans)
@@ -110,7 +110,8 @@ def alias_list(config: "Config", api: RemoteAPI, local: bool):
             remote_simulations = api.list_simulations()
         else:
             click.echo(
-                "The Remote Server has not been specified in the configuration file. Please set remote-url"
+                "The Remote Server has not been specified in the configuration file. "
+                "Please set remote-url"
             )
 
         click.echo("Remote:")

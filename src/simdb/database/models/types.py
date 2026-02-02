@@ -13,7 +13,8 @@ class UUID(sql_types.TypeDecorator):
     """
     Platform-independent GUID type.
 
-    Uses PostgreSQL's UUID type, otherwise uses CHAR(32), storing as stringified hex values.
+    Uses PostgreSQL's UUID type, otherwise uses CHAR(32), storing as stringified hex
+    values.
     """
 
     impl = sql_types.CHAR

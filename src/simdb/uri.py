@@ -94,11 +94,14 @@ class URI:
 
     def __init__(self, uri: Union[str, "URI", None] = None, *, scheme=None, path=None):
         """
-        Create a URI object by either parsing a URI string or copying from an existing URI object.
+        Create a URI object by either parsing a URI string or copying from an existing
+        URI object.
 
         :param uri: A URI string, another URI to copy from or None for an empty URI.
-        :param scheme: The URI scheme. Takes precedence over any scheme found from the URI argument.
-        :param path: The URI path. Takes precedence over any path found from the URI argument.
+        :param scheme: The URI scheme. Takes precedence over any scheme found from the
+                       URI argument.
+        :param path: The URI path. Takes precedence over any path found from the URI
+                     argument.
         """
         self.scheme: Optional[str] = None
         self.query: Query = Query.empty()

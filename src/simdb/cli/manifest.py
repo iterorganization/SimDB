@@ -51,7 +51,8 @@ def _to_uri(uri_str: str, base_path: Path) -> Tuple["DataObject.Type", "URI"]:
             ("shot" in uri.query, "run" in uri.query, "database" in uri.query)
         ):
             raise InvalidManifest(
-                f"invalid uri: {uri_str} - no path or (shot, run, database) provided in IMAS uri"
+                f"invalid uri: {uri_str} - no path or (shot, run, database) provided "
+                "in IMAS uri"
             )
         return DataObject.Type.IMAS, uri
     if uri.scheme == "uda":
@@ -63,7 +64,8 @@ def _to_uri(uri_str: str, base_path: Path) -> Tuple["DataObject.Type", "URI"]:
 
 class DataObject:
     """
-    Simulation data object, either a file, an IDS or an already registered object identifiable by the UUID.
+    Simulation data object, either a file, an IDS or an already registered object
+    identifiable by the UUID.
 
     PATH: file:///<PATH>
     IMAS: imas:<BACKEND>?path=<PATH>
@@ -141,12 +143,14 @@ class ListValuesValidator(ManifestValidator):
             return
         if isinstance(values, dict):
             raise InvalidManifest(
-                f"badly formatted manifest - {self.section_name} should be provided as a list"
+                f"badly formatted manifest - {self.section_name} should be provided as "
+                "a list"
             )
         for item in values:
             if not isinstance(item, dict) or len(item) > 1:
                 raise InvalidManifest(
-                    f"badly formatted manifest - {self.section_name} values should be a name value pair"
+                    f"badly formatted manifest - {self.section_name} values should be "
+                    "a name value pair"
                 )
             name = next(iter(item))
 
@@ -176,7 +180,8 @@ class DictValuesValidator(ManifestValidator):
     def validate(self, values: Union[list, dict]) -> None:
         if isinstance(values, list):
             raise InvalidManifest(
-                f"badly formatted manifest - {self.section_name} should be provided as a dict"
+                f"badly formatted manifest - {self.section_name} should be provided as "
+                "a dict"
             )
 
         for key in values:
@@ -185,7 +190,8 @@ class DictValuesValidator(ManifestValidator):
                     for code_key in values[key]:
                         if code_key not in ("name", "repo", "commit"):
                             raise InvalidManifest(
-                                f"unknown {self.section_name}.{key} key in manifest: {code_key}"
+                                f"unknown {self.section_name}.{key} key in manifest: "
+                                f"{code_key}"
                             )
                 else:
                     raise InvalidManifest(
@@ -325,7 +331,8 @@ class MetaDataValidator(ListValuesValidator):
             for char in MetaDataValidator.forbidden_characters:
                 if char in name:
                     raise InvalidManifest(
-                        f"invalid metadata field name {name}- contains forbidden character {char}"
+                        f"invalid metadata field name {name}- contains forbidden "
+                        f"character {char}"
                     )
 
 

@@ -50,7 +50,8 @@ if sys.version_info < (3, 11):
 
 
 if TYPE_CHECKING:
-    # Only importing these for type checking and documentation generation in order to speed up runtime startup.
+    # Only importing these for type checking and documentation generation in order to
+    # speed up runtime startup.
     from .metadata import MetaData
     from .watcher import Watcher
 
@@ -120,7 +121,8 @@ class Simulation(Base):
         """
         Initialise a new Simulation object using the provided Manifest.
 
-        :param manifest: The Manifest to load the data from, or None to create an empty Simulation.
+        :param manifest: The Manifest to load the data from, or None to create an empty
+                         Simulation.
         """
 
         if manifest is None:
@@ -128,7 +130,8 @@ class Simulation(Base):
         self.uuid = uuid.uuid1()
         self.datetime = datetime.now()
 
-        # For legacy simulation import responsible_name is from manifest else it will be the user.email
+        # For legacy simulation import responsible_name is from manifest else it will be
+        # the user.email
         if manifest.responsible_name:
             self.meta.append(MetaData("uploaded_by", manifest.responsible_name))
 
@@ -270,8 +273,9 @@ class Simulation(Base):
         """
         Check the metadata elements for duplicates, throwing and exception if found.
 
-        Duplicates should not be possible but if there is an issue causing them to arise then at least it will be
-        caught early rather than causing an SQL constraint failure later.
+        Duplicates should not be possible but if there is an issue causing them to arise
+        then at least it will be caught early rather than causing an SQL constraint
+        failure later.
         """
         names = [m.element for m in self.meta]
         counts = defaultdict(lambda: 0)
@@ -280,7 +284,8 @@ class Simulation(Base):
         duplicates = [k for (k, v) in counts.items() if v > 1]
         if len(duplicates) > 0:
             raise ValueError(
-                f"Duplicate metadata elements {duplicates} found for simulation {self.uuid}"
+                f"Duplicate metadata elements {duplicates} found for simulation "
+                f"{self.uuid}"
             )
 
     def file_paths(self) -> Set[Path]:

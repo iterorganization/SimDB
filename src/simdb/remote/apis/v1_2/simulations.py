@@ -389,13 +389,12 @@ class SimulationList(Resource):
             ):
                 if simulation.status == models_sim.Simulation.Status.NOT_VALIDATED:
                     raise Exception(
-                        "Validation config option error_on_fail=True without auto_validate=True."
+                        "Validation config option error_on_fail=True without "
+                        "auto_validate=True."
                     )
                 elif simulation.status == models_sim.Simulation.Status.FAILED:
-                    result[
-                        "error"
-                    ] = f"""Simulation validation failed and server has error_on_fail=True.\n
-                    {result["validation"]["error"]}"""
+                    result["error"] = f"""Simulation validation failed and server has
+                    error_on_fail=True.\n{result["validation"]["error"]}"""
                     response = jsonify(result)
                     response.status_code = 400
                     return response

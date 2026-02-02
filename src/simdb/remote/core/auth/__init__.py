@@ -41,7 +41,8 @@ def authenticate():
     Sends a 401 response that enables basic auth.
     """
     return Response(
-        "Could not verify your access level for that URL. You have to login with proper credentials.",
+        "Could not verify your access level for that URL. You have to login with "
+        "proper credentials.",
         401,
         {"WWW-Authenticate": "Basic realm='Login Required'"},
     )
@@ -49,7 +50,8 @@ def authenticate():
 
 def check_role(config: Config, user: User, role: Optional[str]) -> bool:
     """
-    This function is called to check if an authenticated user is a member of the specified role.
+    This function is called to check if an authenticated user is a member of the
+    specified role.
 
     If no role is specified then the function always returns true.
     """
@@ -88,7 +90,8 @@ def check_auth(config: Config, request: Request) -> Optional[User]:
                 return user
         except AuthenticationError:
             AuthenticationError(
-                f"Authentication failed for user {username} using {authentication_type} authenticator."
+                f"Authentication failed for user {username} using "
+                f"{authentication_type} authenticator."
             )
             ...
 

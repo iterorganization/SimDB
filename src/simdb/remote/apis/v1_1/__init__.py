@@ -49,8 +49,9 @@ class StagingDirectory(Resource):
             Path(current_app.simdb_config.get_option("server.upload_folder")) / sim_hex
         )
         staging_dir.mkdir(parents=True, exist_ok=True)
-        # This needs to be done for ITER at the moment but should be removed once we can actually push IMAS data
-        # rather than having to do a local copy onto the server directory.
+        # This needs to be done for ITER at the moment but should be removed once we can
+        # actually push IMAS data rather than having to do a local copy onto the server
+        # directory.
         if user_folder:
             staging_dir.chmod(0o777)
         return jsonify({"staging_dir": str(Path(upload_dir) / sim_hex)})

@@ -73,7 +73,8 @@ def list_idss(entry: DBEntry) -> List[str]:
     """
     List all the IDSs found to be populated for the given IMAS data entry.
 
-    Each IDS is defined as being non-empty if the ids_properties/homogeneous_time field has been populated.
+    Each IDS is defined as being non-empty if the ids_properties/homogeneous_time field
+    has been populated.
 
     @param entry: the IMAS data entry
     @return: the list of found IDSs
@@ -107,7 +108,8 @@ def check_time(entry: DBEntry, ids: str, occurrence) -> None:
             time = ids_obj.time
             if time is None or time.size == 0:
                 raise ValueError(
-                    f"IDS {ids} has homogeneous_time flag set to IDS_TIME_MODE_HOMOGENEOUS but invalid time entry."
+                    f"IDS {ids} has homogeneous_time flag set to "
+                    "IDS_TIME_MODE_HOMOGENEOUS but invalid time entry."
                 )
     except imas.exception.ValidationError as err:
         raise ImasError(f"IDS {ids} failed validation") from err
@@ -274,7 +276,8 @@ def imas_files(uri: URI) -> List[Path]:
     Return all the files associated with the given IMAS URI.
 
     @param uri: a valid IMAS URI
-    @return: a list of files which contains the IDS data for the backend specified in the URI
+    @return: a list of files which contains the IDS data for the backend specified in
+             the URI
     """
     backend = str(uri.path)
     if backend.startswith("/"):
@@ -286,7 +289,8 @@ def imas_files(uri: URI) -> List[Path]:
         backend = uri.query.get("backend", default=None)
         if backend is None:
             raise ValueError(
-                "Invalid IMAS URI - 'backend' query argument not provided for UDA backend"
+                "Invalid IMAS URI - 'backend' query argument not provided for UDA "
+                "backend"
             )
 
     if backend == "hdf5":
@@ -305,18 +309,21 @@ def imas_files(uri: URI) -> List[Path]:
 
 def convert_uri(uri: URI, path: Path, config: Config) -> URI:
     """
-    Converts a local IMAS URI to a remote access IMAS URI based on the server.imas_remote_host configuration option.
+    Converts a local IMAS URI to a remote access IMAS URI based on the
+    server.imas_remote_host configuration option.
 
     Translate locale IMAS URI (imas:<backend>?path=<path>) to remote access URI
     (imas://<imas_remote_host>:<imas_remote_port>/uda?path=<path>&backend=<backend>)
 
     @param uri: The URI to convert
-    @param config: Config to read the server.imas_remote_host and server.imas_remote_port options from
+    @param config: Config to read the server.imas_remote_host and
+                   server.imas_remote_port options from
     """
     host = config.get_option("server.imas_remote_host", default=None)
     if host is None:
         raise ValueError(
-            "Cannot process IMAS data as server.imas_remote_host configuration option not set"
+            "Cannot process IMAS data as server.imas_remote_host configuration option "
+            "not set"
         )
     port = config.get_option("server.imas_remote_port", default=None)
     backend = uri.path
