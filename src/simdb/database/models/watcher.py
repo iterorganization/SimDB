@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Final
 
 from sqlalchemy import Column
 from sqlalchemy import types as sql_types
@@ -18,7 +18,7 @@ class Watcher(Base):
     Class to represent people watching simulations for updates.
     """
 
-    NOTIFICATION_CHOICES = {
+    NOTIFICATION_CHOICES: Final[Dict[Notification, str]] = {
         Notification.VALIDATION: "V",
         Notification.REVISION: "R",
         Notification.OBSOLESCENCE: "O",

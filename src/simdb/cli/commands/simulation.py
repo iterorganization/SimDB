@@ -89,7 +89,9 @@ def simulation_modify(
         try:
             name, value = set_meta.split("=")
         except ValueError:
-            raise click.BadParameter("set-meta argument must be of form NAME=VALUE")
+            raise click.BadParameter(
+                "set-meta argument must be of form NAME=VALUE"
+            ) from None
         db = get_local_db(config)
         simulation = db.get_simulation(sim_id)
         simulation.set_meta(name, value)
@@ -228,7 +230,7 @@ def simulation_push(
         for schema in schemas:
             Validator(schema).validate(simulation)
     except ValidationError as err:
-        raise click.ClickException(f"Simulation does not validate: {err}")
+        raise click.ClickException("Simulation does not validate") from err
 
     api.push_simulation(simulation, out_stream=sys.stdout, add_watcher=add_watcher)
 
@@ -269,7 +271,7 @@ def simulation_pull(
     try:
         simulation = api.pull_simulation(sim_id, directory, out_stream=sys.stdout)
     except RemoteError as err:
-        raise click.ClickException(str(err))
+        raise click.ClickException() from err
 
     db.insert_simulation(simulation)
 
@@ -402,7 +404,7 @@ def simulation_validate(
                 )
         except Exception as e:
             raise ValidationError(
-                f"Failed to validate checksum for file {file.uri}: {e!s}"
-            )
+                f"Failed to validate checksum for file {file.uri}"
+            ) from e
 
     click.echo("validation successful")

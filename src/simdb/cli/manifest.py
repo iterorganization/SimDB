@@ -376,9 +376,10 @@ class Manifest:
     Class to handle reading, writing & validation of simulation manifest files.
     """
 
-    _data: Union[Dict, List, None] = None
-    _path: Path = Path()
-    _metadata: Dict = {}
+    def __init__(self) -> None:
+        self._data: Union[Dict, List, None] = None
+        self._path: Path = Path()
+        self._metadata: Dict = {}
 
     @property
     def metadata(self) -> Dict:
@@ -468,7 +469,7 @@ class Manifest:
                     self._metadata, yaml.load(metadata_file, Loader=get_loader())
                 )
         except yaml.YAMLError as err:
-            raise InvalidManifest(f"failed to read metadata file {path} - {err}")
+            raise InvalidManifest(f"failed to read metadata file {path}") from err
 
     def _convert_version(self):
         if self.version == 0:
@@ -527,7 +528,7 @@ class Manifest:
             try:
                 self._data = yaml.load(file, Loader=get_loader())
             except yaml.YAMLError as err:
-                raise InvalidManifest("badly formatted manifest - " + str(err))
+                raise InvalidManifest("badly formatted manifest") from err
 
         if isinstance(self._data, dict) and "metadata" in self._data:
             self._data["metadata"] or []

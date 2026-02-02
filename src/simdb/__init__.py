@@ -10,8 +10,6 @@ The tool comes in two parts:
       staging and checking.
 """
 
-from pathlib import Path
-
 try:
     from ._version import version as __version__
 except ImportError:

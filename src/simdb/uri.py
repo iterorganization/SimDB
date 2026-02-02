@@ -109,8 +109,8 @@ class URI:
         if uri is not None:
             try:
                 result: Url = parse_url(str(uri))
-            except LocationParseError:
-                raise URIParserError("failed to parse URI")
+            except LocationParseError as err:
+                raise URIParserError("failed to parse URI") from err
             self.scheme = result.scheme
             self.query = Query(result.query)
             self.authority = Authority(result.host, result.port, result.auth)

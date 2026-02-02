@@ -1,5 +1,5 @@
 import abc
-from typing import Dict, Optional, Type
+from typing import ClassVar, Dict, Optional, Type
 
 from flask import Request
 
@@ -14,7 +14,7 @@ class Authenticator(abc.ABC):
     Base class for SimDB server authenticators.
     """
 
-    Authenticators: Dict[str, Type["Authenticator"]] = {}
+    Authenticators: ClassVar[Dict[str, Type["Authenticator"]]] = {}
     Name: str = NotImplemented
 
     @abc.abstractmethod
@@ -46,10 +46,10 @@ class Authenticator(abc.ABC):
         """
         try:
             return Authenticator.__new__(cls.Authenticators[name.lower()])
-        except KeyError:
+        except KeyError as err:
             raise AuthenticationError(
                 f"Unknown authenticator {name} selected in configuration"
-            )
+            ) from err
 
     @classmethod
     def register(cls, authenticator: Type["Authenticator"]) -> None:

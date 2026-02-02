@@ -37,8 +37,10 @@ def _isdecimal(v: str):
 
 
 def _isfloat(value: str) -> bool:
-    l, *r = value.split(".")
-    return _isdecimal(l) and (len(r) == 0 or (len(r) == 1 and _isdecimal(r[0])))
+    left, *right = value.split(".")
+    return _isdecimal(left) and (
+        len(right) == 0 or (len(right) == 1 and _isdecimal(right[0]))
+    )
 
 
 def _convert(value: str) -> Union[int, float, str, bool]:
@@ -258,7 +260,7 @@ User configuration file {self._user_config_path} has incorrect permissions (must
         except configparser.NoSectionError:
             if default is not None:
                 return default
-            raise KeyError(f"Section {name} not found in configuration")
+            raise KeyError(f"Section {name} not found in configuration") from None
 
     def get_option(
         self,
@@ -280,7 +282,7 @@ User configuration file {self._user_config_path} has incorrect permissions (must
             if default is not Config.NOTHING:
                 value = cast(Union[int, float, bool, str], default)
                 return value
-            raise KeyError(f"Option {name} not found in configuration")
+            raise KeyError(f"Option {name} not found in configuration") from None
 
     def get_string_option(
         self, name: str, default: Union[str, None, _NothingSentinel] = NOTHING
@@ -309,7 +311,7 @@ User configuration file {self._user_config_path} has incorrect permissions (must
         try:
             self._parser.remove_option(section, option)
         except (configparser.NoSectionError, configparser.NoOptionError):
-            raise KeyError(f"Option {name} not found in configuration")
+            raise KeyError(f"Option {name} not found in configuration") from None
 
     def delete_section(self, name: str) -> None:
         """
@@ -323,7 +325,7 @@ User configuration file {self._user_config_path} has incorrect permissions (must
         try:
             self._parser.remove_section(section)
         except configparser.NoSectionError:
-            raise KeyError(f"Section {name} not found in configuration")
+            raise KeyError(f"Section {name} not found in configuration") from None
 
     def set_option(self, name: str, value: Union[int, float, bool, str]) -> None:
         """

@@ -68,13 +68,13 @@ Connection failed to {ex.request.url}
 
 Please check that the URL is valid and that SIMDB_REQUESTS_CA_BUNDLE is set if required.
                 """
-            )
+            ) from None
         except requests.HTTPError as ex:
             raise FailedConnection(
                 f"""\
 HTTP error {ex.response.status_code} returned from endpoint {ex.request.url}
                 """
-            )
+            ) from None
         except requests.JSONDecodeError:
             raise FailedConnection(
                 """\
@@ -82,17 +82,17 @@ Invalid JSON returned from request endpoint
 
 This might indicate an invalid SimDB URL or the existence of a firewall.
                 """
-            )
+            ) from None
 
     return wrapped_func
 
 
 def read_bytes(path: str, compressed: bool = True) -> bytes:
     if compressed:
-        with io.BytesIO() as buffer:
-            with gzip.GzipFile(fileobj=buffer, mode="wb") as gz_file:
-                with open(path, "rb") as file_in:
-                    gz_file.write(file_in.read())
+        with io.BytesIO() as buffer, gzip.GzipFile(
+            fileobj=buffer, mode="wb"
+        ) as gz_file, open(path, "rb") as file_in:
+            gz_file.write(file_in.read())
             buffer.seek(0)
             return buffer.read()
     else:
@@ -183,7 +183,7 @@ class RemoteAPI:
         except KeyError:
             raise ValueError(
                 f"Remote '{remote}' not found. Use `simdb remote config add` to add it."
-            )
+            ) from None
 
         self._api_url: str = f"{self._url}/v{config.api_version}/"
         self._firewall: Optional[str] = config.get_option(

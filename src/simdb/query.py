@@ -42,11 +42,11 @@ def parse_query_arg(value: str) -> Tuple[str, QueryType]:
     if not comp:
         return value, QueryType.EQ
     if len(comp) > 1:
-        raise ValueError(f"Malformed query string {value}.")
+        raise ValueError(f"Malformed query string {value}.") from None
     try:
         return value, QueryType[comp[0].upper()]
     except KeyError:
-        raise ValueError(f"Unknown query modifier {comp[0]}.")
+        raise ValueError(f"Unknown query modifier {comp[0]}.") from None
 
 
 def query_compare(query_type: QueryType, name: str, value: Any, compare: str) -> bool:

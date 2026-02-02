@@ -33,6 +33,4 @@ class KeyCloakAuthenticator(Authenticator):
 
             return User(name, email)
         except KeycloakError as err:
-            raise AuthenticationError(
-                f"Keycloak authentication error: {err.error_message}"
-            )
+            raise AuthenticationError("Keycloak authentication error") from err

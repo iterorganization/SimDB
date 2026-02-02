@@ -1,5 +1,4 @@
 import hashlib
-import multiprocessing as mp
 from pathlib import Path
 
 from simdb.uri import URI
@@ -17,23 +16,9 @@ class Hash:
         pass
 
 
-def _checksum(q: mp.Queue, uri: URI) -> str:
-    entry = open_imas(uri)
-    idss = list_idss(entry)
-    check = hashlib.sha256()
-    for name in idss:
-        print(f"Checksumming {name}", flush=True)
-        ids = entry.get(name)
-        check.update(ids_checksum(ids).digest())
-    entry.close()
-    q.put(check.hexdigest())
-
-
 def checksum(uri: URI, ids_list: list) -> str:
     if uri.scheme != "imas":
         raise ValueError(f"invalid scheme for imas checksum: {uri.scheme}")
-
-    import hashlib
 
     sha1 = hashlib.sha1()
 

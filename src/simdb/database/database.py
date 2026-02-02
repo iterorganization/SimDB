@@ -224,7 +224,7 @@ class Database:
             except SQLAlchemyError:
                 simulation = None
             if not simulation:
-                raise DatabaseError(f"Simulation {sim_ref} not found.")
+                raise DatabaseError(f"Simulation {sim_ref} not found.") from None
         return simulation
 
     def remove(self):
@@ -473,11 +473,11 @@ class Database:
             for name, value, query_type in constraints:
                 if name in ("alias", "uuid", "creation_date"):
                     sim_id_sets[(name, value, query_type)].add(row.simulation.id)
-                if row.metadata.element == name:
-                    if query_type == QueryType.EXIST or query_compare(
-                        query_type, name, row.metadata.value, value
-                    ):
-                        sim_id_sets[(name, value, query_type)].add(row.simulation.id)
+                if row.metadata.element == name and (
+                    query_type == QueryType.EXIST
+                    or query_compare(query_type, name, row.metadata.value, value)
+                ):
+                    sim_id_sets[(name, value, query_type)].add(row.simulation.id)
 
         if sim_id_sets:
             return set.intersection(*sim_id_sets.values())
@@ -631,8 +631,8 @@ class Database:
         try:
             file_uuid = uuid.UUID(file_uuid_str)
             file = self.session.query(File).filter_by(uuid=file_uuid).one_or_none()
-        except ValueError:
-            raise DatabaseError(f"Invalid UUID {file_uuid_str}.")
+        except ValueError as err:
+            raise DatabaseError(f"Invalid UUID {file_uuid_str}.") from err
         if file is None:
             raise DatabaseError(f"Failed to find file {file_uuid.hex}.")
         self.session.commit()
@@ -717,15 +717,15 @@ class Database:
             if "alias" in str(err.orig):
                 raise DatabaseError(
                     f"Simulation already exists with alias {simulation.alias} - please use a unique alias."
-                )
+                ) from err
             elif "uuid" in str(err.orig):
                 raise DatabaseError(
                     f"Simulation already exists with uuid {simulation.uuid}."
-                )
-            raise DatabaseError(str(err.orig))
+                ) from err
+            raise DatabaseError(str(err.orig)) from err
         except DBAPIError as err:
             self.session.rollback()
-            raise DatabaseError(str(err.orig))
+            raise DatabaseError(str(err.orig)) from err
 
     def get_aliases(self, prefix: Optional[str]) -> List[str]:
         from sqlalchemy.sql import column

@@ -16,7 +16,7 @@ def fetch_metric(metric: str, imas_obj) -> Any:
     try:
         return metrics[metric](imas_obj)
     except Exception as ex:
-        raise MetricException(ex)
+        raise MetricException() from ex
 
 
 class ReadValues(Enum):
@@ -69,7 +69,7 @@ def walk_dict(d: Dict, node, depth: int, read_values: ReadValues) -> Dict:
                     "Invalid values option: {} (valid options are [{}])".format(
                         v, ", ".join(i.name.lower() for i in ReadValues)
                     )
-                )
+                ) from None
         if k == "metrics":
             if k not in meta:
                 meta[k] = {}

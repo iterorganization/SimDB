@@ -135,12 +135,14 @@ def _load_schema(path: Path):
         return [{}]
 
     # load schema from file
-    with open(path) as file:
+    with path.open() as file:
         try:
             schema = yaml.load(file, Loader=yaml.SafeLoader)
             return schema
-        except yaml.YAMLError:
-            raise LoadError(f"Failed to read validation schema from file {file}")
+        except yaml.YAMLError as err:
+            raise LoadError(
+                f"Failed to read validation schema from file {file}"
+            ) from err
 
 
 class Validator:
@@ -196,8 +198,8 @@ class Validator:
         try:
             self._validator = CustomValidator(schema)
             self._validator.allow_unknown = True
-        except cerberus.SchemaError:
-            raise LoadError("Failed to parse validation schema")
+        except cerberus.SchemaError as err:
+            raise LoadError("Failed to parse validation schema") from err
 
     def validate(self, sim: Simulation) -> None:
         # convert sim to dictionary

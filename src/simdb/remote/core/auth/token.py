@@ -41,4 +41,4 @@ class TokenAuthenticator(Authenticator):
                 raise AuthenticationError("Token expired")
 
         except (IndexError, KeyError, jwt.exceptions.PyJWTError) as ex:
-            raise AuthenticationError(f"Invalid token: {ex}")
+            raise AuthenticationError("Invalid token") from ex

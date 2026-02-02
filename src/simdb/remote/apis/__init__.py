@@ -10,7 +10,6 @@ from simdb import __version__
 from simdb.database import Database
 from simdb.remote.core.auth import AuthenticationError, User, requires_auth
 from simdb.remote.core.typing import current_app
-from simdb.validation.file import find_file_validator
 
 from .v1 import api as api_v1
 from .v1 import namespaces as namespaces_v1

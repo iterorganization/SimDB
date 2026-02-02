@@ -5,7 +5,6 @@ from typing import IO
 import click
 
 from simdb import __version__
-
 from simdb.config import Config
 
 g_debug = False

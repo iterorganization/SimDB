@@ -108,8 +108,8 @@ def check_time(entry: DBEntry, ids: str, occurrence) -> None:
                 raise ValueError(
                     f"IDS {ids} has homogeneous_time flag set to IDS_TIME_MODE_HOMOGENEOUS but invalid time entry."
                 )
-    except imas.exception.ValidationError as e:
-        raise ImasError(f"IDS {ids} failed validation: {e}")
+    except imas.exception.ValidationError as err:
+        raise ImasError(f"IDS {ids} failed validation") from err
 
 
 def _is_al5() -> bool:
@@ -160,15 +160,15 @@ def _open_legacy(uri: URI) -> DBEntry:
                 user_name=user,
                 data_version=version,
             )
-        except:
-            raise ImasError(f"failed to open IMAS data with URI {uri}")
+        except Exception as err:
+            raise ImasError(f"failed to open IMAS data with URI {uri}") from err
     else:
         try:
             entry = imas.DBEntry(
                 backend_id, database, int(shot), int(run), data_version=version
             )
-        except:
-            raise ImasError(f"failed to open IMAS data with URI {uri}")
+        except Exception as err:
+            raise ImasError(f"failed to open IMAS data with URI {uri}") from err
     (status, _) = entry.open()
     if status != 0:
         raise ImasError(f"failed to open IMAS data with URI {uri}")
@@ -201,8 +201,8 @@ def open_imas(uri: URI) -> DBEntry:
 
     try:
         entry = imas.DBEntry(str(uri), "r")
-    except:
-        raise ImasError(f"failed to open IMAS data with URI {uri}")
+    except Exception as err:
+        raise ImasError(f"failed to open IMAS data with URI {uri}") from err
 
     return entry
 
