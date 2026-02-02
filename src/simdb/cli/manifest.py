@@ -1,4 +1,3 @@
-# import datetime
 import glob
 import os
 import re
@@ -153,10 +152,7 @@ class ListValuesValidator(ManifestValidator):
                     f"badly formatted manifest - {self.section_name} values should be a name value pair"
                 )
             name = next(iter(item))
-            # if isinstance(self.expected_keys, tuple) and name not in self.expected_keys:
-            #     raise InvalidManifest(
-            #         f"unknown {self.section_name} entry in manifest: {name}"
-            #     )
+
             if isinstance(self.required_keys, tuple) and name not in self.required_keys:
                 raise InvalidManifest(
                     f"required {self.section_name} key not found in manifest: {name}"
@@ -283,25 +279,6 @@ class AliasValidator(ManifestValidator):
             raise InvalidManifest("alias must be a string")
         if urllib.parse.quote(value) != value:
             raise InvalidAlias(f"illegal characters in alias: {value}")
-
-
-# class CreationDateValidator(ManifestValidator):
-#     """
-#     Validator for simulation CreationDate.
-#     """
-
-#     def __init__(self, version: int):
-#         super().__init__(version)
-
-#     def validate(self, value):
-#         if not isinstance(value, str):
-#             raise InvalidManifest("CreationDate must be a string")
-
-#         # Validate the datetime format
-#         try:
-#             datetime.datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-#         except ValueError:
-#             raise InvalidManifest(f"Invalid datetime format for CreationDate: {value}. Expected format: YYYY-MM-DD HH:MM:SS")
 
 
 class DescriptionValidator(ManifestValidator):
@@ -555,15 +532,6 @@ class Manifest:
         if isinstance(self._data, dict) and "metadata" in self._data:
             self._data["metadata"] or []
             self._metadata["metadata"] = self._data["metadata"]
-            # for item in metadata:
-            #     if "path" in item:
-            #         path = Path(item["path"])
-            #         if not path.exists():
-            #             raise InvalidManifest("metadata path %s does not exist" % path)
-            #         self._load_metadata(file_path, path)
-            #     elif "summary" in item:
-            #         self._metadata["summary"] = item["summary"]
-            # _update_dict(self._metadata, item["values"])
 
     def save(self, out_file: TextIO) -> None:
         """

@@ -6,7 +6,6 @@ import click
 
 from simdb import __version__
 
-# from trogon import tui
 from simdb.config import Config
 
 g_debug = False

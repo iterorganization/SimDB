@@ -92,7 +92,6 @@ class Database:
         if db_type == Database.DBMS.SQLITE:
             if "file" not in kwargs:
                 raise ValueError("Missing file parameter for SQLITE database")
-            # new_db = (not os.path.exists(kwargs["file"]))
             self.engine: sqlalchemy.engine.Engine = create_engine(
                 "sqlite:///{file}".format(**kwargs)
             )
@@ -110,10 +109,7 @@ class Database:
             kwargs.setdefault("user", "simdb")
             kwargs.setdefault("password", "simdb")
             kwargs.setdefault("db_name", "simdb")
-            # self.engine: "sqlalchemy.engine.Engine" = create_engine(
-            #     "postgresql://%(user)s:%(password)s@%(host)s:%(port)d/%(db_name)s"
-            #     % kwargs
-            # )
+
             self.engine: sqlalchemy.engine.Engine = create_engine(
                 "postgresql+psycopg2://{user}:{password}@{host}:{port}/{db_name}".format(
                     **kwargs

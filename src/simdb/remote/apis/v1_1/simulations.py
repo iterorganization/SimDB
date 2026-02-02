@@ -277,7 +277,6 @@ class SimulationList(Resource):
                         replaces_sim = None
                     if replaces_sim is None:
                         pass
-                        # raise ValueError(f'Simulation replaces:{sim_id} is not a valid simulation identifier.')
                     else:
                         _update_simulation_status(
                             replaces_sim, models_sim.Simulation.Status.DEPRECATED, user

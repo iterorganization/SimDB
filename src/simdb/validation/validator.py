@@ -202,7 +202,6 @@ class Validator:
     def validate(self, sim: Simulation) -> None:
         # convert sim to dictionary
         data = sim.meta_dict()
-        # data = sim.data(recurse=True)
         # validate using cerberus
         if not self._validator.validate(data):
             raise ValidationError(self._validator.errors)

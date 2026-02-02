@@ -17,47 +17,6 @@ class Hash:
         pass
 
 
-# def walk_imas(imas_obj, check: Hash, path="") -> None:
-#     from imas import imasdef
-#     import numpy as np
-
-#     for name in (i for i in dir(imas_obj) if not i.startswith("_")):
-#         if name in IGNORED_FIELDS:
-#             continue
-#         attr = getattr(imas_obj, name)
-#         if "numpy.ndarray" in str(type(attr)):
-#             if attr.size != 0:
-#                 # if np.isnan(attr).any():
-#                 #     print(path, name)
-#                 if attr.dtype == np.int32:
-#                     attr[np.isnan(attr)] = imasdef.INT_0D
-#                 elif attr.dtype == np.float32:
-#                     attr[np.isnan(attr)] = imasdef.FLT_0D
-#                 elif attr.dtype == np.float64:
-#                     attr[np.isnan(attr)] = imasdef.EMPTY_DOUBLE
-#                 check.update(attr.tobytes())
-#         elif isinstance(attr, int):
-#             if attr != imasdef.EMPTY_INT:
-#                 check.update(struct.pack("<l", attr))
-#         elif isinstance(attr, str):
-#             if attr and attr[0] != chr(0):
-#                 check.update(attr.encode())
-#         elif isinstance(attr, float):
-#             if attr != imasdef.EMPTY_FLOAT:
-#                 check.update(struct.pack("f", attr))
-#         elif "__structure" in str(type(attr)):
-#             walk_imas(attr, check, path=f"{path}.{name}")
-#         elif "__structArray" in str(type(attr)):
-#             for i, el in enumerate(attr):
-#                 walk_imas(el, check, path=f"{path}.{name}[{i}]")
-
-
-# def ids_checksum(ids) -> Hash:
-#     check = cast(Hash, hashlib.sha256())
-#     walk_imas(ids, check)
-#     return check
-
-
 def _checksum(q: mp.Queue, uri: URI) -> str:
     entry = open_imas(uri)
     idss = list_idss(entry)

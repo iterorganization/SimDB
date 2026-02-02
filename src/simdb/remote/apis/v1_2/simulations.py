@@ -30,10 +30,6 @@ def _update_simulation_status(
 
     old_status = simulation.status
     simulation.status = status
-    # simulation.set_meta(
-    #     status.value.lower().replace(" ", "_") + "_on",
-    #     datetime.datetime.now().isoformat(),
-    # )
     if status != old_status and simulation.watchers.count():
         server = EmailServer(current_app.simdb_config)
         msg = f"""\
@@ -428,7 +424,6 @@ class SimulationList(Resource):
                         replaces_sim = None
                     if replaces_sim is None:
                         pass
-                        # raise ValueError(f'Simulation replaces:{sim_id} is not a valid simulation identifier.')
                     else:
                         _update_simulation_status(
                             replaces_sim, models_sim.Simulation.Status.DEPRECATED, user

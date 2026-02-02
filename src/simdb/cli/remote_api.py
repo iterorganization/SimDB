@@ -349,8 +349,6 @@ class RemoteAPI:
         headers["User-Agent"] = "it_script_basic"
 
         # Get token api expected basic auth in request
-        # if authenticate and url.startswith("token"):
-        #     self._server_auth = ""
         if authenticate and self._server_auth != "None":
             res = requests.get(
                 self._api_url + url,

@@ -10,43 +10,11 @@ from simdb.query import QueryType, parse_query_arg
 from . import check_meta_args, pass_config
 from .validators import validate_non_negative
 
-# def _validate_simulation_outputs(options: dict, simulation):
-#     file_validator_type = options.get("file_validator", None)
-#     file_validator_options = options.get("file_validator_options", {})
-
-#     if file_validator_type:
-#         from ...validation.file import find_file_validator
-#         file_validator = find_file_validator(file_validator_type, file_validator_options)
-#         if not file_validator:
-#             raise click.ClickException(f"Requested file validator {file_validator_type} not available.")
-# for output in simulation.outputs:
-#     file_validator.validate(output)
-
 
 @click.group()
 def simulation():
     """Manage ingested simulations."""
     pass
-
-
-# @simulation.command("new")
-# @pass_config
-# @click.option("-a", "--alias", help="Alias of to assign to the simulation.")
-# @click.option("-u", "--uuid-only", "uuid", is_flag=True,
-#               help="Return a new UUID but do not insert the new simulation into the database.")
-# def simulation_new(config: Config, alias: str, uuid: str):
-#     """Create an empty simulation in the database which can be updated later.
-#     """
-#     from ...database import get_local_db
-#     from ...database.models import Simulation
-#     from ..manifest import Manifest
-#
-#     simulation = Simulation(Manifest())
-#     simulation.alias = alias
-#     if not uuid:
-#         db = get_local_db(config)
-#         db.insert_simulation(simulation)
-#     click.echo(simulation.uuid)
 
 
 @simulation.command("list")
@@ -261,9 +229,6 @@ def simulation_push(
             Validator(schema).validate(simulation)
     except ValidationError as err:
         raise click.ClickException(f"Simulation does not validate: {err}")
-
-    # options = api.get_upload_options()
-    # _validate_simulation_outputs(options, simulation)
 
     api.push_simulation(simulation, out_stream=sys.stdout, add_watcher=add_watcher)
 

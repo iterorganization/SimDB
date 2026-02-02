@@ -134,17 +134,10 @@ def load_imas_metadata(ids_dist, entry) -> dict:
 
 
 def load_metadata(entry):
-    # with open(Path(__file__).absolute().parent / 'imas_metadata.yaml') as f:
-    #     text = f.read()
-    #
-    # data = yaml.safe_load(text)
     data_to_read = {
         "summary": {
             "values": "all",
         },
-        # "dataset_description": {
-        #     "values": "all",
-        # },
     }
     meta = load_imas_metadata(data_to_read, entry)
     return meta
