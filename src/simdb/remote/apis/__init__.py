@@ -1,5 +1,4 @@
 import datetime
-import os
 from pathlib import Path
 
 import jwt
@@ -53,9 +52,8 @@ def register(api, version, namespaces):
             import appdirs
 
             db_dir = appdirs.user_data_dir("simdb")
-            db_file = os.path.join(db_dir, "remote.db")
-            file = Path(config.get_option("database.file", default=db_file))
-            os.makedirs(file.parent, exist_ok=True)
+            file = Path(config.get_option("database.file", default=None)) or Path(db_dir, "remote.db")
+            file.parent.mkdir(parents=True)
             setup_state.app.db = Database(
                 Database.DBMS.SQLITE, scopefunc=_app_ctx_stack.__ident_func__, file=file
             )

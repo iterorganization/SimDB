@@ -1,7 +1,6 @@
 import contextlib
 import datetime
 import itertools
-import os
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -493,7 +492,7 @@ class Simulation(Resource):
             for file in itertools.chain(simulation.inputs, simulation.outputs):
                 if file.uri.scheme == "file":
                     files.append(f"{file.uuid} ({file.uri.path.name})")
-                    os.remove(file.uri.path)
+                    file.uri.path.unlink()
             if simulation.inputs or simulation.outputs:
                 directory = (
                     simulation.inputs[0].uri.path.parent
@@ -501,7 +500,7 @@ class Simulation(Resource):
                     else simulation.outputs[0].uri.path.parent
                 )
                 if directory != Path() and directory != Path("/"):
-                    os.rmdir(directory)
+                    directory.rmdir()
             return jsonify({"deleted": {"simulation": simulation.uuid, "files": files}})
         except DatabaseError as err:
             return error(str(err))

@@ -347,14 +347,14 @@ class Simulation(Resource):
             files = []
             for file in itertools.chain(simulation.inputs, simulation.outputs):
                 files.append(f"{file.uuid} ({file.uri.path.name})")
-                os.remove(file.uri.path)
+                file.uri.path.unlink()
             if simulation.inputs or simulation.outputs:
                 directory = (
                     simulation.inputs[0].uri.path.parent
                     if simulation.inputs
                     else simulation.outputs[0].uri.path.parent
                 )
-                os.rmdir(directory)
+                directory.rmdir()
             return jsonify({"deleted": {"simulation": simulation.uuid, "files": files}})
         except DatabaseError as err:
             return error(str(err))

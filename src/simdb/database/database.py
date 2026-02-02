@@ -1,9 +1,9 @@
 import contextlib
-import os
 import sys
 import uuid
 from datetime import datetime
 from enum import Enum, auto
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterable, List, Optional, Tuple, cast
 
 from simdb.config import Config
@@ -749,9 +749,8 @@ def get_local_db(config: Config) -> Database:
     import appdirs
 
     db_file = config.get_option(
-        "db.file", default=os.path.join(appdirs.user_data_dir("simdb"), "sim.db")
-    )
-    db_dir = os.path.dirname(db_file)
-    os.makedirs(db_dir, exist_ok=True)
+        "db.file", default=None
+    ) or Path(appdirs.user_data_dir("simdb"), "sim.db")
+    db_file.parent.mkdir(parents=True, exist_ok=True)
     database = Database(Database.DBMS.SQLITE, file=db_file)
     return database

@@ -87,16 +87,16 @@ This might indicate an invalid SimDB URL or the existence of a firewall.
     return wrapped_func
 
 
-def read_bytes(path: str, compressed: bool = True) -> bytes:
+def read_bytes(path: Path, compressed: bool = True) -> bytes:
     if compressed:
         with io.BytesIO() as buffer, gzip.GzipFile(
             fileobj=buffer, mode="wb"
-        ) as gz_file, open(path, "rb") as file_in:
+        ) as gz_file, path.open("rb") as file_in:
             gz_file.write(file_in.read())
             buffer.seek(0)
             return buffer.read()
     else:
-        with open(path, "rb") as file:
+        with path.open("rb") as file:
             return file.read()
 
 
@@ -258,8 +258,8 @@ class RemoteAPI:
             base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
 
             cookies = None
-            if os.path.exists(cookies_path):
-                with open(cookies_path, "rb") as f:
+            if cookies_path.exists():
+                with cookies_path.open("rb") as f:
                     cookies = pickle.load(f)
                 r = requests.get(f"{self._url}/", headers=headers, cookies=cookies)
                 try:
@@ -285,14 +285,9 @@ class RemoteAPI:
                         )
                     cookies = s.cookies
 
-                os.umask(0)
-                descriptor = os.open(
-                    path=cookies_path,
-                    flags=os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
-                    mode=0o600,
-                )
-                with open(descriptor, "wb") as f:
+                with cookies_path.open("wb") as f:
                     pickle.dump(cookies, f)
+                cookies_path.chmod(0o600)
 
             if not cookies:
                 raise RuntimeError("Failed to get firewall authentication cookies")
@@ -935,10 +930,10 @@ class RemoteAPI:
         )
         response = self.get(f"file/download/{uuid.hex}/{index}", stream=True)
 
-        os.makedirs(to_path.parent, exist_ok=True)
+        to_path.parent.mkdir(parents=True, exist_ok=True)
         sha1 = hashlib.sha1()
 
-        with open(to_path, "wb") as f:
+        with to_path.open(to_path, "wb") as f:
             total_length = response.headers.get("content-length")
             if total_length is None:
                 f.write(response.content)

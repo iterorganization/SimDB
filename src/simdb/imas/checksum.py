@@ -28,7 +28,7 @@ def checksum(uri: URI, ids_list: list) -> str:
         entry.close()
 
     for path in imas_files(uri):
-        with open(path, "rb") as file:
+        with path.open("rb") as file:
             ids_name = Path(path).name.split(".")
             if ids_name[1] == "h5" and (
                 ids_name[0] != "master"

@@ -223,17 +223,13 @@ User configuration file {self._user_config_path} has incorrect permissions (must
 
     def save(self) -> None:
         """
-        Save the current state of the configuration to a configuration file in the users configuration directory.
+        Save the current state of the configuration to a configuration file in
+        the users configuration directory.
         """
-        os.makedirs(self._user_config_dir, exist_ok=True)
-        os.umask(0)
-        descriptor = os.open(
-            path=self._user_config_path,
-            flags=os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
-            mode=0o600,
-        )
-        with open(descriptor, "w") as file:
+        self._user_config_dir.mkdir(parents=True, exist_ok=True)
+        with self._user_config_path.open("w") as file:
             self._parser.write(file)
+        self._user_config_path.chmod(0o600)
 
     def sections(self) -> List[str]:
         """

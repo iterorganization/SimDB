@@ -1,4 +1,3 @@
-import glob
 import os
 import re
 import urllib
@@ -26,7 +25,7 @@ class InvalidAlias(InvalidManifest):
 
 def _expand_path(path: Path, base_path: Path) -> Path:
     os.environ["MANIFEST_DIR"] = str(base_path)
-    path = Path(os.path.expanduser(os.path.expandvars(path)))
+    path = Path(os.path.expandvars(str(path))).expanduser()
     path = Path(str(path).replace("//", "/"))
     if not path.is_absolute():
         if not base_path.is_absolute():
@@ -34,7 +33,7 @@ def _expand_path(path: Path, base_path: Path) -> Path:
         return base_path / path
     else:
         # Expand any /./ and /../ in absolute path
-        path = os.path.abspath(path)
+        path = path.resolve()
     return path
 
 
@@ -409,7 +408,8 @@ class Manifest:
             for i in self._data["inputs"]:
                 source = Source(base_path, i["uri"])
                 if source.type == DataObject.Type.FILE:
-                    names = glob.glob(str(source.uri.path))
+                    source_path = Path(source.uri.path)
+                    names = [str(p) for p in source_path.parent.glob(source_path.name)]
                     if not names:
                         raise InvalidManifest(
                             f"No files found matching path {source.uri.path}"
@@ -428,7 +428,8 @@ class Manifest:
             for i in self._data["outputs"]:
                 sink = Sink(base_path, i["uri"])
                 if sink.type == DataObject.Type.FILE:
-                    names = glob.glob(str(sink.uri.path))
+                    sink_path = Path(sink.uri.path)
+                    names = [str(p) for p in sink_path.parent.glob(sink_path.name)]
                     for name in names:
                         sinks.append(Sink(base_path, "file://" + name))
                 else:
@@ -464,7 +465,7 @@ class Manifest:
             if not path.is_absolute():
                 root_dir = root_path.absolute().parent
                 path = root_dir / path
-            with open(path) as metadata_file:
+            with path.open() as metadata_file:
                 _update_dict(
                     self._metadata, yaml.load(metadata_file, Loader=get_loader())
                 )
@@ -524,7 +525,7 @@ class Manifest:
         import yaml
 
         self._path: Path = file_path
-        with open(file_path) as file:
+        with file_path.open() as file:
             try:
                 self._data = yaml.load(file, Loader=get_loader())
             except yaml.YAMLError as err:

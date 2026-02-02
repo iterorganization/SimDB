@@ -1,6 +1,5 @@
 import gzip
 import json
-import os
 import uuid
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
@@ -65,7 +64,7 @@ def _verify_file(
 def _save_chunked_file(
     file: FileStorage, chunk_info: Dict, path: Path, compressed: bool = True
 ):
-    with open(path, "r+b" if path.exists() else "wb") as file_out:
+    with path.open("r+b" if path.exists() else "wb") as file_out:
         file_out.seek(chunk_info["chunk_size"] * chunk_info["chunk"])
         if compressed:
             with gzip.GzipFile(fileobj=file, mode="rb") as gz_file:
@@ -84,7 +83,7 @@ def _stage_file_from_chunks(
     staging_dir = (
         Path(current_app.simdb_config.get_option("server.upload_folder")) / sim_uuid.hex
     )
-    os.makedirs(staging_dir, exist_ok=True)
+    staging_dir.mkdir(parents=True, exist_ok=True)
 
     found_files = []
     for file in files:
@@ -99,7 +98,7 @@ def _stage_file_from_chunks(
 
     for file, sim_file in found_files:
         path = secure_path(sim_file.uri.path, common_root, staging_dir)
-        os.makedirs(path.parent, exist_ok=True)
+        path.parent.mkdir(parents=True, exist_ok=True)
         file_chunk_info = chunk_info.get(
             sim_file.uuid.hex, {"chunk_size": 0, "chunk": 0, "num_chunks": 1}
         )

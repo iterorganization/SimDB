@@ -1,5 +1,6 @@
 import os
 import platform
+from pathlib import Path
 from typing import Dict, List, NewType, Union
 
 import click
@@ -51,12 +52,13 @@ def _get_provenance() -> Dict[str, Union[PlatformDetails, EnvironmentDetails]]:
 
 
 @click.command("provenance")
-@click.argument("provenance_file")
+@click.argument("provenance_file", type=click.Path(exists=True))
 def provenance(provenance_file):
     """Create the PROVENANCE_FILE from the current system."""
     import yaml
+    provenance_file = Path(provenance_file)
 
-    with open(provenance_file, "w") as file:
+    with provenance_file.open("w") as file:
         yaml.dump(_get_provenance(), file, default_flow_style=False)
 
     click.echo(f"Create provenance file {provenance_file}.")
