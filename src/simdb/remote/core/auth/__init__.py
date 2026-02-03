@@ -10,12 +10,34 @@ from simdb.remote.core.typing import current_app
 from ._authenticator import Authenticator
 from ._exceptions import AuthenticationError
 from ._user import User
-from .active_directory import ActiveDirectoryAuthenticator
 from .firewall import FirewallAuthenticator
-from .keycloak import KeyCloakAuthenticator
-from .ldap import LdapAuthenticator
 from .no_authentication import NoopAuthenticator
 from .token import TokenAuthenticator
+
+Authenticator.register(FirewallAuthenticator)
+Authenticator.register(NoopAuthenticator)
+Authenticator.register(TokenAuthenticator)
+
+try:
+    from .active_directory import ActiveDirectoryAuthenticator
+
+    Authenticator.register(ActiveDirectoryAuthenticator)
+except (ImportError, ModuleNotFoundError):
+    pass
+
+try:
+    from .keycloak import KeyCloakAuthenticator
+
+    Authenticator.register(KeyCloakAuthenticator)
+except (ImportError, ModuleNotFoundError):
+    pass
+try:
+    from .ldap import LdapAuthenticator
+
+    Authenticator.register(LdapAuthenticator)
+except (ImportError, ModuleNotFoundError):
+    pass
+
 
 __all__ = [
     "ActiveDirectoryAuthenticator",
@@ -27,13 +49,6 @@ __all__ = [
     "TokenAuthenticator",
     "User",
 ]
-
-Authenticator.register(ActiveDirectoryAuthenticator)
-Authenticator.register(FirewallAuthenticator)
-Authenticator.register(KeyCloakAuthenticator)
-Authenticator.register(LdapAuthenticator)
-Authenticator.register(NoopAuthenticator)
-Authenticator.register(TokenAuthenticator)
 
 
 def authenticate():

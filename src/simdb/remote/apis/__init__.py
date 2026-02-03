@@ -55,7 +55,7 @@ def register(api, version, namespaces):
             file = Path(config.get_option("database.file", default=None)) or Path(
                 db_dir, "remote.db"
             )
-            file.parent.mkdir(parents=True)
+            file.parent.mkdir(parents=True, exist_ok=True)
             setup_state.app.db = Database(
                 Database.DBMS.SQLITE, scopefunc=_app_ctx_stack.__ident_func__, file=file
             )
