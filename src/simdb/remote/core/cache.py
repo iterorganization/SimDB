@@ -24,5 +24,5 @@ def cache_key(*args, **kwargs):
 
 def clear_cache():
     # If /tmp has been cleared by the system then we should ignore this exception
-    with contextlib.supress(FileNotFoundError):
+    with contextlib.suppress(FileNotFoundError):
         cache.clear()
