@@ -1,3 +1,5 @@
+import contextlib
+
 from flask import request
 from flask_caching import Cache
 
@@ -21,7 +23,6 @@ def cache_key(*args, **kwargs):
 
 
 def clear_cache():
-    try:
+    # If /tmp has been cleared by the system then we should ignore this exception
+    with contextlib.suppress(FileNotFoundError):
         cache.clear()
-    except FileNotFoundError:
-        pass  # If /tmp has been cleared by the system then we should ignore this exception

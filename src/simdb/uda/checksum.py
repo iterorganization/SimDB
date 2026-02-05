@@ -1,13 +1,13 @@
+import hashlib
+
+import pyuda
+
 from simdb.uri import URI, Query
 
 
 def checksum(uri: URI) -> str:
     if uri.scheme != "uda":
         raise ValueError(f"invalid scheme for UDA checksum: {uri.scheme}")
-
-    import hashlib
-
-    import pyuda
 
     if uri.query is None:
         raise ValueError(

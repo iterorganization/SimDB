@@ -1,16 +1,21 @@
 from pathlib import Path
 
+from imas_validator.report.validationReportGenerator import (
+    ValidationReportGenerator,
+)
+from imas_validator.validate.validate import validate
+from imas_validator.validate_options import RuleFilter, ValidateOptions
+
 from simdb.uri import URI
+from simdb.validation.validator import ValidationError
 
 from .validator_base import FileValidatorBase
 
 
 class IdsValidator(FileValidatorBase):
     def configure(self, arguments: dict):
-        from imas_validator.validate_options import RuleFilter, ValidateOptions
-
-        # needs to be able to configure from both the [file_validation] server configuration section and the dictionary
-        # returned from options()
+        # needs to be able to configure from both the [file_validation] server
+        # configuration section and the dictionary returned from options()
         list_of_rulesets = []
         list_of_extra_rulesets = []
         list_of_filter_idses = []
@@ -22,7 +27,8 @@ class IdsValidator(FileValidatorBase):
         if "rulesets" in arguments:
             rule_files = arguments.get("rulesets")
             if isinstance(rule_files, str):
-                # rulesets will be a comma separated string of file names when read from server config
+                # rulesets will be a comma separated string of file names when read from
+                # server config
                 list_of_rulesets = rule_files.strip('"').split(",")
 
         if "extra_rule_dirs" in arguments:
@@ -82,13 +88,6 @@ class IdsValidator(FileValidatorBase):
             # Skip non IMAS data
             return
 
-        from imas_validator.report.validationReportGenerator import (
-            ValidationReportGenerator,
-        )
-        from imas_validator.validate.validate import validate
-
-        from simdb.validation.validator import ValidationError
-
         try:
             backend = uri.query.get("backend")
             path = uri.query.get("path")
@@ -104,7 +103,8 @@ class IdsValidator(FileValidatorBase):
 
             if not validate_result:
                 raise ValidationError(
-                    f"Validation of following URI: [{validate_uri}], failed with following report: \n{report_generator.txt}"
+                    f"Validation of following URI: [{validate_uri}], failed with"
+                    f"following report: \n{report_generator.txt}"
                 )
         except Exception as err:
-            raise ValidationError(f"validate_uri exception [{err}]")
+            raise ValidationError("validate_uri exception") from err

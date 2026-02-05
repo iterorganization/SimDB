@@ -6,7 +6,6 @@ from sqlalchemy import types as sql_types
 from simdb.docstrings import inherit_docstrings
 
 from .base import Base
-from .simulation import Simulation
 
 
 @inherit_docstrings
@@ -17,7 +16,7 @@ class MetaData(Base):
 
     __tablename__ = "metadata"
     id = Column(sql_types.Integer, primary_key=True)
-    sim_id = Column(sql_types.Integer, ForeignKey(Simulation.id), index=True)
+    sim_id = Column(sql_types.Integer, ForeignKey("simulations.id"), index=True)
     element = Column(sql_types.String(250), nullable=False)
     value = Column(sql_types.PickleType(0), nullable=True)
 

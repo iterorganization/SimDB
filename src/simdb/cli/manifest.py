@@ -1,5 +1,3 @@
-# import datetime
-import glob
 import os
 import re
 import urllib
@@ -27,7 +25,7 @@ class InvalidAlias(InvalidManifest):
 
 def _expand_path(path: Path, base_path: Path) -> Path:
     os.environ["MANIFEST_DIR"] = str(base_path)
-    path = Path(os.path.expanduser(os.path.expandvars(path)))
+    path = Path(os.path.expandvars(str(path))).expanduser()
     path = Path(str(path).replace("//", "/"))
     if not path.is_absolute():
         if not base_path.is_absolute():
@@ -35,13 +33,11 @@ def _expand_path(path: Path, base_path: Path) -> Path:
         return base_path / path
     else:
         # Expand any /./ and /../ in absolute path
-        path = os.path.abspath(path)
+        path = path.resolve()
     return path
 
 
 def _to_uri(uri_str: str, base_path: Path) -> Tuple["DataObject.Type", "URI"]:
-    from simdb.uri import URI
-
     uri = URI(uri_str)
     if uri.authority:
         raise InvalidManifest(f"invalid uri: {uri_str} - path must be absolute")
@@ -55,7 +51,8 @@ def _to_uri(uri_str: str, base_path: Path) -> Tuple["DataObject.Type", "URI"]:
             ("shot" in uri.query, "run" in uri.query, "database" in uri.query)
         ):
             raise InvalidManifest(
-                f"invalid uri: {uri_str} - no path or (shot, run, database) provided in IMAS uri"
+                f"invalid uri: {uri_str} - no path or (shot, run, database) provided "
+                "in IMAS uri"
             )
         return DataObject.Type.IMAS, uri
     if uri.scheme == "uda":
@@ -67,7 +64,8 @@ def _to_uri(uri_str: str, base_path: Path) -> Tuple["DataObject.Type", "URI"]:
 
 class DataObject:
     """
-    Simulation data object, either a file, an IDS or an already registered object identifiable by the UUID.
+    Simulation data object, either a file, an IDS or an already registered object
+    identifiable by the UUID.
 
     PATH: file:///<PATH>
     IMAS: imas:<BACKEND>?path=<PATH>
@@ -145,18 +143,17 @@ class ListValuesValidator(ManifestValidator):
             return
         if isinstance(values, dict):
             raise InvalidManifest(
-                f"badly formatted manifest - {self.section_name} should be provided as a list"
+                f"badly formatted manifest - {self.section_name} should be provided as "
+                "a list"
             )
         for item in values:
             if not isinstance(item, dict) or len(item) > 1:
                 raise InvalidManifest(
-                    f"badly formatted manifest - {self.section_name} values should be a name value pair"
+                    f"badly formatted manifest - {self.section_name} values should be "
+                    "a name value pair"
                 )
             name = next(iter(item))
-            # if isinstance(self.expected_keys, tuple) and name not in self.expected_keys:
-            #     raise InvalidManifest(
-            #         f"unknown {self.section_name} entry in manifest: {name}"
-            #     )
+
             if isinstance(self.required_keys, tuple) and name not in self.required_keys:
                 raise InvalidManifest(
                     f"required {self.section_name} key not found in manifest: {name}"
@@ -183,7 +180,8 @@ class DictValuesValidator(ManifestValidator):
     def validate(self, values: Union[list, dict]) -> None:
         if isinstance(values, list):
             raise InvalidManifest(
-                f"badly formatted manifest - {self.section_name} should be provided as a dict"
+                f"badly formatted manifest - {self.section_name} should be provided as "
+                "a dict"
             )
 
         for key in values:
@@ -192,7 +190,8 @@ class DictValuesValidator(ManifestValidator):
                     for code_key in values[key]:
                         if code_key not in ("name", "repo", "commit"):
                             raise InvalidManifest(
-                                f"unknown {self.section_name}.{key} key in manifest: {code_key}"
+                                f"unknown {self.section_name}.{key} key in manifest: "
+                                f"{code_key}"
                             )
                 else:
                     raise InvalidManifest(
@@ -221,8 +220,6 @@ class DataObjectValidator(ListValuesValidator):
         super().__init__(version, section_name, expected_keys)
 
     def validate(self, values: Union[list, dict]) -> None:
-        from simdb.uri import URI
-
         super().validate(values)
         if values is None:
             return
@@ -285,25 +282,6 @@ class AliasValidator(ManifestValidator):
             raise InvalidAlias(f"illegal characters in alias: {value}")
 
 
-# class CreationDateValidator(ManifestValidator):
-#     """
-#     Validator for simulation CreationDate.
-#     """
-
-#     def __init__(self, version: int):
-#         super().__init__(version)
-
-#     def validate(self, value):
-#         if not isinstance(value, str):
-#             raise InvalidManifest("CreationDate must be a string")
-
-#         # Validate the datetime format
-#         try:
-#             datetime.datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-#         except ValueError:
-#             raise InvalidManifest(f"Invalid datetime format for CreationDate: {value}. Expected format: YYYY-MM-DD HH:MM:SS")
-
-
 class DescriptionValidator(ManifestValidator):
     """
     Validator for simulation description.
@@ -353,7 +331,8 @@ class MetaDataValidator(ListValuesValidator):
             for char in MetaDataValidator.forbidden_characters:
                 if char in name:
                     raise InvalidManifest(
-                        f"invalid metadata field name {name}- contains forbidden character {char}"
+                        f"invalid metadata field name {name}- contains forbidden "
+                        f"character {char}"
                     )
 
 
@@ -399,9 +378,10 @@ class Manifest:
     Class to handle reading, writing & validation of simulation manifest files.
     """
 
-    _data: Union[Dict, List, None] = None
-    _path: Path = Path()
-    _metadata: Dict = {}
+    def __init__(self) -> None:
+        self._data: Union[Dict, List, None] = None
+        self._path: Path = Path()
+        self._metadata: Dict = {}
 
     @property
     def metadata(self) -> Dict:
@@ -431,7 +411,8 @@ class Manifest:
             for i in self._data["inputs"]:
                 source = Source(base_path, i["uri"])
                 if source.type == DataObject.Type.FILE:
-                    names = glob.glob(str(source.uri.path))
+                    source_path = Path(source.uri.path)
+                    names = [str(p) for p in source_path.parent.glob(source_path.name)]
                     if not names:
                         raise InvalidManifest(
                             f"No files found matching path {source.uri.path}"
@@ -450,7 +431,8 @@ class Manifest:
             for i in self._data["outputs"]:
                 sink = Sink(base_path, i["uri"])
                 if sink.type == DataObject.Type.FILE:
-                    names = glob.glob(str(sink.uri.path))
+                    sink_path = Path(sink.uri.path)
+                    names = [str(p) for p in sink_path.parent.glob(sink_path.name)]
                     for name in names:
                         sinks.append(Sink(base_path, "file://" + name))
                 else:
@@ -486,12 +468,12 @@ class Manifest:
             if not path.is_absolute():
                 root_dir = root_path.absolute().parent
                 path = root_dir / path
-            with open(path) as metadata_file:
+            with path.open() as metadata_file:
                 _update_dict(
                     self._metadata, yaml.load(metadata_file, Loader=get_loader())
                 )
         except yaml.YAMLError as err:
-            raise InvalidManifest(f"failed to read metadata file {path} - {err}")
+            raise InvalidManifest(f"failed to read metadata file {path}") from err
 
     def _convert_version(self):
         if self.version == 0:
@@ -521,8 +503,6 @@ class Manifest:
 
     @classmethod
     def _convert_files(cls, files: List[Dict[str, str]]) -> List[Dict[str, "URI"]]:
-        from simdb.uri import URI
-
         scheme_map = {
             "uuid": "simdb",
             "path": "file",
@@ -543,27 +523,17 @@ class Manifest:
         :param file_path: Path to the file read.
         :return: None
         """
-        import yaml
 
         self._path: Path = file_path
-        with open(file_path) as file:
+        with file_path.open() as file:
             try:
                 self._data = yaml.load(file, Loader=get_loader())
             except yaml.YAMLError as err:
-                raise InvalidManifest("badly formatted manifest - " + str(err))
+                raise InvalidManifest("badly formatted manifest") from err
 
         if isinstance(self._data, dict) and "metadata" in self._data:
             self._data["metadata"] or []
             self._metadata["metadata"] = self._data["metadata"]
-            # for item in metadata:
-            #     if "path" in item:
-            #         path = Path(item["path"])
-            #         if not path.exists():
-            #             raise InvalidManifest("metadata path %s does not exist" % path)
-            #         self._load_metadata(file_path, path)
-            #     elif "summary" in item:
-            #         self._metadata["summary"] = item["summary"]
-            # _update_dict(self._metadata, item["values"])
 
     def save(self, out_file: TextIO) -> None:
         """
@@ -572,7 +542,6 @@ class Manifest:
         :param out_file: The output text stream to write the manifest to.
         :return: None
         """
-        import yaml
 
         yaml.dump(self._data, out_file, default_flow_style=False)
 

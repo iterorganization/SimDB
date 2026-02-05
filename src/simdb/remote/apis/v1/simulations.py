@@ -11,6 +11,8 @@ from flask_restx import Namespace, Resource
 from simdb.database import DatabaseError
 from simdb.database.models import metadata as models_meta
 from simdb.database.models import simulation as models_sim
+from simdb.email.server import EmailServer
+from simdb.query import QueryType, parse_query_arg
 from simdb.remote import APIConstants
 from simdb.remote.core.alias import create_alias_dir
 from simdb.remote.core.auth import User, requires_auth
@@ -19,6 +21,7 @@ from simdb.remote.core.errors import error
 from simdb.remote.core.path import secure_path
 from simdb.remote.core.typing import current_app
 from simdb.uri import URI
+from simdb.validation import ValidationError, Validator
 
 api = Namespace("simulations", path="/")
 
@@ -26,8 +29,6 @@ api = Namespace("simulations", path="/")
 def _update_simulation_status(
     simulation: models_sim.Simulation, status: models_sim.Simulation.Status, user
 ) -> None:
-    from simdb.email.server import EmailServer
-
     old_status = simulation.status
     simulation.status = status
     simulation.set_meta(
@@ -49,8 +50,6 @@ Note: please don't reply to this email, replies to this address are not monitore
 
 
 def _validate(simulation, user) -> Dict:
-    from simdb.validation import ValidationError, Validator
-
     schema = Validator.validation_schema()
     try:
         Validator(schema).validate(simulation)
@@ -82,7 +81,7 @@ def _set_alias(alias: str):
         existing_id = int(existing_alias.split(character)[1])
         if next_id <= existing_id:
             next_id = existing_id + 1
-    alias = "%s%d" % (alias, next_id)
+    alias = f"{alias}{next_id}"
 
     return alias, next_id
 
@@ -143,8 +142,6 @@ class SimulationList(Resource):
     @requires_auth()
     @cache.cached(key_prefix=cache_key)
     def get(self, user: User):
-        from simdb.query import QueryType, parse_query_arg
-
         limit = int(request.headers.get(SimulationList.LIMIT_HEADER, 100))
         page = 1
         names = []
@@ -160,7 +157,7 @@ class SimulationList(Resource):
                         constraints.append((name, *constraint))
 
         if constraints:
-            count, data = current_app.db.query_meta_data(
+            _count, data = current_app.db.query_meta_data(
                 constraints, names, limit=limit, page=page
             )
         else:
@@ -225,35 +222,39 @@ class SimulationList(Resource):
             ):
                 if simulation.status == models_sim.Simulation.Status.NOT_VALIDATED:
                     raise Exception(
-                        "Validation config option error_on_fail=True without auto_validate=True."
+                        "Validation config option error_on_fail=True without "
+                        "auto_validate=True."
                     )
                 elif simulation.status == models_sim.Simulation.Status.FAILED:
                     result["error"] = (
-                        "Simulation validation failed and server has error_on_fail=True."
+                        "Simulation validation failed and server has "
+                        "error_on_fail=True."
                     )
                     response = jsonify(result)
                     response.status_code = 400
                     return response
 
             replaces = simulation.find_meta("replaces")
-            if not current_app.simdb_config.get_option(
-                "development.disable_replaces", default=False
+            if (
+                not current_app.simdb_config.get_option(
+                    "development.disable_replaces", default=False
+                )
+                and replaces
+                and replaces[0].value
             ):
-                if replaces and replaces[0].value:
-                    sim_id = replaces[0].value
-                    try:
-                        replaces_sim = current_app.db.get_simulation(sim_id)
-                    except DatabaseError:
-                        replaces_sim = None
-                    if replaces_sim is None:
-                        pass
-                        # raise ValueError(f'Simulation replaces:{sim_id} is not a valid simulation identifier.')
-                    else:
-                        _update_simulation_status(
-                            replaces_sim, models_sim.Simulation.Status.DEPRECATED, user
-                        )
-                        replaces_sim.set_meta("replaced_by", simulation.uuid)
-                        current_app.db.insert_simulation(replaces_sim)
+                sim_id = replaces[0].value
+                try:
+                    replaces_sim = current_app.db.get_simulation(sim_id)
+                except DatabaseError:
+                    replaces_sim = None
+                if replaces_sim is None:
+                    pass
+                else:
+                    _update_simulation_status(
+                        replaces_sim, models_sim.Simulation.Status.DEPRECATED, user
+                    )
+                    replaces_sim.set_meta("replaced_by", simulation.uuid)
+                    current_app.db.insert_simulation(replaces_sim)
 
             current_app.db.insert_simulation(simulation)
             clear_cache()
@@ -310,14 +311,14 @@ class Simulation(Resource):
             files = []
             for file in itertools.chain(simulation.inputs, simulation.outputs):
                 files.append(f"{file.uuid} ({file.file_name})")
-                os.remove(os.path.join(file.directory, file.file_name))
+                Path(file.directory, file.file_name).unlink()
             if simulation.inputs or simulation.outputs:
                 directory = (
                     simulation.inputs[0].directory
                     if simulation.inputs
                     else simulation.outputs[0].directory
                 )
-                os.rmdir(directory)
+                Path(directory).rmdir()
             return jsonify({"deleted": {"simulation": simulation.uuid, "files": files}})
         except DatabaseError as err:
             return error(str(err))

@@ -32,7 +32,8 @@ class BaseModel:
         """
         Serialise the {cls.__name__}.
 
-        :param recurse: If True also serialise any contained models, otherwise only serialise simple fields.
+        :param recurse: If True also serialise any contained models, otherwise only
+                        serialise simple fields.
         :return: The serialised data.
         """
         raise NotImplementedError

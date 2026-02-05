@@ -1,22 +1,17 @@
 import ssl
 import sys
 
+from werkzeug.middleware.proxy_fix import ProxyFix
+
 from .app import create_app
 
 if "sphinx" not in sys.modules:
-    from werkzeug.middleware.proxy_fix import ProxyFix
-
     # Do not create app when making docs as configuration file may not exist.
     app = create_app()
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_prefix=1)
 
 
 def run(*, port=5000):
-    from werkzeug.middleware.proxy_fix import ProxyFix
-
-    # from werkzeug.middleware.profiler import ProfilerMiddleware
-    # app.config['PROFILE'] = True
-    # app.wsgi_app = ProfilerMiddleware(app.wsgi_app, restrictions=[50], sort_by=("cumtime",))
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_prefix=1)
     config = app.simdb_config
 

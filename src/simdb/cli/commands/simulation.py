@@ -1,52 +1,29 @@
 import contextlib
+import sys
+import urllib.parse
+from itertools import chain
 from pathlib import Path
 from typing import Any, List, Optional, Tuple, Type
 
 import click
 
+from simdb.cli.manifest import InvalidAlias, Manifest
+from simdb.cli.remote_api import RemoteAPI, RemoteError
 from simdb.config.config import Config
+from simdb.database import DatabaseError, get_local_db
+from simdb.database.models import Simulation
 from simdb.query import QueryType, parse_query_arg
+from simdb.validation import ValidationError, Validator
 
 from . import check_meta_args, pass_config
+from .utils import print_simulations
 from .validators import validate_non_negative
-
-# def _validate_simulation_outputs(options: dict, simulation):
-#     file_validator_type = options.get("file_validator", None)
-#     file_validator_options = options.get("file_validator_options", {})
-
-#     if file_validator_type:
-#         from ...validation.file import find_file_validator
-#         file_validator = find_file_validator(file_validator_type, file_validator_options)
-#         if not file_validator:
-#             raise click.ClickException(f"Requested file validator {file_validator_type} not available.")
-# for output in simulation.outputs:
-#     file_validator.validate(output)
 
 
 @click.group()
 def simulation():
     """Manage ingested simulations."""
     pass
-
-
-# @simulation.command("new")
-# @pass_config
-# @click.option("-a", "--alias", help="Alias of to assign to the simulation.")
-# @click.option("-u", "--uuid-only", "uuid", is_flag=True,
-#               help="Return a new UUID but do not insert the new simulation into the database.")
-# def simulation_new(config: Config, alias: str, uuid: str):
-#     """Create an empty simulation in the database which can be updated later.
-#     """
-#     from ...database import get_local_db
-#     from ...database.models import Simulation
-#     from ..manifest import Manifest
-#
-#     simulation = Simulation(Manifest())
-#     simulation.alias = alias
-#     if not uuid:
-#         db = get_local_db(config)
-#         db.insert_simulation(simulation)
-#     click.echo(simulation.uuid)
 
 
 @simulation.command("list")
@@ -76,9 +53,6 @@ def simulation():
 )
 def simulation_list(config: Config, meta: List[str], limit: int, show_uuid: bool):
     """List ingested simulations."""
-    from simdb.database import get_local_db
-
-    from .utils import print_simulations
 
     check_meta_args(meta)
     db = get_local_db(config)
@@ -109,7 +83,6 @@ def simulation_modify(
     del_meta: Optional[str],
 ):
     """Modify the ingested simulation."""
-    from simdb.database import get_local_db
 
     if alias is not None:
         db = get_local_db(config)
@@ -121,7 +94,9 @@ def simulation_modify(
         try:
             name, value = set_meta.split("=")
         except ValueError:
-            raise click.BadParameter("set-meta argument must be of form NAME=VALUE")
+            raise click.BadParameter(
+                "set-meta argument must be of form NAME=VALUE"
+            ) from None
         db = get_local_db(config)
         simulation = db.get_simulation(sim_id)
         simulation.set_meta(name, value)
@@ -142,7 +117,6 @@ def simulation_modify(
 @click.argument("sim_id")
 def simulation_delete(config: Config, sim_id: str):
     """Delete the ingested simulation with given SIM_ID (UUID or alias)."""
-    from simdb.database import get_local_db
 
     db = get_local_db(config)
     sim = db.delete_simulation(sim_id)
@@ -155,7 +129,6 @@ def simulation_delete(config: Config, sim_id: str):
 @click.argument("sim_id")
 def simulation_info(config: Config, sim_id: str):
     """Print information on the simulation with given SIM_ID (UUID or alias)."""
-    from simdb.database import get_local_db
 
     db = get_local_db(config)
     simulation = db.get_simulation(sim_id)
@@ -174,11 +147,6 @@ def simulation_info(config: Config, sim_id: str):
 )
 def simulation_ingest(config: Config, manifest_file: str, alias: str):
     """Ingest a MANIFEST_FILE."""
-    import urllib.parse
-
-    from simdb.cli.manifest import InvalidAlias, Manifest
-    from simdb.database import get_local_db
-    from simdb.database.models import Simulation
 
     manifest = Manifest()
     manifest.load(Path(manifest_file))
@@ -239,11 +207,6 @@ def simulation_push(
     add_watcher: bool,
 ):
     """Push the simulation with the given SIM_ID (UUID or alias) to the REMOTE."""
-    import sys
-
-    from simdb.cli.remote_api import RemoteAPI
-    from simdb.database import get_local_db
-    from simdb.validation import ValidationError, Validator
 
     api = RemoteAPI(remote, username, password, config)
     db = get_local_db(config)
@@ -260,10 +223,7 @@ def simulation_push(
         for schema in schemas:
             Validator(schema).validate(simulation)
     except ValidationError as err:
-        raise click.ClickException(f"Simulation does not validate: {err}")
-
-    # options = api.get_upload_options()
-    # _validate_simulation_outputs(options, simulation)
+        raise click.ClickException("Simulation does not validate") from err
 
     api.push_simulation(simulation, out_stream=sys.stdout, add_watcher=add_watcher)
 
@@ -286,10 +246,6 @@ def simulation_pull(
     password: Optional[str],
 ):
     """Pull the simulation with the given SIM_ID (UUID or alias) from the REMOTE."""
-    import sys
-
-    from simdb.cli.remote_api import RemoteAPI, RemoteError
-    from simdb.database import DatabaseError, get_local_db
 
     api = RemoteAPI(remote, username, password, config)
     db = get_local_db(config)
@@ -304,7 +260,7 @@ def simulation_pull(
     try:
         simulation = api.pull_simulation(sim_id, directory, out_stream=sys.stdout)
     except RemoteError as err:
-        raise click.ClickException(str(err))
+        raise click.ClickException() from err
 
     db.insert_simulation(simulation)
 
@@ -340,7 +296,8 @@ def simulation_query(
 
     \b
     Where `[mod]` is an optional query modifier. Available query modifiers are:
-        eq: - This checks for equality (this is the same behaviour as not providing any modifier).
+        eq: - This checks for equality (this is the same behaviour as not providing any
+              modifier).
         ne: - This checks for value that do not equal.
         in: - This searches inside the value instead of looking for exact matches.
         ni: - This searches inside the value for elements that do not match.
@@ -350,33 +307,34 @@ def simulation_query(
         le: - This checks for values less than or equal to the given quantity.
 
     For the following modifiers, VALUE should not be provided.
-        exist: - This returns simulations where metadata with NAME exists, regardless of the value.
+        exist: - This returns simulations where metadata with NAME exists, regardless
+                 of the value.
 
     \b
     Modifier examples:
         responsible_name=foo        performs exact match
         responsible_name=in:foo     matches all names containing foo
         pulse=gt:1000               matches all pulses > 1000
-        sequence=exist:             matches all simulations that have "sequence" metadata values
+        sequence=exist:             matches all simulations that have "sequence"
+                                    metadata values
 
     \b
-    Any string comparisons are done in a case-insensitive manner. If multiple constraints are provided then simulations
-    are returned that match all given constraints.
+    Any string comparisons are done in a case-insensitive manner. If multiple
+    constraints are provided then simulations are returned that match all given
+    constraints.
 
     \b
     Examples:
-        sim simulation query workflow.name=in:test       finds all simulations where workflow.name contains test
+        sim simulation query workflow.name=in:test       finds all simulations where
+                                                         workflow.name contains test
                                                          (case-insensitive)
-        sim simulation query pulse=gt:1000 run=0         finds all simulations where pulse is > 1000 and run = 0
+        sim simulation query pulse=gt:1000 run=0         finds all simulations where
+                                                         pulse is > 1000 and run = 0
     """
     if not constraints:
         raise click.ClickException("At least one constraint must be provided.")
 
     check_meta_args(meta)
-
-    from simdb.database import get_local_db
-
-    from .utils import print_simulations
 
     parsed_constraints: List[Tuple[str, str, QueryType]] = []
     names = []
@@ -404,12 +362,8 @@ def simulation_query(
 def simulation_validate(
     config: Config, remote: Optional[str], sim_id: str, username: str, password: str
 ):
-    """Validate the ingested simulation with given SIM_ID (UUID or alias) using validation schema from REMOTE."""
-    from itertools import chain
-
-    from simdb.cli.remote_api import RemoteAPI
-    from simdb.database import get_local_db
-    from simdb.validation import ValidationError, Validator
+    """Validate the ingested simulation with given SIM_ID (UUID or alias) using
+    validation schema from REMOTE."""
 
     db = get_local_db(config)
     simulation = db.get_simulation(sim_id)
@@ -437,7 +391,7 @@ def simulation_validate(
                 )
         except Exception as e:
             raise ValidationError(
-                f"Failed to validate checksum for file {file.uri}: {e!s}"
-            )
+                f"Failed to validate checksum for file {file.uri}"
+            ) from e
 
     click.echo("validation successful")

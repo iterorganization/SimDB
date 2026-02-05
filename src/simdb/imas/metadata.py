@@ -2,6 +2,8 @@ import re
 from enum import Enum
 from typing import Any, Dict
 
+import imas
+
 
 class MetricException(Exception):
     pass
@@ -16,7 +18,7 @@ def fetch_metric(metric: str, imas_obj) -> Any:
     try:
         return metrics[metric](imas_obj)
     except Exception as ex:
-        raise MetricException(ex)
+        raise MetricException() from ex
 
 
 class ReadValues(Enum):
@@ -25,8 +27,6 @@ class ReadValues(Enum):
 
 
 def walk_imas(ids_node) -> Dict:
-    import imas
-
     meta = {}
     for name in (i for i in dir(ids_node) if not i.startswith("_")):
         attr = getattr(ids_node, name)
@@ -69,7 +69,7 @@ def walk_dict(d: Dict, node, depth: int, read_values: ReadValues) -> Dict:
                     "Invalid values option: {} (valid options are [{}])".format(
                         v, ", ".join(i.name.lower() for i in ReadValues)
                     )
-                )
+                ) from None
         if k == "metrics":
             if k not in meta:
                 meta[k] = {}
@@ -116,7 +116,6 @@ def load_imas_metadata(ids_dist, entry) -> dict:
     :param entry: IMAS entry object.
     :return: Dictionary containing metadata.
     """
-    import imas
 
     metadata = {}
     for ids_name, _v in ids_dist.items():
@@ -134,17 +133,10 @@ def load_imas_metadata(ids_dist, entry) -> dict:
 
 
 def load_metadata(entry):
-    # with open(Path(__file__).absolute().parent / 'imas_metadata.yaml') as f:
-    #     text = f.read()
-    #
-    # data = yaml.safe_load(text)
     data_to_read = {
         "summary": {
             "values": "all",
         },
-        # "dataset_description": {
-        #     "values": "all",
-        # },
     }
     meta = load_imas_metadata(data_to_read, entry)
     return meta

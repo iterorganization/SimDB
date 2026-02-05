@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 from flask import jsonify
@@ -49,9 +48,10 @@ class StagingDirectory(Resource):
         staging_dir = (
             Path(current_app.simdb_config.get_option("server.upload_folder")) / sim_hex
         )
-        os.makedirs(staging_dir, exist_ok=True)
-        # This needs to be done for ITER at the moment but should be removed once we can actually push IMAS data
-        # rather than having to do a local copy onto the server directory.
+        staging_dir.mkdir(parents=True, exist_ok=True)
+        # This needs to be done for ITER at the moment but should be removed once we can
+        # actually push IMAS data rather than having to do a local copy onto the server
+        # directory.
         if user_folder:
-            os.chmod(staging_dir, 0o777)
+            staging_dir.chmod(0o777)
         return jsonify({"staging_dir": str(Path(upload_dir) / sim_hex)})

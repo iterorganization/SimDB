@@ -37,8 +37,10 @@ def _isdecimal(v: str):
 
 
 def _isfloat(value: str) -> bool:
-    l, *r = value.split(".")
-    return _isdecimal(l) and (len(r) == 0 or (len(r) == 1 and _isdecimal(r[0])))
+    left, *right = value.split(".")
+    return _isdecimal(left) and (
+        len(right) == 0 or (len(right) == 1 and _isdecimal(right[0]))
+    )
 
 
 def _convert(value: str) -> Union[int, float, str, bool]:
@@ -103,10 +105,10 @@ class Config:
             and self._user_config_path.stat().st_mode != 0o100600
         ):
             raise Exception(
-                f"""
-User configuration file {self._user_config_path} has incorrect permissions (must have 0600 permissions).
-            """
+                f"User configuration file {self._user_config_path} has incorrect "
+                "permissions (must have 0600 permissions)."
             )
+
         self._parser.read(self._user_config_path)
 
     @property
@@ -117,14 +119,16 @@ User configuration file {self._user_config_path} has incorrect permissions (must
         """
         Load the configuration.
 
-        This loads the configuration from the given file and the site config and user config files.
+        This loads the configuration from the given file and the site config and user
+        config files.
 
         The location of these files are either specified by SIMDB_USER_CONFIG_PATH and
-        SIMDB_SITE_CONFIG_PATH environmental variables or in the appdirs.site_config_dir('simdb') and
-        appdirs.user_config_dir('simdb').
+        SIMDB_SITE_CONFIG_PATH environmental variables or in the
+        appdirs.site_config_dir('simdb') and appdirs.user_config_dir('simdb').
 
-        The user config file is loaded after the site config file and will overwrite any settings specified. The given
-        file is loaded after both the site and user config files.
+        The user config file is loaded after the site config file and will overwrite any
+        settings specified. The given file is loaded after both the site and user config
+        files.
 
         :param file: The location of a config file to load.
         """
@@ -221,17 +225,13 @@ User configuration file {self._user_config_path} has incorrect permissions (must
 
     def save(self) -> None:
         """
-        Save the current state of the configuration to a configuration file in the users configuration directory.
+        Save the current state of the configuration to a configuration file in
+        the users configuration directory.
         """
-        os.makedirs(self._user_config_dir, exist_ok=True)
-        os.umask(0)
-        descriptor = os.open(
-            path=self._user_config_path,
-            flags=os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
-            mode=0o600,
-        )
-        with open(descriptor, "w") as file:
+        self._user_config_dir.mkdir(parents=True, exist_ok=True)
+        with self._user_config_path.open("w") as file:
             self._parser.write(file)
+        self._user_config_path.chmod(0o600)
 
     def sections(self) -> List[str]:
         """
@@ -249,7 +249,8 @@ User configuration file {self._user_config_path} has incorrect permissions (must
 
         @param name: the name of the section to find
         @param default: a dictionary that will be returned if the section is not found
-        @return: the section corresponding to the given name, or the default if given and the section is not found
+        @return: the section corresponding to the given name, or the default if given
+                 and the section is not found
         @raise KeyError if the section is not found and no default is given
         """
         try:
@@ -258,7 +259,7 @@ User configuration file {self._user_config_path} has incorrect permissions (must
         except configparser.NoSectionError:
             if default is not None:
                 return default
-            raise KeyError(f"Section {name} not found in configuration")
+            raise KeyError(f"Section {name} not found in configuration") from None
 
     def get_option(
         self,
@@ -269,8 +270,10 @@ User configuration file {self._user_config_path} has incorrect permissions (must
         Returns the value for the option with the given name from the configuration.
 
         @param name: the name of the option to return
-        @param default: the value to return if the option is not found in the configuration
-        @return: the value of the found option, or the default if given and the option is not found
+        @param default: the value to return if the option is not found in the
+                        configuration
+        @return: the value of the found option, or the default if given and the option
+                 is not found
         @raise KeyError if the option is not found and no default is given
         """
         section, option = _parse_name(name)
@@ -280,14 +283,14 @@ User configuration file {self._user_config_path} has incorrect permissions (must
             if default is not Config.NOTHING:
                 value = cast(Union[int, float, bool, str], default)
                 return value
-            raise KeyError(f"Option {name} not found in configuration")
+            raise KeyError(f"Option {name} not found in configuration") from None
 
     def get_string_option(
         self, name: str, default: Union[str, None, _NothingSentinel] = NOTHING
     ) -> str:
         """
-        Returns the value for the option with the given name from the configuration but also ensures the resulting
-        value is a string.
+        Returns the value for the option with the given name from the configuration but
+        also ensures the resulting value is a string.
 
         @see get_option
         @raise TypeError if the found value was not a string
@@ -309,7 +312,7 @@ User configuration file {self._user_config_path} has incorrect permissions (must
         try:
             self._parser.remove_option(section, option)
         except (configparser.NoSectionError, configparser.NoOptionError):
-            raise KeyError(f"Option {name} not found in configuration")
+            raise KeyError(f"Option {name} not found in configuration") from None
 
     def delete_section(self, name: str) -> None:
         """
@@ -323,7 +326,7 @@ User configuration file {self._user_config_path} has incorrect permissions (must
         try:
             self._parser.remove_section(section)
         except configparser.NoSectionError:
-            raise KeyError(f"Section {name} not found in configuration")
+            raise KeyError(f"Section {name} not found in configuration") from None
 
     def set_option(self, name: str, value: Union[int, float, bool, str]) -> None:
         """

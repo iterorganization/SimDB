@@ -1,5 +1,6 @@
-from typing import Dict
+from typing import Dict, Final
 
+from email_validator import validate_email
 from sqlalchemy import Column
 from sqlalchemy import types as sql_types
 from sqlalchemy.orm import validates
@@ -18,7 +19,7 @@ class Watcher(Base):
     Class to represent people watching simulations for updates.
     """
 
-    NOTIFICATION_CHOICES = {
+    NOTIFICATION_CHOICES: Final[Dict[Notification, str]] = {
         Notification.VALIDATION: "V",
         Notification.REVISION: "R",
         Notification.OBSOLESCENCE: "O",
@@ -35,8 +36,6 @@ class Watcher(Base):
 
     @validates("email")
     def validate_email(self, key, address):
-        from email_validator import validate_email
-
         validate_email(address)
         return address
 

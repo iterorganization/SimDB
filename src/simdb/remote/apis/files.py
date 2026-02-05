@@ -1,6 +1,5 @@
 import gzip
 import json
-import os
 import uuid
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
@@ -13,6 +12,9 @@ from werkzeug.datastructures import FileStorage
 from simdb.checksum import sha1_checksum
 from simdb.cli.manifest import DataObject
 from simdb.database import DatabaseError, models
+from simdb.imas.checksum import checksum as imas_checksum
+from simdb.imas.utils import imas_files
+from simdb.json import CustomDecoder
 from simdb.remote.core.auth import User, requires_auth
 from simdb.remote.core.errors import error
 from simdb.remote.core.path import find_common_root, secure_path
@@ -43,8 +45,6 @@ def _verify_file(
         if sim_file.checksum != checksum:
             raise ValueError(f"checksum failed for file {sim_file!r}")
     elif sim_file.type == DataObject.Type.IMAS:
-        from simdb.imas.checksum import checksum as imas_checksum
-
         uri = sim_file.uri
         path_value = uri.query.get("path")
         if path_value is None:
@@ -65,7 +65,7 @@ def _verify_file(
 def _save_chunked_file(
     file: FileStorage, chunk_info: Dict, path: Path, compressed: bool = True
 ):
-    with open(path, "r+b" if path.exists() else "wb") as file_out:
+    with path.open("r+b" if path.exists() else "wb") as file_out:
         file_out.seek(chunk_info["chunk_size"] * chunk_info["chunk"])
         if compressed:
             with gzip.GzipFile(fileobj=file, mode="rb") as gz_file:
@@ -84,7 +84,7 @@ def _stage_file_from_chunks(
     staging_dir = (
         Path(current_app.simdb_config.get_option("server.upload_folder")) / sim_uuid.hex
     )
-    os.makedirs(staging_dir, exist_ok=True)
+    staging_dir.mkdir(parents=True, exist_ok=True)
 
     found_files = []
     for file in files:
@@ -99,7 +99,7 @@ def _stage_file_from_chunks(
 
     for file, sim_file in found_files:
         path = secure_path(sim_file.uri.path, common_root, staging_dir)
-        os.makedirs(path.parent, exist_ok=True)
+        path.parent.mkdir(parents=True, exist_ok=True)
         file_chunk_info = chunk_info.get(
             sim_file.uuid.hex, {"chunk_size": 0, "chunk": 0, "num_chunks": 1}
         )
@@ -142,8 +142,6 @@ def _process_simulation_data(data: dict) -> Response:
 
 
 def _handle_file_upload() -> Response:
-    from simdb.json import CustomDecoder
-
     data: dict = json.load(request.files["data"], cls=CustomDecoder)
 
     if "simulation" not in data:
@@ -201,8 +199,6 @@ class File(Resource):
                     }
                 ]
             else:
-                from simdb.imas.utils import imas_files
-
                 data["files"] = [
                     {"path": str(path), "checksum": sha1_checksum(URI(f"file:{path}"))}
                     for path in imas_files(file.uri)
@@ -242,8 +238,6 @@ class FileDownload(Resource):
                 mimetype = magic.from_file(file.uri.path, mime=True)
                 return send_file(file.uri.path, mimetype=mimetype)
             else:
-                from simdb.imas.utils import imas_files
-
                 file: models.File = current_app.db.get_file(file_uuid)
                 paths = imas_files(file.uri)
 

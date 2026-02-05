@@ -43,6 +43,7 @@ dependencies = [
     "imas-python",
     "numpy>=1.14",
     "python-dateutil>=2.6",
+    "pyuda>=2.9.2",
     "pyyaml>=3.13",
     "requests>=2.27.0",
     "semantic-version>=2.8",
@@ -100,7 +101,7 @@ postgres = [
     "psycopg2-binary>=2.8.0",
 ]
 all = [
-    "simdb[server, imas-validator, postgres]"
+    "imas-simdb[server, imas-validator, postgres]"
 ]
 
 [project.scripts]
@@ -155,7 +156,7 @@ select = [
     # flake8-use-pathlib
     "PTH",
     # Pylint
-    # "PL",
+    "PLC0415",
     # Refurb
     "FURB",
     # Ruff specific rules
@@ -175,4 +176,5 @@ dev = [
     "pytest-cov>=5.0.0",
     "ruff>=0.14.9",
     "ty>=0.0.13",
+    "imas-simdb[all, build-test]"
 ]

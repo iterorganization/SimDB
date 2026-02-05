@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Dict, Optional
 
 from sqlalchemy import types as sql_types
+from sqlalchemy.dialects import postgresql
 
 from simdb import uri as urilib
 
@@ -12,7 +13,8 @@ class UUID(sql_types.TypeDecorator):
     """
     Platform-independent GUID type.
 
-    Uses PostgreSQL's UUID type, otherwise uses CHAR(32), storing as stringified hex values.
+    Uses PostgreSQL's UUID type, otherwise uses CHAR(32), storing as stringified hex
+    values.
     """
 
     impl = sql_types.CHAR
@@ -24,8 +26,6 @@ class UUID(sql_types.TypeDecorator):
         return uuid.UUID
 
     def load_dialect_impl(self, dialect):
-        from sqlalchemy.dialects import postgresql
-
         if dialect.name == "postgresql":
             return dialect.type_descriptor(postgresql.UUID())
         else:

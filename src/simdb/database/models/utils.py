@@ -63,6 +63,7 @@ def checked_get(data: Dict[str, Any], key, expected_type: Type, optional: bool =
         type_name = type(data[key]).__name__
         expected_type_name = expected_type.__name__
         raise ValueError(
-            f"Corrupted data - {key} has incorrect type {type_name}, expected {expected_type_name}."
+            f"Corrupted data - {key} has incorrect type {type_name}, expected "
+            f"{expected_type_name}."
         )
     return data[key]

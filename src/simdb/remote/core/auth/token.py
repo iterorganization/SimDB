@@ -1,5 +1,7 @@
+import datetime
 from typing import Optional
 
+import jwt
 from flask import Request
 
 from simdb.config import Config
@@ -16,10 +18,6 @@ class TokenAuthenticator(Authenticator):
     Name = "Token"
 
     def authenticate(self, config: Config, request: Request) -> Optional[User]:
-        import datetime
-
-        import jwt
-
         try:
             token = request.headers.get(TokenAuthenticator.TOKEN_HEADER_NAME, "")
 
@@ -41,4 +39,4 @@ class TokenAuthenticator(Authenticator):
                 raise AuthenticationError("Token expired")
 
         except (IndexError, KeyError, jwt.exceptions.PyJWTError) as ex:
-            raise AuthenticationError(f"Invalid token: {ex}")
+            raise AuthenticationError("Invalid token") from ex

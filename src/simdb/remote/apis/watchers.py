@@ -2,6 +2,7 @@ from flask import jsonify, request
 from flask_restx import Namespace, Resource
 
 from simdb.database import DatabaseError, models
+from simdb.notifications import Notification
 from simdb.remote.core.auth import User, requires_auth
 from simdb.remote.core.cache import clear_cache
 from simdb.remote.core.errors import error
@@ -24,8 +25,6 @@ class Watcher(Resource):
 
             if "notification" not in data:
                 return error("Watcher notification not provided")
-
-            from simdb.notifications import Notification
 
             notification = getattr(Notification, data["notification"])
 

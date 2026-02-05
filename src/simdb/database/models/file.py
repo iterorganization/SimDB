@@ -8,9 +8,13 @@ from sqlalchemy import Column
 from sqlalchemy import types as sql_types
 
 from simdb import uri as urilib
+from simdb.checksum import sha1_checksum
 from simdb.cli.manifest import DataObject
 from simdb.config.config import Config
 from simdb.docstrings import inherit_docstrings
+from simdb.imas.checksum import checksum as imas_checksum
+from simdb.imas.utils import imas_timestamp
+from simdb.uda.checksum import checksum as uda_checksum
 
 from .base import Base
 from .types import URI, UUID
@@ -81,16 +85,10 @@ class File(Base):
         if config and config.get_option("development.disable_checksum", default=False):
             return ""
         if self.type == DataObject.Type.UDA:
-            from simdb.uda.checksum import checksum as uda_checksum
-
             checksum = uda_checksum(self.uri)
         elif self.type == DataObject.Type.IMAS:
-            from simdb.imas.checksum import checksum as imas_checksum
-
             checksum = imas_checksum(self.uri, ids_list)
         elif self.type == DataObject.Type.FILE:
-            from simdb.checksum import sha1_checksum
-
             checksum = sha1_checksum(self.uri)
         else:
             raise NotImplementedError(f"Cannot generate checksum for type {self.type}.")
@@ -100,8 +98,6 @@ class File(Base):
         if self.type == DataObject.Type.UDA:
             return datetime.now()
         elif self.type == DataObject.Type.IMAS:
-            from simdb.imas.utils import imas_timestamp
-
             return imas_timestamp(self.uri)
         elif self.type == DataObject.Type.FILE:
             return datetime.fromtimestamp(Path(self.uri.path).stat().st_ctime)

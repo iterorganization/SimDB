@@ -1,6 +1,9 @@
 import base64
 import enum
+import uuid
 from typing import Any, Dict
+
+import numpy as np
 
 try:
     import simplejson as json
@@ -9,10 +12,6 @@ except ImportError:
 
 
 def _custom_hook(obj: Dict[str, str]) -> Any:
-    import uuid
-
-    import numpy as np
-
     if "_type" in obj:
         if obj["_type"] == "numpy.ndarray":
             np_bytes = base64.decodebytes(obj["bytes"].encode())
@@ -39,10 +38,6 @@ class CustomEncoder(json.JSONEncoder):
         super().__init__(*args, **kwargs)
 
     def default(self, obj: Any) -> Any:
-        import uuid
-
-        import numpy as np
-
         if isinstance(obj, np.ndarray):
             bytes = base64.b64encode(obj.data).decode()
             return {"_type": "numpy.ndarray", "dtype": obj.dtype.name, "bytes": bytes}

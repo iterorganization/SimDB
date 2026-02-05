@@ -1,30 +1,21 @@
+import importlib
+from typing import ClassVar
 from unittest import mock
 
 import pytest
 
 from simdb.config import Config
+from simdb.remote.core.auth import User, check_auth, check_role
 
-try:
-    import easyad
-
-    has_easyad = True
-except ImportError:
-    has_easyad = False
-try:
-    import flask
-
-    has_flask = True
-except ImportError:
-    has_flask = False
+has_easyad = importlib.util.find_spec("easyad") is not None
+has_flask = importlib.util.find_spec("flask") is not None
+if has_flask:
+    from flask import Flask
 
 
 @mock.patch("simdb.config.Config.get_option")
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_check_role(get_option):
-    from flask import Flask
-
-    from simdb.remote.core.auth import User, check_role
-
     app = Flask("test")
     config = Config()
     app.simdb_config = config
@@ -43,9 +34,7 @@ def test_check_role(get_option):
 @pytest.mark.skipif(not has_easyad, reason="requires easyad library")
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_check_auth(get_option):
-    from simdb.remote.core.auth import check_auth
-
-    patcher = mock.patch("easyad.EasyAD")
+    patcher = mock.patch("simdb.remote.core.auth.active_directory.EasyAD")
     easy_ad = patcher.start()
 
     config = Config()
@@ -62,7 +51,7 @@ def test_check_auth(get_option):
             username = ""
             password = ""
 
-        headers = {}
+        headers: ClassVar[dict] = {}
 
     request.authorization.username = "admin"
     request.authorization.password = "abc123"

@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import cerberus
+import numpy as np
 import yaml
 
 from simdb.config import Config, ConfigError
@@ -22,8 +23,6 @@ class ValidationError(Exception):
 
 
 class CustomValidator(cerberus.Validator):
-    import numpy as np
-
     types_mapping = cerberus.Validator.types_mapping.copy()
     types_mapping["numpy"] = cerberus.TypeDefinition("numpy", (np.ndarray,), ())
 
@@ -45,7 +44,6 @@ class CustomValidator(cerberus.Validator):
         """The rule's arguments are validated against this schema:
         {'type': 'float'}
         """
-        import numpy as np
 
         if not isinstance(value, np.ndarray):
             value = value[~np.isnan(value)]
@@ -59,7 +57,6 @@ class CustomValidator(cerberus.Validator):
         """The rule's arguments are validated against this schema:
         {'type': 'float'}
         """
-        import numpy as np
 
         if not isinstance(value, np.ndarray):
             value = value[~np.isnan(value)]
@@ -70,8 +67,6 @@ class CustomValidator(cerberus.Validator):
             self._error(field, f"Maximum {value.max()} greater than {max_value}")
 
     def _compare(self, comparison, field, value, comparator: str, message: str):
-        import numpy as np
-
         if comparison is None:
             return
         if isinstance(value, np.ndarray):
@@ -120,8 +115,6 @@ class CustomValidator(cerberus.Validator):
 
     @classmethod
     def _normalize_coerce_numpy(cls, value):
-        import numpy as np
-
         if isinstance(value, np.ndarray):
             return value
         elif isinstance(value, str):
@@ -135,12 +128,14 @@ def _load_schema(path: Path):
         return [{}]
 
     # load schema from file
-    with open(path) as file:
+    with path.open() as file:
         try:
             schema = yaml.load(file, Loader=yaml.SafeLoader)
             return schema
-        except yaml.YAMLError:
-            raise LoadError(f"Failed to read validation schema from file {file}")
+        except yaml.YAMLError as err:
+            raise LoadError(
+                f"Failed to read validation schema from file {file}"
+            ) from err
 
 
 class Validator:
@@ -165,8 +160,9 @@ class Validator:
         else:
             paths.append(root / "validation-schema.yaml")
 
-        # Look for config sections like [validation "key=value"] and see if the simulation has metadata matching the
-        # given test. If matching, adding the "path" in this section to the paths.
+        # Look for config sections like [validation "key=value"] and see if the
+        # simulationhas metadata matching the given test. If matching, adding the
+        # "path" in this section to the paths.
         if simulation is not None:
             sections = [
                 sec for sec in config.sections() if sec.startswith("validation")
@@ -196,13 +192,12 @@ class Validator:
         try:
             self._validator = CustomValidator(schema)
             self._validator.allow_unknown = True
-        except cerberus.SchemaError:
-            raise LoadError("Failed to parse validation schema")
+        except cerberus.SchemaError as err:
+            raise LoadError("Failed to parse validation schema") from err
 
     def validate(self, sim: Simulation) -> None:
         # convert sim to dictionary
         data = sim.meta_dict()
-        # data = sim.data(recurse=True)
         # validate using cerberus
         if not self._validator.validate(data):
             raise ValidationError(self._validator.errors)

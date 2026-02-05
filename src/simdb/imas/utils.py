@@ -3,6 +3,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, List
 
+import imas
+import semantic_version
 from dateutil import parser
 
 from simdb.config import Config
@@ -71,7 +73,8 @@ def list_idss(entry: DBEntry) -> List[str]:
     """
     List all the IDSs found to be populated for the given IMAS data entry.
 
-    Each IDS is defined as being non-empty if the ids_properties/homogeneous_time field has been populated.
+    Each IDS is defined as being non-empty if the ids_properties/homogeneous_time field
+    has been populated.
 
     @param entry: the IMAS data entry
     @return: the list of found IDSs
@@ -97,7 +100,6 @@ def check_time(entry: DBEntry, ids: str, occurrence) -> None:
     @param ids: the
     @return:
     """
-    import imas
 
     ids_obj = entry.get(ids, occurrence, autoconvert=False, lazy=True)
     try:
@@ -106,15 +108,14 @@ def check_time(entry: DBEntry, ids: str, occurrence) -> None:
             time = ids_obj.time
             if time is None or time.size == 0:
                 raise ValueError(
-                    f"IDS {ids} has homogeneous_time flag set to IDS_TIME_MODE_HOMOGENEOUS but invalid time entry."
+                    f"IDS {ids} has homogeneous_time flag set to "
+                    "IDS_TIME_MODE_HOMOGENEOUS but invalid time entry."
                 )
-    except imas.exception.ValidationError as e:
-        raise ImasError(f"IDS {ids} failed validation: {e}")
+    except imas.exception.ValidationError as err:
+        raise ImasError(f"IDS {ids} failed validation") from err
 
 
 def _is_al5() -> bool:
-    import semantic_version
-
     al_env = os.environ.get("AL_VERSION", default=None)
     ual_env = os.environ.get("UAL_VERSION", default="5.0.0")
     version = (
@@ -126,8 +127,6 @@ def _is_al5() -> bool:
 
 
 def _open_legacy(uri: URI) -> DBEntry:
-    import imas
-
     path = uri.query.get("path", default=None)
     if path is not None:
         raise ImasError(f"cannot open AL5 URI {uri} with AL4")
@@ -160,15 +159,15 @@ def _open_legacy(uri: URI) -> DBEntry:
                 user_name=user,
                 data_version=version,
             )
-        except:
-            raise ImasError(f"failed to open IMAS data with URI {uri}")
+        except Exception as err:
+            raise ImasError(f"failed to open IMAS data with URI {uri}") from err
     else:
         try:
             entry = imas.DBEntry(
                 backend_id, database, int(shot), int(run), data_version=version
             )
-        except:
-            raise ImasError(f"failed to open IMAS data with URI {uri}")
+        except Exception as err:
+            raise ImasError(f"failed to open IMAS data with URI {uri}") from err
     (status, _) = entry.open()
     if status != 0:
         raise ImasError(f"failed to open IMAS data with URI {uri}")
@@ -182,7 +181,6 @@ def open_imas(uri: URI) -> DBEntry:
     @param uri: the IMAS URI to open
     @return: the IMAS data entry object
     """
-    import imas
 
     if uri.scheme != "imas":
         raise ValueError(f"invalid imas URI: {uri} - invalid scheme")
@@ -201,8 +199,8 @@ def open_imas(uri: URI) -> DBEntry:
 
     try:
         entry = imas.DBEntry(str(uri), "r")
-    except:
-        raise ImasError(f"failed to open IMAS data with URI {uri}")
+    except Exception as err:
+        raise ImasError(f"failed to open IMAS data with URI {uri}") from err
 
     return entry
 
@@ -222,7 +220,6 @@ def imas_timestamp(uri: URI) -> datetime:
             timestamp = parser.parse(creation)
         except Exception:
             timestamp = datetime.now()
-            # raise ValueError(f"invalid IMAS creation time {creation}")
     else:
         timestamp = datetime.now()
     entry.close()
@@ -279,7 +276,8 @@ def imas_files(uri: URI) -> List[Path]:
     Return all the files associated with the given IMAS URI.
 
     @param uri: a valid IMAS URI
-    @return: a list of files which contains the IDS data for the backend specified in the URI
+    @return: a list of files which contains the IDS data for the backend specified in
+             the URI
     """
     backend = str(uri.path)
     if backend.startswith("/"):
@@ -291,7 +289,8 @@ def imas_files(uri: URI) -> List[Path]:
         backend = uri.query.get("backend", default=None)
         if backend is None:
             raise ValueError(
-                "Invalid IMAS URI - 'backend' query argument not provided for UDA backend"
+                "Invalid IMAS URI - 'backend' query argument not provided for UDA "
+                "backend"
             )
 
     if backend == "hdf5":
@@ -310,18 +309,21 @@ def imas_files(uri: URI) -> List[Path]:
 
 def convert_uri(uri: URI, path: Path, config: Config) -> URI:
     """
-    Converts a local IMAS URI to a remote access IMAS URI based on the server.imas_remote_host configuration option.
+    Converts a local IMAS URI to a remote access IMAS URI based on the
+    server.imas_remote_host configuration option.
 
     Translate locale IMAS URI (imas:<backend>?path=<path>) to remote access URI
     (imas://<imas_remote_host>:<imas_remote_port>/uda?path=<path>&backend=<backend>)
 
     @param uri: The URI to convert
-    @param config: Config to read the server.imas_remote_host and server.imas_remote_port options from
+    @param config: Config to read the server.imas_remote_host and
+                   server.imas_remote_port options from
     """
     host = config.get_option("server.imas_remote_host", default=None)
     if host is None:
         raise ValueError(
-            "Cannot process IMAS data as server.imas_remote_host configuration option not set"
+            "Cannot process IMAS data as server.imas_remote_host configuration option "
+            "not set"
         )
     port = config.get_option("server.imas_remote_port", default=None)
     backend = uri.path

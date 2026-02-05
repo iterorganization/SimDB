@@ -1,7 +1,7 @@
 import datetime
-import os
 from pathlib import Path
 
+import appdirs
 import jwt
 from flask import Blueprint, Response, _app_ctx_stack, jsonify, request
 from flask_restx import Resource
@@ -10,7 +10,7 @@ from simdb import __version__
 from simdb.database import Database
 from simdb.remote.core.auth import AuthenticationError, User, requires_auth
 from simdb.remote.core.typing import current_app
-from simdb.validation.file import find_file_validator
+from simdb.validation.validator import Validator
 
 from .v1 import api as api_v1
 from .v1 import namespaces as namespaces_v1
@@ -51,12 +51,11 @@ def register(api, version, namespaces):
                 **args,
             )
         elif db_type == "sqlite":
-            import appdirs
-
             db_dir = appdirs.user_data_dir("simdb")
-            db_file = os.path.join(db_dir, "remote.db")
-            file = Path(config.get_option("database.file", default=db_file))
-            os.makedirs(file.parent, exist_ok=True)
+            file = Path(config.get_option("database.file", default=None)) or Path(
+                db_dir, "remote.db"
+            )
+            file.parent.mkdir(parents=True, exist_ok=True)
             setup_state.app.db = Database(
                 Database.DBMS.SQLITE, scopefunc=_app_ctx_stack.__ident_func__, file=file
             )
@@ -121,8 +120,6 @@ def register(api, version, namespaces):
     class ValidationSchema(Resource):
         @requires_auth()
         def get(self, user: User):
-            from simdb.validation.validator import Validator
-
             config = current_app.simdb_config
             return jsonify(Validator.validation_schemas(config, None))
 
@@ -137,15 +134,6 @@ def register(api, version, namespaces):
             }
 
             return jsonify(options)
-
-            # file_validator_type = current_app.simdb_config.get_option("file_validation.type", default=None)
-            # file_validator_options = current_app.simdb_config.get_section("file_validation", default={})
-            # validator_type, validator_options = find_file_validator(file_validator_type, file_validator_options)
-
-            # if validator_type:
-            #     options["file_validator"] = validator_type
-            #     options["file_validator_options"] = validator_oprions
-            #     options["file_validator_options"] = validator_options
 
 
 register(api_v1, "v1", namespaces_v1)

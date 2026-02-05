@@ -9,6 +9,8 @@ import pickle
 import shutil
 import sys
 import uuid
+from collections import defaultdict
+from io import BytesIO
 from pathlib import Path
 from typing import (
     IO,
@@ -26,11 +28,16 @@ from urllib.parse import urlparse
 
 import appdirs
 import click
+import requests
+from requests.auth import AuthBase
 from semantic_version import Version
 
 from simdb.config import Config
+from simdb.database.models import Simulation
 from simdb.imas.utils import imas_files
 from simdb.json import CustomDecoder, CustomEncoder
+from simdb.remote import APIConstants
+from simdb.uri import URI
 
 from .manifest import DataObject
 
@@ -38,7 +45,8 @@ if TYPE_CHECKING:
     from simdb.database.models import File, Simulation, Watcher
 
 if TYPE_CHECKING or "sphinx" in sys.modules:
-    # Only importing these for type checking and documentation generation in order to speed up runtime startup.
+    # Only importing these for type checking and documentation generation in order to
+    # speed up runtime startup.
     import requests
     from requests.auth import AuthBase
 
@@ -57,8 +65,6 @@ class RemoteError(APIError):
 
 def try_request(func: Callable) -> Callable:
     def wrapped_func(*args, **kwargs):
-        import requests
-
         try:
             return func(*args, **kwargs)
         except requests.ConnectionError as ex:
@@ -68,13 +74,13 @@ Connection failed to {ex.request.url}
 
 Please check that the URL is valid and that SIMDB_REQUESTS_CA_BUNDLE is set if required.
                 """
-            )
+            ) from None
         except requests.HTTPError as ex:
             raise FailedConnection(
                 f"""\
 HTTP error {ex.response.status_code} returned from endpoint {ex.request.url}
                 """
-            )
+            ) from None
         except requests.JSONDecodeError:
             raise FailedConnection(
                 """\
@@ -82,21 +88,21 @@ Invalid JSON returned from request endpoint
 
 This might indicate an invalid SimDB URL or the existence of a firewall.
                 """
-            )
+            ) from None
 
     return wrapped_func
 
 
-def read_bytes(path: str, compressed: bool = True) -> bytes:
+def read_bytes(path: Path, compressed: bool = True) -> bytes:
     if compressed:
-        with io.BytesIO() as buffer:
-            with gzip.GzipFile(fileobj=buffer, mode="wb") as gz_file:
-                with open(path, "rb") as file_in:
-                    gz_file.write(file_in.read())
+        with io.BytesIO() as buffer, gzip.GzipFile(
+            fileobj=buffer, mode="wb"
+        ) as gz_file, path.open("rb") as file_in:
+            gz_file.write(file_in.read())
             buffer.seek(0)
             return buffer.read()
     else:
-        with open(path, "rb") as file:
+        with path.open("rb") as file:
             return file.read()
 
 
@@ -160,15 +166,16 @@ class RemoteAPI:
         """
         Create a new RemoteAPI.
 
-        @param remote: the name of the remote - this is the name as created in the configuration file. If not provided
+        @param remote: the name of the remote - this is the name as created in the
+                       configuration file. If not provided
         this will use the remote that has been marked as default.
-        @param username: the username to use to authenticate with the remote - optional if a token has been created for
-        the remote.
-        @param password: the password to used to authenticate with the remote - only required if username is also
-        provided.
+        @param username: the username to use to authenticate with the remote - optional
+                         if a token has been created for the remote.
+        @param password: the password to used to authenticate with the remote - only
+                         required if username is also provided.
         @param config: the CLI configuration object.
-        @param use_token: override the default behaviour of only looking for a token if username and password are not
-        provided.
+        @param use_token: override the default behaviour of only looking for a token if
+                          username and password are not provided.
         """
         self._config: Config = config
         if not remote:
@@ -183,7 +190,7 @@ class RemoteAPI:
         except KeyError:
             raise ValueError(
                 f"Remote '{remote}' not found. Use `simdb remote config add` to add it."
-            )
+            ) from None
 
         self._api_url: str = f"{self._url}/v{config.api_version}/"
         self._firewall: Optional[str] = config.get_option(
@@ -249,8 +256,6 @@ class RemoteAPI:
         self, remote: str, username: Optional[str], password: Optional[str]
     ) -> None:
         if self._firewall == "F5":
-            import requests
-
             headers = {"User-Agent": "it_script_basic"}
             cookies_file = f"{remote}-cookies.pkl"
             cookies_path = Path(appdirs.user_config_dir("simdb")) / cookies_file
@@ -258,12 +263,13 @@ class RemoteAPI:
             base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
 
             cookies = None
-            if os.path.exists(cookies_path):
-                with open(cookies_path, "rb") as f:
+            if cookies_path.exists():
+                with cookies_path.open("rb") as f:
                     cookies = pickle.load(f)
                 r = requests.get(f"{self._url}/", headers=headers, cookies=cookies)
                 try:
-                    # check to see if the cookies are still valid by trying a simple request
+                    # check to see if the cookies are still valid by trying a simple
+                    # request
                     r.json()
                 except requests.JSONDecodeError:
                     cookies = None
@@ -285,14 +291,9 @@ class RemoteAPI:
                         )
                     cookies = s.cookies
 
-                os.umask(0)
-                descriptor = os.open(
-                    path=cookies_path,
-                    flags=os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
-                    mode=0o600,
-                )
-                with open(descriptor, "wb") as f:
+                with cookies_path.open("wb") as f:
                     pickle.dump(cookies, f)
+                cookies_path.chmod(0o600)
 
             if not cookies:
                 raise RuntimeError("Failed to get firewall authentication cookies")
@@ -308,8 +309,6 @@ class RemoteAPI:
         return self._remote
 
     def _get_auth(self) -> Union["AuthBase", Tuple]:
-        from requests.auth import AuthBase
-
         class JWTAuth(AuthBase):
             def __init__(self, token):
                 self._token = token
@@ -337,11 +336,11 @@ class RemoteAPI:
         @param url: the URL of the request.
         @param params: any additional parameters to send along with the request.
         @param headers: additional headers to send with the request.
-        @param authenticate: True if we should send authentication headers with the request.
+        @param authenticate: True if we should send authentication headers with the
+                             request.
         @param stream: True to enable streaming.
         @return:
         """
-        import requests
 
         params = params if params is not None else {}
         headers = headers if headers is not None else {}
@@ -349,8 +348,6 @@ class RemoteAPI:
         headers["User-Agent"] = "it_script_basic"
 
         # Get token api expected basic auth in request
-        # if authenticate and url.startswith("token"):
-        #     self._server_auth = ""
         if authenticate and self._server_auth != "None":
             res = requests.get(
                 self._api_url + url,
@@ -381,7 +378,6 @@ class RemoteAPI:
         @param kwargs: any additional keyword arguments to add to the request.
         @return:
         """
-        import requests
 
         headers = {"Content-type": "application/json"}
         headers["User-Agent"] = "it_script_basic"
@@ -416,7 +412,6 @@ class RemoteAPI:
         @param kwargs: any additional keyword arguments to add to the request.
         @return:
         """
-        import requests
 
         if "files" in kwargs:
             if data:
@@ -429,9 +424,6 @@ class RemoteAPI:
 
         # Compress the data if it is larger than 2 MB and the URL is for simulations
         if url == "simulations" and len(post_data) > 2 * 1024 * 1024:
-            import gzip
-            from io import BytesIO
-
             buf = BytesIO()
             with gzip.GzipFile(fileobj=buf, mode="wb") as gz:
                 gz.write(post_data.encode("utf-8"))
@@ -469,7 +461,6 @@ class RemoteAPI:
         @param kwargs: any additional keyword arguments to add to the request.
         @return:
         """
-        import requests
 
         headers = {"Content-type": "application/json"}
         headers["User-Agent"] = "it_script_basic"
@@ -504,7 +495,6 @@ class RemoteAPI:
         @param kwargs: any additional keyword arguments to add to the request.
         @return:
         """
-        import requests
 
         headers = {"Content-type": "application/json"}
         headers["User-Agent"] = "it_script_basic"
@@ -580,8 +570,6 @@ class RemoteAPI:
     def list_simulations(
         self, meta: Optional[List[str]] = None, limit: int = 0
     ) -> List["Simulation"]:
-        from simdb.database.models import Simulation
-
         args = "?" + "&".join(meta) if meta else ""
         headers = {"simdb-result-limit": str(limit)}
         res = self.get("simulations" + args, headers=headers)
@@ -590,8 +578,6 @@ class RemoteAPI:
 
     @try_request
     def get_simulation(self, sim_id: str) -> "Simulation":
-        from simdb.database.models import Simulation
-
         res = self.get("simulation/" + sim_id)
         return Simulation.from_data(res.json(cls=CustomDecoder))
 
@@ -604,11 +590,6 @@ class RemoteAPI:
     def query_simulations(
         self, constraints: List[str], meta: List[str], limit=0
     ) -> List["Simulation"]:
-        from collections import defaultdict
-
-        from simdb.database.models import Simulation
-        from simdb.remote import APIConstants
-
         params = defaultdict(list)
         for item in constraints:
             (key, value) = item.split("=")
@@ -757,13 +738,14 @@ class RemoteAPI:
         """
         Push the local simulation to the remote server.
 
-        First we upload any files associated with the simulation, then push the simulation metadata.
+        First we upload any files associated with the simulation, then push the
+        simulation metadata.
 
         :param simulation: The Simulation to push to remote server
         :param out_stream: The IO stream to write messages to the user (default: stdout)
-        :param add_watcher: Add the current user as a watcher of the simulation on the remote server
+        :param add_watcher: Add the current user as a watcher of the simulation on the
+                            remote server
         """
-        from simdb.imas.utils import imas_files
 
         sim_data = simulation.data(recurse=True)
 
@@ -775,7 +757,8 @@ class RemoteAPI:
         except Exception:
             sim_json_size = 0
 
-        # Target max request (10MB minus headroom); adjust chunk size so (chunk + sim_data JSON) fits
+        # Target max request (10MB minus headroom); adjust chunk size so
+        # (chunk + sim_data JSON) fits
         MAX_REQUEST_BYTES = 9 * 1024 * 1024  # nominal 10 MB limit
         HEADROOM = 2048  # for JSON envelope & headers
         # Base chunk size before adjustment (previous constant)
@@ -937,10 +920,10 @@ class RemoteAPI:
         )
         response = self.get(f"file/download/{uuid.hex}/{index}", stream=True)
 
-        os.makedirs(to_path.parent, exist_ok=True)
+        to_path.parent.mkdir(parents=True, exist_ok=True)
         sha1 = hashlib.sha1()
 
-        with open(to_path, "wb") as f:
+        with to_path.open(to_path, "wb") as f:
             total_length = response.headers.get("content-length")
             if total_length is None:
                 f.write(response.content)
@@ -971,15 +954,15 @@ class RemoteAPI:
     def pull_simulation(
         self, sim_id: str, directory: Path, out_stream: IO[str] = sys.stdout
     ) -> "Simulation":
-        from simdb.uri import URI
-
         """
         Pull the simulation from the remote server.
 
-        This involves downloading all the files associated with the simulation into the provided simulation directory.
+        This involves downloading all the files associated with the simulation into the
+        provided simulation directory.
 
         :param sim_id: The id of the Simulation to pull
-        :param directory: The local directory to use as the root directory of the simulation
+        :param directory: The local directory to use as the root directory of the
+                          simulation
         :param out_stream: The IO stream to write messages to the user (default: stdout)
         """
         simulation = self.get_simulation(sim_id)

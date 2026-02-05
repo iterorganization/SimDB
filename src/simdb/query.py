@@ -1,6 +1,8 @@
 from enum import Enum, auto
 from typing import Any, Tuple
 
+import numpy as np
+
 
 class QueryType(Enum):
     """
@@ -25,7 +27,8 @@ class QueryType(Enum):
 
 def parse_query_arg(value: str) -> Tuple[str, QueryType]:
     """
-    Parse the second half of a SimDB query argument and return the comparator type and value to be compared.
+    Parse the second half of a SimDB query argument and return the comparator type and
+    value to be compared.
 
     The strings being parsed will be of the form:
         value
@@ -42,26 +45,26 @@ def parse_query_arg(value: str) -> Tuple[str, QueryType]:
     if not comp:
         return value, QueryType.EQ
     if len(comp) > 1:
-        raise ValueError(f"Malformed query string {value}.")
+        raise ValueError(f"Malformed query string {value}.") from None
     try:
         return value, QueryType[comp[0].upper()]
     except KeyError:
-        raise ValueError(f"Unknown query modifier {comp[0]}.")
+        raise ValueError(f"Unknown query modifier {comp[0]}.") from None
 
 
 def query_compare(query_type: QueryType, name: str, value: Any, compare: str) -> bool:
     """
-    Perform a comparison between the compare string and the given value based on the comparison type given in
-    query_type.
+    Perform a comparison between the compare string and the given value based on the
+    comparison type given in query_type.
 
     :param query_type: The type of comparison being performed.
     :param name: The name of the field being compared. Used when reporting an error.
-    :param value: The value being compared. This can be a string, a number or a numpy array.
+    :param value: The value being compared. This can be a string, a number or a numpy
+                  array.
     :param compare: The string representation of the value being compared against.
     :return: The result of the comparison.
     :raise ValueError: If the comparison could not be performed.
     """
-    import numpy as np
 
     compare = compare.lower()
     if isinstance(value, str):
@@ -70,7 +73,6 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str) ->
     if query_type == QueryType.EQ:
         if isinstance(value, np.ndarray):
             return np.any(value == float(compare))
-            # raise ValueError(f"Cannot compare value to array element {name}.")
         elif isinstance(value, int):
             return value == int(float(compare))
         elif isinstance(value, float):
@@ -80,7 +82,6 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str) ->
     elif query_type == QueryType.NE:
         if isinstance(value, np.ndarray):
             return np.all(value != float(compare))
-            # raise ValueError(f"Cannot compare value to array element {name}.")
         elif isinstance(value, int):
             return value != int(float(compare))
         elif isinstance(value, float):

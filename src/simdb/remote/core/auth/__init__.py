@@ -1,3 +1,4 @@
+import csv
 from functools import wraps
 from typing import Optional
 
@@ -9,30 +10,45 @@ from simdb.remote.core.typing import current_app
 from ._authenticator import Authenticator
 from ._exceptions import AuthenticationError
 from ._user import User
-from .active_directory import ActiveDirectoryAuthenticator
 from .firewall import FirewallAuthenticator
-from .keycloak import KeyCloakAuthenticator
-from .ldap import LdapAuthenticator
 from .no_authentication import NoopAuthenticator
 from .token import TokenAuthenticator
 
-__all__ = [
-    User,
-    AuthenticationError,
-    ActiveDirectoryAuthenticator,
-    FirewallAuthenticator,
-    KeyCloakAuthenticator,
-    LdapAuthenticator,
-    NoopAuthenticator,
-    TokenAuthenticator,
-]
-
-Authenticator.register(ActiveDirectoryAuthenticator)
 Authenticator.register(FirewallAuthenticator)
-Authenticator.register(KeyCloakAuthenticator)
-Authenticator.register(LdapAuthenticator)
 Authenticator.register(NoopAuthenticator)
 Authenticator.register(TokenAuthenticator)
+
+try:
+    from .active_directory import ActiveDirectoryAuthenticator
+
+    Authenticator.register(ActiveDirectoryAuthenticator)
+except (ImportError, ModuleNotFoundError):
+    pass
+
+try:
+    from .keycloak import KeyCloakAuthenticator
+
+    Authenticator.register(KeyCloakAuthenticator)
+except (ImportError, ModuleNotFoundError):
+    pass
+try:
+    from .ldap import LdapAuthenticator
+
+    Authenticator.register(LdapAuthenticator)
+except (ImportError, ModuleNotFoundError):
+    pass
+
+
+__all__ = [
+    "ActiveDirectoryAuthenticator",
+    "AuthenticationError",
+    "FirewallAuthenticator",
+    "KeyCloakAuthenticator",
+    "LdapAuthenticator",
+    "NoopAuthenticator",
+    "TokenAuthenticator",
+    "User",
+]
 
 
 def authenticate():
@@ -40,7 +56,8 @@ def authenticate():
     Sends a 401 response that enables basic auth.
     """
     return Response(
-        "Could not verify your access level for that URL. You have to login with proper credentials.",
+        "Could not verify your access level for that URL. You have to login with "
+        "proper credentials.",
         401,
         {"WWW-Authenticate": "Basic realm='Login Required'"},
     )
@@ -48,13 +65,12 @@ def authenticate():
 
 def check_role(config: Config, user: User, role: Optional[str]) -> bool:
     """
-    This function is called to check if an authenticated user is a member of the specified role.
+    This function is called to check if an authenticated user is a member of the
+    specified role.
 
     If no role is specified then the function always returns true.
     """
     if role:
-        import csv
-
         users = config.get_option(f"role.{role}.users", default="")
         reader = csv.reader([users])
         return any(user.name in row for row in reader)
@@ -89,7 +105,8 @@ def check_auth(config: Config, request: Request) -> Optional[User]:
                 return user
         except AuthenticationError:
             AuthenticationError(
-                f"Authentication failed for user {username} using {authentication_type} authenticator."
+                f"Authentication failed for user {username} using "
+                f"{authentication_type} authenticator."
             )
             ...
 

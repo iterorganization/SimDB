@@ -1,6 +1,7 @@
 from typing import Optional
 
 from flask import Request
+from keycloak import KeycloakError, KeycloakOpenID
 
 from simdb.config import Config
 
@@ -14,8 +15,6 @@ class KeyCloakAuthenticator(Authenticator):
     Name = "KeyCloak"
 
     def authenticate(self, config: Config, request: Request) -> Optional[User]:
-        from keycloak import KeycloakError, KeycloakOpenID
-
         sever_url = config.get_option("authentication.sever_url")
         realm_name = config.get_option("authentication.realm_name")
         client_id = config.get_option("authentication.client_id")
@@ -33,6 +32,4 @@ class KeyCloakAuthenticator(Authenticator):
 
             return User(name, email)
         except KeycloakError as err:
-            raise AuthenticationError(
-                f"Keycloak authentication error: {err.error_message}"
-            )
+            raise AuthenticationError("Keycloak authentication error") from err

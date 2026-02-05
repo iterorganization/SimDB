@@ -1,24 +1,31 @@
 import contextlib
 import datetime
+import gzip
 import itertools
-import os
+import tarfile
+from io import BytesIO
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from flask import jsonify, request, send_file
+from flask import current_app, jsonify, request, send_file
+from flask import json as flask_json  # fallback
 from flask_restx import Namespace, Resource
 
 from simdb.database import DatabaseError
 from simdb.database.models import metadata as models_meta
 from simdb.database.models import simulation as models_sim
 from simdb.database.models import watcher as models_watcher
+from simdb.email.server import EmailServer
+from simdb.imas.utils import convert_uri
+from simdb.query import QueryType, parse_query_arg
 from simdb.remote.core.alias import create_alias_dir
 from simdb.remote.core.auth import User, requires_auth
 from simdb.remote.core.cache import cache, cache_key, clear_cache
 from simdb.remote.core.errors import error
 from simdb.remote.core.path import find_common_root, secure_path
-from simdb.remote.core.typing import current_app
 from simdb.uri import URI
+from simdb.validation import ValidationError, Validator
+from simdb.validation.file import find_file_validator
 
 api = Namespace("simulations", path="/")
 
@@ -26,14 +33,8 @@ api = Namespace("simulations", path="/")
 def _update_simulation_status(
     simulation: models_sim.Simulation, status: models_sim.Simulation.Status, user
 ) -> None:
-    from simdb.email.server import EmailServer
-
     old_status = simulation.status
     simulation.status = status
-    # simulation.set_meta(
-    #     status.value.lower().replace(" ", "_") + "_on",
-    #     datetime.datetime.now().isoformat(),
-    # )
     if status != old_status and simulation.watchers.count():
         server = EmailServer(current_app.simdb_config)
         msg = f"""\
@@ -54,8 +55,6 @@ Note: please don't reply to this email, replies to this address are not monitore
 
 
 def _validate(simulation, user) -> Dict:
-    from simdb.validation import ValidationError, Validator
-
     schemas = Validator.validation_schemas(current_app.simdb_config, simulation)
     try:
         for schema in schemas:
@@ -77,8 +76,6 @@ def _validate(simulation, user) -> Dict:
         "file_validation", default={}
     )
     if file_validator_type not in [None, "none", ""]:
-        from simdb.validation.file import find_file_validator
-
         validator_type, validator_options = find_file_validator(
             file_validator_type, file_validator_options
         )
@@ -118,7 +115,7 @@ def _set_alias(alias: str):
         existing_id = int(existing_alias.split(character)[1])
         if next_id <= existing_id:
             next_id = existing_id + 1
-    alias = "%s%d" % (alias, next_id)
+    alias = f"{alias}{next_id}"
 
     return alias, next_id
 
@@ -163,9 +160,6 @@ def _get_json_aware(force: bool = False, silent: bool = False):
     - force/silent mimic request.get_json behavior.
     - Uses Flask's JSON provider to ensure identical types/decoding.
     """
-    import gzip
-
-    from flask import current_app
 
     # Match request.get_json content-type check unless forced
     if not force:
@@ -178,11 +172,9 @@ def _get_json_aware(force: bool = False, silent: bool = False):
     raw = request.get_data(cache=False)
     enc = (request.headers.get("Content-Encoding") or "").lower()
     if "gzip" in enc:
-        try:
+        # Only decompress if actually gzipped
+        with contextlib.suppress(OSError):
             raw = gzip.decompress(raw)
-        except OSError:
-            # Not actually gzipped; keep raw bytes
-            pass
 
     # Use the same charset resolution as Flask (defaults to utf-8)
     charset = "utf-8"
@@ -198,8 +190,6 @@ def _get_json_aware(force: bool = False, silent: bool = False):
     try:
         loads = current_app.json.loads  # Flask >= 2.2
     except Exception:
-        from flask import json as flask_json  # fallback
-
         loads = flask_json.loads
 
     try:
@@ -246,8 +236,6 @@ class SimulationList(Resource):
     @requires_auth()
     # @cache.cached(key_prefix=cache_key)
     def get(self, user: User):
-        from simdb.query import QueryType, parse_query_arg
-
         limit = int(request.headers.get(SimulationList.LIMIT_HEADER, 100))
         page = int(request.headers.get(SimulationList.PAGE_HEADER, 1))
         sort_by = request.headers.get(SimulationList.SORT_BY_HEADER, "")
@@ -360,8 +348,6 @@ class SimulationList(Resource):
                             )
                         sim_file.uri = URI(scheme="file", path=path)
                     elif sim_file.uri.scheme == "imas":
-                        from simdb.imas.utils import convert_uri
-
                         path = secure_path(
                             Path(sim_file.uri.query["path"]),
                             common_root,
@@ -377,8 +363,6 @@ class SimulationList(Resource):
 
                 for sim_file in files:
                     if sim_file.uri.scheme == "imas":
-                        from simdb.imas.utils import convert_uri
-
                         if config.get_option("server.copy_files", default=True):
                             path = secure_path(
                                 Path(sim_file.uri.query["path"]),
@@ -405,36 +389,37 @@ class SimulationList(Resource):
             ):
                 if simulation.status == models_sim.Simulation.Status.NOT_VALIDATED:
                     raise Exception(
-                        "Validation config option error_on_fail=True without auto_validate=True."
+                        "Validation config option error_on_fail=True without "
+                        "auto_validate=True."
                     )
                 elif simulation.status == models_sim.Simulation.Status.FAILED:
-                    result[
-                        "error"
-                    ] = f"""Simulation validation failed and server has error_on_fail=True.\n
-                    {result["validation"]["error"]}"""
+                    result["error"] = f"""Simulation validation failed and server has
+                    error_on_fail=True.\n{result["validation"]["error"]}"""
                     response = jsonify(result)
                     response.status_code = 400
                     return response
 
             replaces = simulation.find_meta("replaces")
-            if not current_app.simdb_config.get_option(
-                "development.disable_replaces", default=False
+            if (
+                not current_app.simdb_config.get_option(
+                    "development.disable_replaces", default=False
+                )
+                and replaces
+                and replaces[0].value
             ):
-                if replaces and replaces[0].value:
-                    sim_id = replaces[0].value
-                    try:
-                        replaces_sim = current_app.db.get_simulation(sim_id)
-                    except DatabaseError:
-                        replaces_sim = None
-                    if replaces_sim is None:
-                        pass
-                        # raise ValueError(f'Simulation replaces:{sim_id} is not a valid simulation identifier.')
-                    else:
-                        _update_simulation_status(
-                            replaces_sim, models_sim.Simulation.Status.DEPRECATED, user
-                        )
-                        replaces_sim.set_meta("replaced_by", simulation.uuid)
-                        current_app.db.insert_simulation(replaces_sim)
+                sim_id = replaces[0].value
+                try:
+                    replaces_sim = current_app.db.get_simulation(sim_id)
+                except DatabaseError:
+                    replaces_sim = None
+                if replaces_sim is None:
+                    pass
+                else:
+                    _update_simulation_status(
+                        replaces_sim, models_sim.Simulation.Status.DEPRECATED, user
+                    )
+                    replaces_sim.set_meta("replaced_by", simulation.uuid)
+                    current_app.db.insert_simulation(replaces_sim)
 
             current_app.db.insert_simulation(simulation)
             clear_cache()
@@ -497,7 +482,7 @@ class Simulation(Resource):
             for file in itertools.chain(simulation.inputs, simulation.outputs):
                 if file.uri.scheme == "file":
                     files.append(f"{file.uuid} ({file.uri.path.name})")
-                    os.remove(file.uri.path)
+                    file.uri.path.unlink()
             if simulation.inputs or simulation.outputs:
                 directory = (
                     simulation.inputs[0].uri.path.parent
@@ -505,7 +490,7 @@ class Simulation(Resource):
                     else simulation.outputs[0].uri.path.parent
                 )
                 if directory != Path() and directory != Path("/"):
-                    os.rmdir(directory)
+                    directory.rmdir()
             return jsonify({"deleted": {"simulation": simulation.uuid, "files": files}})
         except DatabaseError as err:
             return error(str(err))
@@ -629,13 +614,9 @@ class SimulationPackage(Resource):
                 / simulation.uuid.hex
             )
 
-            import tarfile
-            from io import BytesIO
-
             mem_file = BytesIO()
-            tar = tarfile.open(mode="w:gz", fileobj=mem_file)
-            tar.add(staging_dir, arcname=simulation.uuid.hex)
-            tar.close()
+            with tarfile.open(mode="w:gz", fileobj=mem_file) as tar:
+                tar.add(staging_dir, arcname=simulation.uuid.hex)
 
             mem_file.seek(0)
             return send_file(mem_file, mimetype="application/x-gzip")
