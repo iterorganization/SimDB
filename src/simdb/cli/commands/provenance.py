@@ -52,7 +52,7 @@ def _get_provenance() -> Dict[str, Union[PlatformDetails, EnvironmentDetails]]:
 
 
 @click.command("provenance")
-@click.argument("provenance_file", type=click.Path(exists=True))
+@click.argument("provenance_file", type=click.Path())
 def provenance(provenance_file):
     """Create the PROVENANCE_FILE from the current system."""
 
