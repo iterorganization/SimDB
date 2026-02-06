@@ -13,7 +13,7 @@ if has_flask:
     from flask import Flask
 
 
-@mock.patch("simdb.config.Config.get_option")
+@mock.patch("simdb.config.Config.get_string_option")
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_check_role(get_option):
     app = Flask("test")

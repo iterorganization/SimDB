@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime as datetime_
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -33,7 +33,7 @@ class File(Base):
     usage = Column(sql_types.String(250), nullable=True)
     uri: urilib.URI = Column(URI(1024), nullable=True)
     checksum = Column(sql_types.String(64), nullable=True)
-    type: DataObject.Type = Column(sql_types.Enum(DataObject.Type), nullable=True)
+    type = Column(sql_types.Enum(DataObject.Type), nullable=True)
     purpose = Column(sql_types.String(250), nullable=True)
     sensitivity = Column(sql_types.String(20), nullable=True)
     access = Column(sql_types.String(20), nullable=True)
@@ -54,6 +54,8 @@ class File(Base):
 
         if perform_integrity_check:
             self.datetime = self.get_creation_date()
+            if ids_list is None:
+                raise ValueError("IDS list is not set")
             self.checksum = self.generate_checksum(config, ids_list)
 
     def __str__(self):
@@ -94,13 +96,15 @@ class File(Base):
             raise NotImplementedError(f"Cannot generate checksum for type {self.type}.")
         return checksum
 
-    def get_creation_date(self) -> datetime:
+    def get_creation_date(self) -> datetime_:
         if self.type == DataObject.Type.UDA:
-            return datetime.now()
+            return datetime_.now()
         elif self.type == DataObject.Type.IMAS:
             return imas_timestamp(self.uri)
         elif self.type == DataObject.Type.FILE:
-            return datetime.fromtimestamp(Path(self.uri.path).stat().st_ctime)
+            if self.uri.path is None:
+                raise ValueError("Data object uri path not set")
+            return datetime_.fromtimestamp(Path(self.uri.path).stat().st_ctime)
         else:
             raise NotImplementedError(f"Cannot generate checksum for type {self.type}.")
 

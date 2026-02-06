@@ -1,14 +1,17 @@
 import base64
 import enum
 import uuid
-from typing import Any, Dict
+from typing import TYPE_CHECKING, Any, Dict
 
 import numpy as np
 
-try:
-    import simplejson as json
-except ImportError:
+if TYPE_CHECKING:
     import json
+else:
+    try:
+        import simplejson as json
+    except ImportError:
+        import json
 
 
 def _custom_hook(obj: Dict[str, str]) -> Any:
@@ -37,12 +40,16 @@ class CustomEncoder(json.JSONEncoder):
             kwargs["ignore_nan"] = True
         super().__init__(*args, **kwargs)
 
-    def default(self, obj: Any) -> Any:
-        if isinstance(obj, np.ndarray):
-            bytes = base64.b64encode(obj.data).decode()
-            return {"_type": "numpy.ndarray", "dtype": obj.dtype.name, "bytes": bytes}
-        elif isinstance(obj, uuid.UUID):
-            return {"_type": "uuid.UUID", "hex": obj.hex}
-        elif isinstance(obj, enum.Enum):
-            return obj.value
-        return json.JSONEncoder.default(self, obj)
+    def default(self, o: Any) -> Any:
+        if isinstance(o, np.ndarray):
+            encoded_bytes = base64.b64encode(o.data).decode()
+            return {
+                "_type": "numpy.ndarray",
+                "dtype": o.dtype.name,
+                "bytes": encoded_bytes,
+            }
+        elif isinstance(o, uuid.UUID):
+            return {"_type": "uuid.UUID", "hex": o.hex}
+        elif isinstance(o, enum.Enum):
+            return o.value
+        return super().default(o)

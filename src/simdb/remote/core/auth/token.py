@@ -21,19 +21,21 @@ class TokenAuthenticator(Authenticator):
         try:
             token = request.headers.get(TokenAuthenticator.TOKEN_HEADER_NAME, "")
 
-            (name, token) = token.split() if token else (None, None)
+            (name, token) = token.split() if token else (None, "")
 
             if name != "JWT-Token":
                 raise AuthenticationError("Invalid token")
 
             payload = jwt.decode(
                 token.strip(),
-                current_app.config.get("SECRET_KEY"),
+                current_app.config.get("SECRET_KEY", ""),
                 algorithms=["HS256"],
             )
 
-            expires = datetime.datetime.fromtimestamp(payload["exp"])
-            if datetime.datetime.utcnow() < expires:
+            expires = datetime.datetime.fromtimestamp(
+                payload["exp"], tz=datetime.timezone.utc
+            )
+            if datetime.datetime.now(datetime.timezone.utc) < expires:
                 return User(payload["sub"], payload["email"])
             else:
                 raise AuthenticationError("Token expired")

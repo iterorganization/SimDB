@@ -1,6 +1,6 @@
 import os
 import re
-import urllib
+import urllib.parse
 from enum import Enum, auto
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, TextIO, Tuple, Type, Union
@@ -44,6 +44,8 @@ def _to_uri(uri_str: str, base_path: Path) -> Tuple["DataObject.Type", "URI"]:
     if uri.scheme is None:
         raise InvalidManifest(f"invalid uri: {uri_str} - no scheme provided")
     if uri.scheme == "file":
+        if uri.path is None:
+            raise InvalidManifest(f"invalid uri: {uri_str} - no path provided")
         uri = URI(uri, path=_expand_path(uri.path, base_path))
         return DataObject.Type.FILE, uri
     if uri.scheme == "imas":
@@ -129,13 +131,13 @@ class ListValuesValidator(ManifestValidator):
     def __init__(
         self,
         version: int,
-        section_name: str = NotImplemented,
-        expected_keys: Iterable = NotImplemented,
-        required_keys: Iterable = NotImplemented,
+        section_name: Optional[str] = None,
+        expected_keys: Optional[Iterable] = None,
+        required_keys: Optional[Iterable] = None,
     ) -> None:
-        self.section_name: str = section_name
-        self.expected_keys: Iterable = expected_keys
-        self.required_keys: Iterable = required_keys
+        self.section_name: Optional[str] = section_name
+        self.expected_keys: Optional[Iterable] = expected_keys
+        self.required_keys: Optional[Iterable] = required_keys
         super().__init__(version)
 
     def validate(self, values: Union[list, dict]) -> None:
@@ -168,13 +170,13 @@ class DictValuesValidator(ManifestValidator):
     def __init__(
         self,
         version: int,
-        section_name: str = NotImplemented,
-        expected_keys: Iterable = NotImplemented,
-        required_keys: Iterable = NotImplemented,
+        section_name: Optional[str] = None,
+        expected_keys: Optional[Iterable] = None,
+        required_keys: Optional[Iterable] = None,
     ) -> None:
-        self.section_name: str = section_name
-        self.expected_keys: Iterable = expected_keys
-        self.required_keys: Iterable = required_keys
+        self.section_name: Optional[str] = section_name
+        self.expected_keys: Optional[Iterable] = expected_keys
+        self.required_keys: Optional[Iterable] = required_keys
         super().__init__(version)
 
     def validate(self, values: Union[list, dict]) -> None:
@@ -184,25 +186,27 @@ class DictValuesValidator(ManifestValidator):
                 "a dict"
             )
 
-        for key in values:
-            if key not in self.expected_keys:
-                if re.match(r"code[0-9]+", key):
-                    for code_key in values[key]:
-                        if code_key not in ("name", "repo", "commit"):
-                            raise InvalidManifest(
-                                f"unknown {self.section_name}.{key} key in manifest: "
-                                f"{code_key}"
-                            )
-                else:
-                    raise InvalidManifest(
-                        f"unknown {self.section_name} key in manifest: {key}"
-                    )
+        if self.expected_keys is not None:
+            for key in values:
+                if key not in self.expected_keys:
+                    if re.match(r"code[0-9]+", key):
+                        for code_key in values[key]:
+                            if code_key not in ("name", "repo", "commit"):
+                                raise InvalidManifest(
+                                    f"unknown {self.section_name}.{key} key in"
+                                    f"manifest: {code_key}"
+                                )
+                    else:
+                        raise InvalidManifest(
+                            f"unknown {self.section_name} key in manifest: {key}"
+                        )
 
-        for key in self.required_keys:
-            if isinstance(self.expected_keys, list) and key not in values:
-                raise InvalidManifest(
-                    f"required {self.section_name} key not found in manifest: {key}"
-                )
+        if self.required_keys is not None:
+            for key in self.required_keys:
+                if isinstance(self.expected_keys, list) and key not in values:
+                    raise InvalidManifest(
+                        f"required {self.section_name} key not found in manifest: {key}"
+                    )
 
 
 class DataObjectValidator(ListValuesValidator):
@@ -262,8 +266,8 @@ class VersionValidator(ManifestValidator):
     def __init__(self, version: int):
         super().__init__(version)
 
-    def validate(self, value):
-        if not isinstance(value, int):
+    def validate(self, values: Union[List, Dict]) -> None:
+        if not isinstance(values, int):
             raise InvalidManifest("version must be an integer")
 
 
@@ -275,11 +279,11 @@ class AliasValidator(ManifestValidator):
     def __init__(self, version: int):
         super().__init__(version)
 
-    def validate(self, value):
-        if not isinstance(value, str):
+    def validate(self, values: Union[List, Dict]) -> None:
+        if not isinstance(values, str):
             raise InvalidManifest("alias must be a string")
-        if urllib.parse.quote(value) != value:
-            raise InvalidAlias(f"illegal characters in alias: {value}")
+        if urllib.parse.quote(values) != values:
+            raise InvalidAlias(f"illegal characters in alias: {values}")
 
 
 class DescriptionValidator(ManifestValidator):
@@ -411,14 +415,17 @@ class Manifest:
             for i in self._data["inputs"]:
                 source = Source(base_path, i["uri"])
                 if source.type == DataObject.Type.FILE:
-                    source_path = Path(source.uri.path)
-                    names = [str(p) for p in source_path.parent.glob(source_path.name)]
-                    if not names:
-                        raise InvalidManifest(
-                            f"No files found matching path {source.uri.path}"
-                        )
-                    for name in names:
-                        sources.append(Source(base_path, "file://" + name))
+                    if source.uri and source.uri.path:
+                        source_path = Path(source.uri.path)
+                        names = [
+                            str(p) for p in source_path.parent.glob(source_path.name)
+                        ]
+                        if not names:
+                            raise InvalidManifest(
+                                f"No files found matching path {source.uri.path}"
+                            )
+                        for name in names:
+                            sources.append(Source(base_path, "file://" + name))
                 else:
                     sources.append(source)
         return sources
@@ -431,10 +438,11 @@ class Manifest:
             for i in self._data["outputs"]:
                 sink = Sink(base_path, i["uri"])
                 if sink.type == DataObject.Type.FILE:
-                    sink_path = Path(sink.uri.path)
-                    names = [str(p) for p in sink_path.parent.glob(sink_path.name)]
-                    for name in names:
-                        sinks.append(Sink(base_path, "file://" + name))
+                    if sink.uri and sink.uri.path:
+                        sink_path = Path(sink.uri.path)
+                        names = [str(p) for p in sink_path.parent.glob(sink_path.name)]
+                        for name in names:
+                            sinks.append(Sink(base_path, "file://" + name))
                 else:
                     sinks.append(sink)
         return sinks
@@ -476,17 +484,18 @@ class Manifest:
             raise InvalidManifest(f"failed to read metadata file {path}") from err
 
     def _convert_version(self):
-        if self.version == 0:
+        if isinstance(self._data, dict) and self.version == 0:
             self._convert_metadata()
             self._data["inputs"] = self._convert_files(self._data["inputs"])
             self._data["outputs"] = self._convert_files(self._data["outputs"])
-        self._data["version"] = 1
+            self._data["version"] = 1
 
     def _convert_metadata(self) -> None:
-        for item in ("description", "workflow"):
-            if item in self._data:
-                self._metadata[item] = self._data[item]
-                del self._data[item]
+        if isinstance(self._data, dict):
+            for item in ("description", "workflow"):
+                if item in self._data:
+                    self._metadata[item] = self._data[item]
+                    del self._data[item]
 
         for key, value in self._metadata.items():
             if key == "workflow":
