@@ -165,5 +165,5 @@ dev = [
     "pytest-cov>=5.0.0",
     "ruff>=0.14.9",
     "ty>=0.0.13",
-    "imas-simdb[all, auth]"
+    "imas-simdb[server, imas-validator, postgres, auth]"
 ]
