@@ -33,7 +33,7 @@ jobs:
           pip install --upgrade pip setuptools wheel
           python -m pip install python-ldap
           pip install pytest-xdist
-          pip install .[build-test] --group dev
+          pip install --group dev
 
       - name: Run tests
         run: |
