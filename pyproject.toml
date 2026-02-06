@@ -175,7 +175,7 @@ testpaths = [
 dev = [
     "pytest>=8.3.5",
     "pytest-cov>=5.0.0",
-    "ruff>=0.14.9",
+    "ruff>=0.15.0",
     "ty>=0.0.13",
     "imas-simdb[all, build-test]"
 ]
