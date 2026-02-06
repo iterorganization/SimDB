@@ -13,17 +13,17 @@ if has_flask:
     from flask import Flask
 
 
-@mock.patch("simdb.config.Config.get_string_option")
+@mock.patch("simdb.config.Config.get_option")
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
-def test_check_role(get_option):
+def test_check_role(get_string_option):
     app = Flask("test")
     config = Config()
     app.simdb_config = config
     with app.app_context():
-        get_option.return_value = 'user1,"user2", user3'
+        get_string_option.return_value = 'user1,"user2", user3'
         ok = check_role(config, User("user1", ""), "test_role")
         assert ok
-        get_option.assert_called_with("role.test_role.users", default="")
+        get_string_option.assert_called_with("role.test_role.users", default="")
         ok = check_role(config, User("user4", ""), None)
         assert ok
         ok = check_role(config, User("user4", ""), "test_role")
@@ -34,7 +34,7 @@ def test_check_role(get_option):
 @pytest.mark.skipif(not has_easyad, reason="requires easyad library")
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_check_auth(get_option):
-    patcher = mock.patch("simdb.remote.core.auth.active_directory.EasyAD")
+    patcher = mock.patch("easyad.EasyAD")
     easy_ad = patcher.start()
 
     config = Config()

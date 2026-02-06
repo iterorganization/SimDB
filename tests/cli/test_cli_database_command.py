@@ -6,7 +6,7 @@ from utils import config_test_file
 from simdb.cli.simdb import cli
 
 
-@mock.patch("simdb.cli.commands.database.get_local_db")
+@mock.patch("simdb.database.get_local_db")
 def test_database_clear_command(get_local_db):
     config_file = config_test_file()
     runner = CliRunner()

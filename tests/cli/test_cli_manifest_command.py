@@ -6,7 +6,7 @@ from utils import config_test_file, create_manifest, get_file_path
 from simdb.cli.simdb import cli
 
 
-@mock.patch("simdb.cli.commands.manifest.Manifest")
+@mock.patch("simdb.cli.manifest.Manifest")
 def test_manifest_check_command(manifest):
     config_file = config_test_file()
     runner = CliRunner()
@@ -23,7 +23,7 @@ def test_manifest_check_command(manifest):
     assert manifest.return_value.validate.called
 
 
-@mock.patch("simdb.cli.commands.manifest.Manifest")
+@mock.patch("simdb.cli.manifest.Manifest")
 def test_manifest_create_command(manifest):
     config_file = config_test_file()
     runner = CliRunner()
