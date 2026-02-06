@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Any, Dict
 
 import imas
+import imas.ids_defs
 
 
 class MetricException(Exception):
@@ -126,8 +127,8 @@ def load_imas_metadata(ids_dist, entry) -> dict:
             raise ValueError("Could not determine the latest DD version.")
         ids = imas.convert_ids(ids, latest_dd_version)
         for node in imas.util.tree_iter(ids):
-            metadata[extract_ids_path(str(node.coordinates)).replace("/", ".")] = (
-                node.value
+            metadata[extract_ids_path(str(node.coordinates)).replace("/", ".")] = (  # type: ignore[unresolved-attribute]
+                node.value  # type: ignore[unresolved-attribute]
             )
     return metadata
 

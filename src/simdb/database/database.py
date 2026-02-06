@@ -7,12 +7,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterable, List, Optional, Tuple, cast
 
 import appdirs
+import sqlalchemy.orm
 from sqlalchemy import String, Text, asc, create_engine, desc, func, or_
 from sqlalchemy import cast as sql_cast
 from sqlalchemy import or_ as sql_or
 from sqlalchemy.exc import DBAPIError, IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Bundle, joinedload, scoped_session, sessionmaker
-from sqlalchemy.sql import column
 
 from simdb.config import Config
 from simdb.query import QueryType, query_compare
@@ -73,7 +73,7 @@ class Database:
     """
 
     engine: "sqlalchemy.engine.Engine"
-    _session: "sqlalchemy.orm.SessionExtension" = None
+    _session: Optional["sqlalchemy.orm.scoped_session"] = None
 
     class DBMS(Enum):
         """
@@ -315,7 +315,7 @@ class Database:
             for name in meta_keys:
                 if name in ("alias", "uuid"):
                     continue
-                names_filters.append(m_b.c.element.ilike(name))
+                names_filters.append(m_b.c.element.ilike(name))  # type: ignore[union-attr]
             if names_filters:
                 query = query.filter(or_(*names_filters))
 
@@ -532,11 +532,11 @@ class Database:
             query = (
                 self.session.query(s_b, m_b)
                 .outerjoin(Simulation.meta)
-                .filter(s_b.c.id.in_(sim_ids))
+                .filter(s_b.c.id.in_(sim_ids))  # type: ignore[union-attr]
             )
-            query = query.filter(m_b.c.element.in_(meta_keys))
+            query = query.filter(m_b.c.element.in_(meta_keys))  # type: ignore[union-attr]
         else:
-            query = self.session.query(s_b).filter(s_b.c.id.in_(sim_ids))
+            query = self.session.query(s_b).filter(s_b.c.id.in_(sim_ids))  # type: ignore[union-attr]
 
         if sort_query is not None:
             query = query.join(sort_query, Simulation.id == sort_query.c.id).order_by(
@@ -615,7 +615,7 @@ class Database:
         """
         simulation = self._find_simulation(sim_ref)
         self.session.commit()
-        return [m.value for m in simulation.meta.filter_by(element=name).all()]
+        return [m.value for m in simulation.meta if m.element == name]
 
     def add_watcher(self, sim_ref: str, watcher: "Watcher"):
         sim = self._find_simulation(sim_ref)
@@ -624,7 +624,7 @@ class Database:
 
     def remove_watcher(self, sim_ref: str, username: str):
         sim = self._find_simulation(sim_ref)
-        watchers = sim.watchers.filter_by(username=username).all()
+        watchers = [w for w in sim.watchers if w.username == username]
         if not watchers:
             raise DatabaseError(f"Watcher not found for simulation {sim_ref}.")
         for watcher in watchers:
@@ -632,7 +632,7 @@ class Database:
         self.session.commit()
 
     def list_watchers(self, sim_ref: str) -> List["Watcher"]:
-        return self._find_simulation(sim_ref).watchers.all()
+        return self._find_simulation(sim_ref).watchers
 
     def list_metadata_keys(self) -> List[dict]:
         if self.engine.dialect.name == "postgresql":
@@ -691,21 +691,19 @@ class Database:
 
     def get_aliases(self, prefix: Optional[str]) -> List[str]:
         if prefix:
-            return [
-                el[0]
-                for el in self.session.query(Simulation)
-                .filter(Simulation.alias.like(prefix + "%"))
-                .values(column("alias"))
-            ]
+            query = self.session.query(Simulation.alias).filter(
+                Simulation.alias.ilike(prefix + "%")
+            )
+            return [alias for (alias,) in query.all()]
         else:
-            return [
-                el[0] for el in self.session.query(Simulation).values(column("alias"))
-            ]
+            query = self.session.query(Simulation.alias)
+            return [alias for (alias,) in query.all()]
 
 
 def get_local_db(config: Config) -> Database:
-    db_file = config.get_option("db.file", default=None) or Path(
-        appdirs.user_data_dir("simdb"), "sim.db"
+    db_file = Path(
+        config.get_string_option("db.file", default=None)
+        or f"{appdirs.user_data_dir('simdb')}/sim.db"
     )
     db_file.parent.mkdir(parents=True, exist_ok=True)
     database = Database(Database.DBMS.SQLITE, file=db_file)

@@ -99,19 +99,24 @@ def register(api, version, namespaces):
         @requires_auth()
         def get(self, user: User):
             auth = request.authorization
+            if auth is None:
+                return error("Authorization invalid")
             lifetime = current_app.simdb_config.get_option(
                 "server.token_lifetime", default=30
             )
+            if not isinstance(lifetime, int):
+                return error("Token lifetime is not valid")
             payload = {
-                "exp": datetime.datetime.utcnow() + datetime.timedelta(days=lifetime),
-                "iat": datetime.datetime.utcnow(),
+                "exp": datetime.datetime.now(datetime.timezone.utc)
+                + datetime.timedelta(days=lifetime),
+                "iat": datetime.datetime.now(datetime.timezone.utc),
                 "sub": auth.username,
                 "email": user.email,
             }
             ret = {
                 "status": "success",
                 "token": jwt.encode(
-                    payload, current_app.config.get("SECRET_KEY"), algorithm="HS256"
+                    payload, current_app.config.get("SECRET_KEY", ""), algorithm="HS256"
                 ),
             }
             return jsonify(ret)

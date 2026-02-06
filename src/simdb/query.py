@@ -72,7 +72,7 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str) ->
 
     if query_type == QueryType.EQ:
         if isinstance(value, np.ndarray):
-            return np.any(value == float(compare))
+            return bool(np.any(value == float(compare)))
         elif isinstance(value, int):
             return value == int(float(compare))
         elif isinstance(value, float):
@@ -81,7 +81,7 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str) ->
             return str(value) == compare
     elif query_type == QueryType.NE:
         if isinstance(value, np.ndarray):
-            return np.all(value != float(compare))
+            return bool(np.all(value != float(compare)))
         elif isinstance(value, int):
             return value != int(float(compare))
         elif isinstance(value, float):
@@ -108,35 +108,35 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str) ->
             return compare not in str(value)
     elif query_type == QueryType.GT:
         if isinstance(value, np.ndarray):
-            return np.all(value > float(compare))
+            return bool(np.all(value > float(compare)))
         elif isinstance(value, (int, float)):
             return value > float(compare)
         elif value is not None:
             return value > compare
     elif query_type == QueryType.GE:
         if isinstance(value, np.ndarray):
-            return np.all(value >= float(compare))
+            return bool(np.all(value >= float(compare)))
         elif isinstance(value, (int, float)):
             return value >= float(compare)
         elif value is not None:
             return value >= compare
     elif query_type == QueryType.LT:
         if isinstance(value, np.ndarray):
-            return np.all(value < float(compare))
+            return bool(np.all(value < float(compare)))
         elif isinstance(value, (int, float)):
             return value < float(compare)
         elif value is not None:
             return value < compare
     elif query_type == QueryType.LE:
         if isinstance(value, np.ndarray):
-            return np.all(value <= float(compare))
+            return bool(np.all(value <= float(compare)))
         elif isinstance(value, (int, float)):
             return value <= float(compare)
         elif value is not None:
             return value <= compare
     elif query_type == QueryType.AGT:
         if isinstance(value, np.ndarray):
-            return np.any(value > float(compare))
+            return bool(np.any(value > float(compare)))
         elif isinstance(value, (int, float)):
             return value > float(compare)
         else:
@@ -145,7 +145,7 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str) ->
             )
     elif query_type == QueryType.AGE:
         if isinstance(value, np.ndarray):
-            return np.any(value >= float(compare))
+            return bool(np.any(value >= float(compare)))
         elif isinstance(value, (int, float)):
             return value >= float(compare)
         else:
@@ -154,7 +154,7 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str) ->
             )
     elif query_type == QueryType.ALT:
         if isinstance(value, np.ndarray):
-            return np.any(value < float(compare))
+            return bool(np.any(value < float(compare)))
         elif isinstance(value, (int, float)):
             return value < float(compare)
         else:
@@ -163,7 +163,7 @@ def query_compare(query_type: QueryType, name: str, value: Any, compare: str) ->
             )
     elif query_type == QueryType.ALE:
         if isinstance(value, np.ndarray):
-            return np.any(value <= float(compare))
+            return bool(np.any(value <= float(compare)))
         elif isinstance(value, (int, float)):
             return value <= float(compare)
         else:

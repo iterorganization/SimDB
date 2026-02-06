@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import Enum
 from getpass import getuser
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
+from typing import Any, Dict, List, Optional, Set, Union
 
 if sys.version_info < (3, 11):
     from backports.datetime_fromisoformat import MonkeyPatch
@@ -20,7 +20,7 @@ if "sphinx" in sys.modules:
     # Patch to allow sphix doc generation
     from sqlalchemy.sql.elements import ClauseElement
 
-    ClauseElement.__bool__ = lambda self: True
+    ClauseElement.__bool__ = lambda self: True  # type: ignore[invalid-assignment]
 
 import re
 
@@ -44,16 +44,11 @@ from .file import File
 from .metadata import MetaData
 from .types import UUID
 from .utils import checked_get, flatten_dict, unflatten_dict
+from .watcher import Watcher
 
 if sys.version_info < (3, 11):
     MonkeyPatch.patch_fromisoformat()
 
-
-if TYPE_CHECKING:
-    # Only importing these for type checking and documentation generation in order to
-    # speed up runtime startup.
-    from .metadata import MetaData
-    from .watcher import Watcher
 
 simulation_input_files = Table(
     "simulation_input_files",
@@ -78,6 +73,8 @@ simulation_watchers = Table(
 
 
 def _update_legacy_uri(data_object: DataObject):
+    if data_object.uri is None:
+        raise ValueError("Data object uri is not set")
     path = get_path_for_legacy_uri(data_object.uri)
     backend = data_object.uri.query.get("backend", default="hdf5")
     return URI(f"imas:{backend}?path={path}")
@@ -100,8 +97,8 @@ class Simulation(Base):
     __tablename__ = "simulations"
     id = Column(sql_types.Integer, primary_key=True)
     uuid = Column(UUID, nullable=False, unique=True, index=True)
-    alias: str = Column(sql_types.String(250), nullable=True, unique=True, index=True)
-    datetime: datetime = Column(sql_types.DateTime, nullable=False)
+    alias = Column(sql_types.String(250), nullable=True, unique=True, index=True)
+    datetime = Column(sql_types.DateTime, nullable=False)
     inputs: List["File"] = relationship(
         "File", secondary=simulation_input_files, backref="input_for"
     )
@@ -143,6 +140,8 @@ class Simulation(Base):
         all_input_idss = []
 
         for input in manifest.inputs:
+            if input.uri is None:
+                raise ValueError("Source uri is not set")
             if input.type == DataObject.Type.IMAS:
                 entry = open_imas(input.uri)
                 idss = list_idss(entry)
@@ -168,6 +167,8 @@ class Simulation(Base):
         all_output_idss = []
 
         for output in manifest.outputs:
+            if output.uri is None:
+                raise ValueError("Sink uri is not set")
             if output.type == DataObject.Type.IMAS:
                 entry = open_imas(output.uri)
                 idss = list_idss(entry)
@@ -294,6 +295,8 @@ class Simulation(Base):
                 if file.type == DataObject.Type.FILE:
                     return file.uri.path
                 elif file.type == DataObject.Type.IMAS:
+                    if file.uri.path is None:
+                        raise ValueError("Data object path is not set")
                     return file.uri.path.parent
                 else:
                     raise ValueError(f"Unknown file type {file.type}")

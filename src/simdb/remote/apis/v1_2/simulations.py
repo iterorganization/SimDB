@@ -5,10 +5,10 @@ import itertools
 import tarfile
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
-from flask import current_app, jsonify, request, send_file
 from flask import json as flask_json  # fallback
+from flask import jsonify, request, send_file
 from flask_restx import Namespace, Resource
 
 from simdb.database import DatabaseError
@@ -23,6 +23,7 @@ from simdb.remote.core.auth import User, requires_auth
 from simdb.remote.core.cache import cache, cache_key, clear_cache
 from simdb.remote.core.errors import error
 from simdb.remote.core.path import find_common_root, secure_path
+from simdb.remote.core.typing import current_app
 from simdb.uri import URI
 from simdb.validation import ValidationError, Validator
 from simdb.validation.file import find_file_validator
@@ -35,7 +36,7 @@ def _update_simulation_status(
 ) -> None:
     old_status = simulation.status
     simulation.status = status
-    if status != old_status and simulation.watchers.count():
+    if status != old_status and len(simulation.watchers) > 0:
         server = EmailServer(current_app.simdb_config)
         msg = f"""\
 Simulation status changed from {old_status} to {status}.
@@ -69,7 +70,7 @@ def _validate(simulation, user) -> Dict:
             "error": str(err),
         }
 
-    file_validator_type = current_app.simdb_config.get_option(
+    file_validator_type = current_app.simdb_config.get_string_option(
         "file_validation.type", default=None
     )
     file_validator_options = current_app.simdb_config.get_section(
@@ -120,21 +121,21 @@ def _set_alias(alias: str):
     return alias, next_id
 
 
-def _build_trace(sim_id: str) -> dict:
+def _build_trace(sim_id: str) -> Dict[str, Any]:
     try:
         simulation = current_app.db.get_simulation(sim_id)
     except DatabaseError as err:
         return {"error": str(err)}
-    data = simulation.data(recurse=False)
+    data: Dict[str, Any] = cast(Dict[str, Any], simulation.data(recurse=False))
 
     status = simulation.find_meta("status")
     if status:
-        status = status[0].value
-        if isinstance(status, str):
-            data["status"] = status
+        status_value = status[0].value
+        if isinstance(status_value, str):
+            data["status"] = status_value
         else:
-            data["status"] = status.value
-        status_on_name = data["status"] + "_on"
+            data["status"] = status_value.value
+        status_on_name = str(data["status"]) + "_on"
         status_on = simulation.find_meta(status_on_name)
         if status_on:
             data[status_on_name] = status_on[0].value
@@ -188,7 +189,8 @@ def _get_json_aware(force: bool = False, silent: bool = False):
 
     # Use Flask's JSON provider for identical behavior
     try:
-        loads = current_app.json.loads  # Flask >= 2.2
+        # for Flask >= 2.2
+        loads = current_app.json.loads  # type: ignore[unresolved-attribute]
     except Exception:
         loads = flask_json.loads
 
@@ -236,8 +238,8 @@ class SimulationList(Resource):
     @requires_auth()
     # @cache.cached(key_prefix=cache_key)
     def get(self, user: User):
-        limit = int(request.headers.get(SimulationList.LIMIT_HEADER, 100))
-        page = int(request.headers.get(SimulationList.PAGE_HEADER, 1))
+        limit = int(request.headers.get(SimulationList.LIMIT_HEADER) or 100)
+        page = int(request.headers.get(SimulationList.PAGE_HEADER) or 1)
         sort_by = request.headers.get(SimulationList.SORT_BY_HEADER, "")
         sort_asc = (
             request.headers.get(SimulationList.SORT_ASC_HEADER, "false").lower()
@@ -296,7 +298,7 @@ class SimulationList(Resource):
             simulation = models_sim.Simulation.from_data(data["simulation"])
 
             # Simulation Upload (Push) Date
-            simulation.datetime = datetime.datetime.now().isoformat()
+            simulation.datetime = datetime.datetime.now()
 
             if data["uploaded_by"] is not None:
                 simulation.set_meta("uploaded_by", data["uploaded_by"])
@@ -335,7 +337,7 @@ class SimulationList(Resource):
 
             if config.get_option("server.copy_files", default=True):
                 staging_dir = (
-                    Path(config.get_option("server.upload_folder"))
+                    Path(config.get_string_option("server.upload_folder"))
                     / simulation.uuid.hex
                 )
 
@@ -357,7 +359,7 @@ class SimulationList(Resource):
                         sim_file.uri = convert_uri(sim_file.uri, path, config)
             elif config.get_option("server.imas_remote_host", default=None):
                 staging_dir = (
-                    Path(config.get_option("server.upload_folder"))
+                    Path(config.get_string_option("server.upload_folder"))
                     / simulation.uuid.hex
                 )
 
@@ -435,7 +437,7 @@ class SimulationList(Resource):
 @api.route("/simulation/<path:sim_id>")
 class Simulation(Resource):
     @requires_auth()
-    @cache.cached(key_prefix=cache_key)
+    @cache.cached(key_prefix=cache_key)  # type: ignore[invalid-argument-type]
     def get(self, sim_id: str, user: User):
         try:
             simulation = current_app.db.get_simulation(sim_id)
@@ -457,9 +459,9 @@ class Simulation(Resource):
 
     @api.expect(parser)
     @requires_auth("admin")
-    def patch(self, sim_id: str, user: User = Optional[None]):
+    def patch(self, sim_id: str, user: Optional[User] = None):
         try:
-            data = request.get_json()
+            data = request.get_json() or {}
             if "status" not in data:
                 return error("Status not provided")
             simulation = current_app.db.get_simulation(sim_id)
@@ -484,13 +486,13 @@ class Simulation(Resource):
                     files.append(f"{file.uuid} ({file.uri.path.name})")
                     file.uri.path.unlink()
             if simulation.inputs or simulation.outputs:
-                directory = (
-                    simulation.inputs[0].uri.path.parent
-                    if simulation.inputs
-                    else simulation.outputs[0].uri.path.parent
+                first_file = (
+                    simulation.inputs[0] if simulation.inputs else simulation.outputs[0]
                 )
-                if directory != Path() and directory != Path("/"):
-                    directory.rmdir()
+                if first_file.uri.path is not None:
+                    directory = first_file.uri.path.parent
+                    if directory != Path() and directory != Path("/"):
+                        directory.rmdir()
             return jsonify({"deleted": {"simulation": simulation.uuid, "files": files}})
         except DatabaseError as err:
             return error(str(err))
@@ -499,7 +501,7 @@ class Simulation(Resource):
 @api.route("/simulation/metadata/<path:sim_id>")
 class SimulationMeta(Resource):
     @requires_auth()
-    @cache.cached(key_prefix=cache_key)
+    @cache.cached(key_prefix=cache_key)  # type: ignore[invalid-argument-type]
     def get(self, sim_id: str, user: User):
         try:
             simulation = current_app.db.get_simulation(sim_id)
@@ -517,9 +519,9 @@ class SimulationMeta(Resource):
 
     @api.expect(parser)
     @requires_auth("admin")
-    def patch(self, sim_id: str, user: User = Optional[None]):
+    def patch(self, sim_id: str, user: Optional[User] = None):
         try:
-            data = request.get_json()
+            data = request.get_json() or {}
 
             if "key" not in data:
                 return error("Metadata key not provided")
@@ -552,9 +554,9 @@ class SimulationMeta(Resource):
 
     @api.expect(parser_delete)
     @requires_auth("admin")
-    def delete(self, sim_id: str, user: User = Optional[None]):
+    def delete(self, sim_id: str, user: Optional[User] = None):
         try:
-            data = request.get_json()
+            data = request.get_json() or {}
 
             if "key" not in data:
                 return error("Metadata key not provided")
@@ -590,7 +592,7 @@ class ValidateSimulation(Resource):
 @api.route("/trace/<path:sim_id>")
 class SimulationTrace(Resource):
     @requires_auth()
-    @cache.cached(key_prefix=cache_key)
+    @cache.cached(key_prefix=cache_key)  # type: ignore[invalid-argument-type]
     def get(self, sim_id: str, user: User):
         try:
             data = _build_trace(sim_id)
@@ -610,7 +612,7 @@ class SimulationPackage(Resource):
                 return error("Simulation not found")
 
             staging_dir = (
-                Path(current_app.simdb_config.get_option("server.upload_folder"))
+                Path(current_app.simdb_config.get_string_option("server.upload_folder"))
                 / simulation.uuid.hex
             )
 

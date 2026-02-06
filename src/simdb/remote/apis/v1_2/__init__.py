@@ -38,19 +38,22 @@ namespaces = [metadata_ns, watcher_ns, file_ns, sim_ns]
 class StagingDirectory(Resource):
     @requires_auth()
     def get(self, sim_hex: str, user: User):
-        upload_dir = current_app.simdb_config.get_option(
+        upload_dir = current_app.simdb_config.get_string_option(
             "server.user_upload_folder", default=None
         )
         user_folder = True
         if upload_dir is None:
-            upload_dir = current_app.simdb_config.get_option("server.upload_folder")
+            upload_dir = current_app.simdb_config.get_string_option(
+                "server.upload_folder"
+            )
             user_folder = False
 
         if not sim_hex:
             return jsonify({"staging_dir": upload_dir})
 
         staging_dir = (
-            Path(current_app.simdb_config.get_option("server.upload_folder")) / sim_hex
+            Path(current_app.simdb_config.get_string_option("server.upload_folder"))
+            / sim_hex
         )
         staging_dir.mkdir(parents=True, exist_ok=True)
         # This needs to be done for ITER at the moment but should be removed once we can

@@ -22,8 +22,8 @@ class ValidationError(Exception):
     pass
 
 
-class CustomValidator(cerberus.Validator):
-    types_mapping = cerberus.Validator.types_mapping.copy()
+class CustomValidator(cerberus.Validator):  # type: ignore[misc]
+    types_mapping = cerberus.Validator.types_mapping.copy()  # type: ignore[attr-defined]
     types_mapping["numpy"] = cerberus.TypeDefinition("numpy", (np.ndarray,), ())
 
     def _validate_exists(self, check_exists, field, value):
@@ -139,7 +139,7 @@ def _load_schema(path: Path):
 
 
 class Validator:
-    _validator: cerberus.Validator
+    _validator: CustomValidator
     _section_re = re.compile(r"\S+ \"(\S+)=(\S+)\"")
 
     @classmethod
@@ -176,7 +176,7 @@ class Validator:
                     value = match.group(2)
                     for meta in simulation.find_meta(key):
                         if meta.value == value:
-                            path = config.get_section(section).get("path", default="")
+                            path = config.get_section(section).get("path", "")
                             if path:
                                 paths.append(path)
                 elif section != "validation":

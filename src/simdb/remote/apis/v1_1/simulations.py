@@ -1,3 +1,4 @@
+# type: ignore
 import contextlib
 import datetime
 import itertools
@@ -380,9 +381,9 @@ class SimulationMeta(Resource):
 
     @api.expect(parser)
     @requires_auth("admin")
-    def patch(self, sim_id: str, user: User = Optional[None]):
+    def patch(self, sim_id: str, user: Optional[User] = None):
         try:
-            data = request.get_json()
+            data = request.get_json() or {}
 
             if "key" not in data:
                 return error("Metadata key not provided")
@@ -414,9 +415,9 @@ class SimulationMeta(Resource):
 
     @api.expect(parser_delete)
     @requires_auth("admin")
-    def delete(self, sim_id: str, user: User = Optional[None]):
+    def delete(self, sim_id: str, user: Optional[User] = None):
         try:
-            data = request.get_json()
+            data = request.get_json() or {}
 
             if "key" not in data:
                 return error("Metadata key not provided")

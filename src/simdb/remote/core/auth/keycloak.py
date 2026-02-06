@@ -15,9 +15,9 @@ class KeyCloakAuthenticator(Authenticator):
     Name = "KeyCloak"
 
     def authenticate(self, config: Config, request: Request) -> Optional[User]:
-        sever_url = config.get_option("authentication.sever_url")
-        realm_name = config.get_option("authentication.realm_name")
-        client_id = config.get_option("authentication.client_id")
+        sever_url = config.get_string_option("authentication.sever_url")
+        realm_name = config.get_string_option("authentication.realm_name")
+        client_id = config.get_string_option("authentication.client_id")
 
         token = request.headers.get(KeyCloakAuthenticator.TOKEN_HEADER_NAME, "")
 

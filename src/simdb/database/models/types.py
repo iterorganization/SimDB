@@ -1,7 +1,6 @@
 import enum
 import uuid
-from enum import Enum
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from sqlalchemy import types as sql_types
 from sqlalchemy.dialects import postgresql
@@ -90,7 +89,7 @@ class ChoiceType(sql_types.TypeDecorator):
     def python_type(self):
         return str
 
-    def __init__(self, choices: Dict[Enum, str], enum_type: type, **kw):
+    def __init__(self, choices: Dict[Any, str], enum_type: type, **kw):
         if type(enum_type) is not enum.EnumMeta:
             raise ValueError("enum_type must be a class inheriting from enum.Enum.")
         self._enum_type = enum_type

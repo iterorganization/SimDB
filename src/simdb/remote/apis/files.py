@@ -2,7 +2,7 @@ import gzip
 import json
 import uuid
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, cast
 
 import magic
 from flask import Response, jsonify, request, send_file, stream_with_context
@@ -35,9 +35,12 @@ def _verify_file(
     ):
         return
     staging_dir = (
-        Path(current_app.simdb_config.get_option("server.upload_folder")) / sim_uuid.hex
+        Path(current_app.simdb_config.get_string_option("server.upload_folder"))
+        / sim_uuid.hex
     )
     if sim_file.type == DataObject.Type.FILE:
+        if sim_file.uri.path is None:
+            raise ValueError("File does not have an associated path")
         path = secure_path(sim_file.uri.path, common_root, staging_dir)
         if not path.exists():
             raise ValueError(f"file {path} does not exist")
@@ -68,7 +71,7 @@ def _save_chunked_file(
     with path.open("r+b" if path.exists() else "wb") as file_out:
         file_out.seek(chunk_info["chunk_size"] * chunk_info["chunk"])
         if compressed:
-            with gzip.GzipFile(fileobj=file, mode="rb") as gz_file:
+            with gzip.GzipFile(fileobj=file.stream, mode="rb") as gz_file:
                 file_out.write(gz_file.read())
         else:
             file_out.write(file.stream.read())
@@ -82,7 +85,8 @@ def _stage_file_from_chunks(
     common_root: Optional[Path],
 ) -> None:
     staging_dir = (
-        Path(current_app.simdb_config.get_option("server.upload_folder")) / sim_uuid.hex
+        Path(current_app.simdb_config.get_string_option("server.upload_folder"))
+        / sim_uuid.hex
     )
     staging_dir.mkdir(parents=True, exist_ok=True)
 
@@ -131,9 +135,7 @@ def _process_simulation_data(data: dict) -> Response:
         sim_files = (
             simulation.inputs if file["file_type"] == "input" else simulation.outputs
         )
-        sim_file = next(
-            (f for f in sim_files if f.uuid == uuid.UUID(file["file_uuid"])), None
-        )
+        sim_file = next(f for f in sim_files if f.uuid == uuid.UUID(file["file_uuid"]))
         _verify_file(simulation.uuid, sim_file, common_root, file["ids_list"])
     else:
         raise ValueError("Unsupported object type {}".format(data["obj_type"]))
@@ -142,7 +144,7 @@ def _process_simulation_data(data: dict) -> Response:
 
 
 def _handle_file_upload() -> Response:
-    data: dict = json.load(request.files["data"], cls=CustomDecoder)
+    data: dict = json.load(request.files["data"].stream, cls=CustomDecoder)
 
     if "simulation" not in data:
         return error("Simulation data not provided")
@@ -187,10 +189,10 @@ class FileList(Resource):
 @api.route("/file/<string:file_uuid>")
 class File(Resource):
     @requires_auth()
-    def get(self, file_uuid: str, user: User = Optional[None]):
+    def get(self, file_uuid: str, user: Optional[User] = None):
         try:
             file = current_app.db.get_file(file_uuid)
-            data = file.data(recurse=True)
+            data = cast(Dict[str, Any], file.data(recurse=True))
             if file.type == DataObject.Type.FILE:
                 data["files"] = [
                     {
@@ -211,11 +213,13 @@ class File(Resource):
 @api.route("/file/download/<string:file_uuid>")
 class NonIMASFileDownload(Resource):
     @requires_auth()
-    def get(self, file_uuid: str, user: User = Optional[None]):
+    def get(self, file_uuid: str, user: Optional[User] = None):
         try:
             file: models.File = current_app.db.get_file(file_uuid)
             if file.type != DataObject.Type.FILE:
                 return error("Invalid file type for download")
+            if file.uri.path is None:
+                return error("File path is not set")
             mimetype = magic.from_file(file.uri.path, mime=True)
             response = send_file(file.uri.path, mimetype=mimetype)
             return Response(
@@ -229,12 +233,14 @@ class NonIMASFileDownload(Resource):
 @api.route("/file/download/<string:file_uuid>/<int:file_index>")
 class FileDownload(Resource):
     @requires_auth()
-    def get(self, file_uuid: str, file_index: int, user: User = Optional[None]):
+    def get(self, file_uuid: str, file_index: int, user: Optional[User] = None):
         try:
             file: models.File = current_app.db.get_file(file_uuid)
             if file.type == DataObject.Type.FILE:
                 if file_index != 0:
                     return error(f"invalid file_index for file {file.uri}")
+                if file.uri.path is None:
+                    return error("File path is not set")
                 mimetype = magic.from_file(file.uri.path, mime=True)
                 return send_file(file.uri.path, mimetype=mimetype)
             else:

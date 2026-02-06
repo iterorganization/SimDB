@@ -1,4 +1,4 @@
-from typing import Dict, Final
+from typing import Any, Dict, Final
 
 from email_validator import validate_email
 from sqlalchemy import Column
@@ -19,7 +19,7 @@ class Watcher(Base):
     Class to represent people watching simulations for updates.
     """
 
-    NOTIFICATION_CHOICES: Final[Dict[Notification, str]] = {
+    NOTIFICATION_CHOICES: Final[Dict[Any, str]] = {
         Notification.VALIDATION: "V",
         Notification.REVISION: "R",
         Notification.OBSOLESCENCE: "O",

@@ -43,13 +43,12 @@ class Watcher(Resource):
     @requires_auth()
     def delete(self, sim_id: str, user: User):
         try:
-            data = request.get_json()
-
+            data = request.get_json() or {}
             username = data.get("user", user.name)
 
             current_app.db.remove_watcher(sim_id, username)
             clear_cache()
-            return jsonify({"removed": {"simulation": sim_id, "watcher": data["user"]}})
+            return jsonify({"removed": {"simulation": sim_id, "watcher": username}})
         except DatabaseError as err:
             return error(str(err))
 

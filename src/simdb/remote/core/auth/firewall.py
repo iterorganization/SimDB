@@ -13,8 +13,10 @@ class FirewallAuthenticator(Authenticator):
     Name = "Firewall"
 
     def authenticate(self, config: Config, request: Request) -> Optional[User]:
-        firewall_user = config.get_option("authentication.firewall_user", default=None)
-        firewall_email = config.get_option(
+        firewall_user = config.get_string_option(
+            "authentication.firewall_user", default=None
+        )
+        firewall_email = config.get_string_option(
             "authentication.firewall_email", default=None
         )
 

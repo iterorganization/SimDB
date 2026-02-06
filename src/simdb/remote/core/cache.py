@@ -14,11 +14,11 @@ cache_options = {
 cache = Cache(config=cache_options)
 
 
-def cache_key(*args, **kwargs):
+def cache_key(*args, **kwargs) -> str:
     headers = []
-    for key in request.headers:
+    for key, value in request.headers.items():
         if "simdb-" in key.lower():
-            headers.append(f"{key.lower()}:{request.headers.get(key, 0)}")
+            headers.append(f"{key.lower()}:{value}")
     return request.url + "?" + "&".join(headers)
 
 
