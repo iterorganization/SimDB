@@ -859,8 +859,8 @@ class RemoteAPI:
                             (
                                 f
                                 for f in sim_data["outputs"]
-                                if f.get("uuid") == file.uuid
-                            ),  # type: ignore[union-attr]
+                                if f.get("uuid") == file.uuid # type: ignore[union-attr]
+                            ),  
                             None,
                         )
                         if sim_file:
