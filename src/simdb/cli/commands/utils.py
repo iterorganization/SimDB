@@ -76,13 +76,13 @@ def print_simulations(
 
     for sim in simulations:
         if show_uuid:
-            line = [sim.alias if sim.alias else "", str(sim.uuid)]
+            line = [sim.alias or "", str(sim.uuid)]
             column_widths["alias"] = max(
                 column_widths["alias"], len(sim.alias) if sim.alias else 0
             )
             column_widths["UUID"] = max(column_widths["UUID"], len(str(sim.uuid)))
         else:
-            line = [sim.alias if sim.alias else ""]
+            line = [sim.alias or ""]
             column_widths["alias"] = max(
                 column_widths["alias"], len(sim.alias) if sim.alias else 0
             )

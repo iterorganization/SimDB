@@ -115,7 +115,7 @@ def remote(
     """
     if not ctx.invoked_subcommand and not any(is_empty(i) for i in ctx.params.values()):
         click.echo(ctx.get_help())
-    elif ctx.invoked_subcommand in ["config"]:
+    elif ctx.invoked_subcommand == "config":
         pass
     elif ctx.invoked_subcommand:
         if ctx.invoked_subcommand == "token" and sys.argv[-1] == "new":
