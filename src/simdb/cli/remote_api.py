@@ -200,7 +200,7 @@ class RemoteAPI:
         )
 
         if not username:
-            username = str(config.get_option(f"remote.{remote}.username", default=""))
+            username = config.get_string_option(f"remote.{remote}.username", default="")
 
         if use_token is not None:
             self._use_token = use_token
