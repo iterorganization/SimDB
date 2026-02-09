@@ -23,20 +23,18 @@ def test_check_role(get_string_option):
         get_string_option.return_value = 'user1,"user2", user3'
         ok = check_role(config, User("user1", ""), "test_role")
         assert ok
-        get_string_option.assert_called_with("role.test_role.users", default="")
+        get_string_option.assert_called_with("role.test_role.users", "")
         ok = check_role(config, User("user4", ""), None)
         assert ok
         ok = check_role(config, User("user4", ""), "test_role")
         assert not ok
 
 
+@mock.patch("simdb.remote.core.auth.active_directory.EasyAD")
 @mock.patch("simdb.config.Config.get_option")
 @pytest.mark.skipif(not has_easyad, reason="requires easyad library")
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
-def test_check_auth(get_option):
-    patcher = mock.patch("easyad.EasyAD")
-    easy_ad = patcher.start()
-
+def test_check_auth(get_option, easy_ad):
     config = Config()
     get_option.side_effect = lambda name, default=None: {
         "server.admin_password": "abc123",
@@ -64,7 +62,7 @@ def test_check_auth(get_option):
             return {"sAMAccountName": "user", "mail": "user@email.com"}
         return None
 
-    easy_ad().authenticate_user.side_effect = auth
+    easy_ad.return_value.authenticate_user.side_effect = auth
     request.authorization.username = "user"
     request.authorization.password = "password"
     ok = check_auth(config, request)
@@ -76,7 +74,7 @@ def test_check_auth(get_option):
             "AD_CA_CERT_FILE": "test.cert",
         }
     )
-    easy_ad().authenticate_user.assert_called_once_with(
+    easy_ad.return_value.authenticate_user.assert_called_once_with(
         "user", "password", json_safe=True
     )
     request.authorization.username = "user"

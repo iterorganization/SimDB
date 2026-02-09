@@ -5,7 +5,7 @@ import pytest
 from simdb.database import Database
 
 
-@mock.patch("sqlalchemy.create_engine")
+@mock.patch("simdb.database.database.create_engine")
 def test_create_sqlite_database(create_engine):
     db = Database(Database.DBMS.SQLITE, file="simdb.db")
     create_engine.assert_called_once_with("sqlite:///simdb.db")
@@ -17,7 +17,7 @@ def test_create_sqlite_database_with_missing_parameters():
         Database(Database.DBMS.SQLITE)
 
 
-@mock.patch("sqlalchemy.create_engine")
+@mock.patch("simdb.database.database.create_engine")
 def test_create_postrges_database(create_engine):
     db = Database(Database.DBMS.POSTGRESQL, host="test.server.com", port=5432)
 
@@ -38,7 +38,7 @@ def test_create_postgres_database_with_missing_parameters():
         Database(Database.DBMS.POSTGRESQL, port=5432)
 
 
-@mock.patch("sqlalchemy.create_engine")
+@mock.patch("simdb.database.database.create_engine")
 def test_create_mssql_database(create_engine):
     db = Database(Database.DBMS.MSSQL, user="simdb", password="test", dsnname="simdb")
     create_engine.assert_called_once_with("mssql+pyodbc://simdb:test@simdb")
