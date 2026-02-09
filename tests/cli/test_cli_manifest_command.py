@@ -18,7 +18,7 @@ def test_manifest_check_command(manifest):
     assert "ok" in result.output
     assert manifest.return_value.load.called
     (args, kwargs) = manifest.return_value.load.call_args
-    assert args == (str(file_name),)
+    assert str(args[0]) == str(file_name)
     assert kwargs == {}
     assert manifest.return_value.validate.called
 

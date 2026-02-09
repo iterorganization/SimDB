@@ -12,7 +12,7 @@ def manifest():
 
 
 @manifest.command()
-@click.argument("file_name", type=click.Path(exists=True))
+@click.argument("file_name", type=click.Path(exists=True, path_type=Path))
 def check(file_name):
     """Check manifest FILE_NAME."""
 
