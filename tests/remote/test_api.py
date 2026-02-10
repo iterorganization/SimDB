@@ -1015,3 +1015,320 @@ def test_get_simulations_combined_pagination_sorting_filtering(client):
     assert data["page"] == 1
     assert data["limit"] == 3
     assert len(data["results"]) <= 3
+
+
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_get_simulation_by_uuid(client):
+    """Test GET /v1.2/simulation/{simulation_id} endpoint - retrieve by UUID."""
+    # Create a simulation with known properties
+    sim_uuid = uuid.uuid4()
+    input_uuid = uuid.uuid4()
+    output_uuid = uuid.uuid4()
+    test_alias = "get-test-simulation"
+
+    simulation_data = {
+        "simulation": {
+            "uuid": {"_type": "uuid.UUID", "hex": sim_uuid.hex},
+            "alias": test_alias,
+            "datetime": datetime.now(timezone.utc).isoformat(),
+            "inputs": [
+                {
+                    "uuid": {"_type": "uuid.UUID", "hex": input_uuid.hex},
+                    "type": "FILE",
+                    "uri": "file:///test/input.dat",
+                    "checksum": "input123",
+                    "datetime": datetime.now(timezone.utc).isoformat(),
+                    "usage": "input_data",
+                    "purpose": "test input",
+                    "sensitivity": "public",
+                    "access": "open",
+                    "embargo": None,
+                }
+            ],
+            "outputs": [
+                {
+                    "uuid": {"_type": "uuid.UUID", "hex": output_uuid.hex},
+                    "type": "FILE",
+                    "uri": "file:///test/output.dat",
+                    "checksum": "output456",
+                    "datetime": datetime.now(timezone.utc).isoformat(),
+                    "usage": "output_data",
+                    "purpose": "test output",
+                    "sensitivity": "public",
+                    "access": "open",
+                    "embargo": None,
+                }
+            ],
+            "metadata": [
+                {"element": "machine", "value": "test-machine"},
+                {"element": "code", "value": "test-code"},
+                {"element": "description", "value": "Test simulation for GET"},
+            ],
+        },
+        "add_watcher": False,
+        "uploaded_by": "test-user",
+    }
+
+    # Create the simulation
+    rv_post = client.post(
+        "/v1.2/simulations",
+        json=simulation_data,
+        headers=HEADERS,
+        content_type="application/json",
+    )
+    assert rv_post.status_code == 200
+
+    # Test GET by UUID
+    rv = client.get(f"/v1.2/simulation/{sim_uuid.hex}", headers=HEADERS)
+
+    assert rv.status_code == 200
+    assert rv.is_json
+
+    data = rv.json
+
+    # Verify basic fields
+    assert "uuid" in data
+    assert data["uuid"] == sim_uuid
+    assert data["alias"] == test_alias
+
+    # Verify datetime field exists
+    assert "datetime" in data
+
+    # Verify inputs and outputs
+    assert "inputs" in data
+    assert len(data["inputs"]) == 1
+    assert data["inputs"][0]["uuid"] == input_uuid
+    assert data["inputs"][0]["uri"] == "file:/test/input.dat"
+    assert data["inputs"][0]["checksum"] == "input123"
+
+    assert "outputs" in data
+    assert len(data["outputs"]) == 1
+    assert data["outputs"][0]["uuid"] == output_uuid
+    assert data["outputs"][0]["uri"] == "file:/test/output.dat"
+    assert data["outputs"][0]["checksum"] == "output456"
+
+    # Verify metadata
+    assert "metadata" in data
+    assert len(data["metadata"]) >= 3  # At least our 3 metadata items
+    metadata_dict = {m["element"]: m["value"] for m in data["metadata"]}
+    assert metadata_dict["machine"] == "test-machine"
+    assert metadata_dict["code"] == "test-code"
+    assert metadata_dict["description"] == "Test simulation for GET"
+
+    # Verify children and parents fields exist
+    assert "children" in data
+    assert "parents" in data
+    assert isinstance(data["children"], list)
+    assert isinstance(data["parents"], list)
+
+
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_get_simulation_by_alias(client):
+    """Test GET /v1.2/simulation/{simulation_id} endpoint - retrieve by alias."""
+    # Create a simulation with a unique alias
+    sim_uuid = uuid.uuid4()
+    test_alias = "get-by-alias-test"
+
+    simulation_data = {
+        "simulation": {
+            "uuid": {"_type": "uuid.UUID", "hex": sim_uuid.hex},
+            "alias": test_alias,
+            "datetime": datetime.now(timezone.utc).isoformat(),
+            "inputs": [],
+            "outputs": [],
+            "metadata": [{"element": "test", "value": "alias retrieval"}],
+        },
+        "add_watcher": False,
+        "uploaded_by": "test-user",
+    }
+
+    rv_post = client.post(
+        "/v1.2/simulations",
+        json=simulation_data,
+        headers=HEADERS,
+        content_type="application/json",
+    )
+    assert rv_post.status_code == 200
+
+    # Test GET by alias
+    rv = client.get(f"/v1.2/simulation/{test_alias}", headers=HEADERS)
+
+    assert rv.status_code == 200
+    data = rv.json
+
+    assert data["uuid"] == sim_uuid
+    assert data["alias"] == test_alias
+
+
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_get_simulation_not_found(client):
+    """Test GET /v1.2/simulation/{simulation_id} endpoint - non-existent simulation."""
+    # Try to get a non-existent simulation
+    fake_uuid = uuid.uuid4()
+
+    rv = client.get(f"/v1.2/simulation/{fake_uuid.hex}", headers=HEADERS)
+
+    assert rv.status_code == 400
+    data = rv.json
+
+    # Should contain an error message
+    assert "error" in data or data.get("message") == "Simulation not found"
+
+
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_get_simulation_with_parents_and_children(client):
+    """Test GET /v1.2/simulation/{simulation_id} endpoint - verify parents/children."""
+    # Create parent simulation
+    parent_uuid = uuid.uuid4()
+    parent_data = {
+        "simulation": {
+            "uuid": {"_type": "uuid.UUID", "hex": parent_uuid.hex},
+            "alias": "parent-simulation",
+            "datetime": datetime.now(timezone.utc).isoformat(),
+            "inputs": [],
+            "outputs": [],
+            "metadata": [{"element": "role", "value": "parent"}],
+        },
+        "add_watcher": False,
+        "uploaded_by": "test-user",
+    }
+
+    rv_parent = client.post(
+        "/v1.2/simulations",
+        json=parent_data,
+        headers=HEADERS,
+        content_type="application/json",
+    )
+    assert rv_parent.status_code == 200
+
+    # Create child simulation that references parent
+    child_uuid = uuid.uuid4()
+    child_data = {
+        "simulation": {
+            "uuid": {"_type": "uuid.UUID", "hex": child_uuid.hex},
+            "alias": "child-simulation",
+            "datetime": datetime.now(timezone.utc).isoformat(),
+            "inputs": [],
+            "outputs": [],
+            "metadata": [
+                {"element": "role", "value": "child"},
+                {"element": "parent", "value": parent_uuid.hex},
+            ],
+        },
+        "add_watcher": False,
+        "uploaded_by": "test-user",
+    }
+
+    rv_child = client.post(
+        "/v1.2/simulations",
+        json=child_data,
+        headers=HEADERS,
+        content_type="application/json",
+    )
+    assert rv_child.status_code == 200
+
+    # Get child simulation and verify parents field
+    rv = client.get(f"/v1.2/simulation/{child_uuid.hex}", headers=HEADERS)
+
+    assert rv.status_code == 200
+    data = rv.json
+
+    # Verify the parents/children structure
+    assert "parents" in data
+    assert "children" in data
+
+
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_get_simulation_full_response_structure(client):
+    """Test GET /v1.2/simulation/{simulation_id} endpoint - verify complete response
+    structure."""
+    # Create a comprehensive simulation
+    sim_uuid = uuid.uuid4()
+
+    simulation_data = {
+        "simulation": {
+            "uuid": {"_type": "uuid.UUID", "hex": sim_uuid.hex},
+            "alias": "complete-structure-test",
+            "datetime": datetime.now(timezone.utc).isoformat(),
+            "inputs": [
+                {
+                    "uuid": {"_type": "uuid.UUID", "hex": uuid.uuid4().hex},
+                    "type": "FILE",
+                    "uri": "file:///complete/input.dat",
+                    "checksum": "complete123",
+                    "datetime": datetime.now(timezone.utc).isoformat(),
+                    "usage": "input",
+                    "purpose": "complete input",
+                    "sensitivity": "public",
+                    "access": "open",
+                    "embargo": None,
+                }
+            ],
+            "outputs": [
+                {
+                    "uuid": {"_type": "uuid.UUID", "hex": uuid.uuid4().hex},
+                    "type": "FILE",
+                    "uri": "file:///complete/output.dat",
+                    "checksum": "complete456",
+                    "datetime": datetime.now(timezone.utc).isoformat(),
+                    "usage": "output",
+                    "purpose": "complete output",
+                    "sensitivity": "public",
+                    "access": "open",
+                    "embargo": None,
+                }
+            ],
+            "metadata": [
+                {"element": "machine", "value": "complete-machine"},
+                {"element": "version", "value": "1.0"},
+            ],
+        },
+        "add_watcher": False,
+        "uploaded_by": "complete-user",
+    }
+
+    rv_post = client.post(
+        "/v1.2/simulations",
+        json=simulation_data,
+        headers=HEADERS,
+        content_type="application/json",
+    )
+    assert rv_post.status_code == 200
+
+    # Get the simulation
+    rv = client.get(f"/v1.2/simulation/{sim_uuid.hex}", headers=HEADERS)
+
+    assert rv.status_code == 200
+    data = rv.json
+
+    # Verify all required top-level fields are present
+    required_fields = [
+        "uuid",
+        "alias",
+        "datetime",
+        "inputs",
+        "outputs",
+        "metadata",
+        "children",
+        "parents",
+    ]
+    for field in required_fields:
+        assert field in data, f"Required field '{field}' missing from response"
+
+    # Verify inputs structure
+    assert len(data["inputs"]) == 1
+    input_required_fields = ["uuid", "type", "uri", "checksum", "datetime"]
+    for field in input_required_fields:
+        assert field in data["inputs"][0], f"Required input field '{field}' missing"
+
+    # Verify outputs structure
+    assert len(data["outputs"]) == 1
+    output_required_fields = ["uuid", "type", "uri", "checksum", "datetime"]
+    for field in output_required_fields:
+        assert field in data["outputs"][0], f"Required output field '{field}' missing"
+
+    # Verify metadata structure
+    assert len(data["metadata"]) >= 2
+    for meta in data["metadata"]:
+        assert "element" in meta
+        assert "value" in meta
