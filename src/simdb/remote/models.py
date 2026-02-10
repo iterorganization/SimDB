@@ -1,17 +1,35 @@
 from datetime import datetime as dt
 from datetime import timezone
-from typing import Annotated, Any, List, Optional
+from typing import Annotated, Any, Generic, List, Optional, TypeVar
 from uuid import UUID
 
-from pydantic import BaseModel, Field, PlainSerializer
+from pydantic import BaseModel, BeforeValidator, Field, PlainSerializer
 
 HexUUID = Annotated[UUID, PlainSerializer(lambda x: x.hex, return_type=str)]
+
+
+def _deserialize_custom_uuid(v: Any) -> UUID:
+    """Deserialize CustomUUID format back to UUID."""
+    if isinstance(v, UUID):
+        return v
+    if isinstance(v, dict) and "hex" in v:
+        return UUID(hex=v["hex"])
+    if isinstance(v, str):
+        return UUID(v)
+    raise ValueError(f"Cannot deserialize {v} to UUID")
+
+
+CustomUUID = Annotated[
+    UUID,
+    BeforeValidator(_deserialize_custom_uuid),
+    PlainSerializer(lambda x: {"_type": "uuid.UUID", "hex": x.hex}),
+]
 
 
 class FileData(BaseModel):
     type: str
     uri: str
-    uuid: UUID
+    uuid: CustomUUID
     checksum: str
     datetime: dt
     usage: Optional[str]
@@ -27,7 +45,7 @@ class MetadataData(BaseModel):
 
 
 class SimulationData(BaseModel):
-    uuid: UUID
+    uuid: CustomUUID
     alias: Optional[str]
     datetime: dt = Field(default_factory=lambda: dt.now(timezone.utc))
     inputs: List[FileData]
@@ -50,3 +68,20 @@ class SimulationPostResponse(BaseModel):
     ingested: HexUUID
     error: Optional[str]
     validation: Optional[ValidationResult]
+
+
+class SimulationListItem(BaseModel):
+    uuid: CustomUUID
+    alias: Optional[str]
+    datetime: str
+    metadata: Optional[List[MetadataData]] = None
+
+
+T = TypeVar("T")
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    count: int
+    page: int
+    limit: int
+    results: T

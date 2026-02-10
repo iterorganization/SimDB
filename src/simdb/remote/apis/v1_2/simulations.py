@@ -26,6 +26,8 @@ from simdb.remote.core.errors import error
 from simdb.remote.core.path import find_common_root, secure_path
 from simdb.remote.core.typing import current_app
 from simdb.remote.models import (
+    PaginatedResponse,
+    SimulationListItem,
     SimulationPostData,
     SimulationPostResponse,
     ValidationResult,
@@ -277,7 +279,13 @@ class SimulationList(Resource):
                 sort_asc=sort_asc,
             )
 
-        return jsonify({"count": count, "page": page, "limit": limit, "results": data})
+        serialized_data = [SimulationListItem.model_validate(item) for item in data]
+
+        return jsonify(
+            PaginatedResponse(
+                count=count, page=page, limit=limit, results=serialized_data
+            ).model_dump(mode="json")
+        )
 
     @requires_auth()
     def post(self, user: User):
