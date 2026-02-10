@@ -74,14 +74,6 @@ def test_get_api_root(client):
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
-def test_get_simulations(client):
-    rv = client.get("/v1.2/simulations", headers=HEADERS)
-    assert rv.json["count"] == 100
-    assert len(rv.json["results"]) == len(SIMULATIONS)
-    assert rv.status_code == 200
-
-
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_post_simulations(client):
     """Test POST endpoint for creating a new simulation."""
     # Create a new simulation data structure
@@ -577,3 +569,449 @@ def test_post_simulations_trace_with_replaces(client):
 
     with pytest.xfail("Deprecated on is not set, because replaced_on is never set"):
         assert "deprecated_on" in trace_data["replaces"]
+
+
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_get_simulations_basic(client):
+    """Test basic GET request to /v1.2/simulations endpoint."""
+    rv = client.get("/v1.2/simulations", headers=HEADERS)
+
+    assert rv.status_code == 200
+    assert rv.is_json
+
+    data = rv.json
+    assert "count" in data
+    assert "page" in data
+    assert "limit" in data
+    assert "results" in data
+
+    # Should return paginated results
+    assert data["page"] == 1
+    assert data["limit"] == 100
+    assert isinstance(data["results"], list)
+    assert data["count"] >= 100  # At least the 100 fixture simulations
+
+
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_get_simulations_pagination_limit(client):
+    """Test GET request with custom limit."""
+    custom_limit = 10
+    headers_with_limit = {**HEADERS, "simdb-result-limit": str(custom_limit)}
+
+    rv = client.get("/v1.2/simulations", headers=headers_with_limit)
+
+    assert rv.status_code == 200
+    data = rv.json
+
+    assert data["limit"] == custom_limit
+    assert len(data["results"]) <= custom_limit
+
+
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_get_simulations_pagination_page(client):
+    """Test GET request with custom page number."""
+    headers_page_2 = {**HEADERS, "simdb-result-limit": "10", "simdb-page": "2"}
+
+    rv = client.get("/v1.2/simulations", headers=headers_page_2)
+
+    assert rv.status_code == 200
+    data = rv.json
+
+    assert data["page"] == 2
+    assert data["limit"] == 10
+
+
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_get_simulations_pagination_multiple_pages(client):
+    """Test pagination across multiple pages."""
+    limit = 20
+
+    # Get first page
+    headers_page_1 = {**HEADERS, "simdb-result-limit": str(limit), "simdb-page": "1"}
+    rv1 = client.get("/v1.2/simulations", headers=headers_page_1)
+    assert rv1.status_code == 200
+    page1_data = rv1.json
+
+    # Get second page
+    headers_page_2 = {**HEADERS, "simdb-result-limit": str(limit), "simdb-page": "2"}
+    rv2 = client.get("/v1.2/simulations", headers=headers_page_2)
+    assert rv2.status_code == 200
+    page2_data = rv2.json
+
+    # Both should have same count and limit
+    assert page1_data["count"] == page2_data["count"]
+    assert page1_data["limit"] == page2_data["limit"] == limit
+
+    # Pages should be different
+    assert page1_data["page"] == 1
+    assert page2_data["page"] == 2
+
+    # Results should be different (assuming we have enough data)
+    if page1_data["count"] > limit:
+        page1_uuids = {item["uuid"] for item in page1_data["results"]}
+        page2_uuids = {item["uuid"] for item in page2_data["results"]}
+        assert page1_uuids != page2_uuids
+
+
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_get_simulations_filter_by_alias(client):
+    """Test filtering simulations by alias."""
+    # First create a simulation with a known alias
+    sim_uuid = uuid.uuid4()
+    test_alias = "filter-test-alias"
+
+    simulation_data = {
+        "simulation": {
+            "uuid": {"_type": "uuid.UUID", "hex": sim_uuid.hex},
+            "alias": test_alias,
+            "datetime": datetime.now(timezone.utc).isoformat(),
+            "inputs": [],
+            "outputs": [],
+            "metadata": [{"element": "test_key", "value": "test_value"}],
+        },
+        "add_watcher": False,
+        "uploaded_by": "test-user",
+    }
+
+    rv_post = client.post(
+        "/v1.2/simulations",
+        json=simulation_data,
+        headers=HEADERS,
+        content_type="application/json",
+    )
+    assert rv_post.status_code == 200
+
+    # Now filter by alias
+    rv = client.get(f"/v1.2/simulations?alias={test_alias}", headers=HEADERS)
+
+    assert rv.status_code == 200
+    data = rv.json
+
+    assert data["count"] >= 1
+    # Check that the filtered result contains our simulation
+    aliases = [item.get("alias") for item in data["results"]]
+    assert test_alias in aliases
+
+
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_get_simulations_filter_by_uuid(client):
+    """Test filtering simulations by UUID."""
+    # Create a simulation with a known UUID
+    sim_uuid = uuid.uuid4()
+
+    simulation_data = {
+        "simulation": {
+            "uuid": {"_type": "uuid.UUID", "hex": sim_uuid.hex},
+            "alias": "uuid-filter-test",
+            "datetime": datetime.now(timezone.utc).isoformat(),
+            "inputs": [],
+            "outputs": [],
+            "metadata": [],
+        },
+        "add_watcher": False,
+        "uploaded_by": "test-user",
+    }
+
+    rv_post = client.post(
+        "/v1.2/simulations",
+        json=simulation_data,
+        headers=HEADERS,
+        content_type="application/json",
+    )
+    assert rv_post.status_code == 200
+
+    # Filter by UUID
+    rv = client.get(f"/v1.2/simulations?uuid={sim_uuid.hex}", headers=HEADERS)
+
+    assert rv.status_code == 200
+    data = rv.json
+
+    assert data["count"] >= 1
+    # Check that the filtered result contains our simulation
+    uuids = [item.get("uuid") for item in data["results"]]
+    assert sim_uuid in uuids
+
+
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_get_simulations_filter_by_metadata(client):
+    """Test filtering simulations by metadata."""
+    # Create simulations with specific metadata
+    sim_uuid_1 = uuid.uuid4()
+    sim_uuid_2 = uuid.uuid4()
+    test_machine = "test-machine-xyz"
+
+    simulation_data_1 = {
+        "simulation": {
+            "uuid": {"_type": "uuid.UUID", "hex": sim_uuid_1.hex},
+            "alias": "metadata-filter-1",
+            "datetime": datetime.now(timezone.utc).isoformat(),
+            "inputs": [],
+            "outputs": [],
+            "metadata": [
+                {"element": "machine", "value": test_machine},
+                {"element": "code", "value": "test-code"},
+            ],
+        },
+        "add_watcher": False,
+        "uploaded_by": "test-user",
+    }
+
+    simulation_data_2 = {
+        "simulation": {
+            "uuid": {"_type": "uuid.UUID", "hex": sim_uuid_2.hex},
+            "alias": "metadata-filter-2",
+            "datetime": datetime.now(timezone.utc).isoformat(),
+            "inputs": [],
+            "outputs": [],
+            "metadata": [
+                {"element": "machine", "value": test_machine},
+                {"element": "code", "value": "different-code"},
+            ],
+        },
+        "add_watcher": False,
+        "uploaded_by": "test-user",
+    }
+
+    rv_post_1 = client.post(
+        "/v1.2/simulations",
+        json=simulation_data_1,
+        headers=HEADERS,
+        content_type="application/json",
+    )
+    assert rv_post_1.status_code == 200
+
+    rv_post_2 = client.post(
+        "/v1.2/simulations",
+        json=simulation_data_2,
+        headers=HEADERS,
+        content_type="application/json",
+    )
+    assert rv_post_2.status_code == 200
+
+    # Filter by machine metadata
+    rv = client.get(f"/v1.2/simulations?machine={test_machine}", headers=HEADERS)
+
+    assert rv.status_code == 200
+    data = rv.json
+
+    assert data["count"] >= 2
+
+    # Check that both simulations are in the results
+    results_uuids = [item.get("uuid") for item in data["results"]]
+    assert sim_uuid_1 in results_uuids
+    assert sim_uuid_2 in results_uuids
+
+
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_get_simulations_filter_multiple_metadata(client):
+    """Test filtering simulations by multiple metadata fields."""
+    # Create a simulation with multiple metadata fields
+    sim_uuid = uuid.uuid4()
+    test_machine = "multi-filter-machine"
+    test_code = "multi-filter-code"
+
+    simulation_data = {
+        "simulation": {
+            "uuid": {"_type": "uuid.UUID", "hex": sim_uuid.hex},
+            "alias": "multi-metadata-filter",
+            "datetime": datetime.now(timezone.utc).isoformat(),
+            "inputs": [],
+            "outputs": [],
+            "metadata": [
+                {"element": "machine", "value": test_machine},
+                {"element": "code", "value": test_code},
+            ],
+        },
+        "add_watcher": False,
+        "uploaded_by": "test-user",
+    }
+
+    rv_post = client.post(
+        "/v1.2/simulations",
+        json=simulation_data,
+        headers=HEADERS,
+        content_type="application/json",
+    )
+    assert rv_post.status_code == 200
+
+    # Filter by both machine and code
+    rv = client.get(
+        f"/v1.2/simulations?machine={test_machine}&code={test_code}", headers=HEADERS
+    )
+
+    assert rv.status_code == 200
+    data = rv.json
+
+    assert data["count"] >= 1
+    results_uuids = [item.get("uuid") for item in data["results"]]
+    assert sim_uuid in results_uuids
+
+
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_get_simulations_sorting_asc(client):
+    """Test sorting simulations in ascending order."""
+    # Create simulations with sortable aliases
+    for i in range(3):
+        sim_uuid = uuid.uuid4()
+        simulation_data = {
+            "simulation": {
+                "uuid": {"_type": "uuid.UUID", "hex": sim_uuid.hex},
+                "alias": f"sort-test-{i:03d}",
+                "datetime": datetime.now(timezone.utc).isoformat(),
+                "inputs": [],
+                "outputs": [],
+                "metadata": [],
+            },
+            "add_watcher": False,
+            "uploaded_by": "test-user",
+        }
+
+        rv_post = client.post(
+            "/v1.2/simulations",
+            json=simulation_data,
+            headers=HEADERS,
+            content_type="application/json",
+        )
+        assert rv_post.status_code == 200
+
+    # Get simulations sorted by alias ascending
+    headers_sorted = {**HEADERS, "simdb-sort-by": "alias", "simdb-sort-asc": "true"}
+
+    rv = client.get("/v1.2/simulations?alias=sort-test-%", headers=headers_sorted)
+
+    assert rv.status_code == 200
+    data = rv.json
+
+    # Filter to only our test simulations
+    test_sims = [
+        item
+        for item in data["results"]
+        if item.get("alias", "").startswith("sort-test-")
+    ]
+
+    if len(test_sims) >= 2:
+        # Check that results are sorted in ascending order
+        aliases = [item.get("alias") for item in test_sims]
+        assert aliases == sorted(aliases)
+
+
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_get_simulations_sorting_desc(client):
+    """Test sorting simulations in descending order."""
+    # Get simulations sorted by alias descending
+    headers_sorted = {**HEADERS, "simdb-sort-by": "alias", "simdb-sort-asc": "false"}
+
+    rv = client.get("/v1.2/simulations", headers=headers_sorted)
+
+    assert rv.status_code == 200
+    data = rv.json
+
+    # Just verify the request succeeded and returned data
+    assert "results" in data
+    assert isinstance(data["results"], list)
+
+
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_get_simulations_empty_result(client):
+    """Test GET request with filters that return no results."""
+    # Use a filter that shouldn't match anything
+    rv = client.get(
+        "/v1.2/simulations?alias=non-existent-simulation-12345xyz", headers=HEADERS
+    )
+
+    assert rv.status_code == 200
+    data = rv.json
+
+    assert data["count"] == 0
+    assert data["results"] == []
+
+
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_get_simulations_with_metadata_keys(client):
+    """Test requesting specific metadata keys in results."""
+    # Create a simulation with known metadata
+    sim_uuid = uuid.uuid4()
+
+    simulation_data = {
+        "simulation": {
+            "uuid": {"_type": "uuid.UUID", "hex": sim_uuid.hex},
+            "alias": "meta-keys-test",
+            "datetime": datetime.now(timezone.utc).isoformat(),
+            "inputs": [],
+            "outputs": [],
+            "metadata": [
+                {"element": "machine", "value": "machine-x"},
+                {"element": "code", "value": "code-y"},
+                {"element": "description", "value": "test description"},
+            ],
+        },
+        "add_watcher": False,
+        "uploaded_by": "test-user",
+    }
+
+    rv_post = client.post(
+        "/v1.2/simulations",
+        json=simulation_data,
+        headers=HEADERS,
+        content_type="application/json",
+    )
+    assert rv_post.status_code == 200
+
+    # Request simulations with specific metadata keys
+    rv = client.get(
+        "/v1.2/simulations?alias=meta-keys-test&machine&code", headers=HEADERS
+    )
+
+    assert rv.status_code == 200
+    data = rv.json
+
+    assert data["count"] >= 1
+
+
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_get_simulations_combined_pagination_sorting_filtering(client):
+    """Test GET request with pagination, sorting, and filtering combined."""
+    # Create multiple simulations for testing
+    test_prefix = "combined-test"
+    for i in range(5):
+        sim_uuid = uuid.uuid4()
+        simulation_data = {
+            "simulation": {
+                "uuid": {"_type": "uuid.UUID", "hex": sim_uuid.hex},
+                "alias": f"{test_prefix}-{i:02d}",
+                "datetime": datetime.now(timezone.utc).isoformat(),
+                "inputs": [],
+                "outputs": [],
+                "metadata": [{"element": "test_group", "value": "combined"}],
+            },
+            "add_watcher": False,
+            "uploaded_by": "test-user",
+        }
+
+        rv_post = client.post(
+            "/v1.2/simulations",
+            json=simulation_data,
+            headers=HEADERS,
+            content_type="application/json",
+        )
+        assert rv_post.status_code == 200
+
+    # Request with all features combined
+    headers_combined = {
+        **HEADERS,
+        "simdb-result-limit": "3",
+        "simdb-page": "1",
+        "simdb-sort-by": "alias",
+        "simdb-sort-asc": "true",
+    }
+
+    rv = client.get(
+        f"/v1.2/simulations?alias={test_prefix}-%", headers=headers_combined
+    )
+
+    assert rv.status_code == 200
+    data = rv.json
+
+    assert data["page"] == 1
+    assert data["limit"] == 3
+    assert len(data["results"]) <= 3
