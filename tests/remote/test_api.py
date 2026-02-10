@@ -160,7 +160,7 @@ def test_post_simulations(client):
 def test_post_simulations_with_alias_dash(client):
     """Test POST endpoint with alias ending in dash (auto-increment)."""
     sim_uuid = uuid.uuid4()
-    
+
     simulation_data = {
         "simulation": {
             "uuid": {"_type": "uuid.UUID", "hex": sim_uuid.hex},
@@ -187,7 +187,7 @@ def test_post_simulations_with_alias_dash(client):
     rv_get = client.get(f"/v1.2/simulation/{sim_uuid.hex}", headers=HEADERS)
     assert rv_get.status_code == 200
     assert rv_get.json["alias"] == "dashtest-1"
-    
+
     # Check seqid metadata was added
     metadata = rv_get.json["metadata"]
     seqid_meta = [m for m in metadata if m["element"] == "seqid"]
@@ -199,7 +199,7 @@ def test_post_simulations_with_alias_dash(client):
 def test_post_simulations_with_alias_hash(client):
     """Test POST endpoint with alias ending in hash (auto-increment)."""
     sim_uuid = uuid.uuid4()
-    
+
     simulation_data = {
         "simulation": {
             "uuid": {"_type": "uuid.UUID", "hex": sim_uuid.hex},
@@ -226,7 +226,7 @@ def test_post_simulations_with_alias_hash(client):
     rv_get = client.get(f"/v1.2/simulation/{sim_uuid.hex}", headers=HEADERS)
     assert rv_get.status_code == 200
     assert rv_get.json["alias"] == "hashtest#1"
-    
+
     # Check seqid metadata was added
     metadata = rv_get.json["metadata"]
     seqid_meta = [m for m in metadata if m["element"] == "seqid"]
@@ -286,7 +286,7 @@ def test_post_simulations_alias_increment_sequence(client):
     # Verify aliases were incremented
     rv_get1 = client.get(f"/v1.2/simulation/{sim_uuid_1.hex}", headers=HEADERS)
     assert rv_get1.json["alias"] == "sequence-1"
-    
+
     rv_get2 = client.get(f"/v1.2/simulation/{sim_uuid_2.hex}", headers=HEADERS)
     assert rv_get2.json["alias"] == "sequence-2"
 
@@ -295,7 +295,7 @@ def test_post_simulations_alias_increment_sequence(client):
 def test_post_simulations_no_alias(client):
     """Test POST endpoint with no alias provided (should use uuid.hex)."""
     sim_uuid = uuid.uuid4()
-    
+
     simulation_data = {
         "simulation": {
             "uuid": {"_type": "uuid.UUID", "hex": sim_uuid.hex},
@@ -379,11 +379,11 @@ def test_post_simulations_with_replaces(client):
     rv_old_get = client.get(f"/v1.2/simulation/{old_sim_uuid.hex}", headers=HEADERS)
     assert rv_old_get.status_code == 200
     old_metadata = rv_old_get.json["metadata"]
-    
+
     status_meta = [m for m in old_metadata if m["element"] == "status"]
     assert len(status_meta) == 1
     assert status_meta[0]["value"].lower() == "deprecated"
-    
+
     # Check replaced_by metadata was added
     replaced_by_meta = [m for m in old_metadata if m["element"] == "replaced_by"]
     assert len(replaced_by_meta) == 1
@@ -393,7 +393,7 @@ def test_post_simulations_with_replaces(client):
     rv_new_get = client.get(f"/v1.2/simulation/{new_sim_uuid.hex}", headers=HEADERS)
     assert rv_new_get.status_code == 200
     new_metadata = rv_new_get.json["metadata"]
-    
+
     replaces_meta = [m for m in new_metadata if m["element"] == "replaces"]
     assert len(replaces_meta) == 1
     assert replaces_meta[0]["value"] == old_sim_uuid.hex
@@ -405,7 +405,7 @@ def test_post_simulations_replaces_nonexistent(client):
     # Create simulation that tries to replace a non-existent simulation
     sim_uuid = uuid.uuid4()
     fake_uuid = uuid.uuid4()
-    
+
     simulation_data = {
         "simulation": {
             "uuid": {"_type": "uuid.UUID", "hex": sim_uuid.hex},
@@ -429,7 +429,7 @@ def test_post_simulations_replaces_nonexistent(client):
         content_type="application/json",
     )
     assert rv.status_code == 200
-    
+
     # Verify the new simulation was created
     rv_get = client.get(f"/v1.2/simulation/{sim_uuid.hex}", headers=HEADERS)
     assert rv_get.status_code == 200
@@ -440,7 +440,7 @@ def test_post_simulations_replaces_nonexistent(client):
 def test_post_simulations_with_watcher(client):
     """Test POST endpoint with add_watcher set to true."""
     sim_uuid = uuid.uuid4()
-    
+
     simulation_data = {
         "simulation": {
             "uuid": {"_type": "uuid.UUID", "hex": sim_uuid.hex},
@@ -465,7 +465,7 @@ def test_post_simulations_with_watcher(client):
     # Verify the simulation was created
     rv_get = client.get(f"/v1.2/simulation/{sim_uuid.hex}", headers=HEADERS)
     assert rv_get.status_code == 200
-    
+
     # Note: We can't easily verify watchers were added without accessing the db directly
     # but we can verify the request was successful and uploaded_by metadata is present
     metadata = rv_get.json["metadata"]
@@ -478,7 +478,7 @@ def test_post_simulations_with_watcher(client):
 def test_post_simulations_uploaded_by(client):
     """Test POST endpoint with uploaded_by field."""
     sim_uuid = uuid.uuid4()
-    
+
     simulation_data = {
         "simulation": {
             "uuid": {"_type": "uuid.UUID", "hex": sim_uuid.hex},
@@ -566,7 +566,7 @@ def test_post_simulations_trace_with_replaces(client):
     rv_trace = client.get(f"/v1.2/trace/{new_sim_uuid.hex}", headers=HEADERS)
     assert rv_trace.status_code == 200
     trace_data = rv_trace.json
-    
+
     # Verify trace includes replaces information
     assert "replaces" in trace_data
 
@@ -574,6 +574,6 @@ def test_post_simulations_trace_with_replaces(client):
     assert replaces_uuid == old_sim_uuid
     assert "replaces_reason" in trace_data
     assert trace_data["replaces_reason"] == "New features"
-    
+
     with pytest.xfail("Deprecated on is not set, because replaced_on is never set"):
         assert "deprecated_on" in trace_data["replaces"]

@@ -42,7 +42,8 @@ def _update_simulation_status(
 ) -> None:
     old_status = simulation.status
     simulation.status = status
-    if status != old_status and len(simulation.watchers) > 0:
+    watchers_list = list(simulation.watchers)
+    if status != old_status and len(watchers_list) > 0:
         server = EmailServer(current_app.simdb_config)
         msg = f"""\
 Simulation status changed from {old_status} to {status}.
@@ -51,7 +52,7 @@ Updated by {user}.
 
 Note: please don't reply to this email, replies to this address are not monitored.
 """
-        to_addresses = [w.email for w in simulation.watchers]
+        to_addresses = [w.email for w in watchers_list]
         if to_addresses:
             if simulation.alias is None or simulation.alias == "":
                 server.send_message(
@@ -297,7 +298,7 @@ class SimulationList(Resource):
 
             simulation.set_meta("uploaded_by", uploaded_by)
 
-            if d.add_watcher:
+            if d.add_watcher and user.email:
                 simulation.watchers.append(
                     models_watcher.Watcher(
                         user.name, user.email, models_watcher.Notification.ALL
