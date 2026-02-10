@@ -1,9 +1,11 @@
 from datetime import datetime as dt
 from datetime import timezone
-from typing import Any, List, Optional
+from typing import Annotated, Any, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PlainSerializer
+
+HexUUID = Annotated[UUID, PlainSerializer(lambda x: x.hex, return_type=str)]
 
 
 class FileData(BaseModel):
@@ -37,3 +39,14 @@ class SimulationPostData(BaseModel):
     simulation: SimulationData
     add_watcher: bool
     uploaded_by: Optional[str]
+
+
+class ValidationResult(BaseModel):
+    passed: bool
+    error: Optional[str]
+
+
+class SimulationPostResponse(BaseModel):
+    ingested: HexUUID
+    error: Optional[str]
+    validation: Optional[ValidationResult]

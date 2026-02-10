@@ -25,7 +25,11 @@ from simdb.remote.core.cache import cache, cache_key, clear_cache
 from simdb.remote.core.errors import error
 from simdb.remote.core.path import find_common_root, secure_path
 from simdb.remote.core.typing import current_app
-from simdb.remote.models import SimulationPostData
+from simdb.remote.models import (
+    SimulationPostData,
+    SimulationPostResponse,
+    ValidationResult,
+)
 from simdb.uri import URI
 from simdb.validation import ValidationError, Validator
 from simdb.validation.file import find_file_validator
@@ -57,7 +61,7 @@ Note: please don't reply to this email, replies to this address are not monitore
                 server.send_message(f"Simulation {simulation.alias}", msg, to_addresses)
 
 
-def _validate(simulation, user) -> Dict:
+def _validate(simulation, user) -> ValidationResult:
     schemas = Validator.validation_schemas(current_app.simdb_config, simulation)
     try:
         for schema in schemas:
@@ -67,10 +71,7 @@ def _validate(simulation, user) -> Dict:
             )
     except ValidationError as err:
         _update_simulation_status(simulation, models_sim.Simulation.Status.FAILED, user)
-        return {
-            "passed": False,
-            "error": str(err),
-        }
+        return ValidationResult(passed=False, error=str(err))
 
     file_validator_type = current_app.simdb_config.get_string_option(
         "file_validation.type", default=None
@@ -90,16 +91,11 @@ def _validate(simulation, user) -> Dict:
                     _update_simulation_status(
                         simulation, models_sim.Simulation.Status.FAILED, user
                     )
-                    return {
-                        "passed": False,
-                        "error": str(err),
-                    }
+                    return ValidationResult(passed=False, error=str(err))
         else:
             error("Invalid file validator specified in configuration")
 
-    return {
-        "passed": True,
-    }
+    return ValidationResult(passed=True, error=None)
 
 
 def _set_alias(alias: str):
@@ -375,29 +371,32 @@ class SimulationList(Resource):
                             path = Path(sim_file.uri.query["path"])
                             sim_file.uri = convert_uri(sim_file.uri, path, config)
 
-            result = {
-                "ingested": simulation.uuid.hex,
-            }
+            result = SimulationPostResponse(
+                ingested=simulation.uuid, error=None, validation=None
+            )
+
+            error_on_fail = current_app.simdb_config.get_option(
+                "validation.error_on_fail", default=False
+            )
 
             if current_app.simdb_config.get_option(
                 "validation.auto_validate", default=False
             ):
-                result["validation"] = _validate(simulation, user)
+                result.validation = _validate(simulation, user)
 
-            if current_app.simdb_config.get_option(
-                "validation.error_on_fail", default=False
-            ):
-                if simulation.status == models_sim.Simulation.Status.NOT_VALIDATED:
-                    raise Exception(
-                        "Validation config option error_on_fail=True without "
-                        "auto_validate=True."
+                if not result.validation.passed and error_on_fail:
+                    result.error = (
+                        f"Simulation validation failed and server has "
+                        f"error_on_fail=True.\n{result.validation.error}"
                     )
-                elif simulation.status == models_sim.Simulation.Status.FAILED:
-                    result["error"] = f"""Simulation validation failed and server has
-                    error_on_fail=True.\n{result["validation"]["error"]}"""
                     response = jsonify(result)
                     response.status_code = 400
                     return response
+            elif error_on_fail:
+                raise RuntimeError(
+                    "Validation config option error_on_fail=True without "
+                    "auto_validate=True."
+                )
 
             replaces = simulation.find_meta("replaces")
             if (
@@ -427,7 +426,7 @@ class SimulationList(Resource):
             with contextlib.suppress(OSError):
                 create_alias_dir(simulation)
 
-            return jsonify(result)
+            return jsonify(result.model_dump(mode="json"))
         except (DatabaseError, ValueError, pydantic.ValidationError) as err:
             return error(str(err))
 
