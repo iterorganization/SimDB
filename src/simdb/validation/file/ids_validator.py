@@ -1,10 +1,15 @@
 from pathlib import Path
 
-from imas_validator.report.validationReportGenerator import (
-    ValidationReportGenerator,
-)
-from imas_validator.validate.validate import validate
-from imas_validator.validate_options import RuleFilter, ValidateOptions
+try:
+    from imas_validator.report.validationReportGenerator import (
+        ValidationReportGenerator,
+    )
+    from imas_validator.validate.validate import validate
+    from imas_validator.validate_options import RuleFilter, ValidateOptions
+
+    imas_validator_available = True
+except ImportError:
+    imas_validator_available = False
 
 from simdb.uri import URI
 from simdb.validation.validator import ValidationError
@@ -14,6 +19,10 @@ from .validator_base import FileValidatorBase
 
 class IdsValidator(FileValidatorBase):
     def configure(self, arguments: dict):
+        if not imas_validator_available:
+            raise RuntimeError(
+                "IMAS-validator not available, please install this optional dependency"
+            )
         # needs to be able to configure from both the [file_validation] server
         # configuration section and the dictionary returned from options()
         list_of_rulesets = []
@@ -64,6 +73,10 @@ class IdsValidator(FileValidatorBase):
         }
 
     def validate_uri(self, uri: URI, validate_options):
+        if not imas_validator_available:
+            raise RuntimeError(
+                "IMAS-validator not available, please install this optional dependency"
+            )
         if uri.scheme != "imas":
             # Skip non IMAS data
             return
