@@ -15,7 +15,7 @@ class Authenticator(abc.ABC):
     """
 
     Authenticators: ClassVar[Dict[str, Type["Authenticator"]]] = {}
-    Name: str = NotImplemented
+    Name: str
 
     @abc.abstractmethod
     def authenticate(

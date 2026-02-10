@@ -59,7 +59,7 @@ class Authority:
 
     __slots__ = ("auth", "host", "port")
 
-    def __init__(self, host: Optional[int], port: Optional[int], auth: Optional[str]):
+    def __init__(self, host: Optional[str], port: Optional[int], auth: Optional[str]):
         self.host: Optional[str] = host
         self.port: Optional[int] = port
         self.auth: Optional[str] = auth

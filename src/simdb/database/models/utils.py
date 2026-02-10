@@ -33,14 +33,22 @@ def _unflatten_value(
     tail = key
     is_index, head, index = _parse_index(head)
     if tail:
-        if head not in out_dict:
-            out_dict[head] = [] if is_index else {}
-        el = out_dict[head]
         if is_index:
+            if head not in out_dict:
+                out_dict[head] = []
+            el = out_dict[head]
+            assert isinstance(el, list)
             while index > len(el):
                 el.append({})
-            el = el[index - 1]
-        _unflatten_value(el, tail, value)
+            next_el = el[index - 1]
+            assert isinstance(next_el, dict)
+            _unflatten_value(next_el, tail, value)
+        else:
+            if head not in out_dict:
+                out_dict[head] = {}
+            el = out_dict[head]
+            assert isinstance(el, dict)
+            _unflatten_value(el, tail, value)
     else:
         out_dict[head] = value
 

@@ -31,7 +31,7 @@ class LdapAuthenticator(Authenticator):
         ldap_host = config.get_option("authentication.ldap_server")
         try:
             conn = ldap.initialize(ldap_host)
-        except ldap.LDAPError as err:
+        except ldap.LDAPError as err:  # ty: ignore[unresolved-attribute]
             raise AuthenticationError("failed to connect to ldap server") from err
 
         auth = request.authorization
@@ -41,10 +41,10 @@ class LdapAuthenticator(Authenticator):
         username = auth.username
         password = auth.password
 
-        ldap_bind = config.get_option("authentication.ldap_bind")
+        ldap_bind: str = config.get_string_option("authentication.ldap_bind")
         try:
             conn.simple_bind_s(ldap_bind.format(username=username), password)
-        except ldap.INVALID_CREDENTIALS:
+        except ldap.INVALID_CREDENTIALS:  # ty: ignore[unresolved-attribute]
             return None
 
         ldap_query_user = config.get_option(
@@ -58,12 +58,12 @@ class LdapAuthenticator(Authenticator):
             conn.unbind_s()
             try:
                 conn = ldap.initialize(ldap_host)
-            except ldap.LDAPError as err:
+            except ldap.LDAPError as err:  # ty: ignore[unresolved-attribute]
                 raise AuthenticationError("failed to connect to ldap server") from err
 
             try:
                 conn.simple_bind_s(ldap_query_user, ldap_query_password)
-            except ldap.INVALID_CREDENTIALS as err:
+            except ldap.INVALID_CREDENTIALS as err:  # ty: ignore[unresolved-attribute]
                 raise AuthenticationError(
                     "failed to bind to LDAP server for user query"
                 ) from err
@@ -79,7 +79,7 @@ class LdapAuthenticator(Authenticator):
 
         results = conn.search_s(
             ldap_query_base,
-            ldap.SCOPE_SUBTREE,
+            ldap.SCOPE_SUBTREE,  # ty: ignore[unresolved-attribute]
             ldap_query_filter.format(username=username),
         )
         try:
