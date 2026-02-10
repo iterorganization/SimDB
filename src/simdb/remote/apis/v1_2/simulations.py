@@ -293,14 +293,9 @@ class SimulationList(Resource):
             # Simulation Upload (Push) Date
             simulation.datetime = datetime.datetime.now()
 
-            if d.uploaded_by is not None:
-                simulation.set_meta("uploaded_by", d.uploaded_by)
-            elif user.email is not None:
-                simulation.set_meta("uploaded_by", user.email)
-            elif user.name is not None:
-                simulation.set_meta("uploaded_by", user.name)
-            else:
-                simulation.set_meta("uploaded_by", "anonymous")
+            uploaded_by = d.uploaded_by or user.email or user.name or "anonymous"
+
+            simulation.set_meta("uploaded_by", uploaded_by)
 
             if d.add_watcher:
                 simulation.watchers.append(
@@ -310,16 +305,12 @@ class SimulationList(Resource):
                 )
 
             if d.simulation.alias is not None:
-                alias = d.simulation.alias
-                if alias is not None:
-                    (updated_alias, next_id) = _set_alias(alias)
-                    if updated_alias:
-                        simulation.meta.append(models_meta.MetaData("seqid", next_id))
-                        simulation.alias = updated_alias
-                    else:
-                        simulation.alias = alias
+                (updated_alias, next_id) = _set_alias(d.simulation.alias)
+                if updated_alias:
+                    simulation.meta.append(models_meta.MetaData("seqid", next_id))
+                    simulation.alias = updated_alias
                 else:
-                    simulation.alias = simulation.uuid.hex
+                    simulation.alias = d.simulation.alias
             else:
                 simulation.alias = simulation.uuid.hex
 
@@ -328,15 +319,19 @@ class SimulationList(Resource):
             common_root = find_common_root(sim_file_paths)
 
             config = current_app.simdb_config
+            copy_files = config.get_option("server.copy_files", default=True)
+            imas_remote_host = config.get_option(
+                "server.imas_remote_host", default=None
+            )
 
-            if config.get_option("server.copy_files", default=True):
+            if copy_files or imas_remote_host:
                 staging_dir = (
                     Path(config.get_string_option("server.upload_folder"))
                     / simulation.uuid.hex
                 )
 
                 for sim_file in files:
-                    if sim_file.uri.scheme == "file":
+                    if copy_files and sim_file.uri.scheme == "file":
                         path = secure_path(sim_file.uri.path, common_root, staging_dir)
                         if not path.exists():
                             raise ValueError(
@@ -344,32 +339,16 @@ class SimulationList(Resource):
                             )
                         sim_file.uri = URI(scheme="file", path=path)
                     elif sim_file.uri.scheme == "imas":
-                        path = secure_path(
-                            Path(sim_file.uri.query["path"]),
-                            common_root,
-                            staging_dir,
-                            is_file=common_root is not None,
-                        )
-                        sim_file.uri = convert_uri(sim_file.uri, path, config)
-            elif config.get_option("server.imas_remote_host", default=None):
-                staging_dir = (
-                    Path(config.get_string_option("server.upload_folder"))
-                    / simulation.uuid.hex
-                )
-
-                for sim_file in files:
-                    if sim_file.uri.scheme == "imas":
-                        if config.get_option("server.copy_files", default=True):
+                        if copy_files:
                             path = secure_path(
                                 Path(sim_file.uri.query["path"]),
                                 common_root,
                                 staging_dir,
                                 is_file=common_root is not None,
                             )
-                            sim_file.uri = convert_uri(sim_file.uri, path, config)
                         else:
                             path = Path(sim_file.uri.query["path"])
-                            sim_file.uri = convert_uri(sim_file.uri, path, config)
+                        sim_file.uri = convert_uri(sim_file.uri, path, config)
 
             result = SimulationPostResponse(
                 ingested=simulation.uuid, error=None, validation=None
@@ -398,22 +377,19 @@ class SimulationList(Resource):
                     "auto_validate=True."
                 )
 
+            disable_replaces = config.get_option(
+                "development.disable_replaces", default=False
+            )
             replaces = simulation.find_meta("replaces")
-            if (
-                not current_app.simdb_config.get_option(
-                    "development.disable_replaces", default=False
-                )
-                and replaces
-                and replaces[0].value
-            ):
+
+            if not disable_replaces and replaces and replaces[0].value:
                 sim_id = replaces[0].value
                 try:
                     replaces_sim = current_app.db.get_simulation(sim_id)
                 except DatabaseError:
                     replaces_sim = None
-                if replaces_sim is None:
-                    pass
-                else:
+
+                if replaces_sim is not None:
                     _update_simulation_status(
                         replaces_sim, models_sim.Simulation.Status.DEPRECATED, user
                     )
