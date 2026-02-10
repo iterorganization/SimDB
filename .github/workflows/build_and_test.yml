@@ -35,6 +35,16 @@ jobs:
           pip install pytest-xdist
           pip install --group dev .
 
+      - name: Check formatting
+        run: |
+          source venv/bin/activate
+          python -m ruff format --check
+
+      - name: Check linting
+        run: |
+          source venv/bin/activate
+          python -m ruff check
+
       - name: Run tests
         run: |
           source venv/bin/activate

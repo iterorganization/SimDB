@@ -116,6 +116,7 @@ write_to = "src/simdb/_version.py"
 local_scheme = "dirty-tag"
 
 [tool.ruff]
+extend-exclude = ["scripts", "sql", "docs", "src/simdb/_version.py"]
 line-length = 88
 indent-width = 4
 
@@ -163,7 +164,7 @@ testpaths = [
 dev = [
     "pytest>=8.3.5",
     "pytest-cov>=5.0.0",
-    "ruff>=0.14.9",
+    "ruff>=0.15.0",
     "ty>=0.0.13",
     "imas-simdb[server, imas-validator, postgres, auth]"
 ]
