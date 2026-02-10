@@ -1,6 +1,6 @@
 from datetime import datetime as dt
 from datetime import timezone
-from typing import Annotated, Any, Generic, List, Optional, TypeVar
+from typing import Annotated, Any, Generic, List, Optional, TypeVar, Union
 from uuid import UUID
 
 from pydantic import BaseModel, BeforeValidator, Field, PlainSerializer
@@ -14,8 +14,6 @@ def _deserialize_custom_uuid(v: Any) -> UUID:
         return v
     if isinstance(v, dict) and "hex" in v:
         return UUID(hex=v["hex"])
-    if isinstance(v, str):
-        return UUID(v)
     raise ValueError(f"Cannot deserialize {v} to UUID")
 
 
@@ -41,7 +39,12 @@ class FileData(BaseModel):
 
 class MetadataData(BaseModel):
     element: str
-    value: Any
+    value: Union[CustomUUID, Any]
+
+
+class SimulationReference(BaseModel):
+    uuid: CustomUUID
+    alias: Optional[str]
 
 
 class SimulationData(BaseModel):
@@ -51,6 +54,11 @@ class SimulationData(BaseModel):
     inputs: List[FileData]
     outputs: List[FileData]
     metadata: List[MetadataData]
+
+
+class SimulationDataResponse(SimulationData):
+    parents: List[SimulationReference]
+    children: List[SimulationReference]
 
 
 class SimulationPostData(BaseModel):

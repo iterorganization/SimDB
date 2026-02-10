@@ -16,6 +16,7 @@ from sqlalchemy.orm import Bundle, joinedload, scoped_session, sessionmaker
 
 from simdb.config import Config
 from simdb.query import QueryType, query_compare
+from simdb.remote.models import SimulationReference
 
 from .models import Base
 from .models.file import File
@@ -571,6 +572,24 @@ class Database:
         )
         return [{"uuid": r.uuid, "alias": r.alias} for r in query.all()]
 
+    def get_simulation_parents_ref(
+        self, simulation: "Simulation"
+    ) -> List[SimulationReference]:
+        subquery = (
+            self.session.query(File.checksum)
+            .filter(File.checksum != "")
+            .filter(File.input_for.contains(simulation))
+            .subquery()
+        )
+        query = (
+            self.session.query(Simulation.uuid, Simulation.alias)
+            .join(Simulation.outputs)
+            .filter(File.checksum.in_(subquery))
+            .filter(Simulation.alias != simulation.alias)
+            .distinct()
+        )
+        return [SimulationReference(uuid=r.uuid, alias=r.alias) for r in query.all()]
+
     def get_simulation_children(self, simulation: "Simulation") -> List[dict]:
         subquery = (
             self.session.query(File.checksum)
@@ -586,6 +605,24 @@ class Database:
             .distinct()
         )
         return [{"uuid": r.uuid, "alias": r.alias} for r in query.all()]
+
+    def get_simulation_children_ref(
+        self, simulation: "Simulation"
+    ) -> List[SimulationReference]:
+        subquery = (
+            self.session.query(File.checksum)
+            .filter(File.checksum != "")
+            .filter(File.output_of.contains(simulation))
+            .subquery()
+        )
+        query = (
+            self.session.query(Simulation.uuid, Simulation.alias)
+            .join(Simulation.inputs)
+            .filter(File.checksum.in_(subquery))
+            .filter(Simulation.alias != simulation.alias)
+            .distinct()
+        )
+        return [SimulationReference(uuid=r.uuid, alias=r.alias) for r in query.all()]
 
     def get_file(self, file_uuid_str: str) -> "File":
         """

@@ -367,6 +367,27 @@ class Simulation(Base):
             ]
         return data
 
+    def to_model(
+        self, recurse: bool = False, meta_keys: Optional[List[str]] = None
+    ) -> SimulationData:
+        inputs = []
+        outputs = []
+        metadata = []
+        if recurse:
+            inputs = [f.to_model() for f in self.inputs]
+            outputs = [f.to_model() for f in self.outputs]
+            metadata = [m.to_model() for m in self.meta]
+        elif meta_keys:
+            metadata = [m.to_model() for m in self.meta if m.element in meta_keys]
+        return SimulationData(
+            uuid=self.uuid,
+            alias=self.alias,
+            datetime=self.datetime,
+            inputs=inputs,
+            outputs=outputs,
+            metadata=metadata,
+        )
+
     def meta_dict(self) -> Dict[str, Union[Dict, Any]]:
         meta = {m.element: m.value for m in self.meta}
         return unflatten_dict(meta)

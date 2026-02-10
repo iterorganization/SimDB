@@ -27,6 +27,7 @@ from simdb.remote.core.path import find_common_root, secure_path
 from simdb.remote.core.typing import current_app
 from simdb.remote.models import (
     PaginatedResponse,
+    SimulationDataResponse,
     SimulationListItem,
     SimulationPostData,
     SimulationPostResponse,
@@ -424,12 +425,14 @@ class Simulation(Resource):
         try:
             simulation = current_app.db.get_simulation(sim_id)
             if simulation:
-                sim_data = simulation.data(recurse=True)
-                sim_data["children"] = current_app.db.get_simulation_children(
-                    simulation
+                sim_data = simulation.to_model(recurse=True)
+                children = current_app.db.get_simulation_children_ref(simulation)
+                parents = current_app.db.get_simulation_parents_ref(simulation)
+                return jsonify(
+                    SimulationDataResponse(
+                        **sim_data.model_dump(), children=children, parents=parents
+                    ).model_dump(mode="json")
                 )
-                sim_data["parents"] = current_app.db.get_simulation_parents(simulation)
-                return jsonify(sim_data)
             return error("Simulation not found")
         except DatabaseError as err:
             return error(str(err))

@@ -157,3 +157,17 @@ class File(Base):
             "datetime": self.datetime.isoformat(),
         }
         return data
+
+    def to_model(self) -> FileData:
+        return FileData(
+            type=self.type.name,
+            uri=str(self.uri),
+            uuid=self.uuid,
+            checksum=self.checksum,
+            datetime=self.datetime,
+            usage=self.usage,
+            purpose=self.purpose,
+            sensitivity=self.sensitivity,
+            access=self.access,
+            embargo=self.embargo,
+        )

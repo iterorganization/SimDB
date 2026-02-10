@@ -45,5 +45,8 @@ class MetaData(Base):
         }
         return data
 
+    def to_model(self) -> MetadataData:
+        return MetadataData(element=self.element, value=self.value)
+
 
 Index("metadata_index", MetaData.sim_id, MetaData.element, unique=True)
