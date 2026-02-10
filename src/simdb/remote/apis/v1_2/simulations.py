@@ -7,6 +7,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, cast
 
+import pydantic
 from flask import json as flask_json  # fallback
 from flask import jsonify, request, send_file
 from flask_restx import Namespace, Resource
@@ -24,6 +25,7 @@ from simdb.remote.core.cache import cache, cache_key, clear_cache
 from simdb.remote.core.errors import error
 from simdb.remote.core.path import find_common_root, secure_path
 from simdb.remote.core.typing import current_app
+from simdb.remote.models import SimulationPostData
 from simdb.uri import URI
 from simdb.validation import ValidationError, Validator
 from simdb.validation.file import find_file_validator
@@ -155,7 +157,9 @@ def _build_trace(sim_id: str) -> Dict[str, Any]:
     return data
 
 
-def _get_json_aware(force: bool = False, silent: bool = False):
+def _get_json_aware(
+    force: bool = False, silent: bool = False
+) -> Optional[dict[str, Any]]:
     """
     Parse JSON like Flask's request.get_json, but handle Content-Encoding: gzip.
     - force/silent mimic request.get_json behavior.
@@ -286,37 +290,31 @@ class SimulationList(Resource):
             # It returns None if the content type is not application/json.
             # If silent=True, it returns None instead of raising an error.
             # If force=True, it ignores the content type check.
-            data = _get_json_aware()
-            if not data:
-                return error("Invalid or missing JSON data")
+            d = SimulationPostData.model_validate(_get_json_aware())
 
-            if "simulation" not in data:
-                return error("Simulation data not provided")
-
-            add_watcher = data.get("add_watcher", True)
-
-            simulation = models_sim.Simulation.from_data(data["simulation"])
+            simulation = models_sim.Simulation.from_data_model(d.simulation)
 
             # Simulation Upload (Push) Date
             simulation.datetime = datetime.datetime.now()
 
-            if data["uploaded_by"] is not None:
-                simulation.set_meta("uploaded_by", data["uploaded_by"])
+            if d.uploaded_by is not None:
+                simulation.set_meta("uploaded_by", d.uploaded_by)
             elif user.email is not None:
                 simulation.set_meta("uploaded_by", user.email)
             elif user.name is not None:
                 simulation.set_meta("uploaded_by", user.name)
             else:
                 simulation.set_meta("uploaded_by", "anonymous")
-            if add_watcher:
+
+            if d.add_watcher:
                 simulation.watchers.append(
                     models_watcher.Watcher(
                         user.name, user.email, models_watcher.Notification.ALL
                     )
                 )
 
-            if "alias" in data["simulation"]:
-                alias = data["simulation"]["alias"]
+            if d.simulation.alias is not None:
+                alias = d.simulation.alias
                 if alias is not None:
                     (updated_alias, next_id) = _set_alias(alias)
                     if updated_alias:
@@ -430,7 +428,7 @@ class SimulationList(Resource):
                 create_alias_dir(simulation)
 
             return jsonify(result)
-        except (DatabaseError, ValueError) as err:
+        except (DatabaseError, ValueError, pydantic.ValidationError) as err:
             return error(str(err))
 
 

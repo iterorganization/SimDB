@@ -9,6 +9,8 @@ from getpass import getuser
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Union
 
+from simdb.remote.models import SimulationData
+
 if sys.version_info < (3, 11):
     from backports.datetime_fromisoformat import MonkeyPatch
 
@@ -334,6 +336,17 @@ class Simulation(Base):
                 if not isinstance(el, dict):
                     raise Exception("corrupted metadata element - expected dictionary")
                 simulation.meta.append(MetaData.from_data(el))
+        return simulation
+
+    @classmethod
+    def from_data_model(cls, data: SimulationData) -> "Simulation":
+        simulation = Simulation(None)
+        simulation.uuid = data.uuid
+        simulation.alias = data.alias
+        simulation.datetime = data.datetime
+        simulation.inputs = [File.from_data_model(el) for el in data.inputs]
+        simulation.outputs = [File.from_data_model(el) for el in data.outputs]
+        simulation.meta = [MetaData.from_data_model(el) for el in data.metadata]
         return simulation
 
     def data(

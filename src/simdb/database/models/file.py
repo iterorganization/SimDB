@@ -14,6 +14,7 @@ from simdb.config.config import Config
 from simdb.docstrings import inherit_docstrings
 from simdb.imas.checksum import checksum as imas_checksum
 from simdb.imas.utils import imas_timestamp
+from simdb.remote.models import FileData
 from simdb.uda.checksum import checksum as uda_checksum
 
 from .base import Base
@@ -123,6 +124,23 @@ class File(Base):
         file.access = checked_get(data, "access", str, optional=True)
         file.embargo = checked_get(data, "embargo", str, optional=True)
         file.datetime = date_parser.parse(checked_get(data, "datetime", str))
+        return file
+
+    @classmethod
+    def from_data_model(cls, data: FileData) -> "File":
+        data_type = data.type
+        uri = data.uri
+        file = File(
+            DataObject.Type[data_type], urilib.URI(uri), perform_integrity_check=False
+        )
+        file.uuid = data.uuid
+        file.usage = data.usage
+        file.checksum = data.checksum
+        file.purpose = data.purpose
+        file.sensitivity = data.sensitivity
+        file.access = data.access
+        file.embargo = data.embargo
+        file.datetime = data.datetime
         return file
 
     def data(self, recurse: bool = False) -> Dict[str, str]:
