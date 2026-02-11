@@ -141,7 +141,9 @@ def check_return(res: "requests.Response") -> None:
 
 def _get_paths(file: "File") -> Iterable[Path]:
     if file.type == DataObject.Type.FILE:
-        return [file.uri.path]
+        if file.uri and file.uri.path:
+            return [file.uri.path]
+        return []
     else:
         return imas_files(file.uri)
 
@@ -198,7 +200,7 @@ class RemoteAPI:
         )
 
         if not username:
-            username = config.get_option(f"remote.{remote}.username", default="")
+            username = config.get_string_option(f"remote.{remote}.username", default="")
 
         if use_token is not None:
             self._use_token = use_token
@@ -313,9 +315,10 @@ class RemoteAPI:
             def __init__(self, token):
                 self._token = token
 
-            def __call__(self, request: "requests.PreparedRequest"):
-                request.headers["Authorization"] = f"JWT-Token {self._token}"
-                return request
+            def __call__(self, r):
+                if r.headers is not None:
+                    r.headers["Authorization"] = f"JWT-Token {self._token}"
+                return r
 
         if self._use_token:
             return JWTAuth(self._token)
@@ -423,7 +426,11 @@ class RemoteAPI:
         headers["User-Agent"] = "it_script_basic"
 
         # Compress the data if it is larger than 2 MB and the URL is for simulations
-        if url == "simulations" and len(post_data) > 2 * 1024 * 1024:
+        if (
+            url == "simulations"
+            and isinstance(post_data, str)
+            and len(post_data) > 2 * 1024 * 1024
+        ):
             buf = BytesIO()
             with gzip.GzipFile(fileobj=buf, mode="wb") as gz:
                 gz.write(post_data.encode("utf-8"))
@@ -790,7 +797,9 @@ class RemoteAPI:
                         ):
                             continue
                         sim_file = next(
-                            f for f in sim_data["inputs"] if f["uuid"] == file.uuid
+                            f
+                            for f in sim_data["inputs"]
+                            if f.get("uuid") == file.uuid  # type: ignore[union-attr]
                         )
                         sim_file["uri"] = f"file:{path}"
                         self._push_file(
@@ -819,15 +828,16 @@ class RemoteAPI:
                     )
 
                 else:
-                    self._push_file(
-                        file.uri.path,
-                        file.uuid,
-                        "input",
-                        sim_data,
-                        chunk_size,
-                        out_stream,
-                        file.type,
-                    )
+                    if file.uri and file.uri.path:
+                        self._push_file(
+                            file.uri.path,
+                            file.uuid,
+                            "input",
+                            sim_data,
+                            chunk_size,
+                            out_stream,
+                            file.type,
+                        )
 
             for file in simulation.outputs:
                 if file.type == DataObject.Type.IMAS:
@@ -846,9 +856,15 @@ class RemoteAPI:
                         ):
                             continue
                         sim_file = next(
-                            f for f in sim_data["outputs"] if f["uuid"] == file.uuid
+                            (
+                                f
+                                for f in sim_data["outputs"]
+                                if f.get("uuid") == file.uuid  # type: ignore[union-attr]
+                            ),
+                            None,
                         )
-                        sim_file["uri"] = f"file:{path}"
+                        if sim_file:
+                            sim_file["uri"] = f"file:{path}"
                         self._push_file(
                             path,
                             file.uuid,
@@ -874,15 +890,16 @@ class RemoteAPI:
                         },
                     )
                 else:
-                    self._push_file(
-                        file.uri.path,
-                        file.uuid,
-                        "output",
-                        sim_data,
-                        chunk_size,
-                        out_stream,
-                        file.type,
-                    )
+                    if file.uri and file.uri.path:
+                        self._push_file(
+                            file.uri.path,
+                            file.uuid,
+                            "output",
+                            sim_data,
+                            chunk_size,
+                            out_stream,
+                            file.type,
+                        )
 
         sim_data = simulation.data(recurse=True)
         uploaded_by = simulation.meta_dict().get("uploaded_by", None)
@@ -923,7 +940,7 @@ class RemoteAPI:
         to_path.parent.mkdir(parents=True, exist_ok=True)
         sha1 = hashlib.sha1()
 
-        with to_path.open(to_path, "wb") as f:
+        with to_path.open("wb") as f:
             total_length = response.headers.get("content-length")
             if total_length is None:
                 f.write(response.content)

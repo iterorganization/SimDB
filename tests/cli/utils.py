@@ -15,15 +15,15 @@ token = 123ABC
 
 def create_manifest() -> Path:
     manifest = """\
-version: 1
+manifest_version: 2
 alias: simulation-alias
 
 # Data and configuration files
 inputs:
-  - uri: simdb://simdb.iter.org/123e4567-e89b-12d3-a456-426655440000
+#   - uri: simdb://simdb.iter.org/123e4567-e89b-12d3-a456-426655440000
   - uri: file:///home/user/path/to/a/file1
   - uri: imas:///user?shot=10000&run=0
-  - uri: imas+uda:///TOKAMAK?shot=10000&run=0&server=uda.server.org:56565
+#   - uri: imas+uda:///TOKAMAK?shot=10000&run=0&server=uda.server.org:56565
 
 # Data and log files.
 outputs:

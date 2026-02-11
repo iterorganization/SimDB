@@ -4,8 +4,11 @@ from pathlib import Path
 from typing import Any, List
 
 import imas
+import imas.exception
+import imas.ids_defs
 import semantic_version
 from dateutil import parser
+from imas import DBEntry
 
 from simdb.config import Config
 from simdb.uri import URI
@@ -52,21 +55,6 @@ def is_missing(value: Any):
                     return True
 
     return False
-
-
-class DBEntry:
-    def partial_get(self, ids: str, path: str, occurrence=0) -> Any: ...
-
-    def list_all_occurrences(self, ids: str) -> List[int]:
-        """
-        List all occurrences of the given IDS in the IMAS data entry.
-
-        @param
-        ids: the IDS name
-        @param path: the path to the data
-        @return: the list of occurrences
-        """
-        ...
 
 
 def list_idss(entry: DBEntry) -> List[str]:
@@ -147,7 +135,18 @@ def _open_legacy(uri: URI) -> DBEntry:
             f"backend {backend} is not supported for legacy IMAS, please use AL5"
         )
 
-    backend_id = backend_ids[backend]
+    if (
+        backend is None
+        or user is None
+        or database is None
+        or shot is None
+        or run is None
+    ):
+        raise ImasError("IMAS query is invalid")
+
+    backend_id = backend_ids.get(backend)
+    if backend_id is None:
+        raise ImasError("IMAS backend is invalid")
 
     if user is not None:
         try:
@@ -168,9 +167,10 @@ def _open_legacy(uri: URI) -> DBEntry:
             )
         except Exception as err:
             raise ImasError(f"failed to open IMAS data with URI {uri}") from err
-    (status, _) = entry.open()
-    if status != 0:
-        raise ImasError(f"failed to open IMAS data with URI {uri}")
+    try:
+        entry.open()
+    except RuntimeError as err:
+        raise ImasError(f"failed to open IMAS data with URI {uri}") from err
     return entry
 
 
@@ -195,7 +195,7 @@ def open_imas(uri: URI) -> DBEntry:
     if path is None:
         path = get_path_for_legacy_uri(uri)
         backend = uri.query.get("backend", default="mdsplus")
-        uri = f"imas:{backend}?path={path}"
+        uri = URI(f"imas:{backend}?path={path}")
 
     try:
         entry = imas.DBEntry(str(uri), "r")
@@ -233,8 +233,9 @@ def get_path_for_legacy_uri(uri: URI) -> Path:
     shot = uri.query.get("shot", default=None)
     run = uri.query.get("run", default=None)
     backend = uri.query.get("backend", default="hdf5")
-    if any(x is None for x in [database, shot, run]):
+    if database is None or shot is None or run is None or version is None:
         raise ValueError(f"Invalid legacy URI {uri}")
+
     if user == "public":
         imas_home = os.environ.get("IMAS_HOME", default=None)
         if imas_home is None:
@@ -242,7 +243,7 @@ def get_path_for_legacy_uri(uri: URI) -> Path:
                 "Legacy URI passed with user=public but $IMAS_HOME is not set"
             )
         path = Path(imas_home) / "shared" / "imasdb" / database / version
-    elif user.startswith("/"):
+    elif user is not None and user.startswith("/"):
         path = Path(user) / database / version
     elif user is not None:
         path = Path(f"~{user}").expanduser() / "public" / "imasdb" / database / version

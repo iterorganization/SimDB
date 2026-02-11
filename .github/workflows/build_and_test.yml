@@ -33,7 +33,17 @@ jobs:
           pip install --upgrade pip setuptools wheel
           python -m pip install python-ldap
           pip install pytest-xdist
-          pip install .[build-test] --group dev
+          pip install --group dev .
+
+      - name: Check formatting
+        run: |
+          source venv/bin/activate
+          python -m ruff format --check
+
+      - name: Check linting
+        run: |
+          source venv/bin/activate
+          python -m ruff check
 
       - name: Run tests
         run: |

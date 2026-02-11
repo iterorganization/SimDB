@@ -11,7 +11,7 @@ api = Namespace("metadata", path="/")
 
 @api.route("/metadata")
 class MetaData(Resource):
-    @cache.cached(key_prefix=cache_key)
+    @cache.cached(key_prefix=cache_key)  # type: ignore[invalid-argument-type]
     def get(self):
         try:
             return jsonify(current_app.db.list_metadata_keys())
@@ -21,7 +21,7 @@ class MetaData(Resource):
 
 @api.route("/metadata/<string:name>")
 class MetaDataValues(Resource):
-    @cache.cached(key_prefix=cache_key)
+    @cache.cached(key_prefix=cache_key)  # type: ignore[invalid-argument-type]
     def get(self, name):
         try:
             return jsonify(current_app.db.list_metadata_values(name))

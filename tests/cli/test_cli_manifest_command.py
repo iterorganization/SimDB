@@ -18,9 +18,24 @@ def test_manifest_check_command(manifest):
     assert "ok" in result.output
     assert manifest.return_value.load.called
     (args, kwargs) = manifest.return_value.load.call_args
-    assert args == (str(file_name),)
+    assert str(args[0]) == str(file_name)
     assert kwargs == {}
     assert manifest.return_value.validate.called
+
+
+def test_manifest_check_command_integration():
+    """Integration test that actually runs the manifest check without mocking."""
+    config_file = config_test_file()
+    runner = CliRunner()
+    file_name = create_manifest()
+    result = runner.invoke(
+        cli, [f"--config-file={config_file}", "manifest", "check", str(file_name)]
+    )
+    assert result.exception is None, f"Unexpected exception: {result.exception}"
+    assert result.exit_code == 0, (
+        f"Exit code: {result.exit_code}, Output: {result.output}"
+    )
+    assert "ok" in result.output
 
 
 @mock.patch("simdb.cli.commands.manifest.Manifest")

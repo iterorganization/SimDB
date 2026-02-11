@@ -8,14 +8,6 @@ from .utils import imas_files, list_idss, open_imas
 IGNORED_FIELDS = ("data_dictionary", "access_layer", "access_layer_language")
 
 
-class Hash:
-    def digest(self) -> bytes:
-        pass
-
-    def update(self, data: bytes):
-        pass
-
-
 def checksum(uri: URI, ids_list: list) -> str:
     if uri.scheme != "imas":
         raise ValueError(f"invalid scheme for imas checksum: {uri.scheme}")

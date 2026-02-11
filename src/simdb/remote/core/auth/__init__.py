@@ -71,7 +71,7 @@ def check_role(config: Config, user: User, role: Optional[str]) -> bool:
     If no role is specified then the function always returns true.
     """
     if role:
-        users = config.get_option(f"role.{role}.users", default="")
+        users = config.get_string_option(f"role.{role}.users", default="")
         reader = csv.reader([users])
         return any(user.name in row for row in reader)
 

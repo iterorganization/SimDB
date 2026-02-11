@@ -53,19 +53,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-build-test = [
-    "tox>=3.24",
-    "Flask>=2.0",
-    "flask-cors>=3",
-    "flask-compress>=1.12",
-    "Werkzeug==2.0.3",
-    "python-magic~=0.4",
-    "flask-caching>=1.10",
-    "flask-restx==0.5",
-    "flask-mail~=0.9.1",
-    "simplejson~=3.0",
-    "easyad>=1.0",
-]
 server = [
     "Flask>=2.0",
     "Werkzeug==2.0.3",
@@ -85,6 +72,9 @@ auth-keycloak = [
 ]
 auth-ldap = [
     "python-ldap>=3.4",
+]
+auth = [
+    "imas-simdb[auth-ad, auth-keycloak, auth-ldap]"
 ]
 imas-validator = [
     "imas-validator>=1.0.0",
@@ -127,6 +117,7 @@ write_to = "src/simdb/_version.py"
 local_scheme = "dirty-tag"
 
 [tool.ruff]
+extend-exclude = ["scripts", "sql", "docs", "src/simdb/_version.py"]
 line-length = 88
 indent-width = 4
 
@@ -170,12 +161,11 @@ testpaths = [
     "tests",
 ]
 
-
 [dependency-groups]
 dev = [
     "pytest>=8.3.5",
     "pytest-cov>=5.0.0",
-    "ruff>=0.14.9",
+    "ruff>=0.15.0",
     "ty>=0.0.13",
-    "imas-simdb[all, build-test]"
+    "imas-simdb[server, imas-validator, postgres, auth]"
 ]
