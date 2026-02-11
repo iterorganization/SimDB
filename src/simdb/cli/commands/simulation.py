@@ -223,7 +223,7 @@ def simulation_push(
         for schema in schemas:
             Validator(schema).validate(simulation)
     except ValidationError as err:
-        raise click.ClickException(f"Simulation does not validate: {err}")
+        raise click.ClickException(f"Simulation does not validate: {err}") from err
 
     api.push_simulation(simulation, out_stream=sys.stdout, add_watcher=add_watcher)
 
