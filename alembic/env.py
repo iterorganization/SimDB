@@ -1,10 +1,11 @@
-from logging.config import fileConfig
 import os
 import sys
+from logging.config import fileConfig
 from pathlib import Path
 
-from alembic import context
 from sqlalchemy import create_engine, pool
+
+from alembic import context
 
 config = context.config
 

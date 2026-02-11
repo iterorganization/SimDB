@@ -8,8 +8,9 @@ Create Date: 2026-02-10 15:24:11.323077
 
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 from simdb.database.models.types import UUID, ChoiceType
 from simdb.notifications import Notification
 
