@@ -25,11 +25,13 @@ from simdb.database.models import types  # noqa
 
 target_metadata = Base.metadata
 
+
 def get_database_url() -> str:
     url = os.getenv("DATABASE_URL")
     if not url:
         raise RuntimeError("DATABASE_URL is not set")
     return url
+
 
 def run_migrations_offline() -> None:
     context.configure(
@@ -43,6 +45,7 @@ def run_migrations_offline() -> None:
 
     with context.begin_transaction():
         context.run_migrations()
+
 
 def run_migrations_online() -> None:
     engine = create_engine(
@@ -60,6 +63,7 @@ def run_migrations_online() -> None:
 
         with context.begin_transaction():
             context.run_migrations()
+
 
 if context.is_offline_mode():
     run_migrations_offline()
