@@ -16,13 +16,6 @@ SRC_PATH = Path(__file__).resolve().parents[1] / "src"
 sys.path.insert(0, str(SRC_PATH))
 
 from simdb.database.models import Base  # noqa
-from simdb.database.models import (  # noqa
-    file,
-    metadata,
-    simulation,
-    watcher,
-)
-from simdb.database.models import types  # noqa
 
 target_metadata = Base.metadata
 

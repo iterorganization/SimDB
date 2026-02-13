@@ -8,11 +8,11 @@ Create Date: 2026-02-13 10:11:39.262884
 
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 from simdb.database.models.types import URI, UUID, ChoiceType
 from simdb.notifications import Notification
-
 
 # revision identifiers, used by Alembic.
 revision: str = "21f2b1287595"
