@@ -1,10 +1,17 @@
-from urllib.parse import urlencode
 from datetime import datetime as dt
 from datetime import timezone
-from typing import Annotated, Any, Dict, Generic, List, Optional, TypeVar, Union
+from typing import Annotated, Any, Generic, List, Optional, TypeVar, Union
+from urllib.parse import urlencode
 from uuid import UUID, uuid1
 
-from pydantic import BaseModel, BeforeValidator, Field, PlainSerializer
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    Field,
+    PlainSerializer,
+    RootModel,
+    model_validator,
+)
 
 HexUUID = Annotated[UUID, PlainSerializer(lambda x: x.hex, return_type=str)]
 
@@ -38,12 +45,40 @@ class FileData(BaseModel):
     embargo: Optional[str] = None
 
 
+class FileDataList(RootModel):
+    root: List[FileData] = []
+
+    # Allows indexing: users[0]
+    def __getitem__(self, item) -> FileData:
+        return self.root[item]
+
+
 class MetadataData(BaseModel):
     element: str
     value: Union[CustomUUID, Any]
 
     def as_dict(self):
         return {self.element: self.value}
+
+    def as_querystring(self):
+        return urlencode(self.as_dict())
+
+
+class MetadataDataList(RootModel):
+    root: List[MetadataData] = []
+
+    def __getitem__(self, item) -> MetadataData:
+        return self.root[item]
+
+    def as_dict(self):
+        return {m.element: m.value for m in self.root}
+
+    @model_validator(mode="before")
+    @classmethod
+    def parse_dictionary(cls, data: Any):
+        if isinstance(data, dict):
+            return [{"element": k, "value": v} for (k, v) in data.items()]
+        return data
 
     def as_querystring(self):
         return urlencode(self.as_dict())
@@ -58,9 +93,9 @@ class SimulationData(BaseModel):
     uuid: CustomUUID = Field(default_factory=lambda: uuid1())
     alias: Optional[str] = None
     datetime: dt = Field(default_factory=lambda: dt.now(timezone.utc))
-    inputs: List[FileData] = []
-    outputs: List[FileData] = []
-    metadata: List[MetadataData] = []
+    inputs: FileDataList = FileDataList()
+    outputs: FileDataList = FileDataList()
+    metadata: MetadataDataList = MetadataDataList()
 
 
 class SimulationDataResponse(SimulationData):
@@ -89,7 +124,7 @@ class SimulationListItem(BaseModel):
     uuid: CustomUUID
     alias: Optional[str] = None
     datetime: str
-    metadata: Optional[List[MetadataData]] = None
+    metadata: Optional[MetadataDataList] = None
 
 
 T = TypeVar("T")

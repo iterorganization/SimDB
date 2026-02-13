@@ -16,6 +16,7 @@ from simdb.remote.app import create_app
 from simdb.remote.models import (
     FileData,
     MetadataData,
+    MetadataDataList,
     PaginatedResponse,
     SimulationData,
     SimulationDataResponse,
@@ -524,10 +525,7 @@ def test_get_simulations_filter_by_metadata(client):
 def test_get_simulations_filter_multiple_metadata(client):
     """Test filtering simulations by multiple metadata fields."""
     # Create a simulation with multiple metadata fields
-    test_metadata = [
-        MetadataData(element="machine", value="multi-filter-machine"),
-        MetadataData(element="code", value="multi-filter-code"),
-    ]
+    test_metadata = {"machine": "multi-filter-machine", "code": "multi-filter-code"}
 
     simulation_data = generate_simulation_data(metadata=test_metadata)
 
@@ -536,7 +534,7 @@ def test_get_simulations_filter_multiple_metadata(client):
 
     # Filter by both machine and code
     rv = client.get(
-        f"/v1.2/simulations?{'&'.join([m.as_querystring() for m in test_metadata])}",
+        f"/v1.2/simulations?{simulation_data.simulation.metadata.as_querystring()}",
         headers=HEADERS,
     )
 
@@ -646,10 +644,7 @@ def test_get_simulations_with_metadata_keys(client):
 
     simulation_data = generate_simulation_data(
         alias="meta-keys-test",
-        metadata=[
-            MetadataData(element="machine", value="machine-x"),
-            MetadataData(element="code", value="code-y"),
-        ],
+        metadata={"machine": "machine-x", "code": "code-y"},
     )
 
     rv_post = post_simulation(client, simulation_data)
@@ -694,9 +689,9 @@ def test_get_simulation_by_uuid(client):
 
     # fill fields that are filled by the server
     simulation_data_check.alias = simulation_data_check.uuid.hex
-    simulation_data_check.metadata = [
-        MetadataData(element="uploaded_by", value=simulation_data.uploaded_by)
-    ]
+    simulation_data_check.metadata = MetadataDataList.model_validate(
+        {"uploaded_by": simulation_data.uploaded_by}
+    )
 
     # datetime gets updated by the server
     simulation_data_check.datetime = simulation_data_received.datetime
@@ -730,9 +725,9 @@ def test_get_simulation_by_alias(client):
     simulation_data_check = simulation_data.simulation.model_copy()
 
     # fill fields that are filled by the server
-    simulation_data_check.metadata = [
-        MetadataData(element="uploaded_by", value=simulation_data.uploaded_by)
-    ]
+    simulation_data_check.metadata = MetadataDataList.model_validate(
+        {"uploaded_by": simulation_data.uploaded_by}
+    )
 
     # datetime gets updated by the server
     simulation_data_check.datetime = simulation_data_received.datetime

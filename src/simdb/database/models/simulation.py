@@ -9,7 +9,7 @@ from getpass import getuser
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Union
 
-from simdb.remote.models import SimulationData
+from simdb.remote.models import FileDataList, MetadataDataList, SimulationData
 
 if sys.version_info < (3, 11):
     from backports.datetime_fromisoformat import MonkeyPatch
@@ -344,9 +344,9 @@ class Simulation(Base):
         simulation.uuid = data.uuid
         simulation.alias = data.alias
         simulation.datetime = data.datetime
-        simulation.inputs = [File.from_data_model(el) for el in data.inputs]
-        simulation.outputs = [File.from_data_model(el) for el in data.outputs]
-        simulation.meta = [MetaData.from_data_model(el) for el in data.metadata]
+        simulation.inputs = [File.from_data_model(el) for el in data.inputs.root]
+        simulation.outputs = [File.from_data_model(el) for el in data.outputs.root]
+        simulation.meta = [MetaData.from_data_model(el) for el in data.metadata.root]
         return simulation
 
     def data(
@@ -370,15 +370,17 @@ class Simulation(Base):
     def to_model(
         self, recurse: bool = False, meta_keys: Optional[List[str]] = None
     ) -> SimulationData:
-        inputs = []
-        outputs = []
-        metadata = []
+        inputs = FileDataList()
+        outputs = FileDataList()
+        metadata = MetadataDataList()
         if recurse:
-            inputs = [f.to_model() for f in self.inputs]
-            outputs = [f.to_model() for f in self.outputs]
-            metadata = [m.to_model() for m in self.meta]
+            inputs = FileDataList([f.to_model() for f in self.inputs])
+            outputs = FileDataList([f.to_model() for f in self.outputs])
+            metadata = MetadataDataList([m.to_model() for m in self.meta])
         elif meta_keys:
-            metadata = [m.to_model() for m in self.meta if m.element in meta_keys]
+            metadata = MetadataDataList(
+                [m.to_model() for m in self.meta if m.element in meta_keys]
+            )
         return SimulationData(
             uuid=self.uuid,
             alias=self.alias,
