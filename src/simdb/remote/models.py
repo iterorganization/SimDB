@@ -1,7 +1,7 @@
 from datetime import datetime as dt
 from datetime import timezone
 from typing import Annotated, Any, Generic, List, Optional, TypeVar, Union
-from uuid import UUID
+from uuid import UUID, uuid1
 
 from pydantic import BaseModel, BeforeValidator, Field, PlainSerializer
 
@@ -27,14 +27,14 @@ CustomUUID = Annotated[
 class FileData(BaseModel):
     type: str
     uri: str
-    uuid: CustomUUID
+    uuid: CustomUUID = Field(default_factory=lambda: uuid1())
     checksum: str
     datetime: dt
-    usage: Optional[str]
-    purpose: Optional[str]
-    sensitivity: Optional[str]
-    access: Optional[str]
-    embargo: Optional[str]
+    usage: Optional[str] = None
+    purpose: Optional[str] = None
+    sensitivity: Optional[str] = None
+    access: Optional[str] = None
+    embargo: Optional[str] = None
 
 
 class MetadataData(BaseModel):
@@ -44,16 +44,16 @@ class MetadataData(BaseModel):
 
 class SimulationReference(BaseModel):
     uuid: CustomUUID
-    alias: Optional[str]
+    alias: Optional[str] = None
 
 
 class SimulationData(BaseModel):
-    uuid: CustomUUID
-    alias: Optional[str]
+    uuid: CustomUUID = Field(default_factory=lambda: uuid1())
+    alias: Optional[str] = None
     datetime: dt = Field(default_factory=lambda: dt.now(timezone.utc))
-    inputs: List[FileData]
-    outputs: List[FileData]
-    metadata: List[MetadataData]
+    inputs: List[FileData] = []
+    outputs: List[FileData] = []
+    metadata: List[MetadataData] = []
 
 
 class SimulationDataResponse(SimulationData):
@@ -64,23 +64,23 @@ class SimulationDataResponse(SimulationData):
 class SimulationPostData(BaseModel):
     simulation: SimulationData
     add_watcher: bool
-    uploaded_by: Optional[str]
+    uploaded_by: Optional[str] = None
 
 
 class ValidationResult(BaseModel):
     passed: bool
-    error: Optional[str]
+    error: Optional[str] = None
 
 
 class SimulationPostResponse(BaseModel):
     ingested: HexUUID
-    error: Optional[str]
-    validation: Optional[ValidationResult]
+    error: Optional[str] = None
+    validation: Optional[ValidationResult] = None
 
 
 class SimulationListItem(BaseModel):
     uuid: CustomUUID
-    alias: Optional[str]
+    alias: Optional[str] = None
     datetime: str
     metadata: Optional[List[MetadataData]] = None
 
