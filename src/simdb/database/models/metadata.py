@@ -4,6 +4,7 @@ from sqlalchemy import Column, ForeignKey, Index
 from sqlalchemy import types as sql_types
 
 from simdb.docstrings import inherit_docstrings
+from simdb.remote.models import MetadataData
 
 from .base import Base
 
@@ -32,12 +33,20 @@ class MetaData(Base):
         meta = MetaData(data["element"], data["value"])
         return meta
 
+    @classmethod
+    def from_data_model(cls, data: MetadataData) -> "MetaData":
+        meta = MetaData(data.element, data.value)
+        return meta
+
     def data(self, recurse: bool = False) -> Dict[str, str]:
         data = {
             "element": self.element,
             "value": self.value,
         }
         return data
+
+    def to_model(self) -> MetadataData:
+        return MetadataData(element=self.element, value=self.value)
 
 
 Index("metadata_index", MetaData.sim_id, MetaData.element, unique=True)

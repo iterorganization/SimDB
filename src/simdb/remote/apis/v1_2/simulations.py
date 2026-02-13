@@ -7,6 +7,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, cast
 
+import pydantic
 from flask import json as flask_json  # fallback
 from flask import jsonify, request, send_file
 from flask_restx import Namespace, Resource
@@ -24,6 +25,14 @@ from simdb.remote.core.cache import cache, cache_key, clear_cache
 from simdb.remote.core.errors import error
 from simdb.remote.core.path import find_common_root, secure_path
 from simdb.remote.core.typing import current_app
+from simdb.remote.models import (
+    PaginatedResponse,
+    SimulationDataResponse,
+    SimulationListItem,
+    SimulationPostData,
+    SimulationPostResponse,
+    ValidationResult,
+)
 from simdb.uri import URI
 from simdb.validation import ValidationError, Validator
 from simdb.validation.file import find_file_validator
@@ -36,7 +45,8 @@ def _update_simulation_status(
 ) -> None:
     old_status = simulation.status
     simulation.status = status
-    if status != old_status and len(simulation.watchers) > 0:
+    watchers_list = list(simulation.watchers)
+    if status != old_status and len(watchers_list) > 0:
         server = EmailServer(current_app.simdb_config)
         msg = f"""\
 Simulation status changed from {old_status} to {status}.
@@ -45,7 +55,7 @@ Updated by {user}.
 
 Note: please don't reply to this email, replies to this address are not monitored.
 """
-        to_addresses = [w.email for w in simulation.watchers]
+        to_addresses = [w.email for w in watchers_list]
         if to_addresses:
             if simulation.alias is None or simulation.alias == "":
                 server.send_message(
@@ -55,7 +65,7 @@ Note: please don't reply to this email, replies to this address are not monitore
                 server.send_message(f"Simulation {simulation.alias}", msg, to_addresses)
 
 
-def _validate(simulation, user) -> Dict:
+def _validate(simulation, user) -> ValidationResult:
     schemas = Validator.validation_schemas(current_app.simdb_config, simulation)
     try:
         for schema in schemas:
@@ -65,10 +75,7 @@ def _validate(simulation, user) -> Dict:
             )
     except ValidationError as err:
         _update_simulation_status(simulation, models_sim.Simulation.Status.FAILED, user)
-        return {
-            "passed": False,
-            "error": str(err),
-        }
+        return ValidationResult(passed=False, error=str(err))
 
     file_validator_type = current_app.simdb_config.get_string_option(
         "file_validation.type", default=None
@@ -88,16 +95,11 @@ def _validate(simulation, user) -> Dict:
                     _update_simulation_status(
                         simulation, models_sim.Simulation.Status.FAILED, user
                     )
-                    return {
-                        "passed": False,
-                        "error": str(err),
-                    }
+                    return ValidationResult(passed=False, error=str(err))
         else:
             error("Invalid file validator specified in configuration")
 
-    return {
-        "passed": True,
-    }
+    return ValidationResult(passed=True, error=None)
 
 
 def _set_alias(alias: str):
@@ -155,7 +157,9 @@ def _build_trace(sim_id: str) -> Dict[str, Any]:
     return data
 
 
-def _get_json_aware(force: bool = False, silent: bool = False):
+def _get_json_aware(
+    force: bool = False, silent: bool = False
+) -> Optional[dict[str, Any]]:
     """
     Parse JSON like Flask's request.get_json, but handle Content-Encoding: gzip.
     - force/silent mimic request.get_json behavior.
@@ -276,7 +280,13 @@ class SimulationList(Resource):
                 sort_asc=sort_asc,
             )
 
-        return jsonify({"count": count, "page": page, "limit": limit, "results": data})
+        serialized_data = [SimulationListItem.model_validate(item) for item in data]
+
+        return jsonify(
+            PaginatedResponse(
+                count=count, page=page, limit=limit, results=serialized_data
+            ).model_dump(mode="json")
+        )
 
     @requires_auth()
     def post(self, user: User):
@@ -286,46 +296,31 @@ class SimulationList(Resource):
             # It returns None if the content type is not application/json.
             # If silent=True, it returns None instead of raising an error.
             # If force=True, it ignores the content type check.
-            data = _get_json_aware()
-            if not data:
-                return error("Invalid or missing JSON data")
+            d = SimulationPostData.model_validate(_get_json_aware())
 
-            if "simulation" not in data:
-                return error("Simulation data not provided")
-
-            add_watcher = data.get("add_watcher", True)
-
-            simulation = models_sim.Simulation.from_data(data["simulation"])
+            simulation = models_sim.Simulation.from_data_model(d.simulation)
 
             # Simulation Upload (Push) Date
             simulation.datetime = datetime.datetime.now()
 
-            if data["uploaded_by"] is not None:
-                simulation.set_meta("uploaded_by", data["uploaded_by"])
-            elif user.email is not None:
-                simulation.set_meta("uploaded_by", user.email)
-            elif user.name is not None:
-                simulation.set_meta("uploaded_by", user.name)
-            else:
-                simulation.set_meta("uploaded_by", "anonymous")
-            if add_watcher:
+            uploaded_by = d.uploaded_by or user.email or user.name or "anonymous"
+
+            simulation.set_meta("uploaded_by", uploaded_by)
+
+            if d.add_watcher and user.email:
                 simulation.watchers.append(
                     models_watcher.Watcher(
                         user.name, user.email, models_watcher.Notification.ALL
                     )
                 )
 
-            if "alias" in data["simulation"]:
-                alias = data["simulation"]["alias"]
-                if alias is not None:
-                    (updated_alias, next_id) = _set_alias(alias)
-                    if updated_alias:
-                        simulation.meta.append(models_meta.MetaData("seqid", next_id))
-                        simulation.alias = updated_alias
-                    else:
-                        simulation.alias = alias
+            if d.simulation.alias is not None:
+                (updated_alias, next_id) = _set_alias(d.simulation.alias)
+                if updated_alias:
+                    simulation.meta.append(models_meta.MetaData("seqid", next_id))
+                    simulation.alias = updated_alias
                 else:
-                    simulation.alias = simulation.uuid.hex
+                    simulation.alias = d.simulation.alias
             else:
                 simulation.alias = simulation.uuid.hex
 
@@ -334,15 +329,19 @@ class SimulationList(Resource):
             common_root = find_common_root(sim_file_paths)
 
             config = current_app.simdb_config
+            copy_files = config.get_option("server.copy_files", default=True)
+            imas_remote_host = config.get_option(
+                "server.imas_remote_host", default=None
+            )
 
-            if config.get_option("server.copy_files", default=True):
+            if copy_files or imas_remote_host:
                 staging_dir = (
                     Path(config.get_string_option("server.upload_folder"))
                     / simulation.uuid.hex
                 )
 
                 for sim_file in files:
-                    if sim_file.uri.scheme == "file":
+                    if copy_files and sim_file.uri.scheme == "file":
                         path = secure_path(sim_file.uri.path, common_root, staging_dir)
                         if not path.exists():
                             raise ValueError(
@@ -350,73 +349,57 @@ class SimulationList(Resource):
                             )
                         sim_file.uri = URI(scheme="file", path=path)
                     elif sim_file.uri.scheme == "imas":
-                        path = secure_path(
-                            Path(sim_file.uri.query["path"]),
-                            common_root,
-                            staging_dir,
-                            is_file=common_root is not None,
-                        )
-                        sim_file.uri = convert_uri(sim_file.uri, path, config)
-            elif config.get_option("server.imas_remote_host", default=None):
-                staging_dir = (
-                    Path(config.get_string_option("server.upload_folder"))
-                    / simulation.uuid.hex
-                )
-
-                for sim_file in files:
-                    if sim_file.uri.scheme == "imas":
-                        if config.get_option("server.copy_files", default=True):
+                        if copy_files:
                             path = secure_path(
                                 Path(sim_file.uri.query["path"]),
                                 common_root,
                                 staging_dir,
                                 is_file=common_root is not None,
                             )
-                            sim_file.uri = convert_uri(sim_file.uri, path, config)
                         else:
                             path = Path(sim_file.uri.query["path"])
-                            sim_file.uri = convert_uri(sim_file.uri, path, config)
+                        sim_file.uri = convert_uri(sim_file.uri, path, config)
 
-            result = {
-                "ingested": simulation.uuid.hex,
-            }
+            result = SimulationPostResponse(
+                ingested=simulation.uuid, error=None, validation=None
+            )
+
+            error_on_fail = current_app.simdb_config.get_option(
+                "validation.error_on_fail", default=False
+            )
 
             if current_app.simdb_config.get_option(
                 "validation.auto_validate", default=False
             ):
-                result["validation"] = _validate(simulation, user)
+                result.validation = _validate(simulation, user)
 
-            if current_app.simdb_config.get_option(
-                "validation.error_on_fail", default=False
-            ):
-                if simulation.status == models_sim.Simulation.Status.NOT_VALIDATED:
-                    raise Exception(
-                        "Validation config option error_on_fail=True without "
-                        "auto_validate=True."
+                if not result.validation.passed and error_on_fail:
+                    result.error = (
+                        f"Simulation validation failed and server has "
+                        f"error_on_fail=True.\n{result.validation.error}"
                     )
-                elif simulation.status == models_sim.Simulation.Status.FAILED:
-                    result["error"] = f"""Simulation validation failed and server has
-                    error_on_fail=True.\n{result["validation"]["error"]}"""
                     response = jsonify(result)
                     response.status_code = 400
                     return response
-
-            replaces = simulation.find_meta("replaces")
-            if (
-                not current_app.simdb_config.get_option(
-                    "development.disable_replaces", default=False
+            elif error_on_fail:
+                raise RuntimeError(
+                    "Validation config option error_on_fail=True without "
+                    "auto_validate=True."
                 )
-                and replaces
-                and replaces[0].value
-            ):
+
+            disable_replaces = config.get_option(
+                "development.disable_replaces", default=False
+            )
+            replaces = simulation.find_meta("replaces")
+
+            if not disable_replaces and replaces and replaces[0].value:
                 sim_id = replaces[0].value
                 try:
                     replaces_sim = current_app.db.get_simulation(sim_id)
                 except DatabaseError:
                     replaces_sim = None
-                if replaces_sim is None:
-                    pass
-                else:
+
+                if replaces_sim is not None:
                     _update_simulation_status(
                         replaces_sim, models_sim.Simulation.Status.DEPRECATED, user
                     )
@@ -429,8 +412,8 @@ class SimulationList(Resource):
             with contextlib.suppress(OSError):
                 create_alias_dir(simulation)
 
-            return jsonify(result)
-        except (DatabaseError, ValueError) as err:
+            return jsonify(result.model_dump(mode="json"))
+        except (DatabaseError, ValueError, pydantic.ValidationError) as err:
             return error(str(err))
 
 
@@ -442,12 +425,14 @@ class Simulation(Resource):
         try:
             simulation = current_app.db.get_simulation(sim_id)
             if simulation:
-                sim_data = simulation.data(recurse=True)
-                sim_data["children"] = current_app.db.get_simulation_children(
-                    simulation
+                sim_data = simulation.to_model(recurse=True)
+                children = current_app.db.get_simulation_children_ref(simulation)
+                parents = current_app.db.get_simulation_parents_ref(simulation)
+                return jsonify(
+                    SimulationDataResponse(
+                        **sim_data.model_dump(), children=children, parents=parents
+                    ).model_dump(mode="json")
                 )
-                sim_data["parents"] = current_app.db.get_simulation_parents(simulation)
-                return jsonify(sim_data)
             return error("Simulation not found")
         except DatabaseError as err:
             return error(str(err))
