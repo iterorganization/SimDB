@@ -1,6 +1,7 @@
+from urllib.parse import urlencode
 from datetime import datetime as dt
 from datetime import timezone
-from typing import Annotated, Any, Generic, List, Optional, TypeVar, Union
+from typing import Annotated, Any, Dict, Generic, List, Optional, TypeVar, Union
 from uuid import UUID, uuid1
 
 from pydantic import BaseModel, BeforeValidator, Field, PlainSerializer
@@ -40,6 +41,12 @@ class FileData(BaseModel):
 class MetadataData(BaseModel):
     element: str
     value: Union[CustomUUID, Any]
+
+    def as_dict(self):
+        return {self.element: self.value}
+
+    def as_querystring(self):
+        return urlencode(self.as_dict())
 
 
 class SimulationReference(BaseModel):
@@ -92,4 +99,4 @@ class PaginatedResponse(BaseModel, Generic[T]):
     count: int
     page: int
     limit: int
-    results: T
+    results: List[T]

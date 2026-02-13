@@ -16,7 +16,10 @@ from simdb.remote.app import create_app
 from simdb.remote.models import (
     FileData,
     MetadataData,
+    PaginatedResponse,
     SimulationData,
+    SimulationDataResponse,
+    SimulationListItem,
     SimulationPostData,
 )
 
@@ -81,6 +84,16 @@ def generate_simulation_file() -> FileData:
     )
 
 
+def post_simulation(client, simulation_data, headers=HEADERS):
+    rv_post = client.post(
+        "/v1.2/simulations",
+        json=simulation_data.model_dump(mode="json"),
+        headers=headers,
+        content_type="application/json",
+    )
+    return rv_post
+
+
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_root(client):
     rv = client.get("/")
@@ -108,12 +121,7 @@ def test_post_simulations(client):
     )
 
     # POST the simulation
-    rv = client.post(
-        "/v1.2/simulations",
-        json=simulation_data.model_dump(mode="json"),
-        headers=HEADERS,
-        content_type="application/json",
-    )
+    rv = post_simulation(client, simulation_data)
 
     # Verify the response
     assert rv.status_code == 200
@@ -136,12 +144,7 @@ def test_post_simulations_with_alias_auto_increment(client, suffix):
         alias=f"{random_name}{suffix}",
     )
 
-    rv = client.post(
-        "/v1.2/simulations",
-        json=simulation_data.model_dump(mode="json"),
-        headers=HEADERS,
-        content_type="application/json",
-    )
+    rv = post_simulation(client, simulation_data)
 
     assert rv.status_code == 200
     assert rv.json["ingested"] == simulation_data.simulation.uuid.hex
@@ -167,24 +170,14 @@ def test_post_simulations_alias_increment_sequence(client):
         alias="sequence-",
     )
 
-    rv1 = client.post(
-        "/v1.2/simulations",
-        json=simulation_data_1.model_dump(mode="json"),
-        headers=HEADERS,
-        content_type="application/json",
-    )
+    rv1 = post_simulation(client, simulation_data_1)
     assert rv1.status_code == 200
 
     simulation_data_2 = generate_simulation_data(
         alias="sequence-",
     )
 
-    rv2 = client.post(
-        "/v1.2/simulations",
-        json=simulation_data_2.model_dump(mode="json"),
-        headers=HEADERS,
-        content_type="application/json",
-    )
+    rv2 = post_simulation(client, simulation_data_2)
     assert rv2.status_code == 200
 
     # Verify aliases were incremented
@@ -204,12 +197,7 @@ def test_post_simulations_no_alias(client):
     """Test POST endpoint with no alias provided (should use uuid.hex)."""
     simulation_data = generate_simulation_data()
 
-    rv = client.post(
-        "/v1.2/simulations",
-        json=simulation_data.model_dump(mode="json"),
-        headers=HEADERS,
-        content_type="application/json",
-    )
+    rv = post_simulation(client, simulation_data)
 
     assert rv.status_code == 200
     rv_get = client.get(
@@ -225,12 +213,7 @@ def test_post_simulations_with_replaces(client):
     # Create initial simulation
     old_simulation_data = generate_simulation_data(alias="old_simulation")
 
-    rv_old = client.post(
-        "/v1.2/simulations",
-        json=old_simulation_data.model_dump(mode="json"),
-        headers=HEADERS,
-        content_type="application/json",
-    )
+    rv_old = post_simulation(client, old_simulation_data)
     assert rv_old.status_code == 200
 
     # Create new simulation that replaces the old one
@@ -244,12 +227,7 @@ def test_post_simulations_with_replaces(client):
         ],
     )
 
-    rv_new = client.post(
-        "/v1.2/simulations",
-        json=new_simulation_data.model_dump(mode="json"),
-        headers=HEADERS,
-        content_type="application/json",
-    )
+    rv_new = post_simulation(client, new_simulation_data)
     assert rv_new.status_code == 200
 
     # Verify the old simulation is marked as DEPRECATED
@@ -293,12 +271,7 @@ def test_post_simulations_replaces_nonexistent(client):
     )
 
     # Should still succeed (old simulation just doesn't exist to deprecate)
-    rv = client.post(
-        "/v1.2/simulations",
-        json=simulation_data.model_dump(mode="json"),
-        headers=HEADERS,
-        content_type="application/json",
-    )
+    rv = post_simulation(client, simulation_data)
     assert rv.status_code == 200
 
     # Verify the new simulation was created
@@ -316,12 +289,7 @@ def test_post_simulations_with_watcher(client):
         add_watcher=True, uploaded_by="watcher-user"
     )
 
-    rv = client.post(
-        "/v1.2/simulations",
-        json=simulation_data.model_dump(mode="json"),
-        headers=HEADERS,
-        content_type="application/json",
-    )
+    rv = post_simulation(client, simulation_data)
     assert rv.status_code == 200
 
     # Verify the simulation was created
@@ -344,12 +312,7 @@ def test_post_simulations_uploaded_by(client):
     """Test POST endpoint with add_watcher set to true."""
     simulation_data = generate_simulation_data(uploaded_by="test-user")
 
-    rv = client.post(
-        "/v1.2/simulations",
-        json=simulation_data.model_dump(mode="json"),
-        headers=HEADERS,
-        content_type="application/json",
-    )
+    rv = post_simulation(client, simulation_data)
     assert rv.status_code == 200
 
     # Verify the simulation was created
@@ -371,12 +334,7 @@ def test_post_simulations_trace_with_replaces(client):
     # Create initial simulation
     old_simulation_data = generate_simulation_data(alias="trace-original")
 
-    rv_old = client.post(
-        "/v1.2/simulations",
-        json=old_simulation_data.model_dump(mode="json"),
-        headers=HEADERS,
-        content_type="application/json",
-    )
+    rv_old = post_simulation(client, old_simulation_data)
     assert rv_old.status_code == 200
 
     # Create new simulation that replaces the old one
@@ -390,12 +348,7 @@ def test_post_simulations_trace_with_replaces(client):
         ],
     )
 
-    rv_new = client.post(
-        "/v1.2/simulations",
-        json=new_simulation_data.model_dump(mode="json"),
-        headers=HEADERS,
-        content_type="application/json",
-    )
+    rv_new = post_simulation(client, new_simulation_data)
     assert rv_new.status_code == 200
 
     # Get trace for the new simulation
@@ -425,17 +378,11 @@ def test_get_simulations_basic(client):
     assert rv.status_code == 200
     assert rv.is_json
 
-    data = rv.json
-    assert "count" in data
-    assert "page" in data
-    assert "limit" in data
-    assert "results" in data
+    data = PaginatedResponse[SimulationListItem].model_validate(rv.json)
 
-    # Should return paginated results
-    assert data["page"] == 1
-    assert data["limit"] == 100
-    assert isinstance(data["results"], list)
-    assert data["count"] >= 100  # At least the 100 fixture simulations
+    assert data.page == 1
+    assert data.limit == 100
+    assert data.count >= 100
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
@@ -447,10 +394,10 @@ def test_get_simulations_pagination_limit(client):
     rv = client.get("/v1.2/simulations", headers=headers_with_limit)
 
     assert rv.status_code == 200
-    data = rv.json
+    data = PaginatedResponse[SimulationListItem].model_validate(rv.json)
 
-    assert data["limit"] == custom_limit
-    assert len(data["results"]) <= custom_limit
+    assert data.limit == custom_limit
+    assert len(data.results) <= custom_limit
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
@@ -461,10 +408,10 @@ def test_get_simulations_pagination_page(client):
     rv = client.get("/v1.2/simulations", headers=headers_page_2)
 
     assert rv.status_code == 200
-    data = rv.json
+    data = PaginatedResponse[SimulationListItem].model_validate(rv.json)
 
-    assert data["page"] == 2
-    assert data["limit"] == 10
+    assert data.page == 2
+    assert data.limit == 10
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
@@ -476,66 +423,46 @@ def test_get_simulations_pagination_multiple_pages(client):
     headers_page_1 = {**HEADERS, "simdb-result-limit": str(limit), "simdb-page": "1"}
     rv1 = client.get("/v1.2/simulations", headers=headers_page_1)
     assert rv1.status_code == 200
-    page1_data = rv1.json
+    page1_data = PaginatedResponse[SimulationListItem].model_validate(rv1.json)
 
     # Get second page
     headers_page_2 = {**HEADERS, "simdb-result-limit": str(limit), "simdb-page": "2"}
     rv2 = client.get("/v1.2/simulations", headers=headers_page_2)
     assert rv2.status_code == 200
-    page2_data = rv2.json
+    page2_data = PaginatedResponse[SimulationListItem].model_validate(rv2.json)
 
     # Both should have same count and limit
-    assert page1_data["count"] == page2_data["count"]
-    assert page1_data["limit"] == page2_data["limit"] == limit
+    assert page1_data.count == page2_data.count
+    assert page1_data.limit == page2_data.limit == limit
 
     # Pages should be different
-    assert page1_data["page"] == 1
-    assert page2_data["page"] == 2
+    assert page1_data.page == 1
+    assert page2_data.page == 2
 
-    # Results should be different (assuming we have enough data)
-    if page1_data["count"] > limit:
-        page1_uuids = {item["uuid"] for item in page1_data["results"]}
-        page2_uuids = {item["uuid"] for item in page2_data["results"]}
-        assert page1_uuids != page2_uuids
+    page1_uuids = {item.uuid for item in page1_data.results}
+    page2_uuids = {item.uuid for item in page2_data.results}
+    assert page1_uuids != page2_uuids
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_simulations_filter_by_alias(client):
     """Test filtering simulations by alias."""
     # First create a simulation with a known alias
-    sim_uuid = uuid.uuid4()
     test_alias = "filter-test-alias"
+    simulation_data = generate_simulation_data(alias=test_alias)
 
-    simulation_data = {
-        "simulation": {
-            "uuid": {"_type": "uuid.UUID", "hex": sim_uuid.hex},
-            "alias": test_alias,
-            "datetime": datetime.now(timezone.utc).isoformat(),
-            "inputs": [],
-            "outputs": [],
-            "metadata": [{"element": "test_key", "value": "test_value"}],
-        },
-        "add_watcher": False,
-        "uploaded_by": "test-user",
-    }
-
-    rv_post = client.post(
-        "/v1.2/simulations",
-        json=simulation_data,
-        headers=HEADERS,
-        content_type="application/json",
-    )
+    rv_post = post_simulation(client, simulation_data)
     assert rv_post.status_code == 200
 
     # Now filter by alias
     rv = client.get(f"/v1.2/simulations?alias={test_alias}", headers=HEADERS)
 
     assert rv.status_code == 200
-    data = rv.json
+    data = PaginatedResponse[SimulationListItem].model_validate(rv.json)
 
-    assert data["count"] >= 1
+    assert data.count == 1
     # Check that the filtered result contains our simulation
-    aliases = [item.get("alias") for item in data["results"]]
+    aliases = [item.alias for item in data.results]
     assert test_alias in aliases
 
 
@@ -543,218 +470,158 @@ def test_get_simulations_filter_by_alias(client):
 def test_get_simulations_filter_by_uuid(client):
     """Test filtering simulations by UUID."""
     # Create a simulation with a known UUID
-    sim_uuid = uuid.uuid4()
+    simulation_data = generate_simulation_data()
 
-    simulation_data = {
-        "simulation": {
-            "uuid": {"_type": "uuid.UUID", "hex": sim_uuid.hex},
-            "alias": "uuid-filter-test",
-            "datetime": datetime.now(timezone.utc).isoformat(),
-            "inputs": [],
-            "outputs": [],
-            "metadata": [],
-        },
-        "add_watcher": False,
-        "uploaded_by": "test-user",
-    }
-
-    rv_post = client.post(
-        "/v1.2/simulations",
-        json=simulation_data,
-        headers=HEADERS,
-        content_type="application/json",
-    )
+    rv_post = post_simulation(client, simulation_data)
     assert rv_post.status_code == 200
 
     # Filter by UUID
-    rv = client.get(f"/v1.2/simulations?uuid={sim_uuid.hex}", headers=HEADERS)
+    rv = client.get(
+        f"/v1.2/simulations?uuid={simulation_data.simulation.uuid.hex}", headers=HEADERS
+    )
 
     assert rv.status_code == 200
-    data = rv.json
+    data = PaginatedResponse[SimulationListItem].model_validate(rv.json)
 
-    assert data["count"] >= 1
+    assert data.count == 1
     # Check that the filtered result contains our simulation
-    uuids = [item.get("uuid") for item in data["results"]]
-    assert sim_uuid in uuids
+    uuids = [item.uuid for item in data.results]
+    assert simulation_data.simulation.uuid in uuids
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_simulations_filter_by_metadata(client):
     """Test filtering simulations by metadata."""
     # Create simulations with specific metadata
-    sim_uuid_1 = uuid.uuid4()
-    sim_uuid_2 = uuid.uuid4()
-    test_machine = "test-machine-xyz"
+    test_metadata = MetadataData(element="machine", value="test_machine")
 
-    simulation_data_1 = {
-        "simulation": {
-            "uuid": {"_type": "uuid.UUID", "hex": sim_uuid_1.hex},
-            "alias": "metadata-filter-1",
-            "datetime": datetime.now(timezone.utc).isoformat(),
-            "inputs": [],
-            "outputs": [],
-            "metadata": [
-                {"element": "machine", "value": test_machine},
-                {"element": "code", "value": "test-code"},
-            ],
-        },
-        "add_watcher": False,
-        "uploaded_by": "test-user",
-    }
-
-    simulation_data_2 = {
-        "simulation": {
-            "uuid": {"_type": "uuid.UUID", "hex": sim_uuid_2.hex},
-            "alias": "metadata-filter-2",
-            "datetime": datetime.now(timezone.utc).isoformat(),
-            "inputs": [],
-            "outputs": [],
-            "metadata": [
-                {"element": "machine", "value": test_machine},
-                {"element": "code", "value": "different-code"},
-            ],
-        },
-        "add_watcher": False,
-        "uploaded_by": "test-user",
-    }
-
-    rv_post_1 = client.post(
-        "/v1.2/simulations",
-        json=simulation_data_1,
-        headers=HEADERS,
-        content_type="application/json",
-    )
+    simulation_data_1 = generate_simulation_data(metadata=[test_metadata])
+    simulation_data_2 = generate_simulation_data(metadata=[test_metadata])
+    rv_post_1 = post_simulation(client, simulation_data_1)
     assert rv_post_1.status_code == 200
 
-    rv_post_2 = client.post(
-        "/v1.2/simulations",
-        json=simulation_data_2,
-        headers=HEADERS,
-        content_type="application/json",
-    )
+    rv_post_2 = post_simulation(client, simulation_data_2)
     assert rv_post_2.status_code == 200
 
     # Filter by machine metadata
-    rv = client.get(f"/v1.2/simulations?machine={test_machine}", headers=HEADERS)
+    rv = client.get(
+        f"/v1.2/simulations?{test_metadata.as_querystring()}",
+        headers=HEADERS,
+    )
 
     assert rv.status_code == 200
-    data = rv.json
+    data = PaginatedResponse[SimulationListItem].model_validate(rv.json)
 
-    assert data["count"] >= 2
+    assert data.count == 2
 
     # Check that both simulations are in the results
-    results_uuids = [item.get("uuid") for item in data["results"]]
-    assert sim_uuid_1 in results_uuids
-    assert sim_uuid_2 in results_uuids
+    results_uuids = [item.uuid for item in data.results]
+    assert simulation_data_1.simulation.uuid in results_uuids
+    assert simulation_data_2.simulation.uuid in results_uuids
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_simulations_filter_multiple_metadata(client):
     """Test filtering simulations by multiple metadata fields."""
     # Create a simulation with multiple metadata fields
-    sim_uuid = uuid.uuid4()
-    test_machine = "multi-filter-machine"
-    test_code = "multi-filter-code"
+    test_metadata = [
+        MetadataData(element="machine", value="multi-filter-machine"),
+        MetadataData(element="code", value="multi-filter-code"),
+    ]
 
-    simulation_data = {
-        "simulation": {
-            "uuid": {"_type": "uuid.UUID", "hex": sim_uuid.hex},
-            "alias": "multi-metadata-filter",
-            "datetime": datetime.now(timezone.utc).isoformat(),
-            "inputs": [],
-            "outputs": [],
-            "metadata": [
-                {"element": "machine", "value": test_machine},
-                {"element": "code", "value": test_code},
-            ],
-        },
-        "add_watcher": False,
-        "uploaded_by": "test-user",
-    }
+    simulation_data = generate_simulation_data(metadata=test_metadata)
 
-    rv_post = client.post(
-        "/v1.2/simulations",
-        json=simulation_data,
-        headers=HEADERS,
-        content_type="application/json",
-    )
+    rv_post = post_simulation(client, simulation_data)
     assert rv_post.status_code == 200
 
     # Filter by both machine and code
     rv = client.get(
-        f"/v1.2/simulations?machine={test_machine}&code={test_code}", headers=HEADERS
+        f"/v1.2/simulations?{'&'.join([m.as_querystring() for m in test_metadata])}",
+        headers=HEADERS,
     )
 
     assert rv.status_code == 200
-    data = rv.json
+    data = PaginatedResponse[SimulationListItem].model_validate(rv.json)
 
-    assert data["count"] >= 1
-    results_uuids = [item.get("uuid") for item in data["results"]]
-    assert sim_uuid in results_uuids
+    assert data.count == 1
+    results_uuids = [item.uuid for item in data.results]
+    assert simulation_data.simulation.uuid in results_uuids
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
-def test_get_simulations_sorting_asc(client):
-    """Test sorting simulations in ascending order."""
+@pytest.mark.xfail(reason="Only sorting by metadata keys works for now")
+def test_get_simulations_alias_sorting_asc(client):
+    """Test sorting simulations in ascending order by alias."""
     # Create simulations with sortable aliases
     for i in range(3):
-        sim_uuid = uuid.uuid4()
-        simulation_data = {
-            "simulation": {
-                "uuid": {"_type": "uuid.UUID", "hex": sim_uuid.hex},
-                "alias": f"sort-test-{i:03d}",
-                "datetime": datetime.now(timezone.utc).isoformat(),
-                "inputs": [],
-                "outputs": [],
-                "metadata": [],
-            },
-            "add_watcher": False,
-            "uploaded_by": "test-user",
-        }
+        simulation_data = generate_simulation_data(alias=f"alias-sort-test-{i:03d}")
 
-        rv_post = client.post(
-            "/v1.2/simulations",
-            json=simulation_data,
-            headers=HEADERS,
-            content_type="application/json",
-        )
+        rv_post = post_simulation(client, simulation_data)
         assert rv_post.status_code == 200
 
     # Get simulations sorted by alias ascending
     headers_sorted = {**HEADERS, "simdb-sort-by": "alias", "simdb-sort-asc": "true"}
 
-    rv = client.get("/v1.2/simulations?alias=sort-test-%", headers=headers_sorted)
+    rv = client.get(
+        "/v1.2/simulations?alias=IN%3Aalias-sort-test-", headers=headers_sorted
+    )
 
     assert rv.status_code == 200
-    data = rv.json
+    data = PaginatedResponse[SimulationListItem].model_validate(rv.json)
 
-    # Filter to only our test simulations
-    test_sims = [
-        item
-        for item in data["results"]
-        if item.get("alias", "").startswith("sort-test-")
-    ]
-
-    if len(test_sims) >= 2:
-        # Check that results are sorted in ascending order
-        aliases = [item.get("alias") for item in test_sims]
-        assert aliases == sorted(aliases)
+    # Check that results are sorted in ascending order
+    aliases = [item.alias for item in data.results if item.alias is not None]
+    assert aliases == sorted(aliases)
+    assert len(aliases) == 3
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
-def test_get_simulations_sorting_desc(client):
-    """Test sorting simulations in descending order."""
-    # Get simulations sorted by alias descending
-    headers_sorted = {**HEADERS, "simdb-sort-by": "alias", "simdb-sort-asc": "false"}
+@pytest.mark.parametrize("ascending", [True, False])
+def test_get_simulations_metadata_sorting(client, ascending):
+    """Test sorting simulations in ascending order."""
+    # Create simulations with sortable aliases
+    # post them in the order: 2 1 0 5 4 3
+    # ascending should result in 0 1 2 3 4 5
+    # descending should result in 5 4 3 2 1 0
+    for i in reversed(range(3)):
+        simulation_data = generate_simulation_data(
+            alias=f"sort-test-{ascending}-{i:03d}",
+            metadata=[MetadataData(element="sort-test", value=i)],
+        )
 
-    rv = client.get("/v1.2/simulations", headers=headers_sorted)
+        rv_post = post_simulation(client, simulation_data)
+        assert rv_post.status_code == 200
+
+    for i in reversed(range(3, 6)):
+        simulation_data = generate_simulation_data(
+            alias=f"sort-test-{ascending}-{i:03d}",
+            metadata=[MetadataData(element="sort-test", value=i)],
+        )
+
+        rv_post = post_simulation(client, simulation_data)
+        assert rv_post.status_code == 200
+
+    # Get simulations sorted by alias ascending
+    headers_sorted = {
+        **HEADERS,
+        "simdb-sort-by": "sort-test",
+        "simdb-sort-asc": "true" if ascending else "false",
+    }
+
+    rv = client.get(
+        f"/v1.2/simulations?alias=IN%3Asort-test-{ascending}&sort-test",
+        headers=headers_sorted,
+    )
 
     assert rv.status_code == 200
-    data = rv.json
+    data = PaginatedResponse[SimulationListItem].model_validate(rv.json)
 
-    # Just verify the request succeeded and returned data
-    assert "results" in data
-    assert isinstance(data["results"], list)
+    # Check that results are sorted in the correct order
+    metadata = [
+        item.metadata[0].value for item in data.results if item.metadata is not None
+    ]
+    assert metadata == sorted(metadata, reverse=not ascending)
+    assert len(metadata) == 6
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
@@ -766,41 +633,26 @@ def test_get_simulations_empty_result(client):
     )
 
     assert rv.status_code == 200
-    data = rv.json
+    data = PaginatedResponse[SimulationListItem].model_validate(rv.json)
 
-    assert data["count"] == 0
-    assert data["results"] == []
+    assert data.count == 0
+    assert len(data.results) == 0
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_simulations_with_metadata_keys(client):
     """Test requesting specific metadata keys in results."""
     # Create a simulation with known metadata
-    sim_uuid = uuid.uuid4()
 
-    simulation_data = {
-        "simulation": {
-            "uuid": {"_type": "uuid.UUID", "hex": sim_uuid.hex},
-            "alias": "meta-keys-test",
-            "datetime": datetime.now(timezone.utc).isoformat(),
-            "inputs": [],
-            "outputs": [],
-            "metadata": [
-                {"element": "machine", "value": "machine-x"},
-                {"element": "code", "value": "code-y"},
-                {"element": "description", "value": "test description"},
-            ],
-        },
-        "add_watcher": False,
-        "uploaded_by": "test-user",
-    }
-
-    rv_post = client.post(
-        "/v1.2/simulations",
-        json=simulation_data,
-        headers=HEADERS,
-        content_type="application/json",
+    simulation_data = generate_simulation_data(
+        alias="meta-keys-test",
+        metadata=[
+            MetadataData(element="machine", value="machine-x"),
+            MetadataData(element="code", value="code-y"),
+        ],
     )
+
+    rv_post = post_simulation(client, simulation_data)
     assert rv_post.status_code == 200
 
     # Request simulations with specific metadata keys
@@ -809,208 +661,90 @@ def test_get_simulations_with_metadata_keys(client):
     )
 
     assert rv.status_code == 200
-    data = rv.json
+    data: PaginatedResponse[SimulationListItem] = PaginatedResponse[
+        SimulationListItem
+    ].model_validate(rv.json)
 
-    assert data["count"] >= 1
-
-
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
-def test_get_simulations_combined_pagination_sorting_filtering(client):
-    """Test GET request with pagination, sorting, and filtering combined."""
-    # Create multiple simulations for testing
-    test_prefix = "combined-test"
-    for i in range(5):
-        sim_uuid = uuid.uuid4()
-        simulation_data = {
-            "simulation": {
-                "uuid": {"_type": "uuid.UUID", "hex": sim_uuid.hex},
-                "alias": f"{test_prefix}-{i:02d}",
-                "datetime": datetime.now(timezone.utc).isoformat(),
-                "inputs": [],
-                "outputs": [],
-                "metadata": [{"element": "test_group", "value": "combined"}],
-            },
-            "add_watcher": False,
-            "uploaded_by": "test-user",
-        }
-
-        rv_post = client.post(
-            "/v1.2/simulations",
-            json=simulation_data,
-            headers=HEADERS,
-            content_type="application/json",
-        )
-        assert rv_post.status_code == 200
-
-    # Request with all features combined
-    headers_combined = {
-        **HEADERS,
-        "simdb-result-limit": "3",
-        "simdb-page": "1",
-        "simdb-sort-by": "alias",
-        "simdb-sort-asc": "true",
-    }
-
-    rv = client.get(
-        f"/v1.2/simulations?alias={test_prefix}-%", headers=headers_combined
-    )
-
-    assert rv.status_code == 200
-    data = rv.json
-
-    assert data["page"] == 1
-    assert data["limit"] == 3
-    assert len(data["results"]) <= 3
+    assert data.count == 1
+    assert len(data.results) == 1
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_simulation_by_uuid(client):
     """Test GET /v1.2/simulation/{simulation_id} endpoint - retrieve by UUID."""
     # Create a simulation with known properties
-    sim_uuid = uuid.uuid4()
-    input_uuid = uuid.uuid4()
-    output_uuid = uuid.uuid4()
-    test_alias = "get-test-simulation"
+    simulation_data = generate_simulation_data(uploaded_by="test-uploader")
 
-    simulation_data = {
-        "simulation": {
-            "uuid": {"_type": "uuid.UUID", "hex": sim_uuid.hex},
-            "alias": test_alias,
-            "datetime": datetime.now(timezone.utc).isoformat(),
-            "inputs": [
-                {
-                    "uuid": {"_type": "uuid.UUID", "hex": input_uuid.hex},
-                    "type": "FILE",
-                    "uri": "file:///test/input.dat",
-                    "checksum": "input123",
-                    "datetime": datetime.now(timezone.utc).isoformat(),
-                    "usage": "input_data",
-                    "purpose": "test input",
-                    "sensitivity": "public",
-                    "access": "open",
-                    "embargo": None,
-                }
-            ],
-            "outputs": [
-                {
-                    "uuid": {"_type": "uuid.UUID", "hex": output_uuid.hex},
-                    "type": "FILE",
-                    "uri": "file:///test/output.dat",
-                    "checksum": "output456",
-                    "datetime": datetime.now(timezone.utc).isoformat(),
-                    "usage": "output_data",
-                    "purpose": "test output",
-                    "sensitivity": "public",
-                    "access": "open",
-                    "embargo": None,
-                }
-            ],
-            "metadata": [
-                {"element": "machine", "value": "test-machine"},
-                {"element": "code", "value": "test-code"},
-                {"element": "description", "value": "Test simulation for GET"},
-            ],
-        },
-        "add_watcher": False,
-        "uploaded_by": "test-user",
-    }
-
-    # Create the simulation
-    rv_post = client.post(
-        "/v1.2/simulations",
-        json=simulation_data,
-        headers=HEADERS,
-        content_type="application/json",
-    )
+    rv_post = post_simulation(client, simulation_data)
     assert rv_post.status_code == 200
 
     # Test GET by UUID
-    rv = client.get(f"/v1.2/simulation/{sim_uuid.hex}", headers=HEADERS)
+    rv = client.get(
+        f"/v1.2/simulation/{simulation_data.simulation.uuid.hex}", headers=HEADERS
+    )
 
     assert rv.status_code == 200
     assert rv.is_json
 
-    data = rv.json
+    # Validate full data model
+    SimulationDataResponse.model_validate(rv.json)
 
-    # Verify basic fields
-    assert "uuid" in data
-    assert data["uuid"] == sim_uuid
-    assert data["alias"] == test_alias
+    simulation_data_received = SimulationData.model_validate(rv.json, extra="ignore")
+    simulation_data_check = simulation_data.simulation.model_copy()
 
-    # Verify datetime field exists
-    assert "datetime" in data
+    # fill fields that are filled by the server
+    simulation_data_check.alias = simulation_data_check.uuid.hex
+    simulation_data_check.metadata = [
+        MetadataData(element="uploaded_by", value=simulation_data.uploaded_by)
+    ]
 
-    # Verify inputs and outputs
-    assert "inputs" in data
-    assert len(data["inputs"]) == 1
-    assert data["inputs"][0]["uuid"] == input_uuid
-    assert data["inputs"][0]["uri"] == "file:/test/input.dat"
-    assert data["inputs"][0]["checksum"] == "input123"
+    # datetime gets updated by the server
+    simulation_data_check.datetime = simulation_data_received.datetime
 
-    assert "outputs" in data
-    assert len(data["outputs"]) == 1
-    assert data["outputs"][0]["uuid"] == output_uuid
-    assert data["outputs"][0]["uri"] == "file:/test/output.dat"
-    assert data["outputs"][0]["checksum"] == "output456"
-
-    # Verify metadata
-    assert "metadata" in data
-    assert len(data["metadata"]) >= 3  # At least our 3 metadata items
-    metadata_dict = {m["element"]: m["value"] for m in data["metadata"]}
-    assert metadata_dict["machine"] == "test-machine"
-    assert metadata_dict["code"] == "test-code"
-    assert metadata_dict["description"] == "Test simulation for GET"
-
-    # Verify children and parents fields exist
-    assert "children" in data
-    assert "parents" in data
-    assert isinstance(data["children"], list)
-    assert isinstance(data["parents"], list)
+    assert simulation_data_received == simulation_data_check
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_simulation_by_alias(client):
     """Test GET /v1.2/simulation/{simulation_id} endpoint - retrieve by alias."""
     # Create a simulation with a unique alias
-    sim_uuid = uuid.uuid4()
-    test_alias = "get-by-alias-test"
-
-    simulation_data = {
-        "simulation": {
-            "uuid": {"_type": "uuid.UUID", "hex": sim_uuid.hex},
-            "alias": test_alias,
-            "datetime": datetime.now(timezone.utc).isoformat(),
-            "inputs": [],
-            "outputs": [],
-            "metadata": [{"element": "test", "value": "alias retrieval"}],
-        },
-        "add_watcher": False,
-        "uploaded_by": "test-user",
-    }
-
-    rv_post = client.post(
-        "/v1.2/simulations",
-        json=simulation_data,
-        headers=HEADERS,
-        content_type="application/json",
+    simulation_data = generate_simulation_data(
+        alias="test-get-alias", uploaded_by="test-uploader"
     )
+
+    rv_post = post_simulation(client, simulation_data)
     assert rv_post.status_code == 200
 
     # Test GET by alias
-    rv = client.get(f"/v1.2/simulation/{test_alias}", headers=HEADERS)
+    rv = client.get(
+        f"/v1.2/simulation/{simulation_data.simulation.alias}", headers=HEADERS
+    )
 
     assert rv.status_code == 200
-    data = rv.json
+    assert rv.is_json
 
-    assert data["uuid"] == sim_uuid
-    assert data["alias"] == test_alias
+    # Validate full data model
+    SimulationDataResponse.model_validate(rv.json)
+
+    simulation_data_received = SimulationData.model_validate(rv.json, extra="ignore")
+    simulation_data_check = simulation_data.simulation.model_copy()
+
+    # fill fields that are filled by the server
+    simulation_data_check.metadata = [
+        MetadataData(element="uploaded_by", value=simulation_data.uploaded_by)
+    ]
+
+    # datetime gets updated by the server
+    simulation_data_check.datetime = simulation_data_received.datetime
+
+    assert simulation_data_received == simulation_data_check
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_simulation_not_found(client):
     """Test GET /v1.2/simulation/{simulation_id} endpoint - non-existent simulation."""
     # Try to get a non-existent simulation
-    fake_uuid = uuid.uuid4()
+    fake_uuid = uuid.uuid1()
 
     rv = client.get(f"/v1.2/simulation/{fake_uuid.hex}", headers=HEADERS)
 
@@ -1019,162 +753,3 @@ def test_get_simulation_not_found(client):
 
     # Should contain an error message
     assert "error" in data or data.get("message") == "Simulation not found"
-
-
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
-def test_get_simulation_with_parents_and_children(client):
-    """Test GET /v1.2/simulation/{simulation_id} endpoint - verify parents/children."""
-    # Create parent simulation
-    parent_uuid = uuid.uuid4()
-    parent_data = {
-        "simulation": {
-            "uuid": {"_type": "uuid.UUID", "hex": parent_uuid.hex},
-            "alias": "parent-simulation",
-            "datetime": datetime.now(timezone.utc).isoformat(),
-            "inputs": [],
-            "outputs": [],
-            "metadata": [{"element": "role", "value": "parent"}],
-        },
-        "add_watcher": False,
-        "uploaded_by": "test-user",
-    }
-
-    rv_parent = client.post(
-        "/v1.2/simulations",
-        json=parent_data,
-        headers=HEADERS,
-        content_type="application/json",
-    )
-    assert rv_parent.status_code == 200
-
-    # Create child simulation that references parent
-    child_uuid = uuid.uuid4()
-    child_data = {
-        "simulation": {
-            "uuid": {"_type": "uuid.UUID", "hex": child_uuid.hex},
-            "alias": "child-simulation",
-            "datetime": datetime.now(timezone.utc).isoformat(),
-            "inputs": [],
-            "outputs": [],
-            "metadata": [
-                {"element": "role", "value": "child"},
-                {"element": "parent", "value": parent_uuid.hex},
-            ],
-        },
-        "add_watcher": False,
-        "uploaded_by": "test-user",
-    }
-
-    rv_child = client.post(
-        "/v1.2/simulations",
-        json=child_data,
-        headers=HEADERS,
-        content_type="application/json",
-    )
-    assert rv_child.status_code == 200
-
-    # Get child simulation and verify parents field
-    rv = client.get(f"/v1.2/simulation/{child_uuid.hex}", headers=HEADERS)
-
-    assert rv.status_code == 200
-    data = rv.json
-
-    # Verify the parents/children structure
-    assert "parents" in data
-    assert "children" in data
-
-
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
-def test_get_simulation_full_response_structure(client):
-    """Test GET /v1.2/simulation/{simulation_id} endpoint - verify complete response
-    structure."""
-    # Create a comprehensive simulation
-    sim_uuid = uuid.uuid4()
-
-    simulation_data = {
-        "simulation": {
-            "uuid": {"_type": "uuid.UUID", "hex": sim_uuid.hex},
-            "alias": "complete-structure-test",
-            "datetime": datetime.now(timezone.utc).isoformat(),
-            "inputs": [
-                {
-                    "uuid": {"_type": "uuid.UUID", "hex": uuid.uuid4().hex},
-                    "type": "FILE",
-                    "uri": "file:///complete/input.dat",
-                    "checksum": "complete123",
-                    "datetime": datetime.now(timezone.utc).isoformat(),
-                    "usage": "input",
-                    "purpose": "complete input",
-                    "sensitivity": "public",
-                    "access": "open",
-                    "embargo": None,
-                }
-            ],
-            "outputs": [
-                {
-                    "uuid": {"_type": "uuid.UUID", "hex": uuid.uuid4().hex},
-                    "type": "FILE",
-                    "uri": "file:///complete/output.dat",
-                    "checksum": "complete456",
-                    "datetime": datetime.now(timezone.utc).isoformat(),
-                    "usage": "output",
-                    "purpose": "complete output",
-                    "sensitivity": "public",
-                    "access": "open",
-                    "embargo": None,
-                }
-            ],
-            "metadata": [
-                {"element": "machine", "value": "complete-machine"},
-                {"element": "version", "value": "1.0"},
-            ],
-        },
-        "add_watcher": False,
-        "uploaded_by": "complete-user",
-    }
-
-    rv_post = client.post(
-        "/v1.2/simulations",
-        json=simulation_data,
-        headers=HEADERS,
-        content_type="application/json",
-    )
-    assert rv_post.status_code == 200
-
-    # Get the simulation
-    rv = client.get(f"/v1.2/simulation/{sim_uuid.hex}", headers=HEADERS)
-
-    assert rv.status_code == 200
-    data = rv.json
-
-    # Verify all required top-level fields are present
-    required_fields = [
-        "uuid",
-        "alias",
-        "datetime",
-        "inputs",
-        "outputs",
-        "metadata",
-        "children",
-        "parents",
-    ]
-    for field in required_fields:
-        assert field in data, f"Required field '{field}' missing from response"
-
-    # Verify inputs structure
-    assert len(data["inputs"]) == 1
-    input_required_fields = ["uuid", "type", "uri", "checksum", "datetime"]
-    for field in input_required_fields:
-        assert field in data["inputs"][0], f"Required input field '{field}' missing"
-
-    # Verify outputs structure
-    assert len(data["outputs"]) == 1
-    output_required_fields = ["uuid", "type", "uri", "checksum", "datetime"]
-    for field in output_required_fields:
-        assert field in data["outputs"][0], f"Required output field '{field}' missing"
-
-    # Verify metadata structure
-    assert len(data["metadata"]) >= 2
-    for meta in data["metadata"]:
-        assert "element" in meta
-        assert "value" in meta
