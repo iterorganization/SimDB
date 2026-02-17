@@ -227,8 +227,8 @@ class Database:
                 )
             except SQLAlchemyError:
                 simulation = None
-            if not simulation:
-                raise DatabaseError(f"Simulation {sim_ref} not found.") from None
+        if not simulation:
+            raise DatabaseError(f"Simulation {sim_ref} not found.") from None
         return simulation
 
     def remove(self):

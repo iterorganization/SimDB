@@ -17,11 +17,15 @@ from simdb.remote.models import (
     FileData,
     MetadataData,
     MetadataDataList,
+    MetadataDeleteData,
+    MetadataPatchData,
     PaginatedResponse,
     SimulationData,
     SimulationDataResponse,
     SimulationListItem,
     SimulationPostData,
+    SimulationTraceData,
+    StatusPatchData,
 )
 
 has_flask = importlib.util.find_spec("flask") is not None
@@ -48,6 +52,7 @@ def client():
     config.set_option("server.upload_folder", upload_dir)
     config.set_option("authentication.type", "None")
     config.set_option("server.copy_files", False)
+    config.set_option("role.admin.users", "admin,admin2")
     app = create_app(config=config, testing=True, debug=True)
     app.testing = True
 
@@ -770,3 +775,155 @@ def test_get_simulation_metadata(client):
     check_data = simulation_data.simulation.metadata.model_copy()
     check_data.root.append(MetadataData(element="uploaded_by", value="test-user"))
     assert data == simulation_data.simulation.metadata
+
+
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_patch_simulation(client):
+    """Test PATCH /v1.2/simulation/{simulation_id} endpoint."""
+    simulation_data = generate_simulation_data()
+
+    rv_post = post_simulation(client, simulation_data)
+    assert rv_post.status_code == 200
+
+    rv = client.patch(
+        f"/v1.2/simulation/{simulation_data.simulation.uuid.hex}",
+        json=StatusPatchData(status="failed").model_dump(mode="json"),
+        headers=HEADERS,
+    )
+
+    assert rv.status_code == 200
+
+    # Status is never returned, so we can't check if it is set
+
+
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_delete_simulation(client):
+    """Test DELETE /v1.2/simulation/{simulation_id} endpoint."""
+    simulation_data = generate_simulation_data()
+
+    rv_post = post_simulation(client, simulation_data)
+    assert rv_post.status_code == 200
+
+    rv = client.delete(
+        f"/v1.2/simulation/{simulation_data.simulation.uuid.hex}",
+        headers=HEADERS,
+    )
+
+    assert rv.status_code == 200
+
+    rv = client.get(
+        f"/v1.2/simulation/{simulation_data.simulation.uuid.hex}", headers=HEADERS
+    )
+
+    assert rv.status_code == 400
+
+
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_patch_simulation_metadata(client):
+    """Test PATCH /v1.2/simulation/metadata/{simulation_id} endpoint."""
+    simulation_data = generate_simulation_data(
+        metadata={"metadata-a": "abc"}, uploaded_by="test-user"
+    )
+
+    rv_post = post_simulation(client, simulation_data)
+    assert rv_post.status_code == 200
+
+    rv = client.patch(
+        f"/v1.2/simulation/metadata/{simulation_data.simulation.uuid.hex}",
+        json=MetadataPatchData(key="metadata-a", value="def").model_dump(mode="json"),
+        headers=HEADERS,
+    )
+
+    assert rv.status_code == 200
+
+    rv = client.get(
+        f"/v1.2/simulation/metadata/{simulation_data.simulation.uuid.hex}",
+        headers=HEADERS,
+    )
+
+    assert rv.status_code == 200
+    data = MetadataDataList.model_validate(rv.json)
+    check_data = simulation_data.simulation.metadata.model_copy()
+    check_data[0].value = "def"
+    check_data.root.append(MetadataData(element="uploaded_by", value="test-user"))
+    assert data == simulation_data.simulation.metadata
+
+
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_delete_simulation_metadata(client):
+    """Test DELETE /v1.2/simulation/metadata/{simulation_id} endpoint."""
+    simulation_data = generate_simulation_data(
+        metadata={"metadata-a": "abc"}, uploaded_by="test-user"
+    )
+
+    rv_post = post_simulation(client, simulation_data)
+    assert rv_post.status_code == 200
+
+    rv = client.delete(
+        f"/v1.2/simulation/metadata/{simulation_data.simulation.uuid.hex}",
+        json=MetadataDeleteData(key="metadata-a").model_dump(mode="json"),
+        headers=HEADERS,
+    )
+
+    assert rv.status_code == 200
+
+    rv = client.get(
+        f"/v1.2/simulation/metadata/{simulation_data.simulation.uuid.hex}",
+        headers=HEADERS,
+    )
+
+    assert rv.status_code == 200
+    data = MetadataDataList.model_validate(rv.json)
+    check_data = simulation_data.simulation.metadata.model_copy()
+    check_data.root.pop()
+    check_data.root.append(MetadataData(element="uploaded_by", value="test-user"))
+    assert data == simulation_data.simulation.metadata
+
+
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_trace_endpoint(client):
+    """Test trace endpoint returns valid SimulationTraceData and handles replacement
+    chains."""
+    # Create v1 -> v2 -> v3 replacement chain
+    sim_v1 = generate_simulation_data(alias="trace-v1")
+    rv1 = post_simulation(client, sim_v1)
+    assert rv1.status_code == 200
+
+    sim_v2 = generate_simulation_data(
+        alias="trace-v2",
+        metadata=[
+            MetadataData(element="replaces", value=sim_v1.simulation.uuid.hex),
+            MetadataData(element="replaces_reason", value="Bug fixes"),
+        ],
+    )
+    rv2 = post_simulation(client, sim_v2)
+    assert rv2.status_code == 200
+
+    sim_v3 = generate_simulation_data(
+        alias="trace-v3",
+        metadata=[
+            MetadataData(element="replaces", value=sim_v2.simulation.uuid.hex),
+            MetadataData(element="replaces_reason", value="Performance"),
+        ],
+    )
+    rv3 = post_simulation(client, sim_v3)
+    assert rv3.status_code == 200
+
+    # Test trace for v3 (full chain)
+    rv_trace = client.get(f"/v1.2/trace/{sim_v3.simulation.uuid.hex}", headers=HEADERS)
+    assert rv_trace.status_code == 200
+
+    trace = SimulationTraceData.model_validate(rv_trace.json)
+
+    # Verify v3
+    assert trace.uuid == sim_v3.simulation.uuid
+    assert trace.alias == "trace-v3"
+    assert trace.replaces_reason == "Performance"
+
+    # Verify v2 (nested)
+    assert trace.replaces.uuid == sim_v2.simulation.uuid
+    assert trace.replaces.replaces_reason == "Bug fixes"
+
+    # Verify v1 (double nested)
+    assert trace.replaces.replaces.uuid == sim_v1.simulation.uuid
+    assert trace.replaces.replaces.replaces is None

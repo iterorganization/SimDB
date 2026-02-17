@@ -32,6 +32,19 @@ CustomUUID = Annotated[
 ]
 
 
+class StatusPatchData(BaseModel):
+    status: str
+
+
+class DeletedSimulation(BaseModel):
+    uuid: UUID
+    files: List[str]
+
+
+class SimulationDeleteResponse(BaseModel):
+    deleted: DeletedSimulation
+
+
 class FileData(BaseModel):
     type: str
     uri: str
@@ -62,6 +75,15 @@ class MetadataData(BaseModel):
 
     def as_querystring(self):
         return urlencode(self.as_dict())
+
+
+class MetadataPatchData(BaseModel):
+    key: str
+    value: str
+
+
+class MetadataDeleteData(BaseModel):
+    key: str
 
 
 class MetadataDataList(RootModel):
@@ -135,3 +157,35 @@ class PaginatedResponse(BaseModel, Generic[T]):
     page: int
     limit: int
     results: List[T]
+
+
+class PaginationData(BaseModel):
+    limit: int
+    page: int
+    sort_by: str
+    sort_asc: bool
+
+    @model_validator(mode="before")
+    @classmethod
+    def parse_headers(cls, data: Any):
+        if not isinstance(data, dict):
+            return data
+        new_data = {
+            "limit": data.get("simdb-result-limit", 100),
+            "page": data.get("simdb-page", 1),
+            "sort_by": data.get("simdb-sort-by", ""),
+            "sort_asc": data.get("simdb-sort-asc", False),
+        }
+        return new_data
+
+
+class SimulationTraceData(SimulationData):
+    status: Optional[str] = None
+    passed_on: Optional[Any] = None
+    failed_on: Optional[Any] = None
+    deprecated_on: Optional[Any] = None
+    accepted_on: Optional[Any] = None
+    not_validated_on: Optional[Any] = None
+    deleted_on: Optional[Any] = None
+    replaces: Optional["SimulationTraceData"] = None
+    replaces_reason: Optional[Any] = None
