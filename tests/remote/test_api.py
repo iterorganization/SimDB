@@ -748,3 +748,25 @@ def test_get_simulation_not_found(client):
 
     # Should contain an error message
     assert "error" in data or data.get("message") == "Simulation not found"
+
+
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_get_simulation_metadata(client):
+    """Test GET /v1.2/simulation/metadata/{simulation_id} endpoint."""
+    simulation_data = generate_simulation_data(
+        metadata={"metadata-a": "abc", "metadata-b": "123"}, uploaded_by="test-user"
+    )
+
+    rv_post = post_simulation(client, simulation_data)
+    assert rv_post.status_code == 200
+
+    rv = client.get(
+        f"/v1.2/simulation/metadata/{simulation_data.simulation.uuid.hex}",
+        headers=HEADERS,
+    )
+
+    assert rv.status_code == 200
+    data = MetadataDataList.model_validate(rv.json)
+    check_data = simulation_data.simulation.metadata.model_copy()
+    check_data.root.append(MetadataData(element="uploaded_by", value="test-user"))
+    assert data == simulation_data.simulation.metadata

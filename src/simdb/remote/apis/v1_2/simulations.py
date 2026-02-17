@@ -26,6 +26,7 @@ from simdb.remote.core.errors import error
 from simdb.remote.core.path import find_common_root, secure_path
 from simdb.remote.core.typing import current_app
 from simdb.remote.models import (
+    MetadataDataList,
     PaginatedResponse,
     SimulationDataResponse,
     SimulationListItem,
@@ -491,7 +492,11 @@ class SimulationMeta(Resource):
         try:
             simulation = current_app.db.get_simulation(sim_id)
             if simulation:
-                return jsonify([meta.data() for meta in simulation.meta])
+                return jsonify(
+                    MetadataDataList.model_validate(
+                        [meta.data() for meta in simulation.meta]
+                    ).model_dump(mode="json")
+                )
             return error("Simulation not found")
         except DatabaseError as err:
             return error(str(err))
