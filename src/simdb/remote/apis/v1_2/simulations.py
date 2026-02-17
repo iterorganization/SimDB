@@ -27,11 +27,17 @@ from simdb.remote.core.path import find_common_root, secure_path
 from simdb.remote.core.typing import current_app
 from simdb.remote.models import (
     MetadataDataList,
+    MetadataDeleteData,
+    MetadataPatchData,
     PaginatedResponse,
+    PaginationData,
     SimulationDataResponse,
+    SimulationDeleteResponse,
     SimulationListItem,
     SimulationPostData,
     SimulationPostResponse,
+    SimulationTraceData,
+    StatusPatchData,
     ValidationResult,
 )
 from simdb.uri import URI
@@ -124,11 +130,8 @@ def _set_alias(alias: str):
     return alias, next_id
 
 
-def _build_trace(sim_id: str) -> Dict[str, Any]:
-    try:
-        simulation = current_app.db.get_simulation(sim_id)
-    except DatabaseError as err:
-        return {"error": str(err)}
+def _build_trace(sim_id: str) -> SimulationTraceData:
+    simulation = current_app.db.get_simulation(sim_id)
     data: Dict[str, Any] = cast(Dict[str, Any], simulation.data(recurse=False))
 
     status = simulation.find_meta("status")
@@ -155,7 +158,7 @@ def _build_trace(sim_id: str) -> Dict[str, Any]:
     if replaces_reason:
         data["replaces_reason"] = replaces_reason[0].value
 
-    return data
+    return SimulationTraceData.model_validate(data)
 
 
 def _get_json_aware(
@@ -243,13 +246,13 @@ class SimulationList(Resource):
     @requires_auth()
     # @cache.cached(key_prefix=cache_key)
     def get(self, user: User):
-        limit = int(request.headers.get(SimulationList.LIMIT_HEADER) or 100)
-        page = int(request.headers.get(SimulationList.PAGE_HEADER) or 1)
-        sort_by = request.headers.get(SimulationList.SORT_BY_HEADER, "")
-        sort_asc = (
-            request.headers.get(SimulationList.SORT_ASC_HEADER, "false").lower()
-            == "true"
+        pd = PaginationData.model_validate(
+            {k.lower(): v for (k, v) in request.headers.items()}
         )
+        limit = pd.limit
+        page = pd.page
+        sort_by = pd.sort_by
+        sort_asc = pd.sort_asc
         names = []
         constraints = []
         if request.args:
@@ -447,13 +450,11 @@ class Simulation(Resource):
     @requires_auth("admin")
     def patch(self, sim_id: str, user: Optional[User] = None):
         try:
-            data = request.get_json() or {}
-            if "status" not in data:
-                return error("Status not provided")
+            data = StatusPatchData.model_validate(request.json)
             simulation = current_app.db.get_simulation(sim_id)
             if simulation is None:
                 raise ValueError(f"Simulation {sim_id} not found.")
-            status = models_sim.Simulation.Status(data["status"])
+            status = models_sim.Simulation.Status(data.status)
             _update_simulation_status(simulation, status, user)
             current_app.db.insert_simulation(simulation)
             clear_cache()
@@ -479,7 +480,11 @@ class Simulation(Resource):
                     directory = first_file.uri.path.parent
                     if directory != Path() and directory != Path("/"):
                         directory.rmdir()
-            return jsonify({"deleted": {"simulation": simulation.uuid, "files": files}})
+            return jsonify(
+                SimulationDeleteResponse.model_validate(
+                    {"deleted": {"uuid": simulation.uuid, "files": files}}
+                ).model_dump(mode="json")
+            )
         except DatabaseError as err:
             return error(str(err))
 
@@ -511,16 +516,10 @@ class SimulationMeta(Resource):
     @requires_auth("admin")
     def patch(self, sim_id: str, user: Optional[User] = None):
         try:
-            data = request.get_json() or {}
+            data = MetadataPatchData.model_validate(request.json)
 
-            if "key" not in data:
-                return error("Metadata key not provided")
-
-            if "value" not in data:
-                return error("New metadata value not provided")
-
-            key = data["key"]
-            value = data["value"].lower()
+            key = data.key
+            value = data.value.lower()
             simulation = current_app.db.get_simulation(sim_id)
             if simulation is None:
                 raise ValueError(f"Simulation {sim_id} not found.")
@@ -546,18 +545,13 @@ class SimulationMeta(Resource):
     @requires_auth("admin")
     def delete(self, sim_id: str, user: Optional[User] = None):
         try:
-            data = request.get_json() or {}
-
-            if "key" not in data:
-                return error("Metadata key not provided")
-
-            key = data["key"]
+            data = MetadataDeleteData.model_validate(request.json)
 
             simulation = current_app.db.get_simulation(sim_id)
             if simulation is None:
                 raise ValueError(f"Simulation {sim_id} not found.")
 
-            simulation.remove_meta(key)
+            simulation.remove_meta(data.key)
             current_app.db.insert_simulation(simulation)
             clear_cache()
             return {}
@@ -574,7 +568,7 @@ class ValidateSimulation(Resource):
             result = _validate(simulation, user)
             current_app.db.insert_simulation(simulation)
             clear_cache()
-            return jsonify(result)
+            return jsonify(result.model_dump(mode="json"))
         except DatabaseError as err:
             return error(str(err))
 
@@ -585,8 +579,8 @@ class SimulationTrace(Resource):
     @cache.cached(key_prefix=cache_key)  # type: ignore[invalid-argument-type]
     def get(self, sim_id: str, user: User):
         try:
-            data = _build_trace(sim_id)
-            return jsonify(data)
+            trace_data = _build_trace(sim_id)
+            return jsonify(trace_data.model_dump(mode="json"))
         except DatabaseError as err:
             return error(str(err))
 
