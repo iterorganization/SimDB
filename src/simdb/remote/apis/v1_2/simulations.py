@@ -343,6 +343,8 @@ class SimulationList(Resource):
 
                 for sim_file in files:
                     if sim_file.uri.scheme == "file":
+                        if sim_file.uri.path is None:
+                            raise ValueError("Simulation path not set")
                         path = secure_path(sim_file.uri.path, common_root, staging_dir)
                         if not path.exists():
                             raise ValueError(
@@ -483,6 +485,8 @@ class Simulation(Resource):
             files = []
             for file in itertools.chain(simulation.inputs, simulation.outputs):
                 if file.uri.scheme == "file":
+                    if file.uri.path is None:
+                        raise ValueError("File path not set")
                     files.append(f"{file.uuid} ({file.uri.path.name})")
                     file.uri.path.unlink()
             if simulation.inputs or simulation.outputs:

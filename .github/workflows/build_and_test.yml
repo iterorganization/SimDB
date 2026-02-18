@@ -45,6 +45,11 @@ jobs:
           source venv/bin/activate
           python -m ruff check
 
+      - name: Check typing
+        run: |
+          source venv/bin/activate
+          python -m ty check src
+
       - name: Run tests
         run: |
           source venv/bin/activate
