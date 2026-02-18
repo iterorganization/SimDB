@@ -29,7 +29,7 @@ class Watcher(Base):
     __tablename__ = "watchers"
     id = Column(sql_types.Integer, primary_key=True)
     username = Column(sql_types.String(250))
-    email = Column(sql_types.String(1000))
+    email = Column(sql_types.String(1000), nullable=False)
     notification = Column(
         ChoiceType(choices=NOTIFICATION_CHOICES, length=1, enum_type=Notification)
     )
