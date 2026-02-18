@@ -24,6 +24,7 @@ from simdb.remote.models import (
     SimulationDataResponse,
     SimulationListItem,
     SimulationPostData,
+    SimulationPostResponse,
     SimulationTraceData,
     StatusPatchData,
 )
@@ -133,14 +134,17 @@ def test_post_simulations(client):
 
     # Verify the response
     assert rv.status_code == 200
-    assert rv.json["ingested"] == simulation_data.simulation.uuid.hex
+
+    result = SimulationPostResponse.model_validate(rv.json)
+    assert result.ingested == simulation_data.simulation.uuid
 
     # Verify the simulation was created by fetching it
     rv_get = client.get(
         f"/v1.2/simulation/{simulation_data.simulation.uuid.hex}", headers=HEADERS
     )
     assert rv_get.status_code == 200
-    assert rv_get.json["alias"] == "test-simulation"
+    result = SimulationDataResponse.model_validate(rv_get.json)
+    assert result.alias == simulation_data.simulation.alias
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
@@ -155,19 +159,18 @@ def test_post_simulations_with_alias_auto_increment(client, suffix):
     rv = post_simulation(client, simulation_data)
 
     assert rv.status_code == 200
-    assert rv.json["ingested"] == simulation_data.simulation.uuid.hex
+    result = SimulationPostResponse.model_validate(rv.json)
+    assert result.ingested == simulation_data.simulation.uuid
 
     rv_get = client.get(
         f"/v1.2/simulation/{simulation_data.simulation.uuid.hex}", headers=HEADERS
     )
     assert rv_get.status_code == 200
-    assert rv_get.json["alias"] == f"{random_name}{suffix}1"
+    result = SimulationDataResponse.model_validate(rv_get.json)
+    assert result.alias == f"{random_name}{suffix}1"
 
     # Check seqid metadata was added
-    metadata = rv_get.json["metadata"]
-    seqid_meta = [m for m in metadata if m["element"] == "seqid"]
-    assert len(seqid_meta) == 1
-    assert seqid_meta[0]["value"] == 1
+    assert result.metadata.as_dict()["seqid"] == 1
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
@@ -192,12 +195,14 @@ def test_post_simulations_alias_increment_sequence(client):
     rv_get1 = client.get(
         f"/v1.2/simulation/{simulation_data_1.simulation.uuid.hex}", headers=HEADERS
     )
-    assert rv_get1.json["alias"] == "sequence-1"
+    result = SimulationDataResponse.model_validate(rv_get1.json)
+    assert result.alias == "sequence-1"
 
     rv_get2 = client.get(
         f"/v1.2/simulation/{simulation_data_2.simulation.uuid.hex}", headers=HEADERS
     )
-    assert rv_get2.json["alias"] == "sequence-2"
+    result = SimulationDataResponse.model_validate(rv_get2.json)
+    assert result.alias == "sequence-2"
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
@@ -213,7 +218,8 @@ def test_post_simulations_no_alias(client):
         f"/v1.2/simulation/{simulation_data.simulation.uuid.hex}", headers=HEADERS
     )
     assert rv_get.status_code == 200
-    assert rv_get.json["alias"] == simulation_data.simulation.uuid.hex
+    result = SimulationDataResponse.model_validate(rv_get.json)
+    assert result.alias == simulation_data.simulation.uuid
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
@@ -230,7 +236,9 @@ def test_post_simulations_with_replaces(client):
         alias="updated-simulation",
         metadata=[
             MetadataData(
-                element="replaces", value=old_simulation_data.simulation.uuid.hex
+                # This needs to be the hex representation
+                element="replaces",
+                value=old_simulation_data.simulation.uuid.hex,
             ),
             MetadataData(element="replaces_reason", value="Test replacement"),
         ],
@@ -244,27 +252,23 @@ def test_post_simulations_with_replaces(client):
         f"/v1.2/simulation/{old_simulation_data.simulation.uuid.hex}", headers=HEADERS
     )
     assert rv_old_get.status_code == 200
-    old_metadata = rv_old_get.json["metadata"]
-
-    status_meta = [m for m in old_metadata if m["element"] == "status"]
-    assert len(status_meta) == 1
-    assert status_meta[0]["value"].lower() == "deprecated"
+    result = SimulationDataResponse.model_validate(rv_old_get.json)
+    metadata = result.metadata.as_dict()
+    assert metadata["status"].lower() == "deprecated"
 
     # Check replaced_by metadata was added
-    replaced_by_meta = [m for m in old_metadata if m["element"] == "replaced_by"]
-    assert len(replaced_by_meta) == 1
-    assert replaced_by_meta[0]["value"] == new_simulation_data.simulation.uuid
+    assert metadata["replaced_by"] == new_simulation_data.simulation.uuid
 
     # Verify the new simulation has replaces metadata
     rv_new_get = client.get(
         f"/v1.2/simulation/{new_simulation_data.simulation.uuid.hex}", headers=HEADERS
     )
     assert rv_new_get.status_code == 200
-    new_metadata = rv_new_get.json["metadata"]
+    result = SimulationDataResponse.model_validate(rv_new_get.json)
+    metadata = result.metadata.as_dict()
 
-    replaces_meta = [m for m in new_metadata if m["element"] == "replaces"]
-    assert len(replaces_meta) == 1
-    assert replaces_meta[0]["value"] == old_simulation_data.simulation.uuid.hex
+    # This will be the hex representation
+    assert metadata["replaces"] == old_simulation_data.simulation.uuid.hex
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
@@ -288,7 +292,8 @@ def test_post_simulations_replaces_nonexistent(client):
         f"/v1.2/simulation/{simulation_data.simulation.uuid.hex}", headers=HEADERS
     )
     assert rv_get.status_code == 200
-    assert rv_get.json["alias"] == "replaces-nothing"
+    result = SimulationDataResponse.model_validate(rv_get.json)
+    assert result.alias == "replaces-nothing"
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
@@ -332,54 +337,8 @@ def test_post_simulations_uploaded_by(client):
         f"/v1.2/simulation/{simulation_data.simulation.uuid.hex}", headers=HEADERS
     )
     assert rv_get.status_code == 200
-
-    metadata = rv_get.json["metadata"]
-    uploaded_by_meta = [m for m in metadata if m["element"] == "uploaded_by"]
-    assert len(uploaded_by_meta) == 1
-    assert uploaded_by_meta[0]["value"] == "test-user"
-
-
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
-def test_post_simulations_trace_with_replaces(client):
-    """Test the trace endpoint with a simulation that replaces another."""
-    # Create original simulation
-    # Create initial simulation
-    old_simulation_data = generate_simulation_data(alias="trace-original")
-
-    rv_old = post_simulation(client, old_simulation_data)
-    assert rv_old.status_code == 200
-
-    # Create new simulation that replaces the old one
-    new_simulation_data = generate_simulation_data(
-        alias="trace-updated",
-        metadata=[
-            MetadataData(
-                element="replaces", value=old_simulation_data.simulation.uuid.hex
-            ),
-            MetadataData(element="replaces_reason", value="New features"),
-        ],
-    )
-
-    rv_new = post_simulation(client, new_simulation_data)
-    assert rv_new.status_code == 200
-
-    # Get trace for the new simulation
-    rv_trace = client.get(
-        f"/v1.2/trace/{new_simulation_data.simulation.uuid.hex}", headers=HEADERS
-    )
-    assert rv_trace.status_code == 200
-    trace_data = rv_trace.json
-
-    # Verify trace includes replaces information
-    assert "replaces" in trace_data
-
-    replaces_uuid = trace_data["replaces"]["uuid"]
-    assert replaces_uuid == old_simulation_data.simulation.uuid
-    assert "replaces_reason" in trace_data
-    assert trace_data["replaces_reason"] == "New features"
-
-    with pytest.xfail("Deprecated on is not set, because replaced_on is never set"):
-        assert "deprecated_on" in trace_data["replaces"]
+    result = SimulationDataResponse.model_validate(rv_get.json)
+    assert result.metadata.as_dict()["uploaded_by"] == "test-user"
 
 
 @pytest.mark.skipif(not has_flask, reason="requires flask library")
@@ -928,9 +887,11 @@ def test_trace_endpoint(client):
     assert trace.replaces_reason == "Performance"
 
     # Verify v2 (nested)
+    assert trace.replaces is not None
     assert trace.replaces.uuid == sim_v2.simulation.uuid
     assert trace.replaces.replaces_reason == "Bug fixes"
 
     # Verify v1 (double nested)
+    assert trace.replaces.replaces is not None
     assert trace.replaces.replaces.uuid == sim_v1.simulation.uuid
     assert trace.replaces.replaces.replaces is None
