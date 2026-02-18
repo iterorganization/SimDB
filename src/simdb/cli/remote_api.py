@@ -801,7 +801,7 @@ class RemoteAPI:
                             for f in sim_data["inputs"]
                             if f.get("uuid") == file.uuid  # type: ignore[union-attr]
                         )
-                        sim_file["uri"] = f"file:{path}"
+                        sim_file["uri"] = f"file:{path}"  # type: ignore[invalid-assignment]
                         self._push_file(
                             path,
                             file.uuid,
@@ -864,7 +864,7 @@ class RemoteAPI:
                             None,
                         )
                         if sim_file:
-                            sim_file["uri"] = f"file:{path}"
+                            sim_file["uri"] = f"file:{path}"  # type: ignore[invalid-assignment]
                         self._push_file(
                             path,
                             file.uuid,
