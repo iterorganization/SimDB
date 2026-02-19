@@ -36,7 +36,7 @@ def _update_simulation_status(
 ) -> None:
     old_status = simulation.status
     simulation.status = status
-    if status != old_status and len(simulation.watchers) > 0:
+    if status != old_status and len(list(simulation.watchers)) > 0:
         server = EmailServer(current_app.simdb_config)
         msg = f"""\
 Simulation status changed from {old_status} to {status}.

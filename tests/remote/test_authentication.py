@@ -5,12 +5,13 @@ from unittest import mock
 import pytest
 
 from simdb.config import Config
-from simdb.remote.core.auth import User, check_auth, check_role
 
 has_easyad = importlib.util.find_spec("easyad") is not None
 has_flask = importlib.util.find_spec("flask") is not None
 if has_flask:
     from flask import Flask
+
+    from simdb.remote.core.auth import User, check_auth, check_role
 
 
 @mock.patch("simdb.config.Config.get_option")
