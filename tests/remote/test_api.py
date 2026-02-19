@@ -1,4 +1,5 @@
 import base64
+import contextlib
 import importlib
 import os
 import shutil
@@ -12,7 +13,9 @@ import pytest
 from simdb.cli.manifest import Manifest
 from simdb.config import Config
 from simdb.database.models import Simulation
-from simdb.remote.app import create_app
+
+with contextlib.suppress(ModuleNotFoundError):
+    from simdb.remote.app import create_app
 from simdb.remote.models import (
     FileData,
     MetadataData,
@@ -43,6 +46,8 @@ for _ in range(100):
 
 @pytest.fixture(scope="session")
 def client():
+    if not has_flask:
+        pytest.skip("Flask not installed")
     config = Config()
     config.load()
     db_fd, db_file = tempfile.mkstemp()
@@ -103,7 +108,6 @@ def post_simulation(client, simulation_data, headers=HEADERS):
     return rv_post
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_root(client):
     rv = client.get("/")
     assert rv.status_code == 200
@@ -114,13 +118,11 @@ def test_get_root(client):
     )
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_api_root(client):
     rv = client.get("/v1.2", headers=HEADERS)
     assert rv.status_code == 308
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_post_simulations(client):
     """Test POST endpoint for creating a new simulation."""
     simulation_data = generate_simulation_data(
@@ -147,7 +149,6 @@ def test_post_simulations(client):
     assert result.alias == simulation_data.simulation.alias
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 @pytest.mark.parametrize("suffix", ["-", "#"])
 def test_post_simulations_with_alias_auto_increment(client, suffix):
     """Test POST endpoint with alias ending in dash or hashtag (auto-increment)."""
@@ -173,7 +174,6 @@ def test_post_simulations_with_alias_auto_increment(client, suffix):
     assert result.metadata.as_dict()["seqid"] == 1
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_post_simulations_alias_increment_sequence(client):
     """Test multiple simulations with incrementing dash alias."""
     # Create first simulation with dash alias
@@ -205,7 +205,6 @@ def test_post_simulations_alias_increment_sequence(client):
     assert result.alias == "sequence-2"
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 @pytest.mark.xfail(reason="Alias is required in current API")
 def test_post_simulations_no_alias(client):
     """Test POST endpoint with no alias provided (should use uuid.hex)."""
@@ -222,7 +221,6 @@ def test_post_simulations_no_alias(client):
     assert result.alias == simulation_data.simulation.uuid
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_post_simulations_with_replaces(client):
     """Test POST endpoint with replaces metadata (deprecates old simulation)."""
     # Create initial simulation
@@ -271,7 +269,6 @@ def test_post_simulations_with_replaces(client):
     assert metadata["replaces"] == old_simulation_data.simulation.uuid.hex
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_post_simulations_replaces_nonexistent(client):
     """Test POST endpoint with replaces pointing to non-existent simulation."""
     # Create simulation that tries to replace a non-existent simulation
@@ -296,7 +293,6 @@ def test_post_simulations_replaces_nonexistent(client):
     assert result.alias == "replaces-nothing"
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 @pytest.mark.xfail(
     reason="User.email is not set for admin without custom authenticators"
 )
@@ -323,7 +319,6 @@ def test_post_simulations_with_watcher(client):
     assert uploaded_by_meta[0]["value"] == "watcher-user"
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_post_simulations_uploaded_by(client):
     """Test POST endpoint with uploaded_by field."""
     """Test POST endpoint with add_watcher set to true."""
@@ -341,7 +336,6 @@ def test_post_simulations_uploaded_by(client):
     assert result.metadata.as_dict()["uploaded_by"] == "test-user"
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_simulations_basic(client):
     """Test basic GET request to /v1.2/simulations endpoint."""
     rv = client.get("/v1.2/simulations", headers=HEADERS)
@@ -356,7 +350,6 @@ def test_get_simulations_basic(client):
     assert data.count >= 100
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_simulations_pagination_limit(client):
     """Test GET request with custom limit."""
     custom_limit = 10
@@ -371,7 +364,6 @@ def test_get_simulations_pagination_limit(client):
     assert len(data.results) <= custom_limit
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_simulations_pagination_page(client):
     """Test GET request with custom page number."""
     headers_page_2 = {**HEADERS, "simdb-result-limit": "10", "simdb-page": "2"}
@@ -385,7 +377,6 @@ def test_get_simulations_pagination_page(client):
     assert data.limit == 10
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_simulations_pagination_multiple_pages(client):
     """Test pagination across multiple pages."""
     limit = 20
@@ -415,7 +406,6 @@ def test_get_simulations_pagination_multiple_pages(client):
     assert page1_uuids != page2_uuids
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_simulations_filter_by_alias(client):
     """Test filtering simulations by alias."""
     # First create a simulation with a known alias
@@ -437,7 +427,6 @@ def test_get_simulations_filter_by_alias(client):
     assert test_alias in aliases
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_simulations_filter_by_uuid(client):
     """Test filtering simulations by UUID."""
     # Create a simulation with a known UUID
@@ -460,7 +449,6 @@ def test_get_simulations_filter_by_uuid(client):
     assert simulation_data.simulation.uuid in uuids
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_simulations_filter_by_metadata(client):
     """Test filtering simulations by metadata."""
     # Create simulations with specific metadata
@@ -491,7 +479,6 @@ def test_get_simulations_filter_by_metadata(client):
     assert simulation_data_2.simulation.uuid in results_uuids
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_simulations_filter_multiple_metadata(client):
     """Test filtering simulations by multiple metadata fields."""
     # Create a simulation with multiple metadata fields
@@ -516,7 +503,6 @@ def test_get_simulations_filter_multiple_metadata(client):
     assert simulation_data.simulation.uuid in results_uuids
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 @pytest.mark.xfail(reason="Only sorting by metadata keys works for now")
 def test_get_simulations_alias_sorting_asc(client):
     """Test sorting simulations in ascending order by alias."""
@@ -543,7 +529,6 @@ def test_get_simulations_alias_sorting_asc(client):
     assert len(aliases) == 3
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 @pytest.mark.parametrize("ascending", [True, False])
 def test_get_simulations_metadata_sorting(client, ascending):
     """Test sorting simulations in ascending order."""
@@ -592,7 +577,6 @@ def test_get_simulations_metadata_sorting(client, ascending):
     assert len(metadata) == 6
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_simulations_empty_result(client):
     """Test GET request with filters that return no results."""
     # Use a filter that shouldn't match anything
@@ -607,7 +591,6 @@ def test_get_simulations_empty_result(client):
     assert len(data.results) == 0
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_simulations_with_metadata_keys(client):
     """Test requesting specific metadata keys in results."""
     # Create a simulation with known metadata
@@ -634,7 +617,6 @@ def test_get_simulations_with_metadata_keys(client):
     assert len(data.results) == 1
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_simulation_by_uuid(client):
     """Test GET /v1.2/simulation/{simulation_id} endpoint - retrieve by UUID."""
     # Create a simulation with known properties
@@ -668,7 +650,6 @@ def test_get_simulation_by_uuid(client):
     assert simulation_data_received == simulation_data_check
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_simulation_by_alias(client):
     """Test GET /v1.2/simulation/{simulation_id} endpoint - retrieve by alias."""
     # Create a simulation with a unique alias
@@ -704,7 +685,6 @@ def test_get_simulation_by_alias(client):
     assert simulation_data_received == simulation_data_check
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_simulation_not_found(client):
     """Test GET /v1.2/simulation/{simulation_id} endpoint - non-existent simulation."""
     # Try to get a non-existent simulation
@@ -719,7 +699,6 @@ def test_get_simulation_not_found(client):
     assert "error" in data or data.get("message") == "Simulation not found"
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_get_simulation_metadata(client):
     """Test GET /v1.2/simulation/metadata/{simulation_id} endpoint."""
     simulation_data = generate_simulation_data(
@@ -741,7 +720,6 @@ def test_get_simulation_metadata(client):
     assert data == simulation_data.simulation.metadata
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_patch_simulation(client):
     """Test PATCH /v1.2/simulation/{simulation_id} endpoint."""
     simulation_data = generate_simulation_data()
@@ -760,7 +738,6 @@ def test_patch_simulation(client):
     # Status is never returned, so we can't check if it is set
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_delete_simulation(client):
     """Test DELETE /v1.2/simulation/{simulation_id} endpoint."""
     simulation_data = generate_simulation_data()
@@ -782,7 +759,6 @@ def test_delete_simulation(client):
     assert rv.status_code == 400
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_patch_simulation_metadata(client):
     """Test PATCH /v1.2/simulation/metadata/{simulation_id} endpoint."""
     simulation_data = generate_simulation_data(
@@ -813,7 +789,6 @@ def test_patch_simulation_metadata(client):
     assert data == simulation_data.simulation.metadata
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_delete_simulation_metadata(client):
     """Test DELETE /v1.2/simulation/metadata/{simulation_id} endpoint."""
     simulation_data = generate_simulation_data(
@@ -846,7 +821,6 @@ def test_delete_simulation_metadata(client):
     assert data == simulation_data.simulation.metadata
 
 
-@pytest.mark.skipif(not has_flask, reason="requires flask library")
 def test_trace_endpoint(client):
     """Test trace endpoint returns valid SimulationTraceData and handles replacement
     chains."""
