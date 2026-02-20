@@ -2,7 +2,18 @@
 
 from datetime import datetime as dt
 from datetime import timezone
-from typing import Annotated, Any, Generic, List, Literal, Optional, TypeVar, Union
+from pathlib import Path
+from typing import (
+    Annotated,
+    Any,
+    Dict,
+    Generic,
+    List,
+    Literal,
+    Optional,
+    TypeVar,
+    Union,
+)
 from urllib.parse import urlencode
 from uuid import UUID, uuid1
 
@@ -14,6 +25,8 @@ from pydantic import (
     RootModel,
     model_validator,
 )
+
+from simdb.cli.manifest import DataObject
 
 HexUUID = Annotated[UUID, PlainSerializer(lambda x: x.hex, return_type=str)]
 """UUID serialized as a hex string."""
@@ -302,3 +315,157 @@ class SimulationTraceData(SimulationData):
     """Simulation this one replaces."""
     replaces_reason: Optional[Any] = None
     """Reason for replacement."""
+
+
+class ChunkInfo(BaseModel):
+    """Information about a single chunk in a chunked file upload."""
+
+    chunk_size: int
+    """Length of the chunk."""
+    chunk: int
+    """Index of the chunk."""
+    num_chunks: Optional[int] = 1
+    """Total amount of chunks in the file."""
+
+
+class ChunkInfoDict(RootModel):
+    """Dictionary mapping file UUID hex to chunk info."""
+
+    root: Dict[str, ChunkInfo]
+
+
+class FileUploadData(BaseModel):
+    """Data payload for file chunk upload (sent as JSON in 'data' field)."""
+
+    simulation: SimulationData
+    """The simulation the file belongs to."""
+    file_type: str
+    """Type of the file."""
+    chunk_info: Optional[Dict[str, ChunkInfo]] = None
+    """Info about the chunk."""
+
+
+class FilesGetResponse(RootModel):
+    """Response from the get files endpoint."""
+
+    root: List[FileData]
+    """List of files."""
+
+
+class FileInfo(BaseModel):
+    """Information about a single file on disk."""
+
+    path: Path
+    """Path to the file."""
+    checksum: str
+    """Checksum of the file."""
+
+
+class FileGetDataResponse(FileData):
+    """Response from the get file data endpoint, extending FileData with disk info."""
+
+    files: List[FileInfo]
+    """List of file info entries for the files on disk."""
+
+
+class FileUploadResponse(BaseModel):
+    """Response from file upload/chunk upload endpoint."""
+
+    pass
+
+
+class FileRegistrationItem(BaseModel):
+    """A single file entry in the file registration payload."""
+
+    chunks: int
+    """The amount of chunks to be processed."""
+    file_type: str
+    """The file type."""
+    file_uuid: HexUUID
+    """The UUID of the file."""
+    ids_list: Optional[List[Any]] = None
+    """List of IDS names associated with the file."""
+
+
+class FileRegistrationData(BaseModel):
+    """Payload for final file registration after chunk uploads."""
+
+    simulation: SimulationData
+    """The simulation the files belong to."""
+    obj_type: DataObject.Type
+    """The type of the data object being registered."""
+    files: List[FileRegistrationItem]
+    """List of file registration items."""
+
+
+class FileRegistrationResponse(BaseModel):
+    """Response from file registration endpoint."""
+
+    pass
+
+
+class WatcherReference(BaseModel):
+    """An watcher entry reference."""
+
+    simulation: HexUUID
+    """Simulation UUID the watcher has been added to."""
+    watcher: str
+    """Username of the added watcher."""
+
+
+class WatcherPostResponse(BaseModel):
+    """Response from the add watcher endpoint."""
+
+    added: WatcherReference
+    """The added watcher data."""
+
+
+class WatcherPostRequest(BaseModel):
+    """Payload for adding a watcher to a simulation."""
+
+    user: Optional[str]
+    """Username of the watcher, defaults to the signed in user."""
+    email: Optional[str]
+    """Email of the watcher, defaults to the signed in user."""
+    notification: Literal["VALIDATION", "REVISION", "OBSOLESCENCE", "ALL"]
+    """Notificaiton type of the watcher."""
+
+
+class WatcherData(BaseModel):
+    """Payload describing a watcher."""
+
+    username: str
+    """Username of the watcher."""
+    email: str
+    """Email address of the watcher."""
+    notification: Literal["V", "R", "O", "A"]
+    """Notification type of the watcher.
+        Types are: V(alidation), R(evision), O(bsolescence) and A(ll)
+    """
+
+
+class WatcherGetResponse(RootModel):
+    """Response from the get watchers endpoint."""
+
+    root: List[WatcherData]
+
+
+class WatcherDeleteRequest(BaseModel):
+    """Payload for deleting a watcher from a simulation."""
+
+    user: str
+    """Username to delete from the watchers."""
+
+
+class WatcherDeleteResponse(BaseModel):
+    """Response from the delete watchers endpoint."""
+
+    removed: WatcherReference
+    """Reference to the deleted wacher."""
+
+
+class StagingDirectoryResponse(BaseModel):
+    """Response from the get staging dir endpoint."""
+
+    staging_dir: Path
+    """Path to the staging dir."""
