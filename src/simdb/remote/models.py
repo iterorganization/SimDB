@@ -346,22 +346,31 @@ class FileUploadData(BaseModel):
 
 
 class FilesGetResponse(RootModel):
+    """Response from the get files endpoint."""
+
     root: List[FileData]
+    """List of files."""
 
 
 class FileInfo(BaseModel):
+    """Information about a single file on disk."""
+
     path: Path
+    """Path to the file."""
     checksum: str
+    """Checksum of the file."""
 
 
 class FileGetDataResponse(FileData):
+    """Response from the get file data endpoint, extending FileData with disk info."""
+
     files: List[FileInfo]
+    """List of file info entries for the files on disk."""
 
 
 class FileUploadResponse(BaseModel):
     """Response from file upload/chunk upload endpoint."""
 
-    # The endpoint returns empty {} on success
     pass
 
 
@@ -375,20 +384,23 @@ class FileRegistrationItem(BaseModel):
     file_uuid: HexUUID
     """The UUID of the file."""
     ids_list: Optional[List[Any]] = None
+    """List of IDS names associated with the file."""
 
 
 class FileRegistrationData(BaseModel):
     """Payload for final file registration after chunk uploads."""
 
     simulation: SimulationData
+    """The simulation the files belong to."""
     obj_type: DataObject.Type
+    """The type of the data object being registered."""
     files: List[FileRegistrationItem]
+    """List of file registration items."""
 
 
 class FileRegistrationResponse(BaseModel):
     """Response from file registration endpoint."""
 
-    # The endpoint returns empty {} on success
     pass
 
 
