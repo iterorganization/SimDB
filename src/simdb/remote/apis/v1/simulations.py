@@ -143,7 +143,7 @@ class SimulationList(Resource):
     @requires_auth()
     @cache.cached(key_prefix=cache_key)
     def get(self, user: User):
-        limit = int(request.headers.get(SimulationList.LIMIT_HEADER, 100))
+        limit = int(request.headers.get(APIConstants.LIMIT_HEADER, 100))
         page = 1
         names = []
         constraints = []

@@ -158,12 +158,11 @@ class SimulationList(Resource):
     @requires_auth()
     @cache.cached(key_prefix=cache_key)
     def get(self, user: User):
-        limit = int(request.headers.get(SimulationList.LIMIT_HEADER, 100))
-        page = int(request.headers.get(SimulationList.PAGE_HEADER, 1))
-        sort_by = request.headers.get(SimulationList.SORT_BY_HEADER, "")
+        limit = int(request.headers.get(APIConstants.LIMIT_HEADER, 100))
+        page = int(request.headers.get(APIConstants.PAGE_HEADER, 1))
+        sort_by = request.headers.get(APIConstants.SORT_BY_HEADER, "")
         sort_asc = (
-            request.headers.get(SimulationList.SORT_ASC_HEADER, "false").lower()
-            == "true"
+            request.headers.get(APIConstants.SORT_ASC_HEADER, "false").lower() == "true"
         )
         names = []
         constraints = []
