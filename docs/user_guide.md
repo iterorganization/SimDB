@@ -153,6 +153,26 @@ For further details on the `mdsplusIMASDB4to5` tool, refer to the IMAS-Core docu
 
 ## Remote SimDB servers
 
+### Configuration file
+
+SimDB stores remote server configuration in ~/.config/simdb/simdb.cfg. This file is automatically created on the first run of the SimDB CLI and is pre-populated with a connection entry for the default ITER SimDB server:
+```
+[remote "iter"]
+url = https://simdb.iter.org/scenarios/api
+default = True
+username = $USER
+firewall = F5
+```
+
+You can inspect the current remotes at any time with:
+
+```bash
+simdb remote config list
+```
+You can also view or edit `simdb.cfg` directly, but it is recommended to use the `simdb remote config` CLI commands to manage remotes to ensure the file stays well-formed.
+
+**ITER users:** See [Connecting to the ITER remotes](https://simdb.readthedocs.io/en/latest/iter_remotes.html) for a step-by-step guide to setting up and testing the ITER remote connection.
+
 The SimDB CLI is able to interact with remote SimDB servers to push local simulations or to query existing simulations. This is done via the simdb remote command:
 
 ```bash
