@@ -45,7 +45,7 @@ Before diving into SimDB functionality, it's important to understand these key t
 **Workflow**: Typically, you create and manage simulations locally, then push them to a remote SimDB server for sharing. The data referenced by your simulation can be either local (on your machine) or remote (on a data server).
 
 **IMAS Access Layer compatibility**:
-SimDB uses imas-python to read IMAS data. [imas-python](https://pypi.org/project/imas-python/) requires Access Layer 5 (AL5) or later and does not support the older Access Layer 4 (AL4). If your IMAS data was written using AL4 (e.g., MDSplus-based AL4 databases), you must convert it to AL5 format before use. See [AL4 MDSplus data migration](user_guide.md#al4-mdsplus-data-migration) below.
+SimDB uses `imas-python` to read IMAS data. [imas-python](https://pypi.org/project/imas-python/) requires that MDSplus data files to be ingested were written with Access Layer 5 (AL5) or later, and does not support reading  MDSplus files written with Access Layer 4 (AL4). If your IMAS data was written in MDSplus using AL4 (e.g., MDSplus-based AL4 databases), you must first convert it to AL5 format before use. See [AL4 MDSplus data migration](user_guide.md#al4-mdsplus-data-migration) below.
 
 ## Local simulation management
 
@@ -132,7 +132,7 @@ Without port (uses default):
 **Note:** Ensure that the specified port is accessible through your network firewall. Contact your system administrator if you experience connectivity issues.
 
 ## AL4 MDSplus data migration
-SimDB uses [imas-python](https://pypi.org/project/imas-python/) to read IMAS data. `imas-python` requires Access Layer 5 (AL5) or later and **does not support the older Access Layer 4 (AL4).**
+SimDB uses [imas-python](https://pypi.org/project/imas-python/) to read IMAS data. `imas-python` requires that MDSplus data to be read was written with Access Layer 5 (AL5) or later and **does not support the older Access Layer 4 (AL4).**
 
 If you have existing IMAS data stored in an AL4 MDSplus, you must migrate it to the AL5 directory layout before referencing it in a SimDB manifest. This can be done using the `mdsplusIMASDB4to5` tool provided by IMAS-Core, which creates the new AL5 directory layout with links to the original data files (the original data is not removed).
 ```mdsplusIMASDB4to5 [-h] [--dry-run] [-p PATH] [-d DATABASE] [-f]```
@@ -169,9 +169,9 @@ You can inspect the current remotes at any time with:
 ```bash
 simdb remote config list
 ```
-You can also view or edit `simdb.cfg` directly, but it is recommended to use the `simdb remote config` CLI commands to manage remotes to ensure the file stays well-formed.
+You can also view or edit `simdb.cfg` directly, but it is recommended to use the `simdb remote config` CLI commands to manage remotes to ensure the file stays correctly formatted.
 
-**ITER users:** See [Connecting to the ITER remotes](https://simdb.readthedocs.io/en/latest/iter_remotes.html) for a step-by-step guide to setting up and testing the ITER remote connection.
+**ITER users:** See [Connecting to the ITER remotes](https://simdb.readthedocs.io/en/latest/iter_remotes.html) for a step-by-step guide to setting-up and testing the ITER remote connection.
 
 The SimDB CLI is able to interact with remote SimDB servers to push local simulations or to query existing simulations. This is done via the simdb remote command:
 
