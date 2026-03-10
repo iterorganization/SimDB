@@ -148,7 +148,7 @@ class Simulation(Base):
 
                 for ids in idss:
                     ids_name, occurrence = extract_ids_occurrence(ids)
-                    check_time(entry, ids, occurrence)
+                    check_time(entry, ids_name, occurrence)
 
                 all_input_idss += idss
 
