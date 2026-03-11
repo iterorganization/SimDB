@@ -14,11 +14,16 @@ code:
   schema:
     name:
       type: string
+      required: true
 time:
   type: numpy
   coerce: numpy
+description:
+  type: string
+  required: true
 global_quantities:
   type: dict
+  required: true
   schema:
     b0:
       type: dict
@@ -26,13 +31,16 @@ global_quantities:
       schema:
         value:
           type: numpy
+          required: true
           coerce: numpy
           lt: 0
     r0:
       type: dict
+      required: true
       schema:
         value:
           type: float
+          required: true
 #         coerce: numpy
           gt: 0
     beta_pol:
@@ -100,6 +108,7 @@ global_quantities:
       schema:
         value:
           type: numpy
+          required: true
           coerce: numpy
           ge: -17000000
           le: 0
