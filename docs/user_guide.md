@@ -79,7 +79,17 @@ metadata:
 | inputs/outputs | Lists of simulation input and output files. Supported URI schemes:<br/>• file - Standard file system paths<br/>• imas - IMAS entry URIs (see IMAS URI schema below) |
 | metadata |  Contains simulation metadata and properties. The metadata section associates information with the summary IDS data:<br/>• summary - A hierarchical dictionary structure containing key-value pairs that provide summary information extracted from IDS datasets. This includes condensed representations of simulation results, computed quantities, free descriptions, any references, and creation dates if not available in summary IDS.</li>
 
-### IMAS URI schema
+## Alias Naming Rules
+<ul><li>Must be unique within the SimDB</ul></li>
+<ul><li>Cannot start with a digit (0-9) or forward slash (/)</ul></li>
+<ul><li>Cannot end with a forward slash (/)</ul></li>
+<ul><li>Should be descriptive and meaningful for easy identification</ul></li>
+
+Examples of valid aliases:
+<ul><li>iter-baseline-scenario</ul></li>
+<ul><li>100001/1 (pulse_number/run_number)</ul></li>
+
+## IMAS URI schema
 
 IMAS URIs specified in the manifest can either be in the form of remote data URIs or local data URIs.
 
