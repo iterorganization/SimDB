@@ -218,7 +218,7 @@ simdb simulation push <REMOTE_ID> <SIM_ID>
 ## Authentication
 
 Whenever you run a remote command you will notice that you have to authenticate against the remote server. This can be
-avoided by creating an authentication token using for servers that allows such method (not applicable to simdb.iter.org
+avoided by creating an authentication token for servers that allow such a method (not applicable for simdb.iter.org
 which uses F5 firewall as authentication layer):
 
 ```bash
