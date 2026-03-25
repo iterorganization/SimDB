@@ -14,7 +14,7 @@ simdb --version
 This should return something similar to:
 
 ```
-simdb, version 0.4.0
+simdb, version x.y.z
 ```
 
 This indicates the CLI is available and shows what version has been installed.
@@ -123,16 +123,14 @@ metadata:
   - description: |-
       Baseline H-mode scenario simulation for ITER
       15MA plasma current with Q=10 target
-  - reference_name: ITER_Baseline_2024
   - ids_properties:
-      creation_date: '2024-12-05 10:30:00'  
+      creation_date: "2024-12-05 10:30:00"  
 ```
 
 Metadata Best Practices:
 - **machine**: Always specify the tokamak or device name
 - **code**: Include both name and version for reproducibility
 - **description**: Provide context about the simulation purpose and key features
-- **reference_name**: Use a human-readable reference identifier
 - **ids_properties**: Include creation date if not available in IDS data
 
 ### Validating a Manifest File
@@ -167,10 +165,10 @@ simdb simulation list
 And the simulation you have just ingested with:
 
 ```bash
-simdb simulation info test
+simdb simulation info <SIM_ID>
 ```
 
-## Pushing the simulation to remote server
+## Pushing the simulation to a remote server
 
 The SimDB client is able to communication with multiple remote servers. You can see which remote servers are available
 on your local client using:
@@ -179,21 +177,49 @@ on your local client using:
 simdb remote config list
 ```
 
-First, you will need to add the remote server and set it as default:
+First, you will need to add the remote server and set it as default (name and url may differ):
 
 ```bash
-simdb remote --new test https://simdb.iter.org/scenarios/api
-simdb remote --set-default test
+simdb remote --new iter https://simdb.iter.org/scenarios/api
+simdb remote --set-default iter
 ```
 
-You can now list the simulations available on the remote server:
+You can test that the remote server is valid and also list the simulations available on it:
 
 ```bash
-simdb remote list
+simdb remote <REMOTE_ID> test 
+simdb remote <REMOTE_ID> list
 ```
+
+You can now check that your simulation is valid for a given remote server, as different servers may have different 
+rules and required fields:
+
+```bash
+simdb simulation validate <REMOTE_ID> <SIM_ID>
+```
+
+Typical validation issues are:
+- one of the data sources (input or output) being absent or not verifying the checksum (i.e. something changed since the ingestion);
+- failing to comply with the list of mandatory metadata for the targeted remote.
+
+It it possible to know which validation schema applies on a given remote:
+
+```bash
+simdb remote <REMOTE_ID> schema -d 10
+``` 
+
+If the `validate` command results in a `validation successful` message, then you can push your simulation:
+
+```bash
+simdb simulation push <REMOTE_ID> <SIM_ID>
+```
+
+
+## Authentication
 
 Whenever you run a remote command you will notice that you have to authenticate against the remote server. This can be
-avoided by creating an authentication token using:
+avoided by creating an authentication token using for servers that allows such method (not applicable to simdb.iter.org
+which uses F5 firewall as authentication layer):
 
 ```bash
 simdb remote token new

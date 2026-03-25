@@ -60,14 +60,15 @@ inputs:
 - uri: file:///my/input/file
 - uri: imas:hdf5?path=/path/to/imas/data
 outputs:
+- uri: file:///my/output/file
 - uri: imas:hdf5?path=/path/to/more/data
 metadata:
 - machine: name of machine i.e. ITER.
 - code:
-    name: code name i.e. ASTRA, JETTO, DINA, CORSICA, MITES, SOLPS, JINTRAC etc.
-- description: |-
+    name: code name i.e. ASTRA, JETTO, DINA, CORSICA, METIS, SOLPS, JINTRAC etc.
+	version: code version
+- description: |
     Sample plasma physics simulation for ITER tokamak modeling
-- reference_name: ITER simulation
 - ids_properties:
     creation_date: 'YYYY-MM-DD HH:mm:ss'
 ```
