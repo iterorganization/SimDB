@@ -214,6 +214,19 @@ If the `validate` command results in a `validation successful` message, then you
 simdb simulation push <REMOTE_ID> <SIM_ID>
 ```
 
+If the simulation is expected to replace another one already present in the remote server: 
+
+```bash
+simdb simulation push <REMOTE_ID> <SIM_ID> --replaces <PREVIOUS_SIM_ID>
+```
+
+The previous simulation will be marked as deprecated and contain a new `replaced_by` metadata that points to 
+`<SIM_ID>`. It's also possible to see the chained history of older versions if they exist:
+
+```bash
+simdb remote <REMOTE> trace <SIM_ID>
+```
+
 
 ## Authentication
 
