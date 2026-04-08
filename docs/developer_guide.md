@@ -45,6 +45,23 @@ simdb_server
 
 This will start a server on port 5000. You can test this server is running by opening http://localhost:5000 in a browser.
 
+## Swagger API documentation
+
+SimDB provides interactive Swagger API documentation for each API version. The documentation is automatically generated and accessible at different endpoints depending on the API version you want to explore.
+
+### Accessing API documentation
+
+- **v1.2 API**: http://localhost:5000/v1.2/docs
+- **v1.2 API at ITER**: https://simdb.iter.org/scenarios/api/v1.2/docs
+
+### API version differences
+
+Each API version may have different endpoints and functionality:
+
+- **v1.2**: Latest API with improved performance and additional features
+
+Always check the appropriate version documentation for your use case.
+
 ## Linting and formatting
 
 SimDB uses [Ruff](https://docs.astral.sh/ruff/) for both linting and code
