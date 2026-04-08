@@ -2,6 +2,7 @@ import contextlib
 import datetime
 import itertools
 import tarfile
+import shutil
 from io import BytesIO
 from pathlib import Path
 from typing import Annotated, List, Optional, Tuple
@@ -391,7 +392,7 @@ class Simulation(Resource):
             if first_file.uri.path is not None:
                 directory = first_file.uri.path.parent
                 if directory != Path() and directory != Path("/"):
-                    directory.rmdir()
+                    shutil.rmtree(directory)                    
         return SimulationDeleteResponse(
             deleted=DeletedSimulation(simulation=simulation.uuid, files=files)
         )
