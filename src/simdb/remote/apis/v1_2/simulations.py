@@ -1,6 +1,7 @@
 import contextlib
 import datetime
 import itertools
+import shutil
 import tarfile
 import shutil
 from io import BytesIO
@@ -378,21 +379,22 @@ class Simulation(Resource):
     def delete(self, sim_id: str, user: User) -> SimulationDeleteResponse:
         simulation = current_app.db.delete_simulation(sim_id)
         clear_cache()
-        files = []
-        for file in itertools.chain(simulation.inputs, simulation.outputs):
-            if file.uri.scheme == "file":
-                if file.uri.path is None:
-                    raise ValueError("File path not set")
-                files.append(f"{file.uuid} ({file.uri.path.name})")
-                file.uri.path.unlink()
-        if simulation.inputs or simulation.outputs:
-            first_file = (
-                simulation.inputs[0] if simulation.inputs else simulation.outputs[0]
-            )
-            if first_file.uri.path is not None:
-                directory = first_file.uri.path.parent
-                if directory != Path() and directory != Path("/"):
-                    shutil.rmtree(directory)                    
+
+        files = simulation.file_paths()
+
+        upload_folder = Path(
+            current_app.simdb_config.get_string_option("server.upload_folder")
+        )
+
+        if simulation.alias:
+            alias_path = upload_folder / "aliases" / simulation.alias
+            if alias_path.is_symlink():
+                alias_path.unlink()
+
+        sim_dir = upload_folder / simulation.uuid.hex
+        if sim_dir.is_dir():
+            shutil.rmtree(sim_dir)
+
         return SimulationDeleteResponse(
             deleted=DeletedSimulation(simulation=simulation.uuid, files=files)
         )
