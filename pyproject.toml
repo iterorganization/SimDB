@@ -44,7 +44,6 @@ dependencies = [
     "numpy>=1.14",
     "pydantic>=2.10.6",
     "python-dateutil>=2.6",
-    "pyuda>=2.9.2",
     "pyyaml>=3.13",
     "requests>=2.27.0",
     "semantic-version>=2.8",

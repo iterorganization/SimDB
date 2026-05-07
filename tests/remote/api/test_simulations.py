@@ -632,7 +632,7 @@ def test_get_simulation_metadata(client):
     data = MetadataDataList.model_validate(rv.json)
     check_data = simulation_data.simulation.metadata.model_copy()
     check_data.root.append(MetadataData(element="uploaded_by", value="test-user"))
-    assert data == simulation_data.simulation.metadata
+    assert data == check_data
 
 
 def test_patch_simulation(client):
@@ -701,7 +701,7 @@ def test_patch_simulation_metadata(client):
     check_data = simulation_data.simulation.metadata.model_copy()
     check_data[0].value = "def"
     check_data.root.append(MetadataData(element="uploaded_by", value="test-user"))
-    assert data == simulation_data.simulation.metadata
+    assert data == check_data
 
 
 def test_delete_simulation_metadata(client):
@@ -733,7 +733,7 @@ def test_delete_simulation_metadata(client):
     check_data = simulation_data.simulation.metadata.model_copy()
     check_data.root.pop()
     check_data.root.append(MetadataData(element="uploaded_by", value="test-user"))
-    assert data == simulation_data.simulation.metadata
+    assert data == check_data
 
 
 def test_get_simulation_parents_and_children(client):

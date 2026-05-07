@@ -286,14 +286,6 @@ def imas_files(uri: URI) -> List[Path]:
 
     path = _get_path(uri)
 
-    if backend == "uda":
-        backend = uri.query.get("backend", default=None)
-        if backend is None:
-            raise ValueError(
-                "Invalid IMAS URI - 'backend' query argument not provided for UDA "
-                "backend"
-            )
-
     if backend == "hdf5":
         return [p.absolute() for p in path.glob("*.h5")]
     elif backend == "mdsplus":

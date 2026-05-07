@@ -96,7 +96,7 @@ class SimulationDeleteResponse(BaseModel):
 class FileData(BaseModel):
     """Model representing a file in the system."""
 
-    type: Literal["UNKNOWN", "UUID", "FILE", "IMAS", "UDA"]
+    type: Literal["UNKNOWN", "UUID", "FILE", "IMAS"]
     """File type."""
     uri: str
     """URI to the file location."""

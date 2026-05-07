@@ -15,7 +15,6 @@ from simdb.docstrings import inherit_docstrings
 from simdb.imas.checksum import checksum as imas_checksum
 from simdb.imas.utils import imas_files, imas_timestamp
 from simdb.remote.models import FileData, FileGetDataResponse, FileInfo
-from simdb.uda.checksum import checksum as uda_checksum
 
 from .base import Base
 from .types import URI, UUID
@@ -77,8 +76,6 @@ class File(Base):
     def generate_checksum(self, config, ids_list: list):
         if config and config.get_option("development.disable_checksum", default=False):
             return ""
-        if self.type == DataObject.Type.UDA:
-            checksum = uda_checksum(self.uri)
         elif self.type == DataObject.Type.IMAS:
             checksum = imas_checksum(self.uri, ids_list)
         elif self.type == DataObject.Type.FILE:
@@ -88,9 +85,7 @@ class File(Base):
         return checksum
 
     def get_creation_date(self) -> datetime_:
-        if self.type == DataObject.Type.UDA:
-            return datetime_.now()
-        elif self.type == DataObject.Type.IMAS:
+        if self.type == DataObject.Type.IMAS:
             return imas_timestamp(self.uri)
         elif self.type == DataObject.Type.FILE:
             if self.uri.path is None:

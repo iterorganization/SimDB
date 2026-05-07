@@ -57,8 +57,6 @@ def _to_uri(uri_str: str, base_path: Path) -> Tuple["DataObject.Type", "URI"]:
                 "in IMAS uri"
             )
         return DataObject.Type.IMAS, uri
-    if uri.scheme == "uda":
-        return DataObject.Type.UDA, uri
     if uri.scheme == "simdb":
         return DataObject.Type.UUID, uri
     raise InvalidManifest(f"invalid uri: {uri_str}")
@@ -78,7 +76,6 @@ class DataObject:
         UUID = auto()
         FILE = auto()
         IMAS = auto()
-        UDA = auto()
 
     type: Type = Type.UNKNOWN
     uri: Union[URI, None] = None
@@ -216,7 +213,7 @@ class DataObjectValidator(ListValuesValidator):
 
     def __init__(self, version: int, section_name: str) -> None:
         if version == 0:
-            expected_keys = ("uuid", "path", "imas", "uda")
+            expected_keys = ("uuid", "path", "imas")
         elif version > 0:
             expected_keys = ("uri",)
         else:
@@ -231,7 +228,7 @@ class DataObjectValidator(ListValuesValidator):
         for value in values:
             if self.version > 0:
                 uri = URI(value["uri"])
-                if uri.scheme not in ("uda", "file", "imas"):
+                if uri.scheme not in ("file", "imas"):
                     raise InvalidManifest(f"unknown uri scheme: {uri.scheme}")
                 if str(uri) in seen_uris:
                     raise InvalidManifest(
@@ -516,7 +513,6 @@ class Manifest:
             "uuid": "simdb",
             "path": "file",
             "imas": "imas",
-            "uda": "uda",
         }
 
         new_files = []
