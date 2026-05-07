@@ -379,7 +379,7 @@ class Simulation(Resource):
         simulation = current_app.db.delete_simulation(sim_id)
         clear_cache()
 
-        files = simulation.file_paths()
+        files = [str(p) for p in simulation.file_paths()]
 
         upload_folder = Path(
             current_app.simdb_config.get_string_option("server.upload_folder")
