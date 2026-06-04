@@ -580,6 +580,9 @@ class Manifest:
         else:
             raise InvalidManifest(f"Unknown manifest version {version}.")
 
+        if "version" in self._data and "manifest_version" not in self._data:
+            self._data["manifest_version"] = self._data.pop("version")
+            
         for section in self._data:
             if section not in section_validators:
                 raise InvalidManifest(f"Unknown manifest section found {section}.")
