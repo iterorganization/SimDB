@@ -1,18 +1,24 @@
 import uuid
-from datetime import datetime
-from typing import Dict, Optional
+from datetime import datetime as datetime_
 from pathlib import Path
+from typing import Dict, Optional
 
 from dateutil import parser as date_parser
-from sqlalchemy import Column, types as sql_types
+from sqlalchemy import Column
+from sqlalchemy import types as sql_types
 
-from ...cli.manifest import DataObject
+from simdb import uri as urilib
+from simdb.checksum import sha1_checksum
+from simdb.cli.manifest import DataObject
+from simdb.config.config import Config
+from simdb.docstrings import inherit_docstrings
+from simdb.imas.checksum import checksum as imas_checksum
+from simdb.imas.utils import imas_files, imas_timestamp
+from simdb.remote.models import FileData, FileGetDataResponse, FileInfo
+
 from .base import Base
-from .types import UUID, URI
-from ...docstrings import inherit_docstrings
-from ...config.config import Config
+from .types import URI, UUID
 from .utils import checked_get
-from ... import uri as urilib
 
 
 @inherit_docstrings
@@ -26,14 +32,14 @@ class File(Base):
     uuid = Column(UUID, nullable=False, unique=True, index=True)
     uri: urilib.URI = Column(URI(1024), nullable=True)
     checksum = Column(sql_types.String(64), nullable=True)
-    type: DataObject.Type = Column(sql_types.Enum(DataObject.Type), nullable=True)
+    type = Column(sql_types.Enum(DataObject.Type), nullable=True)
     datetime = Column(sql_types.DateTime, nullable=False)
 
     def __init__(
         self,
         type: DataObject.Type,
         uri: urilib.URI,
-        ids_list: Optional[list] = None,        
+        ids_list: Optional[list] = None,
         perform_integrity_check: bool = True,
         config: Optional[Config] = None,
     ) -> None:
@@ -43,7 +49,9 @@ class File(Base):
 
         if perform_integrity_check:
             self.datetime = self.get_creation_date()
-            self.checksum = self.generate_checksum(config, ids_list)
+            if type == DataObject.Type.IMAS and ids_list is None:
+                raise ValueError("IDS list is not set")
+            self.checksum = self.generate_checksum(config, ids_list or [])
 
     def __str__(self):
         result = ""
@@ -54,7 +62,7 @@ class File(Base):
             "type",
             "datetime",
         ):
-            result += "  %s:%s%s\n" % (
+            result += "  {}:{}{}\n".format(
                 name,
                 ((14 - len(name)) * " "),
                 getattr(self, name),
@@ -68,31 +76,21 @@ class File(Base):
     def generate_checksum(self, config, ids_list: list):
         if config and config.get_option("development.disable_checksum", default=False):
             return ""
-        if self.type == DataObject.Type.UDA:
-            from ...uda.checksum import checksum as uda_checksum
-
-            checksum = uda_checksum(self.uri)
         elif self.type == DataObject.Type.IMAS:
-            from ...imas.checksum import checksum as imas_checksum
-
             checksum = imas_checksum(self.uri, ids_list)
         elif self.type == DataObject.Type.FILE:
-            from ...checksum import sha1_checksum
-
             checksum = sha1_checksum(self.uri)
         else:
             raise NotImplementedError(f"Cannot generate checksum for type {self.type}.")
         return checksum
 
-    def get_creation_date(self) -> datetime:
-        if self.type == DataObject.Type.UDA:
-            return datetime.now()
-        elif self.type == DataObject.Type.IMAS:
-            from ...imas.utils import imas_timestamp
-            
-            return imas_timestamp(self.uri) 
+    def get_creation_date(self) -> datetime_:
+        if self.type == DataObject.Type.IMAS:
+            return imas_timestamp(self.uri)
         elif self.type == DataObject.Type.FILE:
-            return datetime.fromtimestamp(Path(self.uri.path).stat().st_ctime)
+            if self.uri.path is None:
+                raise ValueError("Data object uri path not set")
+            return datetime_.fromtimestamp(Path(self.uri.path).stat().st_ctime)
         else:
             raise NotImplementedError(f"Cannot generate checksum for type {self.type}.")
 
@@ -108,12 +106,52 @@ class File(Base):
         file.datetime = date_parser.parse(checked_get(data, "datetime", str))
         return file
 
-    def data(self, recurse: bool = False) -> Dict[str, str]:
-        data = dict(
-            uuid=self.uuid,
-            uri=str(self.uri),
-            checksum=self.checksum,
-            type=self.type.name,
-            datetime=self.datetime.isoformat(),
+    @classmethod
+    def from_data_model(cls, data: FileData) -> "File":
+        data_type = data.type
+        uri = data.uri
+        file = File(
+            DataObject.Type[data_type], urilib.URI(uri), perform_integrity_check=False
         )
+        file.uuid = data.uuid
+        file.checksum = data.checksum
+        file.datetime = data.datetime
+        return file
+
+    def data(self, recurse: bool = False) -> Dict[str, str]:
+        data = {
+            "uuid": self.uuid,
+            "uri": str(self.uri),
+            "checksum": self.checksum,
+            "type": self.type.name,
+            "datetime": self.datetime.isoformat(),
+        }
         return data
+
+    def to_model(self) -> FileData:
+        return FileData(
+            type=self.type.name,
+            uri=str(self.uri),
+            uuid=self.uuid,
+            checksum=self.checksum,
+            datetime=self.datetime,
+        )
+
+    def to_model_with_path(self) -> FileGetDataResponse:
+        if self.type.name == "FILE":
+            if self.uri.path is None:
+                raise ValueError("File path not set")
+            files = [FileInfo(path=self.uri.path, checksum=self.checksum)]
+        else:
+            files = [
+                FileInfo(path=path, checksum=sha1_checksum(URI(f"file:{path}")))
+                for path in imas_files(self.uri)
+            ]
+        return FileGetDataResponse(
+            type=self.type.name,
+            uri=str(self.uri),
+            uuid=self.uuid,
+            checksum=self.checksum,
+            datetime=self.datetime,
+            files=files,
+        )

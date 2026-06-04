@@ -1,26 +1,28 @@
 import re
+import shutil
 import sys
 import uuid
-import shutil
+from collections.abc import Iterable
+from pprint import pprint
+from typing import TYPE_CHECKING, List, Optional, Tuple, Type, Union
 
 import click
-from collections.abc import Iterable
-from typing import List, TYPE_CHECKING, Optional, Tuple, Union, Type
 from semantic_version import Version
-from pprint import pprint
 
-from ..remote_api import RemoteAPI
-from . import pass_config, check_meta_args
+from simdb.cli.remote_api import RemoteAPI
+from simdb.database.models.simulation import Simulation
+from simdb.notifications import Notification
+
+from . import check_meta_args, pass_config
 from .utils import print_simulations, print_trace
-from ...notifications import Notification
 from .validators import validate_non_negative, validate_positive
-from ...database.models.simulation import Simulation
 
 pass_api = click.make_pass_decorator(RemoteAPI)
 
 if TYPE_CHECKING or "sphinx" in sys.modules:
-    from ...config import Config
     from click import Context
+
+    from simdb.config import Config
 
 
 class RemoteGroup(click.Group):
@@ -82,8 +84,8 @@ class _RemoteCommand(click.Command):
 
 def remote_command_cls(subgroup: str = "") -> Type:
     """
-    Customise the RemoteCommand class to hold the name of the subgroup if provided. This is required to properly format
-    the help string for subgroup commands.
+    Customise the RemoteCommand class to hold the name of the subgroup if provided.
+    This is required to properly format the help string for subgroup commands.
     """
     sub_command_cls = type("SubCommandCls", (_RemoteCommand,), {"subgroup": subgroup})
     return sub_command_cls
@@ -108,21 +110,20 @@ def remote(
 ):
     """Interact with the remote SimDB service.
 
-    If NAME is provided this determines which remote server to communicate with, otherwise the server in the config file
-    with default=True is used.
+    If NAME is provided this determines which remote server to communicate with,
+    otherwise the server in the config file with default=True is used.
     """
     if not ctx.invoked_subcommand and not any(is_empty(i) for i in ctx.params.values()):
         click.echo(ctx.get_help())
-    else:
-        if ctx.invoked_subcommand in ["config"]:
-            pass
-        elif ctx.invoked_subcommand:
-            if ctx.invoked_subcommand == "token" and sys.argv[-1] == "new":
-                ctx.obj = RemoteAPI(name, username, password, config, use_token=False)
-            else:
-                ctx.obj = RemoteAPI(name, username, password, config)
+    elif ctx.invoked_subcommand == "config":
+        pass
+    elif ctx.invoked_subcommand:
+        if ctx.invoked_subcommand == "token" and sys.argv[-1] == "new":
+            ctx.obj = RemoteAPI(name, username, password, config, use_token=False)
         else:
-            click.echo(ctx.get_help())
+            ctx.obj = RemoteAPI(name, username, password, config)
+    else:
+        click.echo(ctx.get_help())
 
 
 @remote.command("test", cls=remote_command_cls())
@@ -295,7 +296,8 @@ def list_watchers(api: RemoteAPI, sim_id: str):
 @click.argument("sim_id")
 @click.option("-u", "--user", help="Name of the user to remove as a watcher.")
 def remove_watcher(config: "Config", api: RemoteAPI, sim_id: str, user: str):
-    """Remove a user from list of watchers on a simulation with given SIM_ID (UUID or alias)."""
+    """Remove a user from list of watchers on a simulation with given SIM_ID (UUID or
+    alias)."""
     if not user:
         user = config.get_string_option("user.name")
     if not user:
@@ -315,7 +317,7 @@ def remove_watcher(config: "Config", api: RemoteAPI, sim_id: str, user: str):
 @click.option(
     "-n",
     "--notification",
-    type=click.Choice(list(i.name for i in Notification), case_sensitive=False),
+    type=click.Choice([i.name for i in Notification], case_sensitive=False),
     default=Notification.ALL.name,
     show_default=True,
 )
@@ -327,7 +329,7 @@ def add_watcher(
     email: Optional[str],
     notification: str,
 ):
-    """Register a user as a watcher for a simulation with given SIM_ID (UUID or alias)."""
+    "Register a user as a watcher for a simulation with given SIM_ID (UUID or alias)."
     if not user:
         user = config.get_string_option("user.name", default=None)
     if not user:
@@ -388,11 +390,15 @@ def remote_show_validation_schema(api: RemoteAPI, depth: int):
     help="Include UUID in the output.",
     default=False,
 )
-def remote_list(config: "Config", api: RemoteAPI, meta: List[str], limit: int, show_uuid: bool):
+def remote_list(
+    config: "Config", api: RemoteAPI, meta: List[str], limit: int, show_uuid: bool
+):
     """List simulations available on remote."""
     check_meta_args(meta)
     simulations = api.list_simulations(meta, limit)
-    print_simulations(simulations, verbose=config.verbose, metadata_names=meta, show_uuid=show_uuid)
+    print_simulations(
+        simulations, verbose=config.verbose, metadata_names=meta, show_uuid=show_uuid
+    )
 
 
 @remote.command("version", cls=remote_command_cls())
@@ -406,7 +412,7 @@ def remote_version(api: RemoteAPI):
 @pass_api
 @click.argument("sim_id")
 def remote_info(api: RemoteAPI, sim_id: str):
-    """Print information about simulation with given SIM_ID (UUID or alias) from remote."""
+    "Print information about simulation with given SIM_ID (UUID or alias) from remote."
     simulation = api.get_simulation(sim_id)
     click.echo(str(simulation))
 
@@ -415,13 +421,14 @@ def remote_info(api: RemoteAPI, sim_id: str):
 @pass_api
 @click.argument("sim_id")
 def remote_trace(api: RemoteAPI, sim_id: str):
-    """Print provenance trace of simulation with given SIM_ID (UUID or alias) from remote.
+    """Print provenance trace of simulation with given SIM_ID (UUID or alias) from
+    remote.
 
-    This shows a history of simulations that this simulation has replaced or been replaced by and
-    what those simulations replaced or where replaced by and so on.
+    This shows a history of simulations that this simulation has replaced or been
+    replaced by and what those simulations replaced or where replaced by and so on.
 
-    If the outputs of this simulation are used as inputs of other simulations or if the inputs
-    are generated by other simulations then these dependencies are also reported.
+    If the outputs of this simulation are used as inputs of other simulations or if the
+    inputs are generated by other simulations then these dependencies are also reported.
     """
     trace_data = api.trace_simulation(sim_id)
     print_trace(trace_data)
@@ -470,33 +477,41 @@ def remote_query(
 
     \b
     Where `[mod]` is an optional query modifier. Available query modifiers are:
-        eq:  - This checks for equality (this is the same behaviour as not providing any modifier).
+        eq:  - This checks for equality (this is the same behaviour as not providing
+               any modifier).
         in:  - This searches inside the value instead of looking for exact matches.
         gt:  - This checks for values greater than the given quantity.
         agt: - This checks for any array elements are greater than the given quantity.
         ge:  - This checks for values greater than or equal to the given quantity.
-        age: - This checks for any array elements are greater than or equal to the given quantity.
+        age: - This checks for any array elements are greater than or equal to the given
+               quantity.
         lt:  - This checks for values less than the given quantity.
-        alt:  - This checks for any array elements are less than the given quantity.
+        alt: - This checks for any array elements are less than the given quantity.
         le:  - This checks for values less than or equal to the given quantity.
-        ale:  - This checks for any array elements are less than or equal to the given quantity.
+        ale: - This checks for any array elements are less than or equal to the given
+                quantity.
 
     \b
     Modifier examples:
         alias=eq:foo                                                performs exact match
-        summary.code.name=in:foo                                    matches all names containing foo
-        summary.heating_current_drive.power_additional.value=agt:0  matches all simulations where any array element
-        of summary.heating_current_drive.power_additional.value is greater than 0
+        summary.code.name=in:foo                                    matches all names
+            containing foo
+        summary.heating_current_drive.power_additional.value=agt:0  matches all
+            simulations where any array element of
+            summary.heating_current_drive.power_additional.value is greater than 0
 
     \b
-    Any string comparisons are done in a case-insensitive manner. If multiple constraints are provided then simulations
-    are returned that match all given constraints.
+    Any string comparisons are done in a case-insensitive manner. If multiple
+    constraints are provided then simulations are returned that match all given
+    constraints.
 
     \b
     Examples:
-        sim remote query workflow.name=in:test       finds all simulations where workflow.name contains test
-                                                         (case-insensitive)
-        sim remote query pulse=gt:1000 run=0         finds all simulations where pulse is > 1000 and run = 0
+        sim remote query workflow.name=in:test       finds all simulations where
+                                                     workflow.name contains test
+                                                     (case-insensitive)
+        sim remote query pulse=gt:1000 run=0         finds all simulations where pulse
+                                                     is > 1000 and run = 0
     """
     if not constraints:
         raise click.ClickException("At least one constraint must be provided.")
@@ -514,41 +529,9 @@ def remote_query(
         names.append(name)
     names += meta
 
-    print_simulations(simulations, verbose=config.verbose, metadata_names=names, show_uuid=show_uuid)
-
-
-# @remote.command("update", cls=remote_command_cls())
-# @pass_api
-# @click.argument("sim_id")
-# @click.argument(
-#     "update_type",
-#     type=click.Choice(["validate", "accept", "deprecate"], case_sensitive=False),
-# )
-# def remote_update(api: RemoteAPI, sim_id: str, update_type: str):
-#     """Mark remote simulation as published."""
-#     from ...database.models import Simulation
-
-#     if update_type == "accept":
-#         # TODO: Check if simulation is validated.
-#         # TODO: Error if not validated.
-#         api.validate_simulation(sim_id)
-#         api.update_simulation(sim_id, Simulation.Status.ACCEPTED)
-#         click.echo(f"Simulation {sim_id} marked as accepted.")
-#     elif update_type == "validate":
-#         ok, err = api.validate_simulation(sim_id)
-#         if ok:
-#             click.echo(f"Simulation {sim_id} validated successfully.")
-#         else:
-#             click.echo(f"Validation error: {err}.")
-#     elif update_type == "deprecate":
-#         api.update_simulation(sim_id, Simulation.Status.DEPRECATED)
-#         click.echo(f"Simulation {sim_id} marked as deprecated.")
-#     elif update_type == "delete":
-#         result = api.delete_simulation(sim_id)
-#         click.echo(f"deleted simulation: {result['deleted']['simulation']}")
-#         if result["deleted"]["files"]:
-#             for file in result["deleted"]["files"]:
-#                 click.echo(f"              file: {file}")
+    print_simulations(
+        simulations, verbose=config.verbose, metadata_names=names, show_uuid=show_uuid
+    )
 
 
 @remote.group(cls=RemoteSubGroup)
@@ -632,7 +615,6 @@ def admin_set_meta(api: RemoteAPI, sim_id: str, key: str, value: str, type: str)
 )
 def admin_set_status(api: RemoteAPI, sim_id: str, value: str):
     """Update the status metadata value for the given simulation."""
-    #old_value = api.set_metadata(sim_id, "status", value)
     old_value = api.update_simulation(sim_id, Simulation.Status(value.lower()))
     if old_value:
         click.echo(f"Update status for simulation {sim_id}: {old_value} -> {value}")

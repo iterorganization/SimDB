@@ -1,7 +1,9 @@
-from flask_caching import Cache
-from flask import request
+import contextlib
 
-from ...config import Config
+from flask import request
+from flask_caching import Cache
+
+from simdb.config import Config
 
 config = Config("app.cfg")
 config.load()
@@ -12,16 +14,15 @@ cache_options = {
 cache = Cache(config=cache_options)
 
 
-def cache_key(*args, **kwargs):
+def cache_key(*args, **kwargs) -> str:
     headers = []
-    for key in request.headers.keys():
+    for key, value in request.headers.items():
         if "simdb-" in key.lower():
-            headers.append("{}:{}".format(key.lower(), request.headers.get(key, 0)))
+            headers.append(f"{key.lower()}:{value}")
     return request.url + "?" + "&".join(headers)
 
 
 def clear_cache():
-    try:
+    # If /tmp has been cleared by the system then we should ignore this exception
+    with contextlib.suppress(FileNotFoundError):
         cache.clear()
-    except FileNotFoundError:
-        pass  # If /tmp has been cleared by the system then we should ignore this exception

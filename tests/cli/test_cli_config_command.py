@@ -1,7 +1,9 @@
 from unittest import mock
+
 from click.testing import CliRunner
-from simdb.cli.simdb import cli
 from utils import config_test_file
+
+from simdb.cli.simdb import cli
 
 
 @mock.patch("simdb.config.config.Config.get_option")

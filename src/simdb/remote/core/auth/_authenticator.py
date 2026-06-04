@@ -1,10 +1,12 @@
 import abc
-from typing import Optional, Dict, Type
+from typing import ClassVar, Dict, Optional, Type
+
 from flask import Request
 
-from ....config import Config
-from ._user import User
+from simdb.config import Config
+
 from ._exceptions import AuthenticationError
+from ._user import User
 
 
 class Authenticator(abc.ABC):
@@ -12,19 +14,22 @@ class Authenticator(abc.ABC):
     Base class for SimDB server authenticators.
     """
 
-    Authenticators: Dict[str, Type["Authenticator"]] = {}
-    Name: str = NotImplemented
+    Authenticators: ClassVar[Dict[str, Type["Authenticator"]]] = {}
+    Name: str
 
     @abc.abstractmethod
     def authenticate(
-        self, config: Config, request: Request,
+        self,
+        config: Config,
+        request: Request,
     ) -> Optional[User]:
         """
-        Authenticate the user using parameters passed in the current request - i.e. username/password passed as part of
-        SimpleAuth or a token in the request header.
+        Authenticate the user using parameters passed in the current request - i.e.
+        username/password passed as part of SimpleAuth or a token in the request header.
 
-        Additional authentication options can be defined in the configuration specific to the type of authentication
-        being performed - i.e. connection URI for LDAP server.
+        Additional authentication options can be defined in the configuration specific
+        to the type of authentication being performed - i.e. connection URI for LDAP
+        server.
 
         :param config: The SimDB configuration object.
         :param request: The Flask request object.
@@ -35,17 +40,18 @@ class Authenticator(abc.ABC):
     @classmethod
     def get(cls, name: str) -> "Authenticator":
         """
-        Find an authenticator subclass for the given name and return an object of that class.
+        Find an authenticator subclass for the given name and return an object of that
+        class.
 
         :param name: The name of the authenticator to return.
         :return: An instance of an Authenticator subclass.
         """
         try:
             return Authenticator.__new__(cls.Authenticators[name.lower()])
-        except KeyError:
+        except KeyError as err:
             raise AuthenticationError(
                 f"Unknown authenticator {name} selected in configuration"
-            )
+            ) from err
 
     @classmethod
     def register(cls, authenticator: Type["Authenticator"]) -> None:

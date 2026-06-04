@@ -1,11 +1,16 @@
-from typing import Dict
-from sqlalchemy import Column, types as sql_types
+from typing import Any, Dict, Final
+
+from email_validator import validate_email
+from sqlalchemy import Column
+from sqlalchemy import types as sql_types
 from sqlalchemy.orm import validates
+
+from simdb.docstrings import inherit_docstrings
+from simdb.notifications import Notification
+from simdb.remote.models import WatcherData
 
 from .base import Base
 from .types import ChoiceType
-from ...notifications import Notification
-from ...docstrings import inherit_docstrings
 from .utils import checked_get
 
 
@@ -15,7 +20,7 @@ class Watcher(Base):
     Class to represent people watching simulations for updates.
     """
 
-    NOTIFICATION_CHOICES = {
+    NOTIFICATION_CHOICES: Final[Dict[Any, str]] = {
         Notification.VALIDATION: "V",
         Notification.REVISION: "R",
         Notification.OBSOLESCENCE: "O",
@@ -25,15 +30,13 @@ class Watcher(Base):
     __tablename__ = "watchers"
     id = Column(sql_types.Integer, primary_key=True)
     username = Column(sql_types.String(250))
-    email = Column(sql_types.String(1000))
+    email = Column(sql_types.String(1000), nullable=False)
     notification = Column(
         ChoiceType(choices=NOTIFICATION_CHOICES, length=1, enum_type=Notification)
     )
 
     @validates("email")
     def validate_email(self, key, address):
-        from email_validator import validate_email
-
         validate_email(address)
         return address
 
@@ -51,9 +54,12 @@ class Watcher(Base):
         return watcher
 
     def data(self, recurse: bool = False) -> Dict[str, str]:
-        data = dict(
-            username=self.username,
-            email=self.email,
-            notification=str(self.notification),
-        )
+        data = {
+            "username": self.username,
+            "email": self.email,
+            "notification": str(self.notification),
+        }
         return data
+
+    def to_model(self) -> WatcherData:
+        return WatcherData.model_validate(self.data())

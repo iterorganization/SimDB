@@ -1,5 +1,5 @@
 from collections import deque
-from typing import Dict, Any, Union, List, Tuple, Deque, Type
+from typing import Any, Deque, Dict, List, Tuple, Type, Union
 
 FLATTEN_DICT_DELIM = "."
 
@@ -11,12 +11,12 @@ def flatten_dict(
 ):
     for key, value in in_dict.items():
         if isinstance(value, dict):
-            flatten_dict(out_dict, value, prefix + (key,))
+            flatten_dict(out_dict, value, (*prefix, key))
         elif isinstance(value, list):
             for i, el in enumerate(value):
-                flatten_dict(out_dict, el, prefix + (f"{key}#{i + 1}",))
+                flatten_dict(out_dict, el, (*prefix, f"{key}#{i + 1}"))
         else:
-            out_dict[FLATTEN_DICT_DELIM.join(prefix + (key,))] = value
+            out_dict[FLATTEN_DICT_DELIM.join((*prefix, key))] = value
 
 
 def _parse_index(head: str) -> Tuple[bool, str, int]:
@@ -33,14 +33,22 @@ def _unflatten_value(
     tail = key
     is_index, head, index = _parse_index(head)
     if tail:
-        if head not in out_dict:
-            out_dict[head] = [] if is_index else {}
-        el = out_dict[head]
         if is_index:
+            if head not in out_dict:
+                out_dict[head] = []
+            el = out_dict[head]
+            assert isinstance(el, list)
             while index > len(el):
                 el.append({})
-            el = el[index - 1]
-        _unflatten_value(el, tail, value)
+            next_el = el[index - 1]
+            assert isinstance(next_el, dict)
+            _unflatten_value(next_el, tail, value)
+        else:
+            if head not in out_dict:
+                out_dict[head] = {}
+            el = out_dict[head]
+            assert isinstance(el, dict)
+            _unflatten_value(el, tail, value)
     else:
         out_dict[head] = value
 
@@ -63,6 +71,7 @@ def checked_get(data: Dict[str, Any], key, expected_type: Type, optional: bool =
         type_name = type(data[key]).__name__
         expected_type_name = expected_type.__name__
         raise ValueError(
-            f"Corrupted data - {key} has incorrect type {type_name}, expected {expected_type_name}."
+            f"Corrupted data - {key} has incorrect type {type_name}, expected "
+            f"{expected_type_name}."
         )
     return data[key]

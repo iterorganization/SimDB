@@ -1,7 +1,8 @@
-import click
 from typing import Iterable
 
-from ...config import Config
+import click
+
+from simdb.config import Config
 
 pass_config = click.make_pass_decorator(Config)
 

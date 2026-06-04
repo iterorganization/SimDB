@@ -1,4 +1,8 @@
+from pathlib import Path
+
 import click
+
+from simdb.cli.manifest import InvalidManifest, Manifest
 
 
 @click.group()
@@ -8,10 +12,9 @@ def manifest():
 
 
 @manifest.command()
-@click.argument("file_name", type=click.Path(exists=True))
+@click.argument("file_name", type=click.Path(exists=True, path_type=Path))
 def check(file_name):
     """Check manifest FILE_NAME."""
-    from ..manifest import Manifest, InvalidManifest
 
     manifest = Manifest()
     manifest.load(file_name)
@@ -26,8 +29,6 @@ def check(file_name):
 @click.argument("manifest_file", type=click.File("w"))
 def create(manifest_file):
     """Create a new MANIFEST_FILE."""
-    from ..manifest import Manifest
-    from pathlib import Path
 
     Manifest.from_template().save(manifest_file)
     path = Path(manifest_file.name).absolute()

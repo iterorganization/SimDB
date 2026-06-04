@@ -142,30 +142,6 @@ Options:
   --help  Show this message and exit.
 ```
     
-## Database
-
-
-```text
-Usage: simdb database [OPTIONS] COMMAND [ARGS]...
-
-  Manage local simulation database.
-
-Options:
-  --help  Show this message and exit.
-
-Commands:
-  clear  Clear the database.
-```
-    
-
-```text
-Usage: simdb database clear [OPTIONS]
-
-  Clear the database.
-
-Options:
-  --help  Show this message and exit.
-```
     
 ## Manifest
 
@@ -644,7 +620,10 @@ Usage: simdb simulation delete [OPTIONS] SIM_ID
 
   Delete the ingested simulation with given SIM_ID (UUID or alias).
 
+  Use --all to reset the local database and delete all simulations.
+
 Options:
+  --all   Reset the local database, deleting all simulations.
   --help  Show this message and exit.
 ```
     

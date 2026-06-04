@@ -28,7 +28,7 @@ echo "Installing simdb with documentation dependencies..."
 pip3 install setuptools_scm
 
 # Install simdb with test dependencies using pyproject.toml
-pip3 install -e .[build-test]
+pip3 install -e --group dev
 
 echo "Checking version information..."
 python3 -c "import simdb; print(f'SimDB version: {simdb.__version__}')"

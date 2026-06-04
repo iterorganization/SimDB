@@ -1,6 +1,7 @@
-from urllib3.util.url import parse_url, Url, LocationParseError
 from pathlib import Path
-from typing import Dict, Union, Optional
+from typing import Dict, Optional, Union
+
+from urllib3.util.url import LocationParseError, Url, parse_url
 
 
 class URIParserError(ValueError):
@@ -56,9 +57,9 @@ class Authority:
     Class representing URI authority.
     """
 
-    __slots__ = ("host", "port", "auth")
+    __slots__ = ("auth", "host", "port")
 
-    def __init__(self, host: Optional[int], port: Optional[int], auth: Optional[str]):
+    def __init__(self, host: Optional[str], port: Optional[int], auth: Optional[str]):
         self.host: Optional[str] = host
         self.port: Optional[int] = port
         self.auth: Optional[str] = auth
@@ -89,15 +90,18 @@ class URI:
     Class for parsing and representing a URI.
     """
 
-    __slots__ = ("scheme", "query", "path", "authority", "fragment")
+    __slots__ = ("authority", "fragment", "path", "query", "scheme")
 
     def __init__(self, uri: Union[str, "URI", None] = None, *, scheme=None, path=None):
         """
-        Create a URI object by either parsing a URI string or copying from an existing URI object.
+        Create a URI object by either parsing a URI string or copying from an existing
+        URI object.
 
         :param uri: A URI string, another URI to copy from or None for an empty URI.
-        :param scheme: The URI scheme. Takes precedence over any scheme found from the URI argument.
-        :param path: The URI path. Takes precedence over any path found from the URI argument.
+        :param scheme: The URI scheme. Takes precedence over any scheme found from the
+                       URI argument.
+        :param path: The URI path. Takes precedence over any path found from the URI
+                     argument.
         """
         self.scheme: Optional[str] = None
         self.query: Query = Query.empty()
@@ -108,8 +112,8 @@ class URI:
         if uri is not None:
             try:
                 result: Url = parse_url(str(uri))
-            except LocationParseError:
-                raise URIParserError("failed to parse URI")
+            except LocationParseError as err:
+                raise URIParserError("failed to parse URI") from err
             self.scheme = result.scheme
             self.query = Query(result.query)
             self.authority = Authority(result.host, result.port, result.auth)

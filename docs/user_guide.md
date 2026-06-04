@@ -4,6 +4,13 @@ This page covers the core functionality of the SimDB command line, and some comm
 
 Further details on the command line interface can be found [here](cli.md).
 
+
+## Backwards Incompatible Changes
+
+This section describes backwards incompatible changes to the SimDB CLI
+- `simdb database clear` removed: Use `simdb sim delete --all` instead to clear all local simulations.
+
+
 ## Basic usage
 
 SimDB is a command line interface (CLI) that can be used to store metadata about simulation runs and their associated data. These simulations are stored locally for the user until they are pushed to a remote SimDB server where they can then be queried by any user.

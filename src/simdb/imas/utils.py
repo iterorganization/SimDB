@@ -1,11 +1,17 @@
 import os
-from typing import List, Any
 from datetime import datetime
 from pathlib import Path
-from dateutil import parser
+from typing import Any, List
 
-from ..uri import URI
-from ..config import Config
+import imas
+import imas.exception
+import imas.ids_defs
+import semantic_version
+from dateutil import parser
+from imas import DBEntry
+
+from simdb.config import Config
+from simdb.uri import URI
 
 
 class ImasError(Exception):
@@ -51,42 +57,26 @@ def is_missing(value: Any):
     return False
 
 
-class DBEntry:
-    def partial_get(self, ids: str, path: str, occurrence = 0) -> Any:
-        ...
-
-    def list_all_occurrences(self, ids: str) -> List[int]:
-        """
-        List all occurrences of the given IDS in the IMAS data entry.
-
-        @param
-        ids: the IDS name
-        @param path: the path to the data
-        @return: the list of occurrences
-        """
-        ...
-
 def list_idss(entry: DBEntry) -> List[str]:
     """
     List all the IDSs found to be populated for the given IMAS data entry.
 
-    Each IDS is defined as being non-empty if the ids_properties/homogeneous_time field has been populated.
+    Each IDS is defined as being non-empty if the ids_properties/homogeneous_time field
+    has been populated.
 
     @param entry: the IMAS data entry
     @return: the list of found IDSs
     """
-    import imas
-    
+
     idss = []
 
     for ids_name in entry.factory.ids_names():
         occurrences = entry.list_all_occurrences(ids_name)
-        if occurrences:
-            if len(occurrences) > 0:
-                for occurrence in range(len(occurrences)):
-                    if occurrence > 0:
-                        idss.append(ids_name + "_" + str(occurrence))
-                idss.append(ids_name)
+        if occurrences and len(occurrences) > 0:
+            for occurrence in range(len(occurrences)):
+                if occurrence > 0:
+                    idss.append(ids_name + "_" + str(occurrence))
+            idss.append(ids_name)
     return idss
 
 
@@ -98,7 +88,7 @@ def check_time(entry: DBEntry, ids: str, occurrence) -> None:
     @param ids: the
     @return:
     """
-    import imas
+
     ids_obj = entry.get(ids, occurrence, autoconvert=False, lazy=True)
     try:
         homo_time = ids_obj.ids_properties.homogeneous_time
@@ -106,14 +96,14 @@ def check_time(entry: DBEntry, ids: str, occurrence) -> None:
             time = ids_obj.time
             if time is None or time.size == 0:
                 raise ValueError(
-                    f"IDS {ids} has homogeneous_time flag set to IDS_TIME_MODE_HOMOGENEOUS but invalid time entry."
+                    f"IDS {ids} has homogeneous_time flag set to "
+                    "IDS_TIME_MODE_HOMOGENEOUS but invalid time entry."
                 )
-    except imas.exception.ValidationError as e:
-        raise ImasError(f"IDS {ids} failed validation: {e}")
+    except imas.exception.ValidationError as err:
+        raise ImasError(f"IDS {ids} failed validation") from err
+
 
 def _is_al5() -> bool:
-    import semantic_version
-
     al_env = os.environ.get("AL_VERSION", default=None)
     ual_env = os.environ.get("UAL_VERSION", default="5.0.0")
     version = (
@@ -125,8 +115,6 @@ def _is_al5() -> bool:
 
 
 def _open_legacy(uri: URI) -> DBEntry:
-    import imas
-
     path = uri.query.get("path", default=None)
     if path is not None:
         raise ImasError(f"cannot open AL5 URI {uri} with AL4")
@@ -147,7 +135,18 @@ def _open_legacy(uri: URI) -> DBEntry:
             f"backend {backend} is not supported for legacy IMAS, please use AL5"
         )
 
-    backend_id = backend_ids[backend]
+    if (
+        backend is None
+        or user is None
+        or database is None
+        or shot is None
+        or run is None
+    ):
+        raise ImasError("IMAS query is invalid")
+
+    backend_id = backend_ids.get(backend)
+    if backend_id is None:
+        raise ImasError("IMAS backend is invalid")
 
     if user is not None:
         try:
@@ -159,22 +158,19 @@ def _open_legacy(uri: URI) -> DBEntry:
                 user_name=user,
                 data_version=version,
             )
-        except:
-            raise ImasError(
-                f"failed to open IMAS data with URI {uri}"
-            )
+        except Exception as err:
+            raise ImasError(f"failed to open IMAS data with URI {uri}") from err
     else:
         try:
             entry = imas.DBEntry(
                 backend_id, database, int(shot), int(run), data_version=version
             )
-        except:
-            raise ImasError(
-                f"failed to open IMAS data with URI {uri}"
-            )
-    (status, _) = entry.open()
-    if status != 0:
-        raise ImasError(f"failed to open IMAS data with URI {uri}")
+        except Exception as err:
+            raise ImasError(f"failed to open IMAS data with URI {uri}") from err
+    try:
+        entry.open()
+    except RuntimeError as err:
+        raise ImasError(f"failed to open IMAS data with URI {uri}") from err
     return entry
 
 
@@ -185,7 +181,6 @@ def open_imas(uri: URI) -> DBEntry:
     @param uri: the IMAS URI to open
     @return: the IMAS data entry object
     """
-    import imas
 
     if uri.scheme != "imas":
         raise ValueError(f"invalid imas URI: {uri} - invalid scheme")
@@ -200,13 +195,13 @@ def open_imas(uri: URI) -> DBEntry:
     if path is None:
         path = get_path_for_legacy_uri(uri)
         backend = uri.query.get("backend", default="mdsplus")
-        uri = f"imas:{backend}?path={path}"
+        uri = URI(f"imas:{backend}?path={path}")
 
     try:
         entry = imas.DBEntry(str(uri), "r")
-    except:
-        raise ImasError(f"failed to open IMAS data with URI {uri}")
-    
+    except Exception as err:
+        raise ImasError(f"failed to open IMAS data with URI {uri}") from err
+
     return entry
 
 
@@ -222,10 +217,9 @@ def imas_timestamp(uri: URI) -> datetime:
     creation = ids_obj.ids_properties.creation_date
     if creation:
         try:
-            timestamp = parser.parse(creation)            
-        except Exception:            
-            timestamp = datetime.now()    
-            # raise ValueError(f"invalid IMAS creation time {creation}")
+            timestamp = parser.parse(creation)
+        except Exception:
+            timestamp = datetime.now()
     else:
         timestamp = datetime.now()
     entry.close()
@@ -239,8 +233,9 @@ def get_path_for_legacy_uri(uri: URI) -> Path:
     shot = uri.query.get("shot", default=None)
     run = uri.query.get("run", default=None)
     backend = uri.query.get("backend", default="hdf5")
-    if any(x is None for x in [database, shot, run]):
+    if database is None or shot is None or run is None or version is None:
         raise ValueError(f"Invalid legacy URI {uri}")
+
     if user == "public":
         imas_home = os.environ.get("IMAS_HOME", default=None)
         if imas_home is None:
@@ -248,7 +243,7 @@ def get_path_for_legacy_uri(uri: URI) -> Path:
                 "Legacy URI passed with user=public but $IMAS_HOME is not set"
             )
         path = Path(imas_home) / "shared" / "imasdb" / database / version
-    elif user.startswith("/"):
+    elif user is not None and user.startswith("/"):
         path = Path(user) / database / version
     elif user is not None:
         path = Path(f"~{user}").expanduser() / "public" / "imasdb" / database / version
@@ -282,7 +277,8 @@ def imas_files(uri: URI) -> List[Path]:
     Return all the files associated with the given IMAS URI.
 
     @param uri: a valid IMAS URI
-    @return: a list of files which contains the IDS data for the backend specified in the URI
+    @return: a list of files which contains the IDS data for the backend specified in
+             the URI
     """
     backend = str(uri.path)
     if backend.startswith("/"):
@@ -290,15 +286,8 @@ def imas_files(uri: URI) -> List[Path]:
 
     path = _get_path(uri)
 
-    if backend == "uda":
-        backend = uri.query.get("backend", default=None)
-        if backend is None:
-            raise ValueError(
-                "Invalid IMAS URI - 'backend' query argument not provided for UDA backend"
-            )
-
     if backend == "hdf5":
-        return list(p.absolute() for p in path.glob("*.h5"))
+        return [p.absolute() for p in path.glob("*.h5")]
     elif backend == "mdsplus":
         return [
             path / "ids_001.characteristics",
@@ -306,25 +295,28 @@ def imas_files(uri: URI) -> List[Path]:
             path / "ids_001.tree",
         ]
     elif backend == "ascii":
-        return list(p.absolute() for p in path.glob("*.ids"))
+        return [p.absolute() for p in path.glob("*.ids")]
     else:
         raise ValueError(f"Unknown IMAS backend {backend}")
 
 
 def convert_uri(uri: URI, path: Path, config: Config) -> URI:
     """
-    Converts a local IMAS URI to a remote access IMAS URI based on the server.imas_remote_host configuration option.
+    Converts a local IMAS URI to a remote access IMAS URI based on the
+    server.imas_remote_host configuration option.
 
     Translate locale IMAS URI (imas:<backend>?path=<path>) to remote access URI
     (imas://<imas_remote_host>:<imas_remote_port>/uda?path=<path>&backend=<backend>)
 
     @param uri: The URI to convert
-    @param config: Config to read the server.imas_remote_host and server.imas_remote_port options from
+    @param config: Config to read the server.imas_remote_host and
+                   server.imas_remote_port options from
     """
     host = config.get_option("server.imas_remote_host", default=None)
     if host is None:
         raise ValueError(
-            "Cannot process IMAS data as server.imas_remote_host configuration option not set"
+            "Cannot process IMAS data as server.imas_remote_host configuration option "
+            "not set"
         )
     port = config.get_option("server.imas_remote_port", default=None)
     backend = uri.path
@@ -338,11 +330,11 @@ def convert_uri(uri: URI, path: Path, config: Config) -> URI:
 def extract_ids_occurrence(ids: str) -> tuple[str, int]:
     """Extract IDS name and occurrence number.
     Returns tuple of (ids_name, occurrence)"""
-    last_underscore = ids.rfind('_')
+    last_underscore = ids.rfind("_")
     if last_underscore == -1:
         return ids, 0
-        
-    potential_occurrence = ids[last_underscore + 1:]
+
+    potential_occurrence = ids[last_underscore + 1 :]
     if potential_occurrence.isdigit():
         return ids[:last_underscore], int(potential_occurrence)
     return ids, 0

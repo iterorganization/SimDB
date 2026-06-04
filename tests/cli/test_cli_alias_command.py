@@ -1,7 +1,9 @@
 from unittest import mock
+
 from click.testing import CliRunner
-from simdb.cli.simdb import cli
 from utils import config_test_file
+
+from simdb.cli.simdb import cli
 
 LOCAL_ALIASES = ["hello", "world", "foo-123"]
 REMOTE_ALIASES = ["foo#1", "bar", "barfoo", "123foo", "barbaz"]
@@ -21,10 +23,10 @@ def _generate_mock_data(get_local_db, remote_list_simulations):
         sim = mock.Mock()
         sim.alias = alias
         simulations.append(sim)
-    get_local_db().list_simulations.return_value = simulations
+    get_local_db.return_value.list_simulations.return_value = simulations
 
 
-@mock.patch("simdb.database.get_local_db")
+@mock.patch("simdb.cli.commands.alias.get_local_db")
 @mock.patch("simdb.cli.remote_api.RemoteAPI.list_simulations")
 @mock.patch("simdb.cli.remote_api.RemoteAPI.__init__")
 def test_alias_search_command(init, remote_list_simulations, get_local_db):
@@ -41,7 +43,7 @@ def test_alias_search_command(init, remote_list_simulations, get_local_db):
     assert "\n".join(expected_sims) in result.output
 
 
-@mock.patch("simdb.database.get_local_db")
+@mock.patch("simdb.cli.commands.alias.get_local_db")
 @mock.patch("simdb.cli.remote_api.RemoteAPI.list_simulations")
 @mock.patch("simdb.cli.remote_api.RemoteAPI.has_url")
 @mock.patch("simdb.cli.remote_api.RemoteAPI.__init__")
@@ -57,7 +59,7 @@ def test_alias_list_command(init, has_url, remote_list_simulations, get_local_db
     assert "\n  ".join(LOCAL_ALIASES) in result.output
 
 
-@mock.patch("simdb.database.get_local_db")
+@mock.patch("simdb.cli.commands.alias.get_local_db")
 @mock.patch("simdb.cli.remote_api.RemoteAPI.list_simulations")
 @mock.patch("simdb.cli.remote_api.RemoteAPI.has_url")
 @mock.patch("simdb.cli.remote_api.RemoteAPI.__init__")

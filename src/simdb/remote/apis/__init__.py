@@ -1,18 +1,23 @@
-from flask import request, jsonify, Blueprint, _app_ctx_stack, Response
-from flask_restx import Resource
-from pathlib import Path
 import datetime
-import jwt
-import os
+from pathlib import Path
 
-from ... import __version__
-from ..core.typing import current_app
-from ..core.auth import User, requires_auth, AuthenticationError
-from ...database import Database
-from ...validation.file import find_file_validator
-from .v1 import api as api_v1, namespaces as namespaces_v1
-from .v1_1 import api as api_v1_1, namespaces as namespaces_v1_1
-from .v1_2 import api as api_v1_2, namespaces as namespaces_v1_2
+import appdirs
+import jwt
+from flask import Blueprint, Response, _app_ctx_stack, jsonify, request
+from flask_restx import Resource
+
+from simdb import __version__
+from simdb.database import Database
+from simdb.remote.core.auth import AuthenticationError, User, requires_auth
+from simdb.remote.core.typing import current_app
+from simdb.validation.validator import Validator
+
+from .v1 import api as api_v1
+from .v1 import namespaces as namespaces_v1
+from .v1_1 import api as api_v1_1
+from .v1_1 import namespaces as namespaces_v1_1
+from .v1_2 import api as api_v1_2
+from .v1_2 import namespaces as namespaces_v1_2
 
 
 def error(message: str) -> Response:
@@ -46,12 +51,11 @@ def register(api, version, namespaces):
                 **args,
             )
         elif db_type == "sqlite":
-            import appdirs
-
             db_dir = appdirs.user_data_dir("simdb")
-            db_file = os.path.join(db_dir, "remote.db")
-            file = Path(config.get_option("database.file", default=db_file))
-            os.makedirs(file.parent, exist_ok=True)
+            file = Path(config.get_option("database.file", default=None)) or Path(
+                db_dir, "remote.db"
+            )
+            file.parent.mkdir(parents=True, exist_ok=True)
             setup_state.app.db = Database(
                 Database.DBMS.SQLITE, scopefunc=_app_ctx_stack.__ident_func__, file=file
             )
@@ -95,19 +99,24 @@ def register(api, version, namespaces):
         @requires_auth()
         def get(self, user: User):
             auth = request.authorization
+            if auth is None:
+                return error("Authorization invalid")
             lifetime = current_app.simdb_config.get_option(
                 "server.token_lifetime", default=30
             )
+            if not isinstance(lifetime, int):
+                return error("Token lifetime is not valid")
             payload = {
-                "exp": datetime.datetime.utcnow() + datetime.timedelta(days=lifetime),
-                "iat": datetime.datetime.utcnow(),
+                "exp": datetime.datetime.now(datetime.timezone.utc)
+                + datetime.timedelta(days=lifetime),
+                "iat": datetime.datetime.now(datetime.timezone.utc),
                 "sub": auth.username,
                 "email": user.email,
             }
             ret = {
                 "status": "success",
                 "token": jwt.encode(
-                    payload, current_app.config.get("SECRET_KEY"), algorithm="HS256"
+                    payload, current_app.config.get("SECRET_KEY", ""), algorithm="HS256"
                 ),
             }
             return jsonify(ret)
@@ -116,8 +125,6 @@ def register(api, version, namespaces):
     class ValidationSchema(Resource):
         @requires_auth()
         def get(self, user: User):
-            from ...validation.validator import Validator
-
             config = current_app.simdb_config
             return jsonify(Validator.validation_schemas(config, None))
 
@@ -126,21 +133,13 @@ def register(api, version, namespaces):
         @requires_auth()
         def get(self, user: User):
             config = current_app.simdb_config
-            options = dict(
-                copy_files=config.get_option("server.copy_files", default=True),
-                copy_ids=config.get_option("server.copy_ids", default=True),
-            )
+            options = {
+                "copy_files": config.get_option("server.copy_files", default=True),
+                "copy_ids": config.get_option("server.copy_ids", default=True),
+            }
 
             return jsonify(options)
 
-            # file_validator_type = current_app.simdb_config.get_option("file_validation.type", default=None)
-            # file_validator_options = current_app.simdb_config.get_section("file_validation", default={})
-            # validator_type, validator_options = find_file_validator(file_validator_type, file_validator_options)
-
-            # if validator_type:
-            #     options["file_validator"] = validator_type
-            #     options["file_validator_options"] = validator_oprions
-            #     options["file_validator_options"] = validator_options
 
 register(api_v1, "v1", namespaces_v1)
 register(api_v1_1, "v1.1", namespaces_v1_1)

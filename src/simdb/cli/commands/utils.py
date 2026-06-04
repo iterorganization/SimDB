@@ -1,12 +1,12 @@
-from typing import List, Dict, Tuple, TYPE_CHECKING, TypeVar, Optional, Any
 from collections import OrderedDict
-import uuid
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, TypeVar
+
 import click
-import numpy
 
 if TYPE_CHECKING:
-    # Only importing these for type checking and documentation generation in order to speed up runtime startup.
-    from ...database.models import Simulation
+    # Only importing these for type checking and documentation generation in order to
+    # speed up runtime startup.
+    from simdb.database.models import Simulation
 else:
     Config = TypeVar("Config")
 
@@ -16,10 +16,10 @@ def _flatten_dict(values: Dict) -> List[Tuple[str, str]]:
     for k, v in values.items():
         if isinstance(v, list):
             for n, i in enumerate(v):
-                items.append(("{}[{}]".format(k, n), i))
+                items.append((f"{k}[{n}]", i))
         elif isinstance(v, dict):
             for i in _flatten_dict(v):
-                items.append(("{}.{}".format(k, i[0]), i[1]))
+                items.append((f"{k}.{i[0]}", i[1]))
         else:
             items.append((k, v))
     return items
@@ -27,9 +27,11 @@ def _flatten_dict(values: Dict) -> List[Tuple[str, str]]:
 
 def _format_meta_value(meta_value: Any, max_len: int) -> str:
     """
-    Format the meta value as a string, limiting array values to max_len.
+    Format the meta value as a string, limiting list values to max_len.
     """
-    if isinstance(meta_value, list) or isinstance(meta_value, numpy.ndarray):
+    if isinstance(meta_value, dict) and "min" in meta_value and "max" in meta_value:
+        return f"[{meta_value['min']}, {meta_value['max']}]"
+    if isinstance(meta_value, list):
         values = []
         for i, v in enumerate(meta_value):
             values.append(f"{v:.2f}")
@@ -51,8 +53,8 @@ def print_simulations(
     Print a table of simulations to the console.
 
     By default, only the simulation alias is printed on each row. If verbose is True
-    then the simulation datetime and status are also printed and metadata_names allows additional
-    columns to be specified.
+    then the simulation datetime and status are also printed and metadata_names allows
+    additional columns to be specified.
 
     :param simulations: The simulations to print.
     :param verbose: Whether to print a more verbose table.
@@ -75,13 +77,13 @@ def print_simulations(
 
     for sim in simulations:
         if show_uuid:
-            line = [sim.alias if sim.alias else "", str(sim.uuid)]
+            line = [sim.alias or "", str(sim.uuid)]
             column_widths["alias"] = max(
                 column_widths["alias"], len(sim.alias) if sim.alias else 0
             )
             column_widths["UUID"] = max(column_widths["UUID"], len(str(sim.uuid)))
         else:
-            line = [sim.alias if sim.alias else ""]
+            line = [sim.alias or ""]
             column_widths["alias"] = max(
                 column_widths["alias"], len(sim.alias) if sim.alias else 0
             )
@@ -101,9 +103,7 @@ def print_simulations(
                 if meta:
                     value = _format_meta_value(meta[0].value, 5)
                     line.append(value)
-                    column_widths[name] = max(
-                        column_widths[name], len(value)
-                    )
+                    column_widths[name] = max(column_widths[name], len(value))
                 else:
                     line.append("")
 
@@ -111,17 +111,20 @@ def print_simulations(
             lines.append(list(column_widths.keys()))
 
         lines.append(line)
-        
+
     line_written = False
     for line in lines:
         for col, width in enumerate(column_widths.values()):
-            click.echo("%s" % str(line[col]).ljust(width + 1), nl=False)
+            click.echo(f"{str(line[col]).ljust(width + 1)}", nl=False)
         click.echo()
         if not line_written:
             click.echo("-" * (sum(column_widths.values()) + len(column_widths) - 1))
             line_written = True
     if (lines.__len__() - 1) == 100:
-        click.echo("\n...first 100 entries shown, use command $simdb remote [NAME] list -l 0 to list all simulations.\n")
+        click.echo(
+            "\n...first 100 entries shown, use command $simdb remote [NAME] list -l 0 "
+            "to list all simulations.\n"
+        )
 
 
 def _print_trace_sim(trace_data: dict, indentation: int):
@@ -134,7 +137,7 @@ def _print_trace_sim(trace_data: dict, indentation: int):
 
     uuid = trace_data["uuid"]
     alias = trace_data["alias"]
-    status = trace_data["status"] if "status" in trace_data else "unknown"
+    status = trace_data.get("status", "unknown")
 
     click.echo(f"{spaces}Simulation: {uuid}")
     click.echo(f"{spaces}     Alias: {alias}")

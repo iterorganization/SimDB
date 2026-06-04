@@ -5,6 +5,7 @@ numpy>=1.14.0
 python-dateutil>=2.6
 PyYAML>=3.13
 SQLAlchemy~=1.4
+alembic~=1.13
 urllib3~=1.23
 requests~=2.27
 pytest~=6.0

@@ -1,7 +1,9 @@
 import smtplib
 from typing import List
+
 from email_validator import validate_email
-from ..config import Config
+
+from simdb.config import Config
 
 
 class EmailServer:
@@ -11,10 +13,10 @@ class EmailServer:
     _password: str
 
     def __init__(self, config: Config):
-        self._server = config.get_option("email.server")
+        self._server = config.get_string_option("email.server")
         self._port = int(config.get_option("email.port"))
-        self._user = config.get_option("email.user")
-        self._password = config.get_option("email.password")
+        self._user = config.get_string_option("email.user")
+        self._password = config.get_string_option("email.password")
 
     def send_message(self, subject: str, body: str, to_addresses: List[str]):
         server = smtplib.SMTP(self._server, self._port)

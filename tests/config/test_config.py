@@ -1,7 +1,8 @@
 import re
-from unittest import mock
-from simdb.config import Config
 from io import StringIO
+from unittest import mock
+
+from simdb.config import Config
 
 
 def test_create_config():

@@ -1,14 +1,16 @@
-import os
+# type: ignore
 from pathlib import Path
-from flask_restx import Api, Resource
-from flask import jsonify
 
-from ...core.typing import current_app
-from ...core.auth import TokenAuthenticator, requires_auth, User
+from flask import jsonify
+from flask_restx import Api, Resource
+
+from simdb.remote.apis.files import api as file_ns
+from simdb.remote.apis.metadata import api as metadata_ns
+from simdb.remote.apis.watchers import api as watcher_ns
+from simdb.remote.core.auth import TokenAuthenticator, User, requires_auth
+from simdb.remote.core.typing import current_app
+
 from .simulations import api as sim_ns
-from ..files import api as file_ns
-from ..metadata import api as metadata_ns
-from ..watchers import api as watcher_ns
 
 api = Api(
     title="SimDB REST API",
@@ -47,9 +49,10 @@ class StagingDirectory(Resource):
         staging_dir = (
             Path(current_app.simdb_config.get_option("server.upload_folder")) / sim_hex
         )
-        os.makedirs(staging_dir, exist_ok=True)
-        # This needs to be done for ITER at the moment but should be removed once we can actually push IMAS data
-        # rather than having to do a local copy onto the server directory.
+        staging_dir.mkdir(parents=True, exist_ok=True)
+        # This needs to be done for ITER at the moment but should be removed once we can
+        # actually push IMAS data rather than having to do a local copy onto the server
+        # directory.
         if user_folder:
-            os.chmod(staging_dir, 0o777)
+            staging_dir.chmod(0o777)
         return jsonify({"staging_dir": str(Path(upload_dir) / sim_hex)})

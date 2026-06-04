@@ -1,15 +1,14 @@
-# import datetime
-import re
 import os
-import urllib
+import re
+import urllib.parse
 from enum import Enum, auto
-from typing import Iterable, Union, Dict, List, Tuple, Optional, TextIO, Type
-import glob
 from pathlib import Path
+from typing import Dict, Iterable, List, Optional, TextIO, Tuple, Type, Union
+
 import numpy as np
 import yaml
 
-from ..uri import URI
+from simdb.uri import URI
 
 
 class InvalidManifest(Exception):
@@ -26,7 +25,7 @@ class InvalidAlias(InvalidManifest):
 
 def _expand_path(path: Path, base_path: Path) -> Path:
     os.environ["MANIFEST_DIR"] = str(base_path)
-    path = Path(os.path.expanduser(os.path.expandvars(path)))
+    path = Path(os.path.expandvars(str(path))).expanduser()
     path = Path(str(path).replace("//", "/"))
     if not path.is_absolute():
         if not base_path.is_absolute():
@@ -34,19 +33,19 @@ def _expand_path(path: Path, base_path: Path) -> Path:
         return base_path / path
     else:
         # Expand any /./ and /../ in absolute path
-        path = os.path.abspath(path)
+        path = path.resolve()
     return path
 
 
 def _to_uri(uri_str: str, base_path: Path) -> Tuple["DataObject.Type", "URI"]:
-    from ..uri import URI
-
     uri = URI(uri_str)
     if uri.authority:
         raise InvalidManifest(f"invalid uri: {uri_str} - path must be absolute")
     if uri.scheme is None:
         raise InvalidManifest(f"invalid uri: {uri_str} - no scheme provided")
     if uri.scheme == "file":
+        if uri.path is None:
+            raise InvalidManifest(f"invalid uri: {uri_str} - no path provided")
         uri = URI(uri, path=_expand_path(uri.path, base_path))
         return DataObject.Type.FILE, uri
     if uri.scheme == "imas":
@@ -54,11 +53,10 @@ def _to_uri(uri_str: str, base_path: Path) -> Tuple["DataObject.Type", "URI"]:
             ("shot" in uri.query, "run" in uri.query, "database" in uri.query)
         ):
             raise InvalidManifest(
-                f"invalid uri: {uri_str} - no path or (shot, run, database) provided in IMAS uri"
+                f"invalid uri: {uri_str} - no path or (shot, run, database) provided "
+                "in IMAS uri"
             )
         return DataObject.Type.IMAS, uri
-    if uri.scheme == "uda":
-        return DataObject.Type.UDA, uri
     if uri.scheme == "simdb":
         return DataObject.Type.UUID, uri
     raise InvalidManifest(f"invalid uri: {uri_str}")
@@ -66,7 +64,8 @@ def _to_uri(uri_str: str, base_path: Path) -> Tuple["DataObject.Type", "URI"]:
 
 class DataObject:
     """
-    Simulation data object, either a file, an IDS or an already registered object identifiable by the UUID.
+    Simulation data object, either a file, an IDS or an already registered object
+    identifiable by the UUID.
 
     PATH: file:///<PATH>
     IMAS: imas:<BACKEND>?path=<PATH>
@@ -77,7 +76,6 @@ class DataObject:
         UUID = auto()
         FILE = auto()
         IMAS = auto()
-        UDA = auto()
 
     type: Type = Type.UNKNOWN
     uri: Union[URI, None] = None
@@ -130,13 +128,13 @@ class ListValuesValidator(ManifestValidator):
     def __init__(
         self,
         version: int,
-        section_name: str = NotImplemented,
-        expected_keys: Iterable = NotImplemented,
-        required_keys: Iterable = NotImplemented,
+        section_name: Optional[str] = None,
+        expected_keys: Optional[Iterable] = None,
+        required_keys: Optional[Iterable] = None,
     ) -> None:
-        self.section_name: str = section_name
-        self.expected_keys: Iterable = expected_keys
-        self.required_keys: Iterable = required_keys
+        self.section_name: Optional[str] = section_name
+        self.expected_keys: Optional[Iterable] = expected_keys
+        self.required_keys: Optional[Iterable] = required_keys
         super().__init__(version)
 
     def validate(self, values: Union[list, dict]) -> None:
@@ -144,18 +142,17 @@ class ListValuesValidator(ManifestValidator):
             return
         if isinstance(values, dict):
             raise InvalidManifest(
-                f"badly formatted manifest - {self.section_name} should be provided as a list"
+                f"badly formatted manifest - {self.section_name} should be provided as "
+                "a list"
             )
         for item in values:
             if not isinstance(item, dict) or len(item) > 1:
                 raise InvalidManifest(
-                    f"badly formatted manifest - {self.section_name} values should be a name value pair"
+                    f"badly formatted manifest - {self.section_name} values should be "
+                    "a name value pair"
                 )
             name = next(iter(item))
-            # if isinstance(self.expected_keys, tuple) and name not in self.expected_keys:
-            #     raise InvalidManifest(
-            #         f"unknown {self.section_name} entry in manifest: {name}"
-            #     )
+
             if isinstance(self.required_keys, tuple) and name not in self.required_keys:
                 raise InvalidManifest(
                     f"required {self.section_name} key not found in manifest: {name}"
@@ -170,39 +167,43 @@ class DictValuesValidator(ManifestValidator):
     def __init__(
         self,
         version: int,
-        section_name: str = NotImplemented,
-        expected_keys: Iterable = NotImplemented,
-        required_keys: Iterable = NotImplemented,
+        section_name: Optional[str] = None,
+        expected_keys: Optional[Iterable] = None,
+        required_keys: Optional[Iterable] = None,
     ) -> None:
-        self.section_name: str = section_name
-        self.expected_keys: Iterable = expected_keys
-        self.required_keys: Iterable = required_keys
+        self.section_name: Optional[str] = section_name
+        self.expected_keys: Optional[Iterable] = expected_keys
+        self.required_keys: Optional[Iterable] = required_keys
         super().__init__(version)
 
     def validate(self, values: Union[list, dict]) -> None:
         if isinstance(values, list):
             raise InvalidManifest(
-                f"badly formatted manifest - {self.section_name} should be provided as a dict"
+                f"badly formatted manifest - {self.section_name} should be provided as "
+                "a dict"
             )
 
-        for key in values.keys():
-            if key not in self.expected_keys:
-                if re.match(r"code[0-9]+", key):
-                    for code_key in values[key]:
-                        if code_key not in ("name", "repo", "commit"):
-                            raise InvalidManifest(
-                                f"unknown {self.section_name}.{key} key in manifest: {code_key}"
-                            )
-                else:
-                    raise InvalidManifest(
-                        f"unknown {self.section_name} key in manifest: {key}"
-                    )
+        if self.expected_keys is not None:
+            for key in values:
+                if key not in self.expected_keys:
+                    if re.match(r"code[0-9]+", key):
+                        for code_key in values[key]:
+                            if code_key not in ("name", "repo", "commit"):
+                                raise InvalidManifest(
+                                    f"unknown {self.section_name}.{key} key in"
+                                    f"manifest: {code_key}"
+                                )
+                    else:
+                        raise InvalidManifest(
+                            f"unknown {self.section_name} key in manifest: {key}"
+                        )
 
-        for key in self.required_keys:
-            if isinstance(self.expected_keys, list) and key not in values.keys():
-                raise InvalidManifest(
-                    f"required {self.section_name} key not found in manifest: {key}"
-                )
+        if self.required_keys is not None:
+            for key in self.required_keys:
+                if isinstance(self.expected_keys, list) and key not in values:
+                    raise InvalidManifest(
+                        f"required {self.section_name} key not found in manifest: {key}"
+                    )
 
 
 class DataObjectValidator(ListValuesValidator):
@@ -212,7 +213,7 @@ class DataObjectValidator(ListValuesValidator):
 
     def __init__(self, version: int, section_name: str) -> None:
         if version == 0:
-            expected_keys = ("uuid", "path", "imas", "uda")
+            expected_keys = ("uuid", "path", "imas")
         elif version > 0:
             expected_keys = ("uri",)
         else:
@@ -220,8 +221,6 @@ class DataObjectValidator(ListValuesValidator):
         super().__init__(version, section_name, expected_keys)
 
     def validate(self, values: Union[list, dict]) -> None:
-        from ..uri import URI
-
         super().validate(values)
         if values is None:
             return
@@ -229,10 +228,12 @@ class DataObjectValidator(ListValuesValidator):
         for value in values:
             if self.version > 0:
                 uri = URI(value["uri"])
-                if uri.scheme not in ("uda", "file", "imas"):
+                if uri.scheme not in ("file", "imas"):
                     raise InvalidManifest(f"unknown uri scheme: {uri.scheme}")
                 if str(uri) in seen_uris:
-                    raise InvalidManifest(f"Duplicate URI found in {self.section_name}: {uri}")
+                    raise InvalidManifest(
+                        f"Duplicate URI found in {self.section_name}: {uri}"
+                    )
                 seen_uris.add(str(uri))
 
 
@@ -262,8 +263,8 @@ class VersionValidator(ManifestValidator):
     def __init__(self, version: int):
         super().__init__(version)
 
-    def validate(self, value):
-        if not isinstance(value, int):
+    def validate(self, values: Union[List, Dict]) -> None:
+        if not isinstance(values, int):
             raise InvalidManifest("version must be an integer")
 
 
@@ -275,29 +276,11 @@ class AliasValidator(ManifestValidator):
     def __init__(self, version: int):
         super().__init__(version)
 
-    def validate(self, value):
-        if not isinstance(value, str):
+    def validate(self, values: Union[List, Dict]) -> None:
+        if not isinstance(values, str):
             raise InvalidManifest("alias must be a string")
-        if urllib.parse.quote(value) != value:
-            raise InvalidAlias(f"illegal characters in alias: {value}")
-
-# class CreationDateValidator(ManifestValidator):
-#     """
-#     Validator for simulation CreationDate.
-#     """
-
-#     def __init__(self, version: int):
-#         super().__init__(version)
-    
-#     def validate(self, value):
-#         if not isinstance(value, str):
-#             raise InvalidManifest("CreationDate must be a string")
-        
-#         # Validate the datetime format
-#         try:
-#             datetime.datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-#         except ValueError:
-#             raise InvalidManifest(f"Invalid datetime format for CreationDate: {value}. Expected format: YYYY-MM-DD HH:MM:SS")
+        if urllib.parse.quote(values) != values:
+            raise InvalidAlias(f"illegal characters in alias: {values}")
 
 
 class DescriptionValidator(ManifestValidator):
@@ -307,6 +290,7 @@ class DescriptionValidator(ManifestValidator):
 
     pass
 
+
 class ResponsibleValidator(ManifestValidator):
     """
     Validator for simulation Responsible.
@@ -314,14 +298,17 @@ class ResponsibleValidator(ManifestValidator):
 
     pass
 
-def ndarray_constructor(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode) -> np.ndarray:
+
+def ndarray_constructor(
+    loader: yaml.SafeLoader, node: yaml.nodes.MappingNode
+) -> np.ndarray:
     mapping = loader.construct_mapping(node, deep=True)
-    return np.array(mapping['data'], mapping.get('dtype', None))
+    return np.array(mapping["data"], mapping.get("dtype", None))
 
 
 def get_loader() -> Type[yaml.SafeLoader]:
     loader = yaml.SafeLoader
-    loader.add_constructor('!ndarray', ndarray_constructor)
+    loader.add_constructor("!ndarray", ndarray_constructor)
     return loader
 
 
@@ -334,19 +321,19 @@ class MetaDataValidator(ListValuesValidator):
 
     def __init__(self, version: int) -> None:
         section_name = "metadata"
-        expected_keys = ()
         required_keys = ("machine", "code", "description")
         super().__init__(version, section_name, required_keys)
 
     def validate(self, values: Union[list, dict]) -> None:
         super().validate(values)
-        
+
         for item in values:
             name = next(iter(item))
             for char in MetaDataValidator.forbidden_characters:
                 if char in name:
                     raise InvalidManifest(
-                        f"invalid metadata field name {name}- contains forbidden character {char}"
+                        f"invalid metadata field name {name}- contains forbidden "
+                        f"character {char}"
                     )
 
 
@@ -392,9 +379,10 @@ class Manifest:
     Class to handle reading, writing & validation of simulation manifest files.
     """
 
-    _data: Union[Dict, List, None] = None
-    _path: Path = Path()
-    _metadata: Dict = {}
+    def __init__(self) -> None:
+        self._data: Union[Dict, List, None] = None
+        self._path: Path = Path()
+        self._metadata: Dict = {}
 
     @property
     def metadata(self) -> Dict:
@@ -416,17 +404,25 @@ class Manifest:
     def inputs(self) -> Iterable[Source]:
         sources = []
         base_path = self._path.absolute().parent
-        if isinstance(self._data, dict) and "inputs" in self._data and self._data["inputs"]:
+        if (
+            isinstance(self._data, dict)
+            and "inputs" in self._data
+            and self._data["inputs"]
+        ):
             for i in self._data["inputs"]:
                 source = Source(base_path, i["uri"])
                 if source.type == DataObject.Type.FILE:
-                    names = glob.glob(str(source.uri.path))
-                    if not names:
-                        raise InvalidManifest(
-                            f"No files found matching path {source.uri.path}"
-                        )
-                    for name in names:
-                        sources.append(Source(base_path, "file://" + name))
+                    if source.uri and source.uri.path:
+                        source_path = Path(source.uri.path)
+                        names = [
+                            str(p) for p in source_path.parent.glob(source_path.name)
+                        ]
+                        if not names:
+                            raise InvalidManifest(
+                                f"No files found matching path {source.uri.path}"
+                            )
+                        for name in names:
+                            sources.append(Source(base_path, "file://" + name))
                 else:
                     sources.append(source)
         return sources
@@ -439,9 +435,11 @@ class Manifest:
             for i in self._data["outputs"]:
                 sink = Sink(base_path, i["uri"])
                 if sink.type == DataObject.Type.FILE:
-                    names = glob.glob(str(sink.uri.path))
-                    for name in names:
-                        sinks.append(Sink(base_path, "file://" + name))
+                    if sink.uri and sink.uri.path:
+                        sink_path = Path(sink.uri.path)
+                        names = [str(p) for p in sink_path.parent.glob(sink_path.name)]
+                        for name in names:
+                            sinks.append(Sink(base_path, "file://" + name))
                 else:
                     sinks.append(sink)
         return sinks
@@ -457,7 +455,7 @@ class Manifest:
         if isinstance(self._data, dict):
             return self._data.get("responsible_name", None)
         return None
-     
+
     @property
     def version(self) -> int:
         if isinstance(self._data, dict):
@@ -475,25 +473,26 @@ class Manifest:
             if not path.is_absolute():
                 root_dir = root_path.absolute().parent
                 path = root_dir / path
-            with open(path) as metadata_file:
+            with path.open() as metadata_file:
                 _update_dict(
                     self._metadata, yaml.load(metadata_file, Loader=get_loader())
                 )
         except yaml.YAMLError as err:
-            raise InvalidManifest("failed to read metadata file %s - %s" % (path, err))
+            raise InvalidManifest(f"failed to read metadata file {path}") from err
 
     def _convert_version(self):
-        if self.version == 0:
+        if isinstance(self._data, dict) and self.version == 0:
             self._convert_metadata()
             self._data["inputs"] = self._convert_files(self._data["inputs"])
             self._data["outputs"] = self._convert_files(self._data["outputs"])
-        self._data["version"] = 1
+            self._data["version"] = 1
 
     def _convert_metadata(self) -> None:
-        for item in ("description", "workflow"):
-            if item in self._data:
-                self._metadata[item] = self._data[item]
-                del self._data[item]
+        if isinstance(self._data, dict):
+            for item in ("description", "workflow"):
+                if item in self._data:
+                    self._metadata[item] = self._data[item]
+                    del self._data[item]
 
         for key, value in self._metadata.items():
             if key == "workflow":
@@ -510,13 +509,10 @@ class Manifest:
 
     @classmethod
     def _convert_files(cls, files: List[Dict[str, str]]) -> List[Dict[str, "URI"]]:
-        from ..uri import URI
-
         scheme_map = {
             "uuid": "simdb",
             "path": "file",
             "imas": "imas",
-            "uda": "uda",
         }
 
         new_files = []
@@ -532,27 +528,17 @@ class Manifest:
         :param file_path: Path to the file read.
         :return: None
         """
-        import yaml
 
         self._path: Path = file_path
-        with open(file_path) as file:
+        with file_path.open() as file:
             try:
                 self._data = yaml.load(file, Loader=get_loader())
             except yaml.YAMLError as err:
-                raise InvalidManifest("badly formatted manifest - " + str(err))
+                raise InvalidManifest("badly formatted manifest") from err
 
         if isinstance(self._data, dict) and "metadata" in self._data:
-            metadata = self._data["metadata"] or []
+            self._data["metadata"] or []
             self._metadata["metadata"] = self._data["metadata"]
-            # for item in metadata:
-            #     if "path" in item:
-            #         path = Path(item["path"])
-            #         if not path.exists():
-            #             raise InvalidManifest("metadata path %s does not exist" % path)
-            #         self._load_metadata(file_path, path)
-            #     elif "summary" in item:
-            #         self._metadata["summary"] = item["summary"]
-                    # _update_dict(self._metadata, item["values"])
 
     def save(self, out_file: TextIO) -> None:
         """
@@ -561,7 +547,6 @@ class Manifest:
         :param out_file: The output text stream to write the manifest to.
         :return: None
         """
-        import yaml
 
         yaml.dump(self._data, out_file, default_flow_style=False)
 
@@ -578,11 +563,11 @@ class Manifest:
                 "badly formatted manifest - top level sections must be keys not a list"
             )
 
-        if "manifest_version" not in self._data.keys():
+        if "manifest_version" not in self._data:
             print("warning: no version given in manifest, assuming version 2.")
 
         version = self.version
-        
+
         if version == 2:
             section_validators = {
                 "manifest_version": VersionValidator(version),
@@ -595,15 +580,17 @@ class Manifest:
         else:
             raise InvalidManifest(f"Unknown manifest version {version}.")
 
-        for section in self._data.keys():
-            if section not in section_validators.keys():
+        for section in self._data:
+            if section not in section_validators:
                 raise InvalidManifest(f"Unknown manifest section found {section}.")
 
-        required_sections = ("manifest_version", "outputs", "inputs") 
+        required_sections = ("manifest_version", "outputs", "inputs")
         for section in required_sections:
-            if section not in self._data.keys():
-                raise InvalidManifest(f"Required manifest section \'{section}\' not found.")
+            if section not in self._data:
+                raise InvalidManifest(
+                    f"Required manifest section '{section}' not found."
+                )
 
         for name, values in self._data.items():
-            section_validators[name].validate(values)        
+            section_validators[name].validate(values)
         self._convert_version()

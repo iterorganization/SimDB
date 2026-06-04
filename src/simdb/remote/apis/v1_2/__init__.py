@@ -1,14 +1,16 @@
-import os
 from pathlib import Path
-from flask_restx import Api, Resource
-from flask import jsonify
 
-from ...core.typing import current_app
-from ...core.auth import TokenAuthenticator, requires_auth, User
+from flask_restx import Api, Resource
+
+from simdb.remote.apis.files import api as file_ns
+from simdb.remote.apis.metadata import api as metadata_ns
+from simdb.remote.apis.watchers import api as watcher_ns
+from simdb.remote.core.auth import TokenAuthenticator, User, requires_auth
+from simdb.remote.core.pydantic_utils import pydantic_validate
+from simdb.remote.core.typing import current_app
+from simdb.remote.models import StagingDirectoryResponse
+
 from .simulations import api as sim_ns
-from ..files import api as file_ns
-from ..metadata import api as metadata_ns
-from ..watchers import api as watcher_ns
 
 api = Api(
     title="SimDB REST API",
@@ -36,24 +38,29 @@ namespaces = [metadata_ns, watcher_ns, file_ns, sim_ns]
 @api.route("/staging_dir/<string:sim_hex>")
 class StagingDirectory(Resource):
     @requires_auth()
-    def get(self, sim_hex: str, user: User):
-        upload_dir = current_app.simdb_config.get_option(
+    @pydantic_validate(api)
+    def get(self, sim_hex: str, user: User) -> StagingDirectoryResponse:
+        upload_dir = current_app.simdb_config.get_string_option(
             "server.user_upload_folder", default=None
         )
         user_folder = True
         if upload_dir is None:
-            upload_dir = current_app.simdb_config.get_option("server.upload_folder")
+            upload_dir = current_app.simdb_config.get_string_option(
+                "server.upload_folder"
+            )
             user_folder = False
 
         if not sim_hex:
-            return jsonify({"staging_dir": upload_dir})
+            return StagingDirectoryResponse(staging_dir=Path(upload_dir))
 
         staging_dir = (
-            Path(current_app.simdb_config.get_option("server.upload_folder")) / sim_hex
+            Path(current_app.simdb_config.get_string_option("server.upload_folder"))
+            / sim_hex
         )
-        os.makedirs(staging_dir, exist_ok=True)
-        # This needs to be done for ITER at the moment but should be removed once we can actually push IMAS data
-        # rather than having to do a local copy onto the server directory.
+        staging_dir.mkdir(parents=True, exist_ok=True)
+        # This needs to be done for ITER at the moment but should be removed once we can
+        # actually push IMAS data rather than having to do a local copy onto the server
+        # directory.
         if user_folder:
-            os.chmod(staging_dir, 0o777)
-        return jsonify({"staging_dir": str(Path(upload_dir) / sim_hex)})
+            staging_dir.chmod(0o777)
+        return StagingDirectoryResponse(staging_dir=Path(upload_dir) / sim_hex)

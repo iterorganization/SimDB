@@ -1,17 +1,19 @@
 import logging
 import os
+from typing import Optional, cast
+
 from flask import Flask, jsonify, request
-from flask_cors import CORS
 from flask_compress import Compress
-from typing import Optional, cast, Type
-from flask.json import JSONEncoder, JSONDecoder
+from flask_cors import CORS
+
+from simdb.config import Config
+from simdb.database.database import check_migrations, run_migrations
+from simdb.json import CustomDecoder, CustomEncoder
 
 from .apis import blueprints
+from .core.auth._authenticator import Authenticator
 from .core.cache import cache
 from .core.typing import SimDBApp
-from ..config import Config
-from ..json import CustomEncoder, CustomDecoder
-from .core.auth._authenticator import Authenticator
 
 compress = Compress()
 
@@ -29,9 +31,10 @@ def create_app(
     CORS(app, resources={r"/*": {"origins": "*"}})
     app.config["TESTING"] = testing
     app.config["DEBUG"] = debug
+    app.config["RESTX_INCLUDE_ALL_MODELS"] = True
     app.config["PROFILE"] = profile
-    app.json_encoder = cast(Type[JSONEncoder], CustomEncoder)
-    app.json_decoder = cast(Type[JSONDecoder], CustomDecoder)
+    app.json_encoder = CustomEncoder  # ty: ignore[invalid-assignment]
+    app.json_decoder = CustomDecoder  # ty: ignore[invalid-assignment]
     app.config.from_mapping(flask_options)
     app.simdb_config = config
     cache.init_app(app)
@@ -46,8 +49,12 @@ def create_app(
         endpoints = []
         for ver in blueprints:
             endpoints.append(f"{request.url}{ver}")
-        authentication_types = config.get_string_option("authentication.type").split(",")
-        authenticators = [Authenticator.get(auth_type) for auth_type in authentication_types]
+        authentication_types = config.get_string_option("authentication.type").split(
+            ","
+        )
+        authenticators = [
+            Authenticator.get(auth_type) for auth_type in authentication_types
+        ]
         return jsonify(
             {
                 "endpoints": endpoints,
@@ -59,4 +66,12 @@ def create_app(
     for version, blueprint in blueprints.items():
         app.register_blueprint(blueprint, url_prefix=f"/{version}")
 
+    if testing:
+        run_migrations(app.db.engine)
+
+    try:
+        check_migrations(app.db.engine)
+    except Exception as exc:
+        app.logger.error("Migration check failed: %s", exc)
+        raise
     return app

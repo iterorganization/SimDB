@@ -1,5 +1,6 @@
-import click
 import re
+
+import click
 
 from . import pass_config
 

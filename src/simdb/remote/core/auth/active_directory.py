@@ -1,7 +1,10 @@
 from typing import Optional
+
+from easyad import EasyAD  # type: ignore[import]
 from flask import Request
 
-from ....config import Config
+from simdb.config import Config
+
 from ._authenticator import Authenticator
 from ._user import User
 
@@ -18,11 +21,7 @@ class ActiveDirectoryAuthenticator(Authenticator):
 
     Name = "ActiveDirectory"
 
-    def authenticate(
-        self, config: Config, request: Request
-    ) -> Optional[User]:
-        from easyad import EasyAD
-
+    def authenticate(self, config: Config, request: Request) -> Optional[User]:
         try:
             ad_config = {
                 "AD_SERVER": config.get_option("authentication.ad_server"),

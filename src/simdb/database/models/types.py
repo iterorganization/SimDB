@@ -1,17 +1,19 @@
 import enum
 import uuid
-from enum import Enum
-from typing import Optional, Dict
-from sqlalchemy import types as sql_types
+from typing import Any, Dict, Optional
 
-from ... import uri as urilib
+from sqlalchemy import types as sql_types
+from sqlalchemy.dialects import postgresql
+
+from simdb import uri as urilib
 
 
 class UUID(sql_types.TypeDecorator):
     """
     Platform-independent GUID type.
 
-    Uses PostgreSQL's UUID type, otherwise uses CHAR(32), storing as stringified hex values.
+    Uses PostgreSQL's UUID type, otherwise uses CHAR(32), storing as stringified hex
+    values.
     """
 
     impl = sql_types.CHAR
@@ -23,8 +25,6 @@ class UUID(sql_types.TypeDecorator):
         return uuid.UUID
 
     def load_dialect_impl(self, dialect):
-        from sqlalchemy.dialects import postgresql
-
         if dialect.name == "postgresql":
             return dialect.type_descriptor(postgresql.UUID())
         else:
@@ -35,14 +35,13 @@ class UUID(sql_types.TypeDecorator):
             return value
         elif dialect.name == "postgresql":
             return str(value)
+        elif not isinstance(value, uuid.UUID):
+            try:
+                return uuid.UUID(value).hex
+            except ValueError:
+                return value
         else:
-            if not isinstance(value, uuid.UUID):
-                try:
-                    return uuid.UUID(value).hex
-                except ValueError:
-                    return value
-            else:
-                return value.hex
+            return value.hex
 
     def process_result_value(self, value, dialect):
         if value is None:
@@ -90,7 +89,7 @@ class ChoiceType(sql_types.TypeDecorator):
     def python_type(self):
         return str
 
-    def __init__(self, choices: Dict[Enum, str], enum_type: type, **kw):
+    def __init__(self, choices: Dict[Any, str], enum_type: type, **kw):
         if type(enum_type) is not enum.EnumMeta:
             raise ValueError("enum_type must be a class inheriting from enum.Enum.")
         self._enum_type = enum_type
