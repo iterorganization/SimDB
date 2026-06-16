@@ -1,6 +1,7 @@
 import os
 import re
 import urllib.parse
+import warnings
 from enum import Enum, auto
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, TextIO, Tuple, Type, Union
@@ -580,7 +581,7 @@ class Manifest:
         else:
             raise InvalidManifest(f"Unknown manifest version {version}.")
 
-        if "manifest_version" not in self._data.keys():
+        if "manifest_version" not in self._data:
             if "version" in self._data and self._data["version"] == 1:
                 warnings.warn(
                     "Found version field for manifest version 1, please update to manifest_version",
