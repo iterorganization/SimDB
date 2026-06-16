@@ -565,7 +565,18 @@ class Manifest:
             )
 
         if "manifest_version" not in self._data:
-            print("warning: no version given in manifest, assuming version 2.")
+            if "version" in self._data and self._data["version"] == 1:
+                warnings.warn(
+                    "Found version field for manifest version 1, please update "
+                    "to manifest_version",
+                    DeprecationWarning,
+                    stacklevel=1,
+                )
+                self._data["manifest_version"] = self._data.pop("version")
+            else:
+                warnings.warn(
+                    "No version given in manifest, assuming version 2.", stacklevel=1
+                )
 
         version = self.version
 
@@ -580,20 +591,6 @@ class Manifest:
             }
         else:
             raise InvalidManifest(f"Unknown manifest version {version}.")
-
-        if "manifest_version" not in self._data:
-            if "version" in self._data and self._data["version"] == 1:
-                warnings.warn(
-                    "Found version field for manifest version 1, please update "
-                    "to manifest_version",
-                    DeprecationWarning,
-                    stacklevel=1,
-                )
-                self._data["manifest_version"] = self._data.pop("version")
-            else:
-                warnings.warn(
-                    "No version given in manifest, assuming version 2.", stacklevel=1
-                )
 
         for section in self._data:
             if section not in section_validators:
