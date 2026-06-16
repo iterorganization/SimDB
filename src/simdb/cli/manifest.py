@@ -582,8 +582,10 @@ class Manifest:
 
         if "manifest_version" not in self._data.keys():
             if "version" in self._data and self._data["version"] == 1:
-                warnings.warn("Found version field for manifest version 1, please update to manifest_version",
-                              DeprecationWarning)
+                warnings.warn(
+                    "Found version field for manifest version 1, please update to manifest_version",
+                    DeprecationWarning,
+                )
                 self._data["manifest_version"] = self._data.pop("version")
             else:
                 warnings.warn("No version given in manifest, assuming version 2.")
