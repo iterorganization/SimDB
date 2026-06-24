@@ -87,7 +87,7 @@ services:
         - wget
         - --quiet
         - --spider
-        - http://localhost/__simdb_instance
+        - http://127.0.0.1/__simdb_instance
       interval: 5s
       timeout: 5s
       retries: 12
@@ -169,10 +169,11 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U simdb"]
-      interval: 1s
+      test: ["CMD-SHELL", "pg_isready -U simdb -d simdb"]
+      interval: 2s
       timeout: 5s
-      retries: 5
+      retries: 15
+      start_period: 30s
     restart: unless-stopped
 
 volumes:
