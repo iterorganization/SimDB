@@ -104,21 +104,18 @@ validate_pool_port() {
         die "port $port is outside the PR/branch range $PORT_MIN-$PORT_MAX"
 }
 
-assert_managed_worktree_clean() {
-    local worktree="$1"
-    [[ -e "$worktree/.git" ]] || die "$worktree exists but is not a Git worktree"
-    [[ -z "$(git -C "$worktree" status --porcelain)" ]] ||
-        die "managed worktree is dirty: $worktree"
-}
-
 prepare_worktree() {
     local name="$1"
     local commit="$2"
     local worktree="$WORKTREE_ROOT/$name"
 
     if [[ -e "$worktree" ]]; then
-        assert_managed_worktree_clean "$worktree"
-        git -C "$worktree" checkout --quiet --detach "$commit"
+        [[ -e "$worktree/.git" ]] ||
+            die "$worktree exists but is not a Git worktree"
+        if [[ -n "$(git -C "$worktree" status --porcelain --untracked-files=no)" ]]; then
+            printf 'warning: discarding tracked changes in %s\n' "$worktree" >&2
+        fi
+        git -C "$worktree" checkout --quiet --detach --force "$commit"
     else
         git -C "$REPO_ROOT" worktree add --quiet --detach "$worktree" "$commit"
     fi

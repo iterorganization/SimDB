@@ -46,7 +46,8 @@ scripts/simdb-instance deploy-branch feature/query-cache \
 ```
 
 Updating an existing instance preserves its assigned port and named volumes.
-The script refuses to update a managed worktree if it contains local changes.
+Tracked changes inside a managed worktree are discarded because these worktrees
+are deployment artifacts. Untracked runtime files are preserved.
 
 ## Inspect and remove environments
 
