@@ -1,0 +1,181 @@
+services:
+  migrations:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      args:
+        SIMDB_GIT_BRANCH: ${SIMDB_GIT_BRANCH:-unknown}
+        SIMDB_GIT_COMMIT: ${SIMDB_GIT_COMMIT:-unknown}
+        SIMDB_DEPLOYMENT: ${SIMDB_DEPLOYMENT:-local}
+    volumes:
+      - ./config:/app/config:ro
+    environment:
+      DATABASE_URL: postgresql+psycopg2://simdb:simdb@postgres:5432/simdb
+      SIMDB_DEPLOYMENT: ${SIMDB_DEPLOYMENT:-local}
+      SIMDB_GIT_BRANCH: ${SIMDB_GIT_BRANCH:-unknown}
+      SIMDB_GIT_COMMIT: ${SIMDB_GIT_COMMIT:-unknown}
+      SIMDB_DEPLOYED_AT: ${SIMDB_DEPLOYED_AT:-unknown}
+    depends_on:
+      - postgres
+    command: uv run alembic upgrade head
+    restart: "no"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      args:
+        SIMDB_GIT_BRANCH: ${SIMDB_GIT_BRANCH:-unknown}
+        SIMDB_GIT_COMMIT: ${SIMDB_GIT_COMMIT:-unknown}
+        SIMDB_DEPLOYMENT: ${SIMDB_DEPLOYMENT:-local}
+    environment:
+      SIMDB_DEPLOYMENT: ${SIMDB_DEPLOYMENT:-local}
+      SIMDB_GIT_BRANCH: ${SIMDB_GIT_BRANCH:-unknown}
+      SIMDB_GIT_COMMIT: ${SIMDB_GIT_COMMIT:-unknown}
+      SIMDB_DEPLOYED_AT: ${SIMDB_DEPLOYED_AT:-unknown}
+    labels:
+      org.simdb.deployment: ${SIMDB_DEPLOYMENT:-local}
+      org.simdb.git.branch: ${SIMDB_GIT_BRANCH:-unknown}
+      org.simdb.git.commit: ${SIMDB_GIT_COMMIT:-unknown}
+    volumes:
+      - ./validation:/app/validation:ro
+      - ./config:/app/config:ro
+      - ./tmp/partition_data:/data/simdb/partition:ro
+      - upload_data:/data/simdb/simulations
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:5000/', timeout=5)"
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  proxy:
+    image: nginx:1.29-alpine
+    ports:
+      - "${SIMDB_WEB_PORT:-5100}:80"
+    environment:
+      NGINX_ENVSUBST_FILTER: ^SIMDB_
+      SIMDB_DEPLOYMENT: ${SIMDB_DEPLOYMENT:-local}
+      SIMDB_GIT_BRANCH: ${SIMDB_GIT_BRANCH:-unknown}
+      SIMDB_GIT_COMMIT: ${SIMDB_GIT_COMMIT:-unknown}
+      SIMDB_DEPLOYED_AT: ${SIMDB_DEPLOYED_AT:-unknown}
+    labels:
+      org.simdb.deployment: ${SIMDB_DEPLOYMENT:-local}
+      org.simdb.git.branch: ${SIMDB_GIT_BRANCH:-unknown}
+      org.simdb.git.commit: ${SIMDB_GIT_COMMIT:-unknown}
+    volumes:
+      - ./deploy/nginx.dev.conf.template:/etc/nginx/templates/default.conf.template:ro
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --quiet
+        - --spider
+        - http://localhost/__simdb_instance
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
+  worker:
+    profiles: [with_workers]
+    # docker compose --profile with_workers enables this service
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      args:
+        SIMDB_GIT_BRANCH: ${SIMDB_GIT_BRANCH:-unknown}
+        SIMDB_GIT_COMMIT: ${SIMDB_GIT_COMMIT:-unknown}
+        SIMDB_DEPLOYMENT: ${SIMDB_DEPLOYMENT:-local}
+    command: uv run simdb_worker
+    environment:
+      SIMDB_DEPLOYMENT: ${SIMDB_DEPLOYMENT:-local}
+      SIMDB_GIT_BRANCH: ${SIMDB_GIT_BRANCH:-unknown}
+      SIMDB_GIT_COMMIT: ${SIMDB_GIT_COMMIT:-unknown}
+      SIMDB_DEPLOYED_AT: ${SIMDB_DEPLOYED_AT:-unknown}
+    volumes:
+      - ./config:/app/config:ro
+      - ./tmp/partition_data:/data/simdb/partition:ro
+      - upload_data:/data/simdb/simulations
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  beat:
+    profiles: [with_workers]
+    # docker compose --profile with_workers enables this service
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      args:
+        SIMDB_GIT_BRANCH: ${SIMDB_GIT_BRANCH:-unknown}
+        SIMDB_GIT_COMMIT: ${SIMDB_GIT_COMMIT:-unknown}
+        SIMDB_DEPLOYMENT: ${SIMDB_DEPLOYMENT:-local}
+    command: uv run simdb_beat
+    environment:
+      SIMDB_DEPLOYMENT: ${SIMDB_DEPLOYMENT:-local}
+      SIMDB_GIT_BRANCH: ${SIMDB_GIT_BRANCH:-unknown}
+      SIMDB_GIT_COMMIT: ${SIMDB_GIT_COMMIT:-unknown}
+      SIMDB_DEPLOYED_AT: ${SIMDB_DEPLOYED_AT:-unknown}
+    volumes:
+      - ./config:/app/config:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  redis:
+    image: redis:8-alpine
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=simdb
+      - POSTGRES_PASSWORD=simdb
+      - POSTGRES_DB=simdb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U simdb"]
+      interval: 1s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  postgres_data:
+  upload_data:

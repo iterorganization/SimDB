@@ -1,0 +1,376 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")/.." rev-parse --show-toplevel)"
+INSTANCE_ROOT="${SIMDB_INSTANCE_ROOT:-$(dirname "$REPO_ROOT")/simdb-instances}"
+WORKTREE_ROOT="$INSTANCE_ROOT/worktrees"
+STATE_ROOT="$INSTANCE_ROOT/state"
+REMOTE="${SIMDB_GIT_REMOTE:-origin}"
+PORT_MIN="${SIMDB_PORT_MIN:-5101}"
+PORT_MAX="${SIMDB_PORT_MAX:-5999}"
+COMPOSE_FILE="docker-compose-dev.yml"
+
+usage() {
+    cat <<'EOF'
+Manage isolated SimDB Docker Compose deployments.
+
+Usage:
+  scripts/simdb-instance deploy-main
+  scripts/simdb-instance deploy-develop
+  scripts/simdb-instance deploy-pr PR_NUMBER [--port PORT]
+  scripts/simdb-instance deploy-branch BRANCH [--name NAME] [--port PORT]
+  scripts/simdb-instance list
+  scripts/simdb-instance status NAME
+  scripts/simdb-instance logs NAME [SERVICE]
+  scripts/simdb-instance stop NAME
+  scripts/simdb-instance destroy NAME
+
+Environment:
+  SIMDB_INSTANCE_ROOT  State/worktree directory (default: ../simdb-instances)
+  SIMDB_GIT_REMOTE     Git remote to fetch (default: origin)
+  SIMDB_PORT_MIN/MAX   Automatic PR/branch range (default: 5101-5999)
+EOF
+}
+
+die() {
+    printf 'error: %s\n' "$*" >&2
+    exit 1
+}
+
+require_command() {
+    command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"
+}
+
+validate_name() {
+    [[ "$1" =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$ ]] ||
+        die "invalid instance name '$1'"
+}
+
+state_file() {
+    printf '%s/%s.env\n' "$STATE_ROOT" "$1"
+}
+
+read_state() {
+    local file="$1"
+    local key="$2"
+    sed -n "s/^${key}=//p" "$file" | head -n 1
+}
+
+require_state() {
+    local file
+    file="$(state_file "$1")"
+    [[ -f "$file" ]] || die "unknown instance '$1'"
+    printf '%s\n' "$file"
+}
+
+port_in_use() {
+    local requested="$1"
+    local excluded_name="${2:-}"
+    local file
+    for file in "$STATE_ROOT"/*.env; do
+        [[ -e "$file" ]] || continue
+        [[ "$(basename "$file" .env)" == "$excluded_name" ]] && continue
+        [[ "$(read_state "$file" SIMDB_WEB_PORT)" == "$requested" ]] && return 0
+    done
+    return 1
+}
+
+allocate_port() {
+    local requested="${1:-}"
+    local excluded_name="${2:-}"
+    local port
+
+    if [[ -n "$requested" ]]; then
+        [[ "$requested" =~ ^[0-9]+$ ]] || die "port must be numeric"
+        ((requested >= 1 && requested <= 65535)) || die "port is out of range"
+        port_in_use "$requested" "$excluded_name" &&
+            die "port $requested is already assigned"
+        printf '%s\n' "$requested"
+        return
+    fi
+
+    for ((port = PORT_MIN; port <= PORT_MAX; port++)); do
+        if ! port_in_use "$port" "$excluded_name"; then
+            printf '%s\n' "$port"
+            return
+        fi
+    done
+    die "no free port in range $PORT_MIN-$PORT_MAX"
+}
+
+validate_pool_port() {
+    local port="$1"
+    ((port >= PORT_MIN && port <= PORT_MAX)) ||
+        die "port $port is outside the PR/branch range $PORT_MIN-$PORT_MAX"
+}
+
+assert_managed_worktree_clean() {
+    local worktree="$1"
+    [[ -e "$worktree/.git" ]] || die "$worktree exists but is not a Git worktree"
+    [[ -z "$(git -C "$worktree" status --porcelain)" ]] ||
+        die "managed worktree is dirty: $worktree"
+}
+
+prepare_worktree() {
+    local name="$1"
+    local commit="$2"
+    local worktree="$WORKTREE_ROOT/$name"
+
+    if [[ -e "$worktree" ]]; then
+        assert_managed_worktree_clean "$worktree"
+        git -C "$worktree" checkout --quiet --detach "$commit"
+    else
+        git -C "$REPO_ROOT" worktree add --quiet --detach "$worktree" "$commit"
+    fi
+    for required_file in \
+        Dockerfile.dev \
+        docker-compose-dev.yml \
+        deploy/nginx.dev.conf.template; do
+        [[ -f "$worktree/$required_file" ]] ||
+            die "$required_file is missing from commit $commit"
+    done
+    mkdir -p "$worktree/tmp/partition_data"
+    printf '%s\n' "$worktree"
+}
+
+write_state() {
+    local file="$1"
+    local name="$2"
+    local port="$3"
+    local branch="$4"
+    local commit="$5"
+    local deployed_at="$6"
+
+    {
+        printf 'COMPOSE_PROJECT_NAME=simdb-%s\n' "$name"
+        printf 'SIMDB_WEB_PORT=%s\n' "$port"
+        printf 'SIMDB_DEPLOYMENT=%s\n' "$name"
+        printf 'SIMDB_GIT_BRANCH=%s\n' "$branch"
+        printf 'SIMDB_GIT_COMMIT=%s\n' "$commit"
+        printf 'SIMDB_DEPLOYED_AT=%s\n' "$deployed_at"
+    } >"$file"
+}
+
+compose() {
+    local name="$1"
+    shift
+    local file
+    local pending_file
+    local worktree="$WORKTREE_ROOT/$name"
+    file="$(require_state "$name")"
+    docker compose \
+        --project-name "simdb-$name" \
+        --project-directory "$worktree" \
+        --file "$worktree/$COMPOSE_FILE" \
+        --env-file "$file" \
+        "$@"
+}
+
+deploy_commit() {
+    local name="$1"
+    local branch="$2"
+    local commit="$3"
+    local requested_port="${4:-}"
+    local use_pool="${5:-false}"
+    local old_state
+    local port
+    local worktree
+    local file
+    local pending_file
+    local deployed_at
+
+    validate_name "$name"
+    commit="$(git -C "$REPO_ROOT" rev-parse "$commit")"
+    mkdir -p "$WORKTREE_ROOT" "$STATE_ROOT"
+    old_state="$(state_file "$name")"
+    if [[ "$use_pool" == true && -n "$requested_port" ]]; then
+        validate_pool_port "$requested_port"
+    fi
+    if [[ -f "$old_state" && -z "$requested_port" ]]; then
+        port="$(read_state "$old_state" SIMDB_WEB_PORT)"
+        if [[ "$use_pool" == true ]] &&
+            ((port < PORT_MIN || port > PORT_MAX)); then
+            port="$(allocate_port "" "$name")"
+        fi
+    else
+        port="$(allocate_port "$requested_port" "$name")"
+    fi
+
+    worktree="$(prepare_worktree "$name" "$commit")"
+    deployed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    file="$(state_file "$name")"
+    pending_file="$STATE_ROOT/.$name.env.pending"
+    write_state \
+        "$pending_file" "$name" "$port" "$branch" "$commit" "$deployed_at"
+
+    if docker compose \
+        --project-name "simdb-$name" \
+        --project-directory "$worktree" \
+        --file "$worktree/$COMPOSE_FILE" \
+        --env-file "$pending_file" \
+        up -d --build --remove-orphans --wait; then
+        mv "$pending_file" "$file"
+    else
+        rm -f "$pending_file"
+        die "deployment failed; previous instance state was preserved"
+    fi
+
+    printf '%s: http://localhost:%s (%s @ %.12s)\n' \
+        "$name" "$port" "$branch" "$commit"
+}
+
+deploy_main() {
+    git -C "$REPO_ROOT" fetch "$REMOTE" main
+    deploy_commit main main FETCH_HEAD 5000
+}
+
+deploy_develop() {
+    git -C "$REPO_ROOT" fetch "$REMOTE" develop
+    deploy_commit develop develop FETCH_HEAD 5100
+}
+
+deploy_pr() {
+    local number="$1"
+    local port="$2"
+    [[ "$number" =~ ^[0-9]+$ ]] || die "PR number must be numeric"
+    git -C "$REPO_ROOT" fetch "$REMOTE" "pull/$number/head"
+    deploy_commit "pr-$number" "pull/$number" FETCH_HEAD "$port" true
+}
+
+deploy_branch() {
+    local branch="$1"
+    local name="$2"
+    local port="$3"
+    git check-ref-format --branch "$branch" >/dev/null
+    git -C "$REPO_ROOT" fetch "$REMOTE" "$branch"
+    deploy_commit "$name" "$branch" FETCH_HEAD "$port" true
+}
+
+parse_port() {
+    local port=""
+    while (($#)); do
+        case "$1" in
+            --port)
+                (($# >= 2)) || die "--port requires a value"
+                port="$2"
+                shift 2
+                ;;
+            *)
+                die "unknown argument: $1"
+                ;;
+        esac
+    done
+    printf '%s\n' "$port"
+}
+
+list_instances() {
+    local file
+    local name
+    mkdir -p "$STATE_ROOT"
+    printf '%-20s %-7s %-28s %-12s %s\n' \
+        INSTANCE PORT BRANCH COMMIT URL
+    for file in "$STATE_ROOT"/*.env; do
+        [[ -e "$file" ]] || continue
+        name="$(basename "$file" .env)"
+        printf '%-20s %-7s %-28s %-12.12s http://localhost:%s\n' \
+            "$name" \
+            "$(read_state "$file" SIMDB_WEB_PORT)" \
+            "$(read_state "$file" SIMDB_GIT_BRANCH)" \
+            "$(read_state "$file" SIMDB_GIT_COMMIT)" \
+            "$(read_state "$file" SIMDB_WEB_PORT)"
+    done
+}
+
+main() {
+    local command="${1:-}"
+    local name
+    local port
+    local branch
+    local service
+
+    require_command git
+    case "$command" in
+        deploy-main)
+            (($# == 1)) || die "deploy-main does not accept arguments"
+            require_command docker
+            deploy_main
+            ;;
+        deploy-develop)
+            (($# == 1)) || die "deploy-develop does not accept arguments"
+            require_command docker
+            deploy_develop
+            ;;
+        deploy-pr)
+            (($# >= 2)) || die "deploy-pr requires a PR number"
+            name="$2"
+            shift 2
+            require_command docker
+            port="$(parse_port "$@")"
+            deploy_pr "$name" "$port"
+            ;;
+        deploy-branch)
+            (($# >= 2)) || die "deploy-branch requires a branch"
+            branch="$2"
+            name="${branch//\//-}"
+            shift 2
+            port=""
+            while (($#)); do
+                case "$1" in
+                    --name)
+                        (($# >= 2)) || die "--name requires a value"
+                        name="$2"
+                        shift 2
+                        ;;
+                    --port)
+                        (($# >= 2)) || die "--port requires a value"
+                        port="$2"
+                        shift 2
+                        ;;
+                    *)
+                        die "unknown argument: $1"
+                        ;;
+                esac
+            done
+            require_command docker
+            deploy_branch "$branch" "$name" "$port"
+            ;;
+        list)
+            list_instances
+            ;;
+        status)
+            (($# == 2)) || die "status requires an instance name"
+            require_command docker
+            compose "$2" ps
+            ;;
+        logs)
+            (($# == 2 || $# == 3)) || die "logs requires an instance name"
+            require_command docker
+            service="${3:-web}"
+            compose "$2" logs --tail=200 -f "$service"
+            ;;
+        stop)
+            (($# == 2)) || die "stop requires an instance name"
+            require_command docker
+            compose "$2" stop
+            ;;
+        destroy)
+            (($# == 2)) || die "destroy requires an instance name"
+            require_command docker
+            name="$2"
+            validate_name "$name"
+            compose "$name" down --volumes --remove-orphans
+            git -C "$REPO_ROOT" worktree remove "$WORKTREE_ROOT/$name"
+            rm "$(state_file "$name")"
+            printf 'Destroyed %s, including its database and uploaded data.\n' "$name"
+            ;;
+        -h | --help | help)
+            usage
+            ;;
+        *)
+            usage >&2
+            exit 2
+            ;;
+    esac
+}
+
+main "$@"

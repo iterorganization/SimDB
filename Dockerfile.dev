@@ -1,0 +1,35 @@
+ARG PYVER=3.12
+FROM ghcr.io/astral-sh/uv:python${PYVER}-trixie-slim
+
+ARG SIMDB_GIT_BRANCH=unknown
+ARG SIMDB_GIT_COMMIT=unknown
+ARG SIMDB_DEPLOYMENT=local
+
+LABEL org.simdb.deployment="${SIMDB_DEPLOYMENT}" \
+      org.simdb.git.branch="${SIMDB_GIT_BRANCH}" \
+      org.simdb.git.commit="${SIMDB_GIT_COMMIT}"
+
+ENV UV_NO_DEV=1
+ENV SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0
+ENV SIMDB_DEPLOYMENT="${SIMDB_DEPLOYMENT}"
+ENV SIMDB_GIT_BRANCH="${SIMDB_GIT_BRANCH}"
+ENV SIMDB_GIT_COMMIT="${SIMDB_GIT_COMMIT}"
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    libldap2-dev \
+    libsasl2-dev \
+    libmagic1 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY uv.lock pyproject.toml alembic.ini ./
+COPY src/ ./src/
+COPY alembic/ ./alembic/
+RUN uv sync --locked --extra all
+
+ENV SIMDB_SITE_CONFIG_PATH=/app/config/simdb.cfg
+
+CMD ["uv", "run", "simdb_server"]

@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodically update the SimDB develop environment
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=simdb-develop.service
+
+[Install]
+WantedBy=timers.target
