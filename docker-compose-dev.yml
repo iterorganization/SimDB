@@ -30,6 +30,7 @@ services:
         SIMDB_GIT_COMMIT: ${SIMDB_GIT_COMMIT:-unknown}
         SIMDB_DEPLOYMENT: ${SIMDB_DEPLOYMENT:-local}
     environment:
+      IMAS_LOCAL_HOSTS: localhost
       SIMDB_DEPLOYMENT: ${SIMDB_DEPLOYMENT:-local}
       SIMDB_GIT_BRANCH: ${SIMDB_GIT_BRANCH:-unknown}
       SIMDB_GIT_COMMIT: ${SIMDB_GIT_COMMIT:-unknown}

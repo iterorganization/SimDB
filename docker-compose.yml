@@ -12,6 +12,8 @@ services:
 
   web:
     build: .
+    environment:
+      IMAS_LOCAL_HOSTS: localhost
     ports:
       - "5000:5000"
     volumes:
@@ -91,4 +93,3 @@ services:
 volumes:
   redis_data:
   postgres_data:
-
