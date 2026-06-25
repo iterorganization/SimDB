@@ -1,6 +1,7 @@
 server {
     listen 80;
     server_name _;
+    client_max_body_size 16m;
 
     add_header X-SimDB-Deployment "${SIMDB_DEPLOYMENT}" always;
     add_header X-SimDB-Branch "${SIMDB_GIT_BRANCH}" always;
