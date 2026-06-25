@@ -16,7 +16,8 @@ services:
       SIMDB_GIT_COMMIT: ${SIMDB_GIT_COMMIT:-unknown}
       SIMDB_DEPLOYED_AT: ${SIMDB_DEPLOYED_AT:-unknown}
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     command: uv run alembic upgrade head
     restart: "no"
 
