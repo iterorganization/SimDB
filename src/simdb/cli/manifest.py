@@ -1,6 +1,7 @@
 import os
 import re
 import urllib.parse
+import warnings
 from enum import Enum, auto
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, TextIO, Tuple, Type, Union
@@ -507,6 +508,21 @@ class Manifest:
                             new_codes.append(v)
                     value["codes"] = new_codes
 
+    def _convert_v1_metadata(self) -> None:
+        # convert manifest version 1 metadata to format expected by version 2+
+        metadata = {}
+        metdata_list = []
+        if isinstance(self._data, dict):
+            for entry in self._data["metadata"]:
+                if "values" in entry:
+                    values = entry.pop("values")
+                    for k, v in values.items():
+                        metadata[k] = v
+                        metdata_list.append({k: v})
+            self._data["metadata"] = metdata_list
+            self._metadata = metadata
+            self._data["manifest_version"] = 2
+
     @classmethod
     def _convert_files(cls, files: List[Dict[str, str]]) -> List[Dict[str, "URI"]]:
         scheme_map = {
@@ -564,9 +580,23 @@ class Manifest:
             )
 
         if "manifest_version" not in self._data:
-            print("warning: no version given in manifest, assuming version 2.")
+            if "version" in self._data and self._data["version"] == 1:
+                warnings.warn(
+                    "Found 'version' field for manifest version 1, please update "
+                    "to 'manifest_version'",
+                    DeprecationWarning,
+                    stacklevel=1,
+                )
+                self._data["manifest_version"] = self._data.pop("version")
+            else:
+                warnings.warn(
+                    "No version given in manifest, assuming version 2.", stacklevel=1
+                )
 
-        version = self.version
+        if self.manifest_version == 1:
+            self._convert_v1_metadata()
+
+        version = self.manifest_version
 
         if version == 2:
             section_validators = {

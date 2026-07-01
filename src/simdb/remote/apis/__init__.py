@@ -1,9 +1,10 @@
 import datetime
+import threading
 from pathlib import Path
 
 import appdirs
 import jwt
-from flask import Blueprint, Response, _app_ctx_stack, jsonify, request
+from flask import Blueprint, Response, jsonify, request
 from flask_restx import Resource
 
 from simdb import __version__
@@ -47,7 +48,7 @@ def register(api, version, namespaces):
             args = config.get_section("database")
             setup_state.app.db = Database(
                 Database.DBMS.POSTGRESQL,
-                scopefunc=_app_ctx_stack.__ident_func__,
+                scopefunc=lambda: threading.get_ident(),
                 **args,
             )
         elif db_type == "sqlite":
@@ -57,7 +58,7 @@ def register(api, version, namespaces):
             )
             file.parent.mkdir(parents=True, exist_ok=True)
             setup_state.app.db = Database(
-                Database.DBMS.SQLITE, scopefunc=_app_ctx_stack.__ident_func__, file=file
+                Database.DBMS.SQLITE, scopefunc=lambda: threading.get_ident(), file=file
             )
         else:
             raise RuntimeError(f"Unknown database type in configuration: {db_type}.")
