@@ -101,14 +101,6 @@ To access data from the ITER remotes outside ITER systems, you'll need to [confi
 
 Setting up and maintaining a remote CLI server is documented [here](https://simdb.readthedocs.io/en/latest/maintenance_guide.html).
 
-For isolated branch and pull-request deployments backed by separate PostgreSQL
-and Redis volumes, see the
-[multi-instance deployment guide](docs/multi_instance_deployment.md).
-The standard allocation is `main` on port 5000, `develop` on port 5100, and
-pull requests on ports 5101-5999.
-These instances use the development-only Docker and Compose files and expose
-their branch identity at `/__simdb_instance`.
-
 ---
 
 ## Developer Guide

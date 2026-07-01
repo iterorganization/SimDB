@@ -94,22 +94,3 @@ curl -I http://localhost:5100/
 
 This identity behavior exists only in `docker-compose-dev.yml`; no SimDB Python
 API code is changed.
-
-## Continuously update develop with systemd
-
-Copy and edit the provided unit files:
-
-```bash
-sudo cp deploy/systemd/simdb-develop.* /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now simdb-develop.timer
-```
-
-The provided timer updates `develop` on port 5100. Change `/opt/simdb/source`,
-`/opt/simdb/instances`, and the service user or group to match the host. Check
-update activity with:
-
-```bash
-systemctl list-timers simdb-develop.timer
-journalctl -u simdb-develop.service
-```

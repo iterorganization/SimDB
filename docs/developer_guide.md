@@ -247,3 +247,11 @@ port = 5432
 
 ...
 ```
+
+For isolated branch and pull-request deployments with separate PostgreSQL
+and Redis volumes, see the
+[multi-instance deployment guide](multi_instance_deployment.md).
+The standard allocation is `main` on port 5000, `develop` on port 5100, and
+pull requests on ports 5101-5999.
+These instances use the development-only Docker and Compose files and expose
+the branch identity at `/__simdb_instance`.
