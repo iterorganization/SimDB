@@ -1,0 +1,23 @@
+server {
+    listen 80;
+    server_name _;
+    client_max_body_size 16m;
+
+    add_header X-SimDB-Deployment "${SIMDB_DEPLOYMENT}" always;
+    add_header X-SimDB-Branch "${SIMDB_GIT_BRANCH}" always;
+    add_header X-SimDB-Commit "${SIMDB_GIT_COMMIT}" always;
+    add_header X-SimDB-Deployed-At "${SIMDB_DEPLOYED_AT}" always;
+
+    location = /__simdb_instance {
+        default_type application/json;
+        return 200 '{"deployment":"${SIMDB_DEPLOYMENT}","git_branch":"${SIMDB_GIT_BRANCH}","git_commit":"${SIMDB_GIT_COMMIT}","deployed_at":"${SIMDB_DEPLOYED_AT}"}';
+    }
+
+    location / {
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_pass http://web:5000;
+    }
+}

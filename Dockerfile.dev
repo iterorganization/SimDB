@@ -1,0 +1,34 @@
+FROM python:3.11-slim
+
+ARG SIMDB_GIT_BRANCH=unknown
+ARG SIMDB_GIT_COMMIT=unknown
+ARG SIMDB_DEPLOYMENT=local
+
+LABEL org.simdb.deployment="${SIMDB_DEPLOYMENT}" \
+      org.simdb.git.branch="${SIMDB_GIT_BRANCH}" \
+      org.simdb.git.commit="${SIMDB_GIT_COMMIT}"
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    SETUPTOOLS_SCM_PRETEND_VERSION=0.15.1 \
+    SIMDB_CONFIG_FILE=/app/simdb.cfg
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libldap2-dev \
+    libmagic1 \
+    libpq-dev \
+    libsasl2-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt pyproject.toml README.md ./
+COPY src/ ./src/
+COPY scripts/ ./scripts/
+COPY --chmod=600 deploy/simdb.dev.cfg /app/simdb.cfg
+
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir . gunicorn
+
+CMD ["gunicorn", "--bind=0.0.0.0:5000", "--workers=1", "simdb.remote.wsgi:app"]
