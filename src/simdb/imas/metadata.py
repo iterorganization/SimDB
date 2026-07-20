@@ -8,6 +8,8 @@ import imas.ids_defs
 
 from simdb.remote.models import _array_to_range
 
+METADATA_DD_VERSION_KEY = "metadata_dd_version"
+
 
 class MetricException(Exception):
     pass
@@ -121,13 +123,13 @@ def load_imas_metadata(ids_dist, entry) -> dict:
     :return: Dictionary containing metadata.
     """
 
-    metadata = {}
+    latest_dd_version = imas.dd_zip.latest_dd_version()
+    if latest_dd_version is None:
+        raise ValueError("Could not determine the latest DD version.")
+
+    metadata = {METADATA_DD_VERSION_KEY: latest_dd_version}
     for ids_name, _v in ids_dist.items():
         ids = entry.get(ids_name, autoconvert=False)
-        # Explicitly convert the IDS to the target version
-        latest_dd_version = imas.dd_zip.latest_dd_version()
-        if latest_dd_version is None:
-            raise ValueError("Could not determine the latest DD version.")
         ids = imas.convert_ids(ids, latest_dd_version)
         for node in imas.util.tree_iter(ids):
             metadata[extract_ids_path(str(node.coordinates)).replace("/", ".")] = (  # type: ignore
