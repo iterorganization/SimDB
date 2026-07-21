@@ -40,7 +40,7 @@ dependencies = [
     "click_option_group>=0.5",
     "distro>=1.8.0",
     "email-validator>=1.1",
-    "imas-python",
+    "imas-python>=2.0.1",
     "netCDF4>=1.5",
     "numpy>=1.14",
     "pydantic>=2.10.6",

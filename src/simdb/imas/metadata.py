@@ -5,10 +5,9 @@ from typing import Any, Dict
 import imas
 import imas.dd_zip
 import imas.ids_defs
+from semantic_version import Version
 
 from simdb.remote.models import _array_to_range
-
-METADATA_DD_VERSION_KEY = "metadata_dd_version"
 
 
 class MetricException(Exception):
@@ -125,9 +124,22 @@ def load_imas_metadata(ids_dist, entry) -> dict:
 
     latest_dd_version = imas.dd_zip.latest_dd_version()
     if latest_dd_version is None:
-        raise ValueError("Could not determine the latest DD version.")
+        raise RuntimeError("Could not determine the data dictionary version.")
 
-    metadata = {METADATA_DD_VERSION_KEY: latest_dd_version}
+    try:
+        parsed_dd_version = Version(latest_dd_version)
+    except ValueError as exc:
+        raise RuntimeError(
+            f"Could not parse the data dictionary version: {latest_dd_version!r}."
+        ) from exc
+
+    if parsed_dd_version.major >= 5:
+        raise RuntimeError(
+            f"Unsupported data dictionary version {latest_dd_version!r}: "
+            "expected a major version lower than 5."
+        )
+
+    metadata = {"metadata_dd_version": latest_dd_version}
     for ids_name, _v in ids_dist.items():
         ids = entry.get(ids_name, autoconvert=False)
         ids = imas.convert_ids(ids, latest_dd_version)

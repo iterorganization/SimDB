@@ -2863,7 +2863,7 @@ requires-dist = [
     { name = "flask-cors", marker = "extra == 'server'", specifier = ">=3" },
     { name = "flask-mail", marker = "extra == 'server'", specifier = "~=0.9.1" },
     { name = "flask-restx", marker = "extra == 'server'", specifier = ">=1.0.0" },
-    { name = "imas-python" },
+    { name = "imas-python", specifier = ">=2.0.1" },
     { name = "imas-simdb", extras = ["auth-ad", "auth-keycloak", "auth-ldap"], marker = "extra == 'auth'" },
     { name = "imas-simdb", extras = ["imas-validator", "postgres", "server"], marker = "extra == 'all'" },
     { name = "imas-validator", marker = "extra == 'imas-validator'", specifier = ">=1.0.0" },
