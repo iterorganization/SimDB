@@ -140,10 +140,9 @@ def load_imas_metadata(ids_dist, entry) -> dict:
             f"{latest_dd_version!r}."
         )
 
-    if dd_major_version >= 5:
+    if dd_major_version > 4:
         raise RuntimeError(
             f"Unsupported data dictionary version {latest_dd_version!r}: "
-            "expected a major version lower than 5."
         )
 
     metadata = {"metadata_dd_version": latest_dd_version}
