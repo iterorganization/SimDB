@@ -133,7 +133,14 @@ def load_imas_metadata(ids_dist, entry) -> dict:
             f"Could not parse the data dictionary version: {latest_dd_version!r}."
         ) from exc
 
-    if parsed_dd_version.major >= 5:
+    dd_major_version = parsed_dd_version.major
+    if not isinstance(dd_major_version, int):
+        raise RuntimeError(
+            f"Could not determine the major data dictionary version from "
+            f"{latest_dd_version!r}."
+        )
+
+    if dd_major_version >= 5:
         raise RuntimeError(
             f"Unsupported data dictionary version {latest_dd_version!r}: "
             "expected a major version lower than 5."
