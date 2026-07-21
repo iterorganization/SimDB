@@ -1,12 +1,12 @@
-import click
 from pathlib import Path
-from typing import Optional, List, Tuple, Any, Type
+from typing import Any, List, Optional, Tuple, Type
 
-from . import pass_config, check_meta_args
+import click
+
 from ...config.config import Config
 from ...query import QueryType, parse_query_arg
+from . import check_meta_args, pass_config
 from .validators import validate_non_negative
-
 
 # def _validate_simulation_outputs(options: dict, simulation):
 #     file_validator_type = options.get("file_validator", None)
@@ -170,9 +170,10 @@ def simulation_info(config: Config, sim_id: str):
 def simulation_ingest(config: Config, manifest_file: str, alias: str):
     """Ingest a MANIFEST_FILE."""
     import urllib.parse
+
     from ...database import get_local_db
     from ...database.models import Simulation
-    from ..manifest import Manifest, InvalidAlias
+    from ..manifest import InvalidAlias, Manifest
 
     manifest = Manifest()
     manifest.load(Path(manifest_file))
@@ -233,10 +234,11 @@ def simulation_push(
     add_watcher: bool,
 ):
     """Push the simulation with the given SIM_ID (UUID or alias) to the REMOTE."""
-    from ...database import get_local_db
-    from ..remote_api import RemoteAPI
-    from ...validation import Validator, ValidationError
     import sys
+
+    from ...database import get_local_db
+    from ...validation import ValidationError, Validator
+    from ..remote_api import RemoteAPI
 
     api = RemoteAPI(remote, username, password, config)
     db = get_local_db(config)
@@ -251,7 +253,7 @@ def simulation_push(
     schemas = api.get_validation_schemas()
     try:
         for schema in schemas:
-            Validator(schema).validate(simulation)
+            Validator(schema, config).validate(simulation)
     except ValidationError as err:
         raise click.ClickException(f"Simulation does not validate: {err}")
 
@@ -279,9 +281,10 @@ def simulation_pull(
     password: Optional[str],
 ):
     """Pull the simulation with the given SIM_ID (UUID or alias) from the REMOTE."""
-    from ...database import get_local_db, DatabaseError
-    from ..remote_api import RemoteAPI, RemoteError
     import sys
+
+    from ...database import DatabaseError, get_local_db
+    from ..remote_api import RemoteAPI, RemoteError
 
     api = RemoteAPI(remote, username, password, config)
     db = get_local_db(config)
@@ -323,7 +326,9 @@ def simulation_pull(
     help="Include UUID in the output.",
     default=False,
 )
-def simulation_query(config: Config, constraints: List[str], meta: List[str], show_uuid: bool):
+def simulation_query(
+    config: Config, constraints: List[str], meta: List[str], show_uuid: bool
+):
     """Perform a metadata query to find matching local simulations.
 
     \b
@@ -381,7 +386,9 @@ def simulation_query(config: Config, constraints: List[str], meta: List[str], sh
 
     db = get_local_db(config)
     simulations = db.query_meta(parsed_constraints)
-    print_simulations(simulations, verbose=config.verbose, metadata_names=names, show_uuid=show_uuid)
+    print_simulations(
+        simulations, verbose=config.verbose, metadata_names=names, show_uuid=show_uuid
+    )
 
 
 @simulation.command("validate", cls=n_required_args_adaptor(1))
@@ -395,6 +402,7 @@ def simulation_validate(
 ):
     """Validate the ingested simulation with given SIM_ID (UUID or alias) using validation schema from REMOTE."""
     from itertools import chain
+
     from ...database import get_local_db
     from ...validation import ValidationError, Validator
     from ..remote_api import RemoteAPI
@@ -410,7 +418,7 @@ def simulation_validate(
 
     click.echo("validating metadata ... ", nl=False)
     for schema in schemas:
-        Validator(schema).validate(simulation)
+        Validator(schema, config).validate(simulation)
 
     ids_list = []
     for file in chain(simulation.inputs, simulation.outputs):

@@ -1,11 +1,13 @@
-import cerberus
-import yaml
 import re
+from importlib import import_module
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from ..database.models.simulation import Simulation
+import cerberus
+import yaml
+
 from ..config import Config, ConfigError
+from ..database.models.simulation import Simulation
 
 
 class TestParameters:
@@ -69,9 +71,10 @@ class CustomValidator(cerberus.Validator):
             self._error(field, "Maximum %s greater than %s" % (value.max(), max_value))
 
     def _compare(self, comparison, field, value, comparator: str, message: str):
-        import numpy as np        
+        import numpy as np
+
         if comparison is None:
-            return        
+            return
         if isinstance(value, np.ndarray):
             value = value[~np.isnan(value)]
             if value.size == 0:
@@ -190,9 +193,23 @@ class Validator:
 
         return schemas
 
-    def __init__(self, schema: Dict):
+    def _validation_extension(self, config: Config):
+        schema_path = config.get_option("validation.custom_validator", default=None)
+        if schema_path is None:
+            return CustomValidator
+
+        module_name, class_name = schema_path.rsplit(".", 1)
+        module = import_module(module_name)
+        validation_cls = getattr(module, class_name)
+
+        if not issubclass(validation_cls, CustomValidator):
+            raise (TypeError(f"{validation_cls.__name__} must inherit CustomValidator"))
+        return validation_cls
+
+    def __init__(self, schema: Dict, config: Config):
         try:
-            self._validator = CustomValidator(schema)
+            validation_cls = self._validation_extension(config)
+            self._validator = validation_cls(schema)
             self._validator.allow_unknown = True
         except cerberus.SchemaError:
             raise LoadError("Failed to parse validation schema")
