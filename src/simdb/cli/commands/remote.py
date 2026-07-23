@@ -1,3 +1,4 @@
+import json
 import re
 import shutil
 import sys
@@ -12,6 +13,7 @@ from semantic_version import Version
 from simdb.cli.remote_api import RemoteAPI
 from simdb.database.models.simulation import Simulation
 from simdb.notifications import Notification
+from simdb.query import QueryType, parse_query_arg
 
 from . import check_meta_args, pass_config
 from .utils import print_simulations, print_trace
@@ -532,6 +534,85 @@ def remote_query(
     print_simulations(
         simulations, verbose=config.verbose, metadata_names=names, show_uuid=show_uuid
     )
+
+
+@remote.command("data-query", cls=remote_command_cls())
+@pass_api
+@click.argument("constraints", nargs=-1)
+@click.option(
+    "-q",
+    "--quantity",
+    "quantities",
+    multiple=True,
+    required=True,
+    metavar="NAME=METADATA_PATH",
+    help="Stored metadata quantity to return. May be provided multiple times.",
+)
+@click.option(
+    "-l",
+    "--limit",
+    default=100,
+    show_default=True,
+    callback=validate_positive,
+    help="Maximum simulations returned per page.",
+)
+@click.option(
+    "--page",
+    default=1,
+    show_default=True,
+    callback=validate_positive,
+    help="One-indexed result page.",
+)
+def remote_data_query(
+    api: RemoteAPI,
+    constraints: Tuple[str, ...],
+    quantities: Tuple[str, ...],
+    limit: int,
+    page: int,
+):
+    """Filter simulations and return quantities from remote database metadata.
+
+    CONSTRAINTS use the same ``NAME=[operator:]VALUE`` syntax as ``remote query``.
+    """
+    filters = []
+    for constraint in constraints:
+        if "=" not in constraint:
+            raise click.ClickException(f"Invalid constraint {constraint}.")
+        field, expression = constraint.split("=", 1)
+        value, operator = parse_query_arg(expression)
+        if operator == QueryType.NONE:
+            raise click.ClickException(
+                f"Invalid constraint {constraint}; a value or operator is required."
+            )
+        try:
+            typed_value = json.loads(value)
+        except json.JSONDecodeError:
+            typed_value = value
+        filters.append(
+            {
+                "field": field,
+                "operator": operator.name.lower(),
+                "value": None if operator == QueryType.EXIST else typed_value,
+            }
+        )
+
+    requested_quantities = []
+    for quantity in quantities:
+        if "=" not in quantity:
+            raise click.ClickException(
+                f"Invalid quantity {quantity}; expected NAME=METADATA_PATH."
+            )
+        name, path = quantity.split("=", 1)
+        if not name or not path:
+            raise click.ClickException(
+                f"Invalid quantity {quantity}; expected NAME=METADATA_PATH."
+            )
+        requested_quantities.append({"name": name, "path": path, "source": "metadata"})
+
+    result = api.query_simulation_data(
+        filters, requested_quantities, limit=limit, page=page
+    )
+    click.echo(json.dumps(result, indent=2))
 
 
 @remote.group(cls=RemoteSubGroup)

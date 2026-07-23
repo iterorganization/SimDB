@@ -465,13 +465,26 @@ class Database:
 
         try:
             cmp_float = float(compare_value)
-        except ValueError:
+        except (TypeError, ValueError):
             cmp_float = None
 
         def _string_cmp(op):
             if dialect == "postgresql":
                 return op(json_access, compare_value)
             return op(func.cast(json_access, String), compare_value)
+
+        def _boolean_cmp(op):
+            expected = compare_value.lower()
+            if dialect == "postgresql":
+                return sql_and(
+                    func.jsonb_typeof(json_obj) == "boolean",
+                    op(json_access, expected),
+                )
+            json_type = func.json_type(column, f'$."{key}"')
+            return sql_and(
+                json_type.in_(["true", "false"]),
+                op(json_type, expected),
+            )
 
         def _number_cmp(cmp_op):
             if dialect == "postgresql":
@@ -486,27 +499,43 @@ class Database:
                 cmp_op(),
             )
 
-        def _num_with_op(cmp_op):
+        def _scalar_or_range_cmp(scalar_cmp, range_cmp):
             if cmp_float is None:
                 return None
-            return _number_cmp(cmp_op)
+            return sql_or(_number_cmp(scalar_cmp), range_cmp())
 
         if query_type == QueryType.EQ:
+            if compare_value.lower() in {"true", "false"}:
+                return _boolean_cmp(lambda a, b: a == b)
             return _string_cmp(lambda a, b: a == b)
         elif query_type == QueryType.NE:
+            if compare_value.lower() in {"true", "false"}:
+                return _boolean_cmp(lambda a, b: a != b)
             return _string_cmp(lambda a, b: a != b)
         elif query_type == QueryType.IN:
             return _string_cmp(lambda a, b: a.ilike(f"%{b}%"))
         elif query_type == QueryType.NI:
             return _string_cmp(lambda a, b: a.notilike(f"%{b}%"))
         elif query_type == QueryType.GT:
-            return _num_with_op(lambda: sql_cast(json_access, Float) > cmp_float)
+            return _scalar_or_range_cmp(
+                lambda: sql_cast(json_access, Float) > cmp_float,
+                lambda: sql_cast(json_min, Float) > cmp_float,
+            )
         elif query_type == QueryType.GE:
-            return _num_with_op(lambda: sql_cast(json_access, Float) >= cmp_float)
+            return _scalar_or_range_cmp(
+                lambda: sql_cast(json_access, Float) >= cmp_float,
+                lambda: sql_cast(json_min, Float) >= cmp_float,
+            )
         elif query_type == QueryType.LT:
-            return _num_with_op(lambda: sql_cast(json_access, Float) < cmp_float)
+            return _scalar_or_range_cmp(
+                lambda: sql_cast(json_access, Float) < cmp_float,
+                lambda: sql_cast(json_max, Float) < cmp_float,
+            )
         elif query_type == QueryType.LE:
-            return _num_with_op(lambda: sql_cast(json_access, Float) <= cmp_float)
+            return _scalar_or_range_cmp(
+                lambda: sql_cast(json_access, Float) <= cmp_float,
+                lambda: sql_cast(json_max, Float) <= cmp_float,
+            )
         elif query_type == QueryType.AGT:
             if cmp_float is not None:
                 return sql_cast(json_max, Float) > cmp_float

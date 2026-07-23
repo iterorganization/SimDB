@@ -390,6 +390,158 @@ class SimulationListItem(BaseModel):
     """Simulation metadata."""
 
 
+MetadataQueryOperator = Literal[
+    "eq",
+    "ne",
+    "in",
+    "ni",
+    "gt",
+    "ge",
+    "lt",
+    "le",
+    "agt",
+    "age",
+    "alt",
+    "ale",
+    "exist",
+]
+"""Operators supported by database metadata queries."""
+
+
+class SimulationDataFilter(BaseModel):
+    """A filter applied to stored simulation metadata."""
+
+    field: str = Field(min_length=1)
+    """Metadata key to filter on."""
+    operator: MetadataQueryOperator = "eq"
+    """Comparison operator."""
+    value: Optional[Union[str, int, float, bool]] = None
+    """Comparison value. Omit only when using the ``exist`` operator."""
+
+    @model_validator(mode="after")
+    def validate_filter(self):
+        self.field = self.field.strip()
+        if not self.field:
+            raise ValueError("field must not be blank")
+
+        if self.operator != "exist" and self.value is None:
+            raise ValueError("value is required unless operator is 'exist'")
+
+        scalar_operators = {"eq", "ne", "in", "ni", "gt", "ge", "lt", "le"}
+        allowed_reserved_operators = {
+            "alias": {"eq", "ne", "in", "ni", "exist"},
+            "uuid": {"eq", "ne", "in", "ni", "exist"},
+            "creation_date": {"eq", "ne", "gt", "ge", "lt", "le", "exist"},
+        }
+        allowed = allowed_reserved_operators.get(self.field)
+        if allowed is not None and self.operator not in allowed:
+            raise ValueError(
+                f"operator '{self.operator}' is not supported for field '{self.field}'"
+            )
+
+        if isinstance(self.value, bool) and self.operator not in {"eq", "ne"}:
+            raise ValueError("Boolean filter values support only 'eq' and 'ne'")
+
+        numeric_operators = {
+            "gt",
+            "ge",
+            "lt",
+            "le",
+            "agt",
+            "age",
+            "alt",
+            "ale",
+        }
+        if self.operator in numeric_operators and self.field != "creation_date":
+            assert self.value is not None
+            try:
+                float(self.value)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"operator '{self.operator}' requires a numeric value"
+                ) from exc
+
+        if self.field == "uuid" and self.operator in {"eq", "ne"}:
+            try:
+                UUID(str(self.value))
+            except ValueError as exc:
+                raise ValueError("invalid UUID filter value") from exc
+
+        if (
+            self.field == "creation_date"
+            and self.operator in scalar_operators
+            and self.operator not in {"in", "ni"}
+        ):
+            try:
+                dt.strptime(str(self.value).replace("_", ":"), "%Y-%m-%d %H:%M:%S")
+            except ValueError as exc:
+                raise ValueError("creation_date must use YYYY-MM-DD HH_MM_SS") from exc
+        return self
+
+
+class SimulationDataQuantity(BaseModel):
+    """A quantity requested for every matching simulation."""
+
+    name: str = Field(min_length=1)
+    """Name used for this quantity in the response."""
+    path: str = Field(min_length=1)
+    """Stored metadata key. May later identify another supported data source."""
+    source: Literal["metadata"] = "metadata"
+    """Quantity provider. Only database metadata is currently supported."""
+
+
+class SimulationDataQueryRequest(BaseModel):
+    """Filter simulations and select quantities from stored metadata."""
+
+    filters: List[SimulationDataFilter] = Field(default_factory=list, max_length=50)
+    """Metadata constraints. All filters are combined with logical AND."""
+    quantities: List[SimulationDataQuantity] = Field(min_length=1, max_length=50)
+    """Quantities returned for each matching simulation."""
+    page: int = Field(1, ge=1)
+    """One-indexed result page."""
+    limit: int = Field(100, ge=1, le=1000)
+    """Maximum simulations returned on this page."""
+    sort_by: Literal["", "alias", "uuid", "datetime"] = ""
+    """Optional simulation field used for sorting."""
+    sort_asc: bool = False
+    """Sort ascending when true, descending otherwise."""
+
+    @model_validator(mode="after")
+    def require_unique_quantity_names(self):
+        names = [quantity.name for quantity in self.quantities]
+        if len(names) != len(set(names)):
+            raise ValueError("quantity names must be unique")
+        return self
+
+
+class SimulationDataQuantityResult(BaseModel):
+    """Value returned by a quantity provider."""
+
+    source: Literal["metadata"]
+    """Provider used to retrieve the quantity."""
+    path: str
+    """Provider-specific quantity path."""
+    value: MetadataValue
+    """Retrieved value."""
+
+
+class SimulationDataQueryItem(BaseModel):
+    """Selected quantities for one matching simulation."""
+
+    uuid: CustomUUID
+    """Simulation UUID."""
+    alias: Optional[str] = None
+    """Simulation alias."""
+    datetime: str
+    """Simulation creation timestamp."""
+    quantities: Dict[str, SimulationDataQuantityResult] = Field(default_factory=dict)
+    """Retrieved quantities, keyed by their requested names."""
+    missing: List[str] = Field(default_factory=list)
+    """Requested quantity names not present in this simulation's metadata."""
+    errors: Dict[str, str] = Field(default_factory=dict)
+    """Provider errors keyed by requested quantity name."""
+
+
 T = TypeVar("T")
 """Type variable for generic paginated responses."""
 
