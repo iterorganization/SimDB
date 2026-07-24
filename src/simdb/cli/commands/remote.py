@@ -584,15 +584,11 @@ def remote_data_query(
             raise click.ClickException(
                 f"Invalid constraint {constraint}; a value or operator is required."
             )
-        try:
-            typed_value = json.loads(value)
-        except json.JSONDecodeError:
-            typed_value = value
         filters.append(
             {
                 "field": field,
                 "operator": operator.name.lower(),
-                "value": None if operator == QueryType.EXIST else typed_value,
+                "value": None if operator == QueryType.EXIST else value,
             }
         )
 

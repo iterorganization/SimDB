@@ -431,7 +431,7 @@ class SimulationDataFilter(BaseModel):
         allowed_reserved_operators = {
             "alias": {"eq", "ne", "in", "ni", "exist"},
             "uuid": {"eq", "ne", "in", "ni", "exist"},
-            "creation_date": {"eq", "ne", "gt", "ge", "lt", "le", "exist"},
+            "creation_date": {"eq", "ne", "gt", "ge", "lt", "le"},
         }
         allowed = allowed_reserved_operators.get(self.field)
         if allowed is not None and self.operator not in allowed:

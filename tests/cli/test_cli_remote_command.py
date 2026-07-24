@@ -1,8 +1,10 @@
 from unittest import mock
 
+import pytest
 from click.testing import CliRunner
 from utils import config_test_file
 
+from simdb.cli.remote_api import RemoteAPI, RemoteError
 from simdb.cli.simdb import cli
 from simdb.notifications import Notification
 
@@ -349,8 +351,8 @@ def test_remote_data_query_command(
     get_endpoints,
     get_server_authentication,
 ):
-    get_endpoints.return_value = ["v1", "v1.1", "v1.1.1", "v1.2"]
-    get_api_version.return_value = "1.2"
+    get_endpoints.return_value = ["v1", "v1.1", "v1.1.1", "v1.2", "v1.3"]
+    get_api_version.return_value = "1.3"
     get_server_version.return_value = "0.11"
     get_server_authentication.return_value = "None"
     query_simulation_data.return_value = {
@@ -372,8 +374,8 @@ def test_remote_data_query_command(
             "25",
             "--quantity",
             "ip=summary.global_quantities.ip.value",
-            "summary.global_quantities.ip.value=gt:-5",
-            "summary.global_quantities.ip.value=lt:10",
+            "summary.global_quantities.ip.value=agt:-5",
+            "summary.global_quantities.ip.value=alt:10",
             "summary.valid=eq:true",
         ],
     )
@@ -384,18 +386,18 @@ def test_remote_data_query_command(
         [
             {
                 "field": "summary.global_quantities.ip.value",
-                "operator": "gt",
-                "value": -5,
+                "operator": "agt",
+                "value": "-5",
             },
             {
                 "field": "summary.global_quantities.ip.value",
-                "operator": "lt",
-                "value": 10,
+                "operator": "alt",
+                "value": "10",
             },
             {
                 "field": "summary.valid",
                 "operator": "eq",
-                "value": True,
+                "value": "true",
             },
         ],
         [
@@ -408,3 +410,14 @@ def test_remote_data_query_command(
         limit=25,
         page=1,
     )
+
+
+def test_remote_data_query_rejects_v1_2():
+    remote = mock.Mock(spec=RemoteAPI)
+    remote._api_version = "v1.2"
+
+    with pytest.raises(
+        RemoteError,
+        match=r"'query_simulation_data' is not supported.*version 'v1.2'",
+    ):
+        RemoteAPI.query_simulation_data(remote, [], [])

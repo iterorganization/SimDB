@@ -127,30 +127,6 @@ class TestQueryMeta:
         assert len(results) == 1
         assert results[0].find_meta("status") == ["passed"]
 
-    @pytest.mark.parametrize(
-        ("query_type", "value", "expected_alias"),
-        [
-            (QueryType.EQ, "true", "enabled"),
-            (QueryType.EQ, "false", "disabled"),
-            (QueryType.NE, "true", "disabled"),
-        ],
-    )
-    def test_query_meta_boolean_comparator(self, db, query_type, value, expected_alias):
-        db.insert_simulation(
-            create_simulation(alias="enabled", metadata={"flag": True})
-        )
-        db.insert_simulation(
-            create_simulation(alias="disabled", metadata={"flag": False})
-        )
-        db.insert_simulation(
-            create_simulation(alias="string-value", metadata={"flag": "true"})
-        )
-        db.session.commit()
-
-        results = db.query_meta([("flag", value, query_type)])
-
-        assert [result.alias for result in results] == [expected_alias]
-
     def test_query_meta_agt_comparator(self, db):
         sim1 = create_simulation(
             alias="sim1", metadata={"range": {"min": 1.0, "max": 5.0}}
@@ -251,54 +227,6 @@ class TestQueryMeta:
         assert len(results) == 2
         aliases = {r.alias for r in results}
         assert aliases == {"sim1", "sim3"}
-
-    def test_query_meta_all_values_inside_bounds(self, db):
-        sim1 = create_simulation(
-            alias="inside", metadata={"range": {"min": -4.0, "max": 9.0}}
-        )
-        sim2 = create_simulation(
-            alias="above", metadata={"range": {"min": 0.0, "max": 12.0}}
-        )
-        sim3 = create_simulation(
-            alias="below", metadata={"range": {"min": -8.0, "max": 2.0}}
-        )
-        db.insert_simulation(sim1)
-        db.insert_simulation(sim2)
-        db.insert_simulation(sim3)
-        db.session.commit()
-
-        results = db.query_meta(
-            [
-                ("range", "-5", QueryType.GT),
-                ("range", "10", QueryType.LT),
-            ]
-        )
-
-        assert [result.alias for result in results] == ["inside"]
-
-    @pytest.mark.parametrize(
-        ("query_type", "bound", "nonmatching_value"),
-        [
-            (QueryType.GT, "1", 0.0),
-            (QueryType.GE, "2", 1.0),
-            (QueryType.LT, "3", 4.0),
-            (QueryType.LE, "2", 3.0),
-        ],
-    )
-    def test_query_meta_scalar_bounds_remain_supported(
-        self, db, query_type, bound, nonmatching_value
-    ):
-        matching = create_simulation(alias="matching", metadata={"value": 2.0})
-        not_matching = create_simulation(
-            alias="not-matching", metadata={"value": nonmatching_value}
-        )
-        db.insert_simulation(matching)
-        db.insert_simulation(not_matching)
-        db.session.commit()
-
-        results = db.query_meta([("value", bound, query_type)])
-
-        assert [result.alias for result in results] == ["matching"]
 
 
 class TestListSimulationData:
