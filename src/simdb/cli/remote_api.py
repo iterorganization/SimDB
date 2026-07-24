@@ -712,7 +712,7 @@ class RemoteAPI:
         data = res.json(cls=CustomDecoder)
         return [Simulation.from_data(sim) for sim in data["results"]]
 
-    @versioned_method("v1.2", "v1.3")
+    @versioned_method("v1.3")
     @try_request
     def query_simulation_data(
         self,

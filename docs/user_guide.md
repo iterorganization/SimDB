@@ -335,7 +335,7 @@ simdb remote data-query \
 The corresponding REST endpoint accepts the same operation as a structured request:
 
 ```text
-POST /v1.2/simulations/data/query
+POST /v1.3/simulations/data/query
 ```
 
 ```json
