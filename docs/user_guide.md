@@ -326,8 +326,8 @@ To filter simulations and return selected quantities from their metadata, use
 
 ```bash
 simdb remote data-query \
-  'summary.global_quantities.ip.value=agt:-5' \
-  'summary.global_quantities.ip.value=alt:10' \
+  'summary.global_quantities.ip.value=gt:-5' \
+  'summary.global_quantities.ip.value=lt:10' \
   --quantity 'ip=summary.global_quantities.ip.value' \
   --quantity 'q95=summary.global_quantities.q_95.value'
 ```
@@ -343,12 +343,12 @@ POST /v1.3/simulations/data/query
   "filters": [
     {
       "field": "summary.global_quantities.ip.value",
-      "operator": "agt",
+      "operator": "gt",
       "value": -5
     },
     {
       "field": "summary.global_quantities.ip.value",
-      "operator": "alt",
+      "operator": "lt",
       "value": 10
     }
   ],
@@ -364,9 +364,8 @@ POST /v1.3/simulations/data/query
 }
 ```
 
-`data-query` uses the existing metadata query operators. Use `gt`, `ge`, `lt`, and `le`
-for scalar numeric metadata. Numeric arrays are stored as minimum and maximum values;
-use `agt`/`age` to compare their maximum and `alt`/`ale` to compare their minimum.
+For range metadata, `gt`/`ge` compare the minimum and `lt`/`le` compare the maximum.
+Scalar numeric metadata keeps the existing comparison behavior.
 
 ## Accessing Simulation Metadata via the SimDB Dashboard
 

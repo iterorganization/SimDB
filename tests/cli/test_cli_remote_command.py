@@ -374,8 +374,8 @@ def test_remote_data_query_command(
             "25",
             "--quantity",
             "ip=summary.global_quantities.ip.value",
-            "summary.global_quantities.ip.value=agt:-5",
-            "summary.global_quantities.ip.value=alt:10",
+            "summary.global_quantities.ip.value=gt:-5",
+            "summary.global_quantities.ip.value=lt:10",
             "summary.valid=eq:true",
         ],
     )
@@ -386,12 +386,12 @@ def test_remote_data_query_command(
         [
             {
                 "field": "summary.global_quantities.ip.value",
-                "operator": "agt",
+                "operator": "gt",
                 "value": "-5",
             },
             {
                 "field": "summary.global_quantities.ip.value",
-                "operator": "alt",
+                "operator": "lt",
                 "value": "10",
             },
             {
