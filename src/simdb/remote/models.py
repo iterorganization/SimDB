@@ -12,6 +12,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Tuple,
     TypeVar,
     Union,
 )
@@ -36,6 +37,7 @@ from pydantic import (
 )
 
 from simdb.cli.manifest import DataType
+from simdb.query import QueryType, parse_query_arg
 
 HexUUID = Annotated[UUID, PlainSerializer(lambda x: x.hex, return_type=str)]
 """UUID serialized as a hex string."""
@@ -624,6 +626,55 @@ class ImasDataQueryParams(BaseModel):
         if not v:
             raise ValueError("must not be empty")
         return v
+
+
+class SimulationQueryParams(BaseModel):
+    """Metadata filters for the simulation-list endpoint.
+
+    Every query parameter is treated as a metadata constraint: the parameter
+    name is a metadata key and its value is a query expression (for example
+    ``status=passed`` or ``runtime=gt:100``). The same key may be supplied more
+    than once to apply several constraints. The ``alias`` and ``uuid`` keys are
+    declared explicitly because they filter on a simulation's identity and are
+    not reported as additional metadata columns in the response. Any other
+    (arbitrary) key is accepted and captured as an extra field.
+    """
+
+    model_config = ConfigDict(extra="allow", use_attribute_docstrings=True)
+
+    alias: Optional[str] = None
+    """Filter by simulation alias."""
+
+    uuid: Optional[str] = None
+    """Filter by simulation UUID."""
+
+    def constraints(self) -> Tuple[List[str], List[Tuple[str, str, QueryType]]]:
+        """Parse the query parameters into metadata query constraints.
+
+        Returns a ``(names, constraints)`` pair where *names* is the list of
+        metadata keys to include in the response (every filtered key except the
+        identity keys ``alias`` and ``uuid``) and *constraints* is the list of
+        ``(key, value, type)`` tuples to query the database with.
+        """
+        # Arbitrary metadata keys arrive as extra fields; the identity keys are
+        # declared fields, so merge them back in before building constraints.
+        filters = dict(self.model_extra or {})
+        for key in ("alias", "uuid"):
+            value = getattr(self, key)
+            if value is not None:
+                filters[key] = value
+
+        names: List[str] = []
+        constraints: List[Tuple[str, str, QueryType]] = []
+        for name, raw in filters.items():
+            if name not in ("alias", "uuid"):
+                names.append(name)
+            values = raw if isinstance(raw, list) else [raw]
+            for value in values:
+                constraint = parse_query_arg(str(value))
+                if constraint[0] or constraint[1] == QueryType.EXIST:
+                    constraints.append((name, *constraint))
+        return names, constraints
 
 
 class QuantityData(BaseModel):

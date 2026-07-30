@@ -5,9 +5,9 @@ import shutil
 import tarfile
 from io import BytesIO
 from pathlib import Path
-from typing import Annotated, List, Optional, Tuple
+from typing import Annotated, Optional
 
-from flask import request, send_file
+from flask import send_file
 from flask_restx import Namespace, Resource
 
 from simdb.database import DatabaseError
@@ -15,7 +15,6 @@ from simdb.database.models import simulation as models_sim
 from simdb.database.models import watcher as models_watcher
 from simdb.email.server import EmailServer
 from simdb.imas.utils import SimDBUrl, convert_uri
-from simdb.query import QueryType, parse_query_arg
 from simdb.remote.core.alias import create_alias_dir
 from simdb.remote.core.auth import User, requires_auth
 from simdb.remote.core.cache import cache, cache_key, clear_cache
@@ -24,6 +23,7 @@ from simdb.remote.core.path import find_common_root, secure_path
 from simdb.remote.core.pydantic_utils import (
     Body,
     Header,
+    Query,
     ResponseException,
     pydantic_validate,
 )
@@ -42,6 +42,7 @@ from simdb.remote.models import (
     SimulationPatchResponse,
     SimulationPostData,
     SimulationPostResponse,
+    SimulationQueryParams,
     SimulationTraceData,
     StatusPatchData,
     ValidationResult,
@@ -165,24 +166,45 @@ def _build_trace(sim_id: str) -> SimulationTraceData:
 class SimulationList(Resource):
     @requires_auth()
     @pydantic_validate(api)
+    @api.doc(
+        params={
+            "<metadata_key>": {
+                "description": (
+                    "Any metadata key may be supplied as a query parameter to "
+                    "filter on that metadata. The value is matched for equality "
+                    "by default, or may use a ``comparator:value`` expression "
+                    "(comparators: eq, ne, in, ni, gt, ge, lt, le, agt, age, "
+                    "alt, ale, exist), e.g. ``status=passed`` or "
+                    "``runtime=gt:100``. Repeat a key to apply several "
+                    "constraints."
+                ),
+                "in": "query",
+                "type": "string",
+            },
+        }
+    )
     # @cache.cached(key_prefix=cache_key)
     def get(
         self,
         user: User,
         pagination: Annotated[PaginationData, Header()],
+        filters: Annotated[SimulationQueryParams, Query()],
     ) -> PaginatedResponse[SimulationListItem]:
-        names = []
-        constraints = []
-        if request.args:
-            constraints: List[Tuple[str, str, QueryType]] = []
-            for name in request.args:
-                if name not in ("alias", "uuid"):
-                    names.append(name)
-                values = request.args.getlist(name)
-                for value in values:
-                    constraint = parse_query_arg(value)
-                    if constraint[0] or constraint[1] == QueryType.EXIST:
-                        constraints.append((name, *constraint))
+        """List simulations, optionally filtered by metadata.
+
+        Returns a paginated list of simulations. Query parameters are
+        interpreted as metadata constraints, so passing a metadata key and a
+        query value (for example ``status=passed`` or ``runtime=gt:100``)
+        filters the results to matching simulations. Values are matched for
+        equality by default, or may use a ``comparator:value`` expression
+        (comparators: ``eq``, ``ne``, ``in``, ``ni``, ``gt``, ``ge``, ``lt``,
+        ``le``, ``agt``, ``age``, ``alt``, ``ale``, ``exist``). The special
+        ``alias`` and ``uuid`` parameters filter on the simulation's identity
+        rather than its metadata. Without any query parameters all simulations
+        are returned. Use the pagination headers to control page size, page
+        number and sorting.
+        """
+        names, constraints = filters.constraints()
 
         if constraints:
             count, data = current_app.db.query_meta_data(
@@ -218,6 +240,17 @@ class SimulationList(Resource):
         user: User,
         body: Annotated[SimulationPostData, Body()],
     ) -> SimulationPostResponse:
+        """Ingest (upload) a new simulation.
+
+        Registers a simulation and its input and output files in the database.
+        The upload timestamp and the uploading user are recorded automatically.
+        If the server is configured to copy files, referenced files are moved
+        from the per-simulation staging directory into permanent storage. When
+        auto-validation is enabled the simulation is validated on ingest and the
+        result is returned. If the simulation declares that it replaces an
+        earlier one, the replaced simulation is marked deprecated. An alias may
+        be requested; aliases ending in ``-`` or ``#`` are auto-numbered.
+        """
         simulation = models_sim.Simulation.from_data_model(body.simulation)
 
         # Simulation Upload (Push) Date
@@ -344,6 +377,13 @@ class Simulation(Resource):
     @cache.cached(key_prefix=cache_key)  # type: ignore
     @pydantic_validate(api)
     def get(self, sim_id: str, user: User) -> SimulationDataResponse:
+        """Retrieve a single simulation by id or alias.
+
+        Returns the full simulation record, including its input and output
+        files and metadata, together with references to its parent and child
+        simulations. The ``sim_id`` path parameter accepts either a simulation
+        UUID or an alias.
+        """
         try:
             simulation = current_app.db.get_simulation(sim_id)
         except DatabaseError:
@@ -365,6 +405,12 @@ class Simulation(Resource):
         user: Optional[User],
         body: Annotated[StatusPatchData, Body()],
     ) -> SimulationPatchResponse:
+        """Update a simulation's status.
+
+        Sets the simulation's status to the value given in the request body.
+        If the status changes, any users watching the simulation are notified
+        by email. Requires admin privileges.
+        """
         simulation = current_app.db.get_simulation(sim_id)
         if simulation is None:
             raise ResponseException(f"Simulation {sim_id} not found.")
@@ -377,6 +423,13 @@ class Simulation(Resource):
     @requires_auth("admin")
     @pydantic_validate(api)
     def delete(self, sim_id: str, user: User) -> SimulationDeleteResponse:
+        """Delete a simulation and its stored files.
+
+        Removes the simulation from the database and deletes its staging
+        directory and any alias symlink from disk. Returns the deleted
+        simulation's id and the list of files that were removed. Requires admin
+        privileges.
+        """
         simulation = current_app.db.delete_simulation(sim_id)
         clear_cache()
 
@@ -406,6 +459,11 @@ class SimulationMeta(Resource):
     @cache.cached(key_prefix=cache_key)  # type: ignore
     @pydantic_validate(api)
     def get(self, sim_id: str, user: User) -> MetadataDataList:
+        """List a simulation's metadata.
+
+        Returns all metadata entries (key/value pairs) attached to the
+        simulation identified by ``sim_id`` (UUID or alias).
+        """
         simulation = current_app.db.get_simulation(sim_id)
         if simulation:
             return MetadataDataList.model_validate(
@@ -421,6 +479,13 @@ class SimulationMeta(Resource):
         user: Optional[User],
         body: Annotated[MetadataPatchData, Body()],
     ) -> MetadataDataList:
+        """Set or update a metadata entry on a simulation.
+
+        Writes the given metadata key/value pair to the simulation and returns
+        the previous value(s) for that key. Updating the ``status`` key routes
+        through the status-change logic and notifies watchers. Requires admin
+        privileges.
+        """
         key = body.key
         value = body.value.lower()
         simulation = current_app.db.get_simulation(sim_id)
@@ -447,6 +512,11 @@ class SimulationMeta(Resource):
         user: Optional[User],
         body: Annotated[MetadataDeleteData, Body()],
     ) -> MetadataDeleteResponse:
+        """Remove a metadata entry from a simulation.
+
+        Deletes the metadata key given in the request body from the simulation.
+        Requires admin privileges.
+        """
         simulation = current_app.db.get_simulation(sim_id)
         if simulation is None:
             raise ResponseException(f"Simulation {sim_id} not found.")
@@ -462,6 +532,12 @@ class ValidateSimulation(Resource):
     @requires_auth()
     @pydantic_validate(api)
     def post(self, sim_id, user: User) -> ValidationResult:
+        """Validate a simulation against its schemas.
+
+        Runs the configured metadata and file validators against the simulation
+        and updates its status to passed or failed accordingly. Returns whether
+        validation passed along with any validation error message.
+        """
         simulation = current_app.db.get_simulation(sim_id)
         result = _validate(simulation, user)
         current_app.db.insert_simulation(simulation)
@@ -475,6 +551,13 @@ class SimulationTrace(Resource):
     @cache.cached(key_prefix=cache_key)  # type: ignore
     @pydantic_validate(api)
     def get(self, sim_id: str, user: User) -> SimulationTraceData:
+        """Trace a simulation's provenance chain.
+
+        Returns the simulation's trace data, recursively resolving the chain of
+        simulations it replaces so the full deprecation and replacement history
+        can be followed. Includes status, status timestamps and replacement
+        reasons.
+        """
         return _build_trace(sim_id)
 
 
@@ -482,6 +565,11 @@ class SimulationTrace(Resource):
 class SimulationPackage(Resource):
     @requires_auth()
     def get(self, sim_id: str, user: User):
+        """Download a simulation's files as a gzipped tar archive.
+
+        Packages the simulation's staging directory into a ``.tar.gz`` archive
+        and streams it back as an ``application/x-gzip`` download.
+        """
         try:
             simulation = current_app.db.get_simulation(sim_id)
 
