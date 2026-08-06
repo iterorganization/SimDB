@@ -209,12 +209,14 @@ class Validator:
 
         if not isinstance(module_path, str):
             raise TypeError(
-                f"Expected 'custom_validator config value' to be a string, got {type(module_path).__name__}"
+                "Expected 'custom_validator config value' to be a string, "
+                f"got {type(module_path).__name__}"
             )
 
         if "." not in module_path:
             raise ValueError(
-                f"Invalid validator path '{module_path}'. Expected format: 'package.module.ClassName'"
+                f"Invalid validator path '{module_path}'."
+                "Expected format: 'package.module.ClassName'"
             )
 
         module_name, class_name = module_path.rsplit(".", 1)
@@ -230,7 +232,8 @@ class Validator:
             validation_cls = getattr(module, class_name)
         except AttributeError as e:
             raise AttributeError(
-                f"Module '{module_name}' does not have class or attribute '{class_name}'"
+                f"Module '{module_name}' does not have class"
+                f"or attribute '{class_name}'"
             ) from e
         return validation_cls
 
