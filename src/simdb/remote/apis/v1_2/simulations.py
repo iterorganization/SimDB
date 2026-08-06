@@ -82,7 +82,7 @@ def _validate(simulation, user) -> ValidationResult:
     schemas = Validator.validation_schemas(current_app.simdb_config, simulation)
     try:
         for schema in schemas:
-            Validator(schema).validate(simulation)
+            Validator(schema, current_app.simdb_config).validate(simulation)
             _update_simulation_status(
                 simulation, models_sim.Simulation.Status.PASSED, user
             )
