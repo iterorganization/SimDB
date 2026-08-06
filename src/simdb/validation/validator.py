@@ -200,12 +200,47 @@ class Validator:
 
         return schemas
 
-    def __init__(self, schema: Dict):
+    def _custom_validation_ext(self, config: Config):
+        from importlib import import_module
+
+        module_path = config.get_option("validation.custom_validator", default=None)
+        if module_path is None:
+            return CustomValidator
+
+        if not isinstance(module_path, str):
+            raise TypeError(
+                f"Expected 'custom_validator config value' to be a string, got {type(module_path).__name__}"
+            )
+
+        if "." not in module_path:
+            raise ValueError(
+                f"Invalid validator path '{module_path}'. Expected format: 'package.module.ClassName'"
+            )
+
+        module_name, class_name = module_path.rsplit(".", 1)
+
         try:
-            self._validator = CustomValidator(schema)
+            module = import_module(module_name)
+        except ModuleNotFoundError as e:
+            raise ImportError(
+                f"Unable to import module '{module_name}': {e}. "
+                "Please ensure the necessary validation package is installed"
+            ) from e
+        try:
+            validation_cls = getattr(module, class_name)
+        except AttributeError as e:
+            raise AttributeError(
+                f"Module '{module_name}' does not have class or attribute '{class_name}'"
+            ) from e
+        return validation_cls
+
+    def __init__(self, schema: Dict, config: Config):
+        try:
+            validation_cls = self._custom_validation_ext(config)
+            self._validator = validation_cls(schema)
             self._validator.allow_unknown = True
-        except cerberus.SchemaError as err:
-            raise LoadError("Failed to parse validation schema") from err
+        except cerberus.SchemaError:
+            raise LoadError("Failed to parse validation schema")
 
     def validate(self, sim: Simulation) -> None:
         # convert sim to dictionary
