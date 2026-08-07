@@ -1,5 +1,6 @@
 import re
 import warnings
+from importlib import import_module
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union, cast
 
@@ -201,7 +202,6 @@ class Validator:
         return schemas
 
     def _custom_validation_ext(self, config: Config):
-        from importlib import import_module
 
         module_path = config.get_option("validation.custom_validator", default=None)
         if module_path is None:
@@ -223,17 +223,17 @@ class Validator:
 
         try:
             module = import_module(module_name)
-        except ModuleNotFoundError as e:
+        except ModuleNotFoundError as err:
             raise ImportError(
-                f"Unable to import module '{module_name}': {e}. "
+                f"Unable to import module '{module_name}': {err}. "
                 "Please ensure the necessary validation package is installed"
-            ) from e
+            ) from err
         try:
             validation_cls = getattr(module, class_name)
-        except AttributeError as e:
+        except AttributeError as err:
             raise AttributeError(
                 f"Module '{module_name}' does not have classor attribute '{class_name}'"
-            ) from e
+            ) from err
         return validation_cls
 
     def __init__(self, schema: Dict, config: Config):
@@ -241,8 +241,8 @@ class Validator:
             validation_cls = self._custom_validation_ext(config)
             self._validator = validation_cls(schema)
             self._validator.allow_unknown = True
-        except cerberus.SchemaError:
-            raise LoadError("Failed to parse validation schema")
+        except cerberus.SchemaError as err:
+            raise LoadError("Failed to parse validation schema") from err
 
     def validate(self, sim: Simulation) -> None:
         # convert sim to dictionary
