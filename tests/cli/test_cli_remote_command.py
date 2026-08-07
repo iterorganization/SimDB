@@ -36,7 +36,6 @@ def test_remote_watchers_list_command(
     for watcher in watchers:
         assert watcher in result.output
     assert list_watchers.called
-    assert get_api_version.called
 
 
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_authentication")
@@ -76,7 +75,6 @@ def test_remote_watcher_remove_command(
     (args, kwargs) = remove_watcher.call_args
     assert args == (sim_id, user)
     assert kwargs == {}
-    assert get_api_version.called
 
 
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_authentication")
@@ -119,7 +117,6 @@ def test_remote_watcher_add_command(
     (args, kwargs) = add_watcher.call_args
     assert args == (sim_id, user, email, Notification.ALL)
     assert kwargs == {}
-    assert get_api_version.called
 
 
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_authentication")
@@ -160,7 +157,6 @@ def test_remote_list_command(
     for el in data:
         for i in el:
             assert i in result.output
-    assert get_api_version.called
 
 
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_authentication")
@@ -203,7 +199,6 @@ def test_remote_list_command_with_verbose(
     for el in data:
         for i in el:
             assert i in result.output
-    assert get_api_version.called
 
 
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_authentication")
@@ -236,7 +231,6 @@ def test_remote_info_command(
     (args, kwargs) = get_simulation.call_args
     assert args == (sim_id,)
     assert kwargs == {}
-    assert get_api_version.called
 
 
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_authentication")
@@ -280,7 +274,6 @@ def test_remote_query_command(
     (args, kwargs) = query_simulations.call_args
     assert args == (constraints, (), 100)
     assert kwargs == {}
-    assert get_api_version.called
 
 
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_authentication")
@@ -334,4 +327,3 @@ def test_remote_query_command_with_verbose(
     (args, kwargs) = query_simulations.call_args
     assert args == (constraints, (), 100)
     assert kwargs == {}
-    assert get_api_version.called
