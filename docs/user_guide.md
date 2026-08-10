@@ -321,6 +321,52 @@ and you can see all the stored metadata against a remote simulation using:
 simdb remote info <SIM_ID>
 ```
 
+To filter simulations and return selected quantities from their metadata, use
+`data-query`. Each quantity has a response name and a metadata path:
+
+```bash
+simdb remote data-query \
+  'summary.global_quantities.ip.value=gt:-5' \
+  'summary.global_quantities.ip.value=lt:10' \
+  --quantity 'ip=summary.global_quantities.ip.value' \
+  --quantity 'q95=summary.global_quantities.q_95.value'
+```
+
+The corresponding REST endpoint accepts the same operation as a structured request:
+
+```text
+POST /v1.3/simulations/data/query
+```
+
+```json
+{
+  "filters": [
+    {
+      "field": "summary.global_quantities.ip.value",
+      "operator": "gt",
+      "value": -5
+    },
+    {
+      "field": "summary.global_quantities.ip.value",
+      "operator": "lt",
+      "value": 10
+    }
+  ],
+  "quantities": [
+    {
+      "name": "ip",
+      "path": "summary.global_quantities.ip.value",
+      "source": "metadata"
+    }
+  ],
+  "page": 1,
+  "limit": 100
+}
+```
+
+For range metadata, `gt`/`ge` compare the minimum and `lt`/`le` compare the maximum.
+Scalar numeric metadata keeps the existing comparison behavior.
+
 ## Accessing Simulation Metadata via the SimDB Dashboard
 
 You can view a simulation's metadata directly in the SimDB dashboard using its UUID.

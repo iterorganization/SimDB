@@ -1,8 +1,10 @@
 from unittest import mock
 
+import pytest
 from click.testing import CliRunner
 from utils import config_test_file
 
+from simdb.cli.remote_api import RemoteAPI, RemoteError
 from simdb.cli.simdb import cli
 from simdb.notifications import Notification
 
@@ -335,3 +337,87 @@ def test_remote_query_command_with_verbose(
     assert args == (constraints, (), 100)
     assert kwargs == {}
     assert get_api_version.called
+
+
+@mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_authentication")
+@mock.patch("simdb.cli.remote_api.RemoteAPI.get_endpoints")
+@mock.patch("simdb.cli.remote_api.RemoteAPI.get_api_version")
+@mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_version")
+@mock.patch("simdb.cli.remote_api.RemoteAPI.query_simulation_data")
+def test_remote_data_query_command(
+    query_simulation_data,
+    get_server_version,
+    get_api_version,
+    get_endpoints,
+    get_server_authentication,
+):
+    get_endpoints.return_value = ["v1", "v1.1", "v1.1.1", "v1.2", "v1.3"]
+    get_api_version.return_value = "1.3"
+    get_server_version.return_value = "0.11"
+    get_server_authentication.return_value = "None"
+    query_simulation_data.return_value = {
+        "count": 1,
+        "page": 1,
+        "limit": 25,
+        "results": [{"alias": "inside-range", "quantities": {"ip": 2.0}}],
+    }
+
+    config_file = config_test_file()
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            f"--config-file={config_file}",
+            "remote",
+            "data-query",
+            "--limit",
+            "25",
+            "--quantity",
+            "ip=summary.global_quantities.ip.value",
+            "summary.global_quantities.ip.value=gt:-5",
+            "summary.global_quantities.ip.value=lt:10",
+            "summary.valid=eq:true",
+        ],
+    )
+
+    assert result.exception is None
+    assert '"inside-range"' in result.output
+    query_simulation_data.assert_called_once_with(
+        [
+            {
+                "field": "summary.global_quantities.ip.value",
+                "operator": "gt",
+                "value": "-5",
+            },
+            {
+                "field": "summary.global_quantities.ip.value",
+                "operator": "lt",
+                "value": "10",
+            },
+            {
+                "field": "summary.valid",
+                "operator": "eq",
+                "value": "true",
+            },
+        ],
+        [
+            {
+                "name": "ip",
+                "path": "summary.global_quantities.ip.value",
+                "source": "metadata",
+            }
+        ],
+        limit=25,
+        page=1,
+    )
+
+
+def test_remote_data_query_rejects_v1_2():
+    remote = mock.Mock(spec=RemoteAPI)
+    remote._api_version = "v1.2"
+
+    with pytest.raises(
+        RemoteError,
+        match=r"'query_simulation_data' is not supported.*version 'v1.2'",
+    ):
+        RemoteAPI.query_simulation_data(remote, [], [])

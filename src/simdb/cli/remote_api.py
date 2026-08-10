@@ -712,7 +712,28 @@ class RemoteAPI:
         data = res.json(cls=CustomDecoder)
         return [Simulation.from_data(sim) for sim in data["results"]]
 
-    @versioned_method("v1.2", "v1.3")
+    @versioned_method("v1.3")
+    @try_request
+    def query_simulation_data(
+        self,
+        filters: List[Dict[str, Any]],
+        quantities: List[Dict[str, str]],
+        limit: int = 100,
+        page: int = 1,
+    ) -> Dict[str, Any]:
+        """Filter remote simulations and select stored metadata quantities."""
+        response = self.post(
+            "simulations/data/query",
+            {
+                "filters": filters,
+                "quantities": quantities,
+                "limit": limit,
+                "page": page,
+            },
+        )
+        return response.json()
+
+    @versioned_method("v1.2")
     @try_request
     def delete_simulation(self, sim_id: str) -> Dict:
         res = self.delete("simulation/" + sim_id, {})

@@ -320,3 +320,18 @@ class TestQueryMetaData:
         assert count == 1
         assert len(results) == 1
         assert results[0]["metadata"] == [{"element": "type", "value": "A"}]
+
+    def test_query_meta_data_with_range_bounds(self, db):
+        db.insert_simulation(
+            create_simulation(
+                alias="inside",
+                metadata={"range": {"min": -4.0, "max": 9.0}},
+            )
+        )
+        db.session.commit()
+        constraints = [("range", "-5", QueryType.GT)]
+
+        count, results = db.query_meta_data(constraints, [])
+
+        assert count == 1
+        assert results[0]["alias"] == "inside"

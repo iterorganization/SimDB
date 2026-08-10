@@ -530,10 +530,10 @@ class Database:
                 cmp_op(),
             )
 
-        def _num_with_op(cmp_op):
+        def _scalar_or_range_cmp(scalar_cmp_op, range_cmp_op):
             if cmp_float is None:
                 return None
-            return _number_cmp(cmp_op)
+            return sql_or(_number_cmp(scalar_cmp_op), range_cmp_op())
 
         if query_type == QueryType.EQ:
             return _string_cmp(lambda a, b: a == b)
@@ -544,13 +544,25 @@ class Database:
         elif query_type == QueryType.NI:
             return _string_cmp(lambda a, b: a.notilike(f"%{b}%"))
         elif query_type == QueryType.GT:
-            return _num_with_op(lambda: sql_cast(json_access, Float) > cmp_float)
+            return _scalar_or_range_cmp(
+                lambda: sql_cast(json_access, Float) > cmp_float,
+                lambda: sql_cast(json_min, Float) > cmp_float,
+            )
         elif query_type == QueryType.GE:
-            return _num_with_op(lambda: sql_cast(json_access, Float) >= cmp_float)
+            return _scalar_or_range_cmp(
+                lambda: sql_cast(json_access, Float) >= cmp_float,
+                lambda: sql_cast(json_min, Float) >= cmp_float,
+            )
         elif query_type == QueryType.LT:
-            return _num_with_op(lambda: sql_cast(json_access, Float) < cmp_float)
+            return _scalar_or_range_cmp(
+                lambda: sql_cast(json_access, Float) < cmp_float,
+                lambda: sql_cast(json_max, Float) < cmp_float,
+            )
         elif query_type == QueryType.LE:
-            return _num_with_op(lambda: sql_cast(json_access, Float) <= cmp_float)
+            return _scalar_or_range_cmp(
+                lambda: sql_cast(json_access, Float) <= cmp_float,
+                lambda: sql_cast(json_max, Float) <= cmp_float,
+            )
         elif query_type == QueryType.AGT:
             if cmp_float is not None:
                 return sql_cast(json_max, Float) > cmp_float

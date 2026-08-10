@@ -2,6 +2,7 @@ from flask_restx import Api
 
 from simdb.remote.apis.files import api as file_ns
 from simdb.remote.apis.metadata import api as metadata_ns
+from simdb.remote.apis.simulation_data_query import api as simulation_data_query_ns
 from simdb.remote.apis.v1_2 import StagingDirectory
 from simdb.remote.apis.v1_2 import api as api_v1_2
 from simdb.remote.apis.v1_3.simulations import api as sim_ns
@@ -28,7 +29,14 @@ api = Api(
     doc="/docs",
 )
 
-namespaces = [metadata_ns, watcher_ns, file_ns, sim_ns, data_ns]
+namespaces = [
+    metadata_ns,
+    watcher_ns,
+    file_ns,
+    sim_ns,
+    data_ns,
+    simulation_data_query_ns,
+]
 
 api.route("/staging_dir", defaults={"sim_hex": None})(StagingDirectory)
 api.route("/staging_dir/<string:sim_hex>")(StagingDirectory)
