@@ -677,8 +677,13 @@ class RemoteAPI:
     @versioned_method("v1.2", "v1.3")
     @try_request
     def get_server_version(self) -> str:
-        res = self.get_root()
-        data = res.json()
+        try:
+            res = self.get_root().json()
+            if (server_version := res.get("server_version")) is not None:
+                return server_version
+        except Exception:
+            pass
+        data = self.get("", authenticate=False).json()
         return data["server_version"]
 
     @versioned_method("v1.2", "v1.3")
