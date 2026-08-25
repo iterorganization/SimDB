@@ -5,12 +5,18 @@ import shutil
 import uuid
 from collections.abc import Iterable
 from pathlib import Path
-from typing import IO, Any, override
+from typing import IO, TYPE_CHECKING, Any, override
 
 from simdb.cli.manifest import DataType
 from simdb.json import CustomEncoder
+from simdb.remote.models import ChunkInfo
 
 from . import FileTransferHandler, PostAPI
+
+if TYPE_CHECKING:
+    from werkzeug.datastructures import FileStorage
+
+    from simdb.database.models import File as SimFile
 
 
 def _read_bytes_in_chunks(
@@ -32,6 +38,67 @@ def _read_bytes_in_chunks(
                 if not data:
                     break
                 yield data
+
+
+def save_chunked_file(
+    file: "FileStorage",
+    chunk_info: ChunkInfo,
+    path: Path,
+    compressed: bool = True,
+) -> None:
+    """Write a single uploaded chunk to its target path on disk.
+
+    The chunk is decompressed from gzip when *compressed* is ``True`` (the
+    default).  The file is created if it does not yet exist; otherwise it is
+    opened for random-write so that each chunk lands at the correct offset.
+    """
+    with path.open("r+b" if path.exists() else "wb") as file_out:
+        file_out.seek(chunk_info.chunk_size * chunk_info.chunk)
+        if compressed:
+            with gzip.GzipFile(fileobj=file.stream, mode="rb") as gz_file:
+                file_out.write(gz_file.read())
+        else:
+            file_out.write(file.stream.read())
+
+
+def stage_file_from_chunks(
+    files: "Iterable[FileStorage]",
+    chunk_info: dict[str, ChunkInfo],
+    sim_files: "list[SimFile]",
+    common_root: Path | None,
+    staging_dir: Path,
+) -> None:
+    """Stage a set of uploaded file chunks into *staging_dir*.
+
+    Each entry in *files* is matched against *sim_files* by UUID, written to
+    the correct byte offset within the reconstructed file via
+    :func:`save_chunked_file`, and assembled in place.  *staging_dir* (which
+    should already include the simulation-UUID path component) is created if
+    it does not yet exist.
+    """
+    # Lazy import: secure_path depends on werkzeug, a server-only package.
+    from simdb.remote.core.path import secure_path
+
+    staging_dir.mkdir(parents=True, exist_ok=True)
+
+    found_files = []
+    for file in files:
+        if file.filename:
+            file_uuid = uuid.UUID(file.filename)
+            sim_file = next((f for f in sim_files if f.uuid == file_uuid), None)
+            if sim_file is None:
+                raise ValueError(f"file with uuid {file_uuid} not found in simulation")
+            if sim_file.uri.scheme != "file":
+                raise ValueError("cannot upload non file URI")
+            found_files.append((file, sim_file))
+
+    for file, sim_file in found_files:
+        path = secure_path(Path(sim_file.uri.path), common_root, staging_dir)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        file_chunk_info = chunk_info.get(
+            sim_file.uuid.hex, ChunkInfo(chunk_size=0, chunk=0, num_chunks=1)
+        )
+        save_chunked_file(file, file_chunk_info, path)
 
 
 class HttpFileTransferHandler(FileTransferHandler):

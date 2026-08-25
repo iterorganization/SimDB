@@ -1,13 +1,12 @@
-import gzip
 import uuid
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Optional
 
 import magic
 from flask import Response, jsonify, request, send_file
 from flask_restx import Namespace, Resource
-from werkzeug.datastructures import FileStorage
 
+from file_transfer.http import stage_file_from_chunks
 from simdb.checksum import sha1_checksum
 from simdb.cli.manifest import DataType
 from simdb.database import DatabaseError, models
@@ -19,7 +18,6 @@ from simdb.remote.core.path import find_common_root, secure_path
 from simdb.remote.core.pydantic_utils import pydantic_validate
 from simdb.remote.core.typing import current_app
 from simdb.remote.models import (
-    ChunkInfo,
     FileDataList,
     FileGetDataResponse,
     FileRegistrationData,
@@ -73,51 +71,6 @@ def _verify_file(
             raise ValueError(f"checksum failed for simulation {sim_file.uri}")
 
 
-def _save_chunked_file(
-    file: FileStorage, chunk_info: ChunkInfo, path: Path, compressed: bool = True
-):
-    with path.open("r+b" if path.exists() else "wb") as file_out:
-        file_out.seek(chunk_info.chunk_size * chunk_info.chunk)
-        if compressed:
-            with gzip.GzipFile(fileobj=file.stream, mode="rb") as gz_file:
-                file_out.write(gz_file.read())
-        else:
-            file_out.write(file.stream.read())
-
-
-def _stage_file_from_chunks(
-    files: Iterable[FileStorage],
-    chunk_info: Dict[str, ChunkInfo],
-    sim_uuid: uuid.UUID,
-    sim_files: List[models.File],
-    common_root: Optional[Path],
-) -> None:
-    staging_dir = (
-        Path(current_app.simdb_config.get_string_option("server.upload_folder"))
-        / sim_uuid.hex
-    )
-    staging_dir.mkdir(parents=True, exist_ok=True)
-
-    found_files = []
-    for file in files:
-        if file.filename:
-            file_uuid = uuid.UUID(file.filename)
-            sim_file = next((f for f in sim_files if f.uuid == file_uuid), None)
-            if sim_file is None:
-                raise ValueError(f"file with uuid {file_uuid} not found in simulation")
-            if sim_file.uri.scheme != "file":
-                raise ValueError("cannot upload non file URI")
-            found_files.append((file, sim_file))
-
-    for file, sim_file in found_files:
-        path = secure_path(Path(sim_file.uri.path), common_root, staging_dir)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        file_chunk_info = chunk_info.get(
-            sim_file.uuid.hex, ChunkInfo(chunk_size=0, chunk=0, num_chunks=1)
-        )
-        _save_chunked_file(file, file_chunk_info, path)
-
-
 def _check_file_is_in_simulation(
     simulation: models.Simulation, file_uuid: uuid.UUID, file_type: str
 ) -> models.File:
@@ -165,8 +118,12 @@ def _handle_file_upload() -> Response:
     common_root = find_common_root(sim_file_paths)
 
     sim_files = simulation.inputs if body.file_type == "input" else simulation.outputs
-    _stage_file_from_chunks(
-        files, body.chunk_info or {}, simulation.uuid, sim_files, common_root
+    staging_dir = (
+        Path(current_app.simdb_config.get_string_option("server.upload_folder"))
+        / simulation.uuid.hex
+    )
+    stage_file_from_chunks(
+        files, body.chunk_info or {}, sim_files, common_root, staging_dir
     )
 
     return jsonify({})
