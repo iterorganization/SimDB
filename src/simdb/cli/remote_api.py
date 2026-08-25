@@ -2,37 +2,26 @@ import functools
 import getpass
 import gzip
 import hashlib
-import io
 import itertools
 import json
 import os
 import pickle
-import shutil
 import sys
 import uuid
 from collections import defaultdict
+from collections.abc import Callable, Iterable
 from io import BytesIO
 from pathlib import Path
-from typing import (
-    IO,
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Tuple,
-    Union,
-)
+from typing import IO, TYPE_CHECKING, Any, ParamSpec, TypeVar, override
 from urllib.parse import urlparse
 
 import appdirs
 import click
 import requests
-from requests.auth import AuthBase
+from requests.auth import AuthBase, HTTPBasicAuth
 from semantic_version import Version
 
+from file_transfer.http import HttpFileTransferHandler
 from simdb.config import Config
 from simdb.database.models import Simulation
 from simdb.imas.utils import SimDBUrl, imas_files
@@ -63,9 +52,13 @@ class RemoteError(APIError):
     pass
 
 
-def try_request(func: Callable) -> Callable:
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+def try_request(func: Callable[P, R]) -> Callable[P, R]:
     @functools.wraps(func)
-    def wrapped_func(*args, **kwargs):
+    def wrapped_func(*args: P.args, **kwargs: P.kwargs) -> R:
         try:
             return func(*args, **kwargs)
         except requests.ConnectionError as ex:
@@ -97,7 +90,7 @@ This might indicate an invalid SimDB URL or the existence of a firewall.
     return wrapped_func
 
 
-def versioned_method(*versions: str) -> Callable:
+def versioned_method(*versions: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     Mark a RemoteAPI method that has version-specific implementations.
 
@@ -130,12 +123,12 @@ def versioned_method(*versions: str) -> Callable:
     implementation is used.
     """
 
-    def decorator(default: Callable) -> Callable:
+    def decorator(default: Callable[P, R]) -> Callable[P, R]:
         default_name = getattr(default, "__name__", repr(default))
-        registry: Dict[str, Callable] = dict.fromkeys(versions, default)
+        registry: dict[str, Callable[P, R]] = dict.fromkeys(versions, default)
 
         @functools.wraps(default)
-        def wrapper(self, *args, **kwargs):
+        def wrapper(self, *args: P.args, **kwargs: P.kwargs) -> R:
             selected = getattr(self, "_api_version", None)
             if selected is None:
                 return default(self, *args, **kwargs)
@@ -143,13 +136,13 @@ def versioned_method(*versions: str) -> Callable:
             if impl is None:
                 raise RemoteError(
                     f"'{default_name}' is not supported by the negotiated API "
-                    f"version '{selected}'. It requires one of: "
-                    f"{', '.join(sorted(registry))}."
+                    + f"version '{selected}'. It requires one of: "
+                    + f"{', '.join(sorted(registry))}."
                 )
             return impl(self, *args, **kwargs)
 
-        def register(*impl_versions: str) -> Callable:
-            def do_register(func: Callable) -> Callable:
+        def register(*impl_versions: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
+            def do_register(func: Callable[P, R]) -> Callable[P, R]:
                 for version in impl_versions:
                     registry[version] = func
                 # Keep the advertised version set in sync with the registry.
@@ -165,46 +158,10 @@ def versioned_method(*versions: str) -> Callable:
     return decorator
 
 
-def read_bytes(path: Path, compressed: bool = True) -> bytes:
-    if compressed:
-        with io.BytesIO() as buffer:
-            with gzip.GzipFile(fileobj=buffer, mode="wb") as gz_file, path.open(
-                "rb"
-            ) as file_in:
-                gz_file.write(file_in.read())
-            # gz_file is now closed (gzip footer written); buffer is still open
-            buffer.seek(0)
-            return buffer.read()
-    else:
-        with path.open("rb") as file:
-            return file.read()
-
-
-def _read_bytes_in_chunks(
-    path: Path, compressed: bool = True, chunk_size: int = 1024
-) -> Iterable[bytes]:
-    with path.open("rb") as file_in:
-        while True:
-            if compressed:
-                with io.BytesIO() as buffer:
-                    with gzip.GzipFile(fileobj=buffer, mode="wb") as gz_file:
-                        data = file_in.read(chunk_size)
-                        if not data:
-                            break
-                        gz_file.write(data)
-                    buffer.seek(0)
-                    yield buffer.read()
-            else:
-                data = file_in.read(chunk_size)
-                if not data:
-                    break
-                yield data
-
-
 def select_api_version(
     server_versions: Iterable[str],
     client_versions: Iterable[str] = CLIENT_API_VERSIONS,
-) -> Optional[str]:
+) -> str | None:
     """
     Select the highest API version supported by both the server and this client.
     """
@@ -243,14 +200,21 @@ class RemoteAPI:
     """
 
     _remote: str
+    _cookies: dict[str, str]
+    _use_token: bool
+    _firewall: str | None
+    _server_auth: str
+    _token: str
+    _username: str | None
+    _password: str | None
 
     def __init__(
         self,
-        remote: Optional[str],
-        username: Optional[str],
-        password: Optional[str],
+        remote: str | None,
+        username: str | None,
+        password: str | None,
         config: Config,
-        use_token: Optional[bool] = None,
+        use_token: bool | None = None,
     ) -> None:
         """
         Create a new RemoteAPI.
@@ -281,7 +245,7 @@ class RemoteAPI:
                 f"Remote '{remote}' not found. Use `simdb remote config add` to add it."
             ) from None
 
-        self._firewall: Optional[str] = config.get_string_option(
+        self._firewall = config.get_string_option(
             f"remote.{remote}.firewall", default=None
         )
 
@@ -292,7 +256,7 @@ class RemoteAPI:
             self._use_token = use_token
         else:
             token = config.get_option(f"remote.{remote}.token", default="")
-            self._use_token = token or (not username and not password)
+            self._use_token = bool(token) or (not username and not password)
 
         if password and not username:
             raise ValueError(
@@ -319,7 +283,7 @@ class RemoteAPI:
                     f"Password for user {username}", hide_input=True
                 )
 
-        self._token = config.get_option(f"remote.{remote}.token", default="")
+        self._token = config.get_string_option(f"remote.{remote}.token", default="")
         if self._server_auth != "None" and (self._use_token and not self._token):
             raise ValueError("No username or password given and no token found.")
 
@@ -333,8 +297,8 @@ class RemoteAPI:
         if selected_version is None:
             raise RemoteError(
                 "No compatible API version found on remote: the server provides "
-                f"{', '.join(endpoint_versions) or 'none'} and this client supports "
-                f"{', '.join(CLIENT_API_VERSIONS)}."
+                + f"{', '.join(endpoint_versions) or 'none'} and this client supports "
+                + f"{', '.join(CLIENT_API_VERSIONS)}."
             )
 
         if config.verbose:
@@ -346,7 +310,7 @@ class RemoteAPI:
         self.server_version = Version.coerce(self.get_server_version())
 
     def _load_cookies(
-        self, remote: str, username: Optional[str], password: Optional[str]
+        self, remote: str, username: str | None, password: str | None
     ) -> None:
         if self._firewall == "F5":
             headers = {"User-Agent": "it_script_basic"}
@@ -401,28 +365,32 @@ class RemoteAPI:
         """
         return self._remote
 
-    def _get_auth(self) -> Union["AuthBase", Tuple]:
+    def _get_auth(self) -> AuthBase:
         class JWTAuth(AuthBase):
-            def __init__(self, token):
+            _token: str
+
+            def __init__(self, token: str):
                 self._token = token
 
-            def __call__(self, r):
-                if r.headers is not None:
-                    r.headers["Authorization"] = f"JWT-Token {self._token}"
-                return r
+            @override
+            def __call__(
+                self, request: requests.PreparedRequest
+            ) -> requests.PreparedRequest:
+                request.headers["Authorization"] = f"JWT-Token {self._token}"
+                return request
 
         if self._use_token:
             return JWTAuth(self._token)
         else:
-            return self._username, self._password
+            return HTTPBasicAuth(self._username or "", self._password or "")
 
     def get(
         self,
         url: str,
-        params: Optional[Dict] = None,
-        headers: Optional[Dict] = None,
-        authenticate: Optional[bool] = True,
-        stream: Optional[bool] = False,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, Any] | None = None,
+        authenticate: bool | None = True,
+        stream: bool | None = False,
     ) -> "requests.Response":
         """
         Perform an HTTP GET request.
@@ -463,7 +431,7 @@ class RemoteAPI:
         check_return(res)
         return res
 
-    def put(self, url: str, data: Dict, **kwargs) -> "requests.Response":
+    def put(self, url: str, data: dict, **kwargs) -> "requests.Response":
         """
         Perform an HTTP PUT request.
 
@@ -497,7 +465,7 @@ class RemoteAPI:
         check_return(res)
         return res
 
-    def post(self, url: str, data: Dict, **kwargs) -> "requests.Response":
+    def post(self, url: str, data: dict, **kwargs) -> "requests.Response":
         """
         Perform an HTTP POST request.
 
@@ -550,7 +518,7 @@ class RemoteAPI:
         check_return(res)
         return res
 
-    def patch(self, url: str, data: Dict, **kwargs) -> "requests.Response":
+    def patch(self, url: str, data: dict, **kwargs) -> "requests.Response":
         """
         Perform an HTTP PATCH request.
 
@@ -584,7 +552,7 @@ class RemoteAPI:
         check_return(res)
         return res
 
-    def delete(self, url: str, data: Dict[Any, Any], **kwargs) -> "requests.Response":
+    def delete(self, url: str, data: dict[str, Any], **kwargs) -> "requests.Response":
         """
         Perform an HTTP DELETE request.
 
@@ -629,14 +597,14 @@ class RemoteAPI:
 
     @versioned_method("v1.2", "v1.3")
     @try_request
-    def get_endpoints(self) -> List[str]:
+    def get_endpoints(self) -> list[str]:
         res = self.get("", authenticate=False)
         data = res.json()
         return data["endpoints"]
 
     @versioned_method("v1.2", "v1.3")
     @try_request
-    def get_server_authentication(self) -> Optional[str]:
+    def get_server_authentication(self) -> str:
         res = self.get("", authenticate=False)
         data = res.json()
         return data.get("authentication")
@@ -657,13 +625,13 @@ class RemoteAPI:
 
     @versioned_method("v1.2", "v1.3")
     @try_request
-    def get_validation_schemas(self) -> List[Dict]:
+    def get_validation_schemas(self) -> list[dict]:
         res = self.get("validation_schema")
         return res.json()
 
     @versioned_method("v1.2", "v1.3")
     @try_request
-    def get_upload_options(self) -> Dict[str, Any]:
+    def get_upload_options(self) -> dict[str, Any]:
         try:
             res = self.get("upload_options")
             return res.json()
@@ -674,8 +642,8 @@ class RemoteAPI:
     @versioned_method("v1.2", "v1.3")
     @try_request
     def list_simulations(
-        self, meta: Optional[List[str]] = None, limit: int = 0
-    ) -> List["Simulation"]:
+        self, meta: list[str] | None = None, limit: int = 0
+    ) -> list["Simulation"]:
         args = "?" + "&".join(meta) if meta else ""
         headers = {"simdb-result-limit": str(limit)}
         res = self.get("simulations" + args, headers=headers)
@@ -697,8 +665,8 @@ class RemoteAPI:
     @versioned_method("v1.2", "v1.3")
     @try_request
     def query_simulations(
-        self, constraints: List[str], meta: List[str], limit=0
-    ) -> List["Simulation"]:
+        self, constraints: list[str], meta: list[str], limit=0
+    ) -> list["Simulation"]:
         params = defaultdict(list)
         for item in constraints:
             (key, value) = item.split("=")
@@ -714,7 +682,7 @@ class RemoteAPI:
 
     @versioned_method("v1.2", "v1.3")
     @try_request
-    def delete_simulation(self, sim_id: str) -> Dict:
+    def delete_simulation(self, sim_id: str) -> dict:
         res = self.delete("simulation/" + sim_id, {})
         return res.json()
 
@@ -725,7 +693,7 @@ class RemoteAPI:
 
     @versioned_method("v1.2", "v1.3")
     @try_request
-    def validate_simulation(self, sim_id: str) -> Tuple[bool, str]:
+    def validate_simulation(self, sim_id: str) -> tuple[bool, str]:
         res = self.post("validate/" + sim_id, {})
         data = res.json()
         if data["passed"]:
@@ -750,29 +718,29 @@ class RemoteAPI:
 
     @versioned_method("v1.2", "v1.3")
     @try_request
-    def list_watchers(self, sim_id: str) -> List[Tuple]:
+    def list_watchers(self, sim_id: str) -> list[tuple]:
         res = self.get("watchers/" + sim_id)
         return [(d["username"], d["email"], d["notification"]) for d in res.json()]
 
     @versioned_method("v1.2", "v1.3")
     @try_request
     def set_metadata(
-        self, sim_id: str, key: str, value: Union[str, uuid.UUID, int, float]
-    ) -> List[str]:
+        self, sim_id: str, key: str, value: str | uuid.UUID | int | float
+    ) -> list[str]:
         res = self.patch("simulation/metadata/" + sim_id, {"key": key, "value": value})
         return [data["value"] for data in res.json()]
 
     @versioned_method("v1.2", "v1.3")
     @try_request
-    def delete_metadata(self, sim_id: str, key: str) -> List[str]:
+    def delete_metadata(self, sim_id: str, key: str) -> list[str]:
         res = self.delete("simulation/metadata/" + sim_id, {"key": key})
         return [data["value"] for data in res.json()]
 
     @versioned_method("v1.3")
     @try_request
     def get_simulation_data(
-        self, sim_id: str, path: str, dd_version: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, sim_id: str, path: str, dd_version: str | None = None
+    ) -> dict[str, Any]:
         params = {"path": path}
         if dd_version is not None:
             params["dd_version"] = dd_version
@@ -783,78 +751,6 @@ class RemoteAPI:
     def get_directory(self) -> str:
         res = self.get("staging_dir")
         return res.json()["staging_dir"]
-
-    def _push_file(
-        self,
-        path: Path,
-        uuid: uuid.UUID,
-        file_type: str,
-        sim_data: Dict[str, Any],
-        chunk_size: int,
-        out_stream: IO,
-        type: DataType,
-    ):
-        msg = f"Uploading file {path} "
-        print(msg, file=out_stream, end="")
-        num_chunks = 0
-        for chunk_index, chunk in enumerate(
-            _read_bytes_in_chunks(path, compressed=True, chunk_size=chunk_size)
-        ):
-            print(".", file=out_stream, end="", flush=True)
-            self._send_chunk(chunk_index, chunk, chunk_size, uuid, file_type, sim_data)
-            num_chunks += 1
-        if num_chunks == 0:
-            # empty file
-            self._send_chunk(0, b"", chunk_size, uuid, file_type, sim_data)
-        if type == DataType.FILE:
-            self.post(
-                "files",
-                data={
-                    "simulation": sim_data,
-                    "obj_type": DataType.FILE,
-                    "files": [
-                        {
-                            "chunks": num_chunks,
-                            "file_type": file_type,
-                            "file_uuid": uuid.hex,
-                            "ids_list": None,
-                        }
-                    ],
-                },
-            )
-        print(f"\r{msg}", file=out_stream, end="")
-        print(
-            "Complete".rjust(shutil.get_terminal_size().columns - len(msg)),
-            file=out_stream,
-            flush=True,
-        )
-
-    def _send_chunk(
-        self,
-        chunk_index: int,
-        chunk: bytes,
-        chunk_size: int,
-        uuid: uuid.UUID,
-        file_type: str,
-        sim_data: dict,
-    ):
-        data = {
-            "simulation": sim_data,
-            "file_type": file_type,
-            "chunk_info": {uuid.hex: {"chunk_size": chunk_size, "chunk": chunk_index}},
-        }
-        files: List[Tuple[str, Tuple[str, bytes, str]]] = [
-            (
-                "data",
-                (
-                    "data",
-                    json.dumps(data, cls=CustomEncoder).encode(),
-                    "text/json",
-                ),
-            ),
-            ("files", (uuid.hex, chunk, "application/octet-stream")),
-        ]
-        self.post("files", data={}, files=files)
 
     @versioned_method("v1.2", "v1.3")
     @try_request
@@ -900,6 +796,7 @@ class RemoteAPI:
         options = self.get_upload_options()
         if options.get("copy_files", True):
             chunk_size = allowed_chunk  # 10 MB limit on ITER network
+            handler = HttpFileTransferHandler(self)
 
             copy_ids = options.get("copy_ids", True)
 
@@ -922,7 +819,7 @@ class RemoteAPI:
                             f for f in sim_data["inputs"] if f.get("uuid") == file.uuid
                         )
                         sim_file["uri"] = f"file:{path}"
-                        self._push_file(
+                        handler.send_file(
                             path,
                             file.uuid,
                             "input",
@@ -949,7 +846,7 @@ class RemoteAPI:
 
                 else:
                     if file.uri and file.uri.path:
-                        self._push_file(
+                        handler.send_file(
                             Path(file.uri.path),
                             file.uuid,
                             "input",
@@ -985,7 +882,7 @@ class RemoteAPI:
                         )
                         if sim_file:
                             sim_file["uri"] = f"file:{path}"
-                        self._push_file(
+                        handler.send_file(
                             path,
                             file.uuid,
                             "output",
@@ -1011,7 +908,7 @@ class RemoteAPI:
                     )
                 else:
                     if file.uri and file.uri.path:
-                        self._push_file(
+                        handler.send_file(
                             Path(file.uri.path),
                             file.uuid,
                             "output",
@@ -1034,7 +931,7 @@ class RemoteAPI:
         )
         print("Success", file=out_stream, flush=True)
 
-    def _get_file_info(self, uuid: uuid.UUID) -> List[Tuple[Path, str]]:
+    def _get_file_info(self, uuid: uuid.UUID) -> list[tuple[Path, str]]:
         r = self.get(f"file/{uuid.hex}")
         data = r.json()
         files = data["files"]

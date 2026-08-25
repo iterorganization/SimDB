@@ -2,7 +2,7 @@ import configparser
 import os
 import platform
 from pathlib import Path
-from typing import Dict, List, Optional, TextIO, Tuple, Union, cast
+from typing import TextIO, cast, overload
 
 import appdirs
 
@@ -11,7 +11,7 @@ class ConfigError(Exception):
     pass
 
 
-def _parse_name(arg: str) -> Tuple[str, str]:
+def _parse_name(arg: str) -> tuple[str, str]:
     if "." in arg:
         section, *name, option = arg.split(".")
         if name:
@@ -43,7 +43,7 @@ def _isfloat(value: str) -> bool:
     )
 
 
-def _convert(value: str) -> Union[int, float, str, bool]:
+def _convert(value: str) -> int | float | str | bool:
     if value == "":
         return value
     elif value.isdecimal():
@@ -115,7 +115,7 @@ class Config:
     def api_version(self) -> str:
         return self._api_version
 
-    def load(self, file: Optional[TextIO] = None) -> None:
+    def load(self, file: TextIO | None = None) -> None:
         """
         Load the configuration.
 
@@ -168,7 +168,7 @@ class Config:
         self._debug = debug
 
     @property
-    def default_remote(self) -> Optional[str]:
+    def default_remote(self) -> str | None:
         """
         Returns the default remote used by the SimDB client.
         """
@@ -235,7 +235,7 @@ class Config:
         with os.fdopen(fd, "w") as file:
             self._parser.write(file)
 
-    def sections(self) -> List[str]:
+    def sections(self) -> list[str]:
         """
         Return all sections in the configuration.
         """
@@ -244,8 +244,8 @@ class Config:
     def get_section(
         self,
         name: str,
-        default: Optional[Dict[str, Union[int, float, bool, str]]] = None,
-    ) -> Dict[str, Union[int, float, bool, str]]:
+        default: dict[str, int | float | bool | str] | None = None,
+    ) -> dict[str, int | float | bool | str]:
         """
         Returns the section from the configuration with the given name.
 
@@ -263,11 +263,22 @@ class Config:
                 return default
             raise KeyError(f"Section {name} not found in configuration") from None
 
+    @overload
+    def get_option(self, name: str) -> int | float | bool | str: ...
+    @overload
+    def get_option(
+        self, name: str, default: int | float | bool | str | _NothingSentinel
+    ) -> int | float | bool | str: ...
+    @overload
+    def get_option(
+        self, name: str, default: None
+    ) -> str | int | float | bool | str | None: ...
+
     def get_option(
         self,
         name: str,
-        default: Union[int, float, bool, str, None, _NothingSentinel] = NOTHING,
-    ) -> Union[int, float, bool, str]:
+        default: int | float | bool | str | _NothingSentinel | None = NOTHING,
+    ) -> int | float | bool | str | None:
         """
         Returns the value for the option with the given name from the configuration.
 
@@ -283,13 +294,20 @@ class Config:
             return _convert(self._parser.get(section, option))
         except (configparser.NoSectionError, configparser.NoOptionError):
             if default is not Config.NOTHING:
-                value = cast(Union[int, float, bool, str], default)
+                value = cast(int | float | bool | str, default)
                 return value
             raise KeyError(f"Option {name} not found in configuration") from None
 
+    @overload
+    def get_string_option(self, name: str) -> str: ...
+    @overload
+    def get_string_option(self, name: str, default: str | _NothingSentinel) -> str: ...
+    @overload
+    def get_string_option(self, name: str, default: None) -> str | None: ...
+
     def get_string_option(
-        self, name: str, default: Union[str, None, _NothingSentinel] = NOTHING
-    ) -> str:
+        self, name: str, default: str | _NothingSentinel | None = NOTHING
+    ) -> str | None:
         """
         Returns the value for the option with the given name from the configuration but
         also ensures the resulting value is a string.
@@ -304,9 +322,16 @@ class Config:
             )
         return value
 
+    @overload
+    def get_int_option(self, name: str) -> int: ...
+    @overload
+    def get_int_option(self, name: str, default: int | _NothingSentinel) -> int: ...
+    @overload
+    def get_int_option(self, name: str, default: None) -> int | None: ...
+
     def get_int_option(
-        self, name: str, default: Union[int, None, _NothingSentinel] = NOTHING
-    ) -> int:
+        self, name: str, default: int | _NothingSentinel | None = NOTHING
+    ) -> int | None:
         """
         Returns the value for the option with the given name from the configuration but
         also ensures the resulting value is an integer.
@@ -329,7 +354,7 @@ class Config:
         """
         section, option = _parse_name(name)
         try:
-            self._parser.remove_option(section, option)
+            _ = self._parser.remove_option(section, option)
         except (configparser.NoSectionError, configparser.NoOptionError):
             raise KeyError(f"Option {name} not found in configuration") from None
 
@@ -343,11 +368,11 @@ class Config:
         """
         section = _parse_section(name)
         try:
-            self._parser.remove_section(section)
+            _ = self._parser.remove_section(section)
         except configparser.NoSectionError:
             raise KeyError(f"Section {name} not found in configuration") from None
 
-    def set_option(self, name: str, value: Union[int, float, bool, str]) -> None:
+    def set_option(self, name: str, value: int | float | bool | str) -> None:
         """
         Set the option with the given name to the given value.
 
@@ -359,7 +384,7 @@ class Config:
             self._parser.add_section(section)
         self._parser.set(section, option, str(value))
 
-    def list_options(self) -> List[str]:
+    def list_options(self) -> list[str]:
         """
         List all the options found in the configuration.
 

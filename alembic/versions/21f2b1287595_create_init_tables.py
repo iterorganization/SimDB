@@ -6,7 +6,7 @@ Create Date: 2026-02-13 10:11:39.262884
 
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 
@@ -16,9 +16,9 @@ from simdb.notifications import Notification
 
 # revision identifiers, used by Alembic.
 revision: str = "21f2b1287595"
-down_revision: Union[str, Sequence[str], None] = None
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 # Define notification choices
 NOTIFICATION_CHOICES = {

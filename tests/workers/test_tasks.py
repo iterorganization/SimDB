@@ -169,8 +169,9 @@ def task_environment(tmp_path):
     mock_db = mock.MagicMock()
     mock_db.get_simulation.return_value = mock_simulation
 
-    with mock.patch("simdb.workers.tasks.Config", return_value=config), mock.patch(
-        "simdb.workers.tasks.get_db", return_value=mock_db
+    with (
+        mock.patch("simdb.workers.tasks.Config", return_value=config),
+        mock.patch("simdb.workers.tasks.get_db", return_value=mock_db),
     ):
         yield {
             "config": config,

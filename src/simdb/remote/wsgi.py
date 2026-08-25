@@ -22,8 +22,8 @@ def run():
     if config.get_option("server.ssl_enabled"):
         context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
         context.load_cert_chain(
-            certfile=config.get_option("server.ssl_cert_file"),
-            keyfile=config.get_option("server.ssl_key_file"),
+            certfile=config.get_string_option("server.ssl_cert_file"),
+            keyfile=config.get_string_option("server.ssl_key_file"),
         )
         app.run(host="0.0.0.0", port=port, ssl_context=context)
     else:

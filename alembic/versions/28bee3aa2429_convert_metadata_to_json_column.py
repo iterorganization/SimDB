@@ -8,7 +8,8 @@ Create Date: 2026-02-26 17:01:30.925750
 
 import json
 import pickle
-from typing import Any, Sequence, Union
+from collections.abc import Sequence
+from typing import Any
 
 import numpy as np
 import sqlalchemy as sa
@@ -18,9 +19,9 @@ from sqlalchemy.dialects import postgresql
 from alembic import op
 
 revision: str = "28bee3aa2429"
-down_revision: Union[str, Sequence[str], None] = "9e9a4a7cd639"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = "9e9a4a7cd639"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def _make_json_serializable(value: Any) -> Any:
