@@ -23,6 +23,7 @@ from requests.auth import AuthBase, HTTPBasicAuth
 from semantic_version import Version
 
 from file_transfer.http import FileTransferHandler, HttpFileTransferHandler
+from file_transfer.rclone import RcloneFileTransferHandler
 from simdb.config import Config
 from simdb.database.models import Simulation
 from simdb.imas.utils import SimDBUrl, imas_files
@@ -855,7 +856,7 @@ class RemoteAPI:
 
         transfer_handlers: dict[str, type[FileTransferHandler]] = {
             "HTTP": HttpFileTransferHandler,
-            # "RCLONE": RcloneFileTransferHandler,
+            "RCLONE": RcloneFileTransferHandler,
         }
 
         handler = None
