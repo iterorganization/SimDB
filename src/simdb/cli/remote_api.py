@@ -773,7 +773,8 @@ class RemoteAPI:
         simulation: Simulation,
         sim_data: dict[str, Any],
         file: File,
-        copy_ids: bool, out_stream: IO[str],
+        copy_ids: bool,
+        out_stream: IO[str],
         file_type: str,
     ) -> None:
         if file.type == DataType.IMAS:
@@ -874,10 +875,14 @@ class RemoteAPI:
             copy_ids = upload_options.get("copy_ids", True)
 
             for file in simulation.inputs:
-                self._send_file(handler, simulation, sim_data, file, copy_ids, out_stream, "input")
+                self._send_file(
+                    handler, simulation, sim_data, file, copy_ids, out_stream, "input"
+                )
 
             for file in simulation.outputs:
-                self._send_file(handler, simulation, sim_data, file, copy_ids, out_stream, "output")
+                self._send_file(
+                    handler, simulation, sim_data, file, copy_ids, out_stream, "output"
+                )
 
         sim_data = simulation.data(recurse=True)
         uploaded_by = simulation.meta_dict().get("uploaded_by", None)

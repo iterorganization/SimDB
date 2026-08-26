@@ -113,7 +113,7 @@ def _calculate_sim_data_size(sim_data: dict[str, Any]) -> int:
 
 class HttpFileTransferHandler(FileTransferHandler):
     HEADROOM = 2048  # for JSON envelope & headers
-    BASE_CHUNK_SIZE = 8 * 1024 * 1024 # Base chunk size before adjustment
+    BASE_CHUNK_SIZE = 8 * 1024 * 1024  # Base chunk size before adjustment
 
     def __init__(self, api: PostAPI, max_request_size: int = 10 * 1024 * 1024) -> None:
         self._max_request_size = max_request_size
@@ -160,7 +160,11 @@ class HttpFileTransferHandler(FileTransferHandler):
     ) -> None:
         sim_data_size = _calculate_sim_data_size(sim_data)
         chunk_size = max(
-            1024, min(self.BASE_CHUNK_SIZE, self._max_request_size - sim_data_size - self.HEADROOM)
+            1024,
+            min(
+                self.BASE_CHUNK_SIZE,
+                self._max_request_size - sim_data_size - self.HEADROOM,
+            ),
         )
 
         msg = f"Uploading file {path} "

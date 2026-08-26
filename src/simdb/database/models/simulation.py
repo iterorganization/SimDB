@@ -394,7 +394,10 @@ class Simulation(Base):
         return simulation
 
     def data(
-        self, recurse: bool = False, meta_keys: Optional[List[str]] = None, no_meta: bool = False
+        self,
+        recurse: bool = False,
+        meta_keys: Optional[List[str]] = None,
+        no_meta: bool = False,
     ) -> Dict[str, Any]:
         data: Dict[str, Any] = {
             "uuid": self.uuid,
