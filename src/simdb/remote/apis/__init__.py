@@ -10,7 +10,9 @@ from flask_restx import Resource
 from simdb import __version__
 from simdb.database import Database
 from simdb.remote.core.auth import AuthenticationError, User, requires_auth
+from simdb.remote.core.pydantic_utils import pydantic_validate
 from simdb.remote.core.typing import current_app
+from simdb.remote.models import UploadOptionsData
 from simdb.validation.validator import Validator
 
 from .v1 import api as api_v1
@@ -139,15 +141,38 @@ def register(api, version, namespaces):
 
     @api.route("/upload_options")
     class UploadOptions(Resource):
+        FileTransferChoices: list[str] = ["HTTP", "RCLONE"]
+
         @requires_auth()
+        @pydantic_validate(api)
         def get(self, user: User):
             config = current_app.simdb_config
+
+            available_transfer_types: list[str] = []
+            transfer_options = {}
+
+            for section in config.sections():
+                if section.startswith("file_transfer"):
+                    name = section.split(" ")[1][1:-1].upper()
+                    if name not in self.FileTransferChoices:
+                        return error("Unknown file transfer type: " + name)
+                    available_transfer_types.append(name)
+                    transfer_options[name] = {}
+                    for key, value in config.get_section(section).items():
+                        transfer_options[name][key] = value
+
+            if "HTTP" not in available_transfer_types:
+                available_transfer_types.append("HTTP")
+                transfer_options["HTTP"] = {}
+
             options = {
                 "copy_files": config.get_option("server.copy_files", default=True),
                 "copy_ids": config.get_option("server.copy_ids", default=True),
+                "available_transfer_types": available_transfer_types,
+                "transfer_options": transfer_options,
             }
 
-            return jsonify(options)
+            return UploadOptionsData.model_validate(options)
 
 
 register(api_v1, "v1", namespaces_v1)

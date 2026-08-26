@@ -28,7 +28,6 @@ class FileTransferHandler(ABC):
         uuid: uuid.UUID,
         file_type: str,
         sim_data: dict[str, Any],
-        chunk_size: int,
         log_stream: IO[str],
         type: DataType,
     ): ...

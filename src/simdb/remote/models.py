@@ -478,6 +478,21 @@ class ChunkInfoDict(RootModel):
     root: Dict[str, ChunkInfo]
 
 
+class UploadOptionsData(BaseModel):
+    """
+    Model representing the transfer options that is available to transfer files to the
+    server."""
+
+    """List of available transfer types available for this server."""
+    available_transfer_types: list[Literal["HTTP", "RCLONE"]]
+    """Options for each available transfer type."""
+    transfer_options: Dict[str, Dict[str, Any]]
+    """Whether to copy files to the server."""
+    copy_files: bool
+    """Whether to copy IDs to the server."""
+    copy_ids: bool
+
+
 class FileUploadData(BaseModel):
     """Data payload for file chunk upload (sent as JSON in 'data' field)."""
 

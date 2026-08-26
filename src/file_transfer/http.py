@@ -101,8 +101,22 @@ def stage_file_from_chunks(
         save_chunked_file(file, file_chunk_info, path)
 
 
+def _calculate_sim_data_size(sim_data: dict[str, Any]) -> int:
+    try:
+        sim_json = json.dumps(
+            sim_data, cls=CustomEncoder, separators=(",", ":")
+        ).encode("utf-8")
+        return len(sim_json)
+    except Exception:
+        return 0
+
+
 class HttpFileTransferHandler(FileTransferHandler):
-    def __init__(self, api: PostAPI) -> None:
+    HEADROOM = 2048  # for JSON envelope & headers
+    BASE_CHUNK_SIZE = 8 * 1024 * 1024 # Base chunk size before adjustment
+
+    def __init__(self, api: PostAPI, max_request_size: int = 10 * 1024 * 1024) -> None:
+        self._max_request_size = max_request_size
         super().__init__(api)
 
     def _send_chunk(
@@ -112,7 +126,7 @@ class HttpFileTransferHandler(FileTransferHandler):
         chunk_size: int,
         file_uuid: uuid.UUID,
         file_type: str,
-        sim_data: dict,
+        sim_data: dict[str, Any],
     ) -> None:
         data = {
             "simulation": sim_data,
@@ -141,13 +155,18 @@ class HttpFileTransferHandler(FileTransferHandler):
         uuid: uuid.UUID,
         file_type: str,
         sim_data: dict[str, Any],
-        chunk_size: int,
         log_stream: IO[str],
         type: DataType,
     ) -> None:
+        sim_data_size = _calculate_sim_data_size(sim_data)
+        chunk_size = max(
+            1024, min(self.BASE_CHUNK_SIZE, self._max_request_size - sim_data_size - self.HEADROOM)
+        )
+
         msg = f"Uploading file {path} "
         print(msg, file=log_stream, end="")
         num_chunks = 0
+
         for chunk_index, chunk in enumerate(
             _read_bytes_in_chunks(path, compressed=True, chunk_size=chunk_size)
         ):

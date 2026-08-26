@@ -394,7 +394,7 @@ class Simulation(Base):
         return simulation
 
     def data(
-        self, recurse: bool = False, meta_keys: Optional[List[str]] = None
+        self, recurse: bool = False, meta_keys: Optional[List[str]] = None, no_meta: bool = False
     ) -> Dict[str, Any]:
         data: Dict[str, Any] = {
             "uuid": self.uuid,
@@ -404,10 +404,11 @@ class Simulation(Base):
         if recurse:
             data["inputs"] = [f.data(recurse=True) for f in self.inputs]
             data["outputs"] = [f.data(recurse=True) for f in self.outputs]
-            meta_dict = self._get_metadata_dict()
-            data["metadata"] = [
-                {"element": k, "value": v} for k, v in meta_dict.items()
-            ]
+            if not no_meta:
+                meta_dict = self._get_metadata_dict()
+                data["metadata"] = [
+                    {"element": k, "value": v} for k, v in meta_dict.items()
+                ]
         elif meta_keys:
             meta_dict = self._get_metadata_dict()
             data["metadata"] = [

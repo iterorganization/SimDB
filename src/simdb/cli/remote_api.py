@@ -4,6 +4,7 @@ import gzip
 import hashlib
 import itertools
 import json
+from logging import fatal
 import os
 import pickle
 import sys
@@ -21,7 +22,7 @@ import requests
 from requests.auth import AuthBase, HTTPBasicAuth
 from semantic_version import Version
 
-from file_transfer.http import HttpFileTransferHandler
+from file_transfer.http import FileTransferHandler, HttpFileTransferHandler
 from simdb.config import Config
 from simdb.database.models import Simulation
 from simdb.imas.utils import SimDBUrl, imas_files
@@ -639,6 +640,19 @@ class RemoteAPI:
             # old remotes may not provide this endpoint
             return {}
 
+    @versioned_method("v1.3")
+    @try_request
+    def get_file_transfer_options(self) -> dict[str, Any]:
+        try:
+            res = self.get("file_transfer_options")
+            return res.json()
+        except FailedConnection:
+            # old remotes may not provide this endpoint
+            return {
+                "available_transfer_types": ["HTTP"],
+                "transfer_options": {"HTTP": {}},
+            }
+
     @versioned_method("v1.2", "v1.3")
     @try_request
     def list_simulations(
@@ -752,6 +766,68 @@ class RemoteAPI:
         res = self.get("staging_dir")
         return res.json()["staging_dir"]
 
+    def _send_file(
+        self,
+        handler: FileTransferHandler,
+        simulation: Simulation,
+        sim_data: dict[str, Any],
+        file: File,
+        copy_ids: bool, out_stream: IO[str],
+        file_type: str,
+    ) -> None:
+        if file.type == DataType.IMAS:
+            if not copy_ids:
+                print(f"Skipping IDS data {file}", file=out_stream, flush=True)
+                return
+            ids_list = simulation.meta_dict().get("input_ids", [])
+            for path in imas_files(file.uri):
+                # Check if hdf5 ids_name is in ids_list
+                ids_name = Path(path).name.split(".")
+                if ids_name[1] == "h5" and (
+                    ids_name[0] != "master"
+                    and ids_list is not None
+                    and ids_name[0] not in ids_list
+                ):
+                    continue
+                sim_file = next(
+                    f for f in sim_data[file_type + "s"] if f.get("uuid") == file.uuid
+                )
+                sim_file["uri"] = f"file:{path}"
+                handler.send_file(
+                    path,
+                    file.uuid,
+                    file_type,
+                    sim_data,
+                    out_stream,
+                    file.type,
+                )
+
+            _ = self.post(
+                "files",
+                data={
+                    "simulation": simulation.data(recurse=True),
+                    "obj_type": file.type,
+                    "files": [
+                        {
+                            "file_type": file_type,
+                            "file_uuid": file.uuid.hex,
+                            "ids_list": ids_list,
+                        }
+                    ],
+                },
+            )
+
+        else:
+            if file.uri and file.uri.path:
+                handler.send_file(
+                    Path(file.uri.path),
+                    file.uuid,
+                    file_type,
+                    sim_data,
+                    out_stream,
+                    file.type,
+                )
+
     @versioned_method("v1.2", "v1.3")
     @try_request
     def push_simulation(
@@ -772,156 +848,40 @@ class RemoteAPI:
                             remote server
         """
 
-        sim_data = simulation.data(recurse=True)
+        sim_data = simulation.data(recurse=True, no_meta=True)
 
-        try:
-            sim_json = json.dumps(
-                sim_data, cls=CustomEncoder, separators=(",", ":")
-            ).encode("utf-8")
-            sim_json_size = len(sim_json)
-        except Exception:
-            sim_json_size = 0
+        upload_options = self.get_upload_options()
+        available_transfer_types = upload_options["available_transfer_types"]
 
-        # Target max request (10MB minus headroom); adjust chunk size so
-        # (chunk + sim_data JSON) fits
-        MAX_REQUEST_BYTES = 9 * 1024 * 1024  # nominal 10 MB limit
-        HEADROOM = 2048  # for JSON envelope & headers
-        # Base chunk size before adjustment (previous constant)
-        base_chunk_size = 8 * 1024 * 1024
-        # Compute allowed chunk payload
-        allowed_chunk = max(
-            1024, min(base_chunk_size, MAX_REQUEST_BYTES - sim_json_size - HEADROOM)
-        )
+        transfer_handlers: dict[str, type[FileTransferHandler]] = {
+            "HTTP": HttpFileTransferHandler,
+            # "RCLONE": RcloneFileTransferHandler,
+        }
 
-        options = self.get_upload_options()
-        if options.get("copy_files", True):
-            chunk_size = allowed_chunk  # 10 MB limit on ITER network
-            handler = HttpFileTransferHandler(self)
+        handler = None
+        for transfer_type in available_transfer_types:
+            if transfer_type not in transfer_handlers:
+                continue
+            file_transfer_options = upload_options["transfer_options"][transfer_type]
+            handler = transfer_handlers[transfer_type](self, **file_transfer_options)
+            break
 
-            copy_ids = options.get("copy_ids", True)
+        if handler is None:
+            raise ValueError("No file transfer handler available")
+
+        if upload_options.get("copy_files", True):
+            copy_ids = upload_options.get("copy_ids", True)
 
             for file in simulation.inputs:
-                if file.type == DataType.IMAS:
-                    if not copy_ids:
-                        print(f"Skipping IDS data {file}", file=out_stream, flush=True)
-                        continue
-                    ids_list = simulation.meta_dict().get("input_ids", [])
-                    for path in imas_files(file.uri):
-                        # Check if hdf5 ids_name is in ids_list
-                        ids_name = Path(path).name.split(".")
-                        if ids_name[1] == "h5" and (
-                            ids_name[0] != "master"
-                            and ids_list is not None
-                            and ids_name[0] not in ids_list
-                        ):
-                            continue
-                        sim_file = next(
-                            f for f in sim_data["inputs"] if f.get("uuid") == file.uuid
-                        )
-                        sim_file["uri"] = f"file:{path}"
-                        handler.send_file(
-                            path,
-                            file.uuid,
-                            "input",
-                            sim_data,
-                            chunk_size,
-                            out_stream,
-                            file.type,
-                        )
-
-                    self.post(
-                        "files",
-                        data={
-                            "simulation": simulation.data(recurse=True),
-                            "obj_type": file.type,
-                            "files": [
-                                {
-                                    "file_type": "input",
-                                    "file_uuid": file.uuid.hex,
-                                    "ids_list": ids_list,
-                                }
-                            ],
-                        },
-                    )
-
-                else:
-                    if file.uri and file.uri.path:
-                        handler.send_file(
-                            Path(file.uri.path),
-                            file.uuid,
-                            "input",
-                            sim_data,
-                            chunk_size,
-                            out_stream,
-                            file.type,
-                        )
+                self._send_file(handler, simulation, sim_data, file, copy_ids, out_stream, "input")
 
             for file in simulation.outputs:
-                if file.type == DataType.IMAS:
-                    if not copy_ids:
-                        print(f"Skipping IDS data {file}", file=out_stream, flush=True)
-                        continue
-
-                    ids_list = simulation.meta_dict().get("ids", [])
-                    for path in imas_files(file.uri):
-                        # Check if hdf5 ids_name is in ids_list
-                        ids_name = Path(path).name.split(".")
-                        if ids_name[1] == "h5" and (
-                            ids_name[0] != "master"
-                            and ids_list is not None
-                            and ids_name[0] not in ids_list
-                        ):
-                            continue
-                        sim_file = next(
-                            (
-                                f
-                                for f in sim_data["outputs"]
-                                if f.get("uuid") == file.uuid
-                            ),
-                            None,
-                        )
-                        if sim_file:
-                            sim_file["uri"] = f"file:{path}"
-                        handler.send_file(
-                            path,
-                            file.uuid,
-                            "output",
-                            sim_data,
-                            chunk_size,
-                            out_stream,
-                            file.type,
-                        )
-
-                    self.post(
-                        "files",
-                        data={
-                            "simulation": simulation.data(recurse=True),
-                            "obj_type": file.type,
-                            "files": [
-                                {
-                                    "file_type": "output",
-                                    "file_uuid": file.uuid.hex,
-                                    "ids_list": ids_list,
-                                }
-                            ],
-                        },
-                    )
-                else:
-                    if file.uri and file.uri.path:
-                        handler.send_file(
-                            Path(file.uri.path),
-                            file.uuid,
-                            "output",
-                            sim_data,
-                            chunk_size,
-                            out_stream,
-                            file.type,
-                        )
+                self._send_file(handler, simulation, sim_data, file, copy_ids, out_stream, "output")
 
         sim_data = simulation.data(recurse=True)
         uploaded_by = simulation.meta_dict().get("uploaded_by", None)
         print("Uploading simulation data ... ", file=out_stream, end="", flush=True)
-        self.post(
+        _ = self.post(
             "simulations",
             data={
                 "simulation": sim_data,
