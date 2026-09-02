@@ -241,7 +241,10 @@ def _format_meta_value(meta_value: Any, max_len: int) -> str:
     if isinstance(meta_value, list):
         values = []
         for i, v in enumerate(meta_value):
-            values.append(f"{v:.2f}")
+            if isinstance(v, bool) or not isinstance(v, (int, float)):
+                values.append(str(v))
+            else:
+                values.append(f"{v:.2f}")
             if i >= max_len - 1:
                 values.append("...")
                 break

@@ -521,7 +521,7 @@ class FileUploadResponse(BaseModel):
 class FileRegistrationItem(BaseModel):
     """A single file entry in the file registration payload."""
 
-    chunks: int
+    chunks: int = 0
     """The amount of chunks to be processed."""
     file_type: str
     """The file type."""
