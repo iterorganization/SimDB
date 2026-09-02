@@ -26,7 +26,29 @@ def test_get_watchers(client):
     )
 
     assert rv.status_code == 200
-    WatcherGetResponse.model_validate(rv.json)
+    assert WatcherGetResponse.model_validate(rv.json).root == []
+
+    # Watchers that have been added are reported with the notification character
+    post_data = WatcherPostRequest(
+        user="testuser", email="example@iter.org", notification="ALL"
+    )
+    rv_add = client.post(
+        f"/v1.2/watchers/{simulation_data.simulation.uuid.hex}",
+        json=post_data.model_dump(mode="json"),
+        headers=HEADERS,
+        content_type="application/json",
+    )
+    assert rv_add.status_code == 200
+
+    rv = client.get(
+        f"/v1.2/watchers/{simulation_data.simulation.uuid.hex}", headers=HEADERS
+    )
+
+    assert rv.status_code == 200
+    watchers = WatcherGetResponse.model_validate(rv.json).root
+    assert [(w.username, w.email, w.notification) for w in watchers] == [
+        ("testuser", "example@iter.org", "A")
+    ]
 
 
 def test_post_watchers(client):

@@ -5,6 +5,7 @@ from utils import config_test_file
 
 from simdb.cli.simdb import cli
 from simdb.notifications import Notification
+from simdb.remote.models import WatcherData
 
 
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_authentication")
@@ -24,7 +25,11 @@ def test_remote_watchers_list_command(
     get_server_version.return_value = "0.11"
     get_server_authentication.return_value = "None"
     sim_id = "acbd1234"
-    watchers = ["a", "b", "c"]
+    watchers = [
+        WatcherData(username="a", email="a@simdb.test", notification="A"),
+        WatcherData(username="b", email="b@simdb.test", notification="V"),
+        WatcherData(username="c", email="c@simdb.test", notification="R"),
+    ]
     list_watchers.return_value = watchers
     config_file = config_test_file()
     runner = CliRunner()
@@ -34,7 +39,8 @@ def test_remote_watchers_list_command(
     assert result.exception is None
     assert sim_id in result.output
     for watcher in watchers:
-        assert watcher in result.output
+        assert watcher.username in result.output
+        assert watcher.email in result.output
     assert list_watchers.called
     assert get_api_version.called
 

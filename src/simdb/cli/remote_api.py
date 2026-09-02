@@ -4,7 +4,6 @@ import gzip
 import hashlib
 import io
 import itertools
-import json
 import os
 import pickle
 import shutil
@@ -30,14 +29,50 @@ from urllib.parse import urlparse
 import appdirs
 import click
 import requests
+from pydantic import BaseModel, ValidationError
 from requests.auth import AuthBase
 from semantic_version import Version
 
 from simdb.config import Config
 from simdb.database.models import Simulation
 from simdb.imas.utils import SimDBUrl, imas_files
-from simdb.json import CustomDecoder, CustomEncoder
-from simdb.remote import CLIENT_API_VERSIONS, APIConstants
+from simdb.remote import CLIENT_API_VERSIONS
+from simdb.remote.models import (
+    ChunkInfo,
+    FileGetDataResponse,
+    FileRegistrationData,
+    FileRegistrationItem,
+    FileUploadData,
+    ImasDataQueryParams,
+    ImasDataResponse,
+    IndexResponse,
+    MetadataDataList,
+    MetadataDeleteData,
+    MetadataDeleteResponse,
+    MetadataPatchData,
+    MetadataValue,
+    PaginatedResponse,
+    PaginationData,
+    SimulationData,
+    SimulationDataResponse,
+    SimulationDeleteResponse,
+    SimulationListItem,
+    SimulationPatchResponse,
+    SimulationPostData,
+    SimulationTraceData,
+    StagingDirectoryResponse,
+    StatusPatchData,
+    TokenResponse,
+    UploadOptions,
+    ValidationResult,
+    ValidationSchemaList,
+    WatcherData,
+    WatcherDeleteRequest,
+    WatcherDeleteResponse,
+    WatcherGetResponse,
+    WatcherPostRequest,
+    WatcherPostResponse,
+)
 
 from .manifest import DataType
 
@@ -92,6 +127,18 @@ Invalid JSON returned from request endpoint
 
 This might indicate an invalid SimDB URL or the existence of a firewall.
                 """
+            ) from None
+        except ValidationError as ex:
+            if any(error["type"] == "json_invalid" for error in ex.errors()):
+                raise FailedConnection(
+                    """\
+Invalid JSON returned from request endpoint
+
+This might indicate an invalid SimDB URL or the existence of a firewall.
+                    """
+                ) from None
+            raise RemoteError(
+                f"Unexpected data exchanged with the remote:\n{ex}"
             ) from None
 
     return wrapped_func
@@ -214,6 +261,23 @@ def select_api_version(
     return max(common_versions, key=lambda v: Version.coerce(v.lstrip("v")))
 
 
+RequestData = Optional[BaseModel]
+"""Body of a request, described by the pydantic model of the endpoint."""
+
+
+def serialise_request_data(data: RequestData) -> Union[str, Dict]:
+    """
+    Serialise the body of a request to JSON.
+
+    @param data: the request body as the pydantic model of the endpoint, or None
+                 for a request without a body.
+    @return: the JSON encoded body, or an empty dict if there is no body.
+    """
+    if data is None:
+        return {}
+    return data.model_dump_json()
+
+
 def check_return(res: "requests.Response") -> None:
     if res.status_code != 200:
         try:
@@ -224,6 +288,46 @@ def check_return(res: "requests.Response") -> None:
             raise RemoteError(data["error"])
         else:
             res.raise_for_status()
+
+
+def _pagination_headers(limit: int, page: int = 1) -> Dict[str, str]:
+    """
+    Return the pagination request headers, leaving out the server side defaults.
+    """
+    pagination = PaginationData.model_validate({"limit": limit, "page": page})
+    return {
+        name: str(value)
+        for name, value in pagination.model_dump(
+            by_alias=True, exclude_defaults=True
+        ).items()
+    }
+
+
+def _meta_list(value: Any) -> List[Any]:
+    """
+    Return a metadata value as the list of names the files endpoint expects.
+    """
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple)):
+        return list(value)
+    return [value]
+
+
+def _simulation_from_list_item(item: SimulationListItem) -> "Simulation":
+    """
+    Build a Simulation from the summary returned by the simulation list endpoint.
+    """
+    return Simulation.from_data_model(
+        SimulationData.model_validate(
+            {
+                "uuid": item.uuid,
+                "alias": item.alias,
+                "datetime": item.datetime,
+                "metadata": item.metadata,
+            }
+        )
+    )
 
 
 def _get_paths(file: "File") -> Iterable[Path]:
@@ -462,23 +566,24 @@ class RemoteAPI:
         check_return(res)
         return res
 
-    def put(self, url: str, data: Dict, **kwargs) -> "requests.Response":
+    def put(self, url: str, data: RequestData, **kwargs) -> "requests.Response":
         """
         Perform an HTTP PUT request.
 
         @param url: the URL of the request.
-        @param data: the PUT data to send.
+        @param data: the PUT data to send, as the pydantic model of the endpoint.
         @param kwargs: any additional keyword arguments to add to the request.
         @return:
         """
 
         headers = {"Content-type": "application/json"}
         headers["User-Agent"] = "it_script_basic"
+        put_data = serialise_request_data(data)
 
         if self._server_auth != "None":
             res = requests.put(
                 self._api_url + url,
-                data=json.dumps(data, cls=CustomEncoder),
+                data=put_data,
                 headers=headers,
                 auth=self._get_auth(),
                 cookies=self._cookies,
@@ -487,7 +592,7 @@ class RemoteAPI:
         else:
             res = requests.put(
                 self._api_url + url,
-                data=json.dumps(data, cls=CustomEncoder),
+                data=put_data,
                 headers=headers,
                 cookies=self._cookies,
                 **kwargs,
@@ -496,12 +601,12 @@ class RemoteAPI:
         check_return(res)
         return res
 
-    def post(self, url: str, data: Dict, **kwargs) -> "requests.Response":
+    def post(self, url: str, data: RequestData, **kwargs) -> "requests.Response":
         """
         Perform an HTTP POST request.
 
         @param url: the URL of the request.
-        @param data: the POST data to send.
+        @param data: the POST data to send, as the pydantic model of the endpoint.
         @param kwargs: any additional keyword arguments to add to the request.
         @return:
         """
@@ -512,7 +617,7 @@ class RemoteAPI:
             headers = {}
         else:
             headers = {"Content-type": "application/json"}
-        post_data = json.dumps(data, cls=CustomEncoder, indent=2) if data else {}
+        post_data = serialise_request_data(data)
         headers["User-Agent"] = "it_script_basic"
 
         # Compress the data if it is larger than 2 MB and the URL is for simulations
@@ -549,23 +654,24 @@ class RemoteAPI:
         check_return(res)
         return res
 
-    def patch(self, url: str, data: Dict, **kwargs) -> "requests.Response":
+    def patch(self, url: str, data: RequestData, **kwargs) -> "requests.Response":
         """
         Perform an HTTP PATCH request.
 
         @param url: the URL of the request.
-        @param data: the PATCH data to send.
+        @param data: the PATCH data to send, as the pydantic model of the endpoint.
         @param kwargs: any additional keyword arguments to add to the request.
         @return:
         """
 
         headers = {"Content-type": "application/json"}
         headers["User-Agent"] = "it_script_basic"
+        patch_data = serialise_request_data(data)
 
         if self._server_auth != "None":
             res = requests.patch(
                 self._api_url + url,
-                data=json.dumps(data, cls=CustomEncoder),
+                data=patch_data,
                 headers=headers,
                 auth=self._get_auth(),
                 cookies=self._cookies,
@@ -574,7 +680,7 @@ class RemoteAPI:
         else:
             res = requests.patch(
                 self._api_url + url,
-                data=json.dumps(data, cls=CustomEncoder),
+                data=patch_data,
                 headers=headers,
                 cookies=self._cookies,
                 **kwargs,
@@ -583,23 +689,24 @@ class RemoteAPI:
         check_return(res)
         return res
 
-    def delete(self, url: str, data: Dict[Any, Any], **kwargs) -> "requests.Response":
+    def delete(self, url: str, data: RequestData, **kwargs) -> "requests.Response":
         """
         Perform an HTTP DELETE request.
 
         @param url: the URL of the request.
-        @param data: the DELETE data to send.
+        @param data: the DELETE data to send, as the pydantic model of the endpoint.
         @param kwargs: any additional keyword arguments to add to the request.
         @return:
         """
 
         headers = {"Content-type": "application/json"}
         headers["User-Agent"] = "it_script_basic"
+        delete_data = serialise_request_data(data)
 
         if self._server_auth != "None":
             res = requests.delete(
                 self._api_url + url,
-                data=json.dumps(data, cls=CustomEncoder),
+                data=delete_data,
                 headers=headers,
                 auth=self._get_auth(),
                 cookies=self._cookies,
@@ -608,7 +715,7 @@ class RemoteAPI:
         else:
             res = requests.delete(
                 self._api_url + url,
-                data=json.dumps(data, cls=CustomEncoder),
+                data=delete_data,
                 headers=headers,
                 cookies=self._cookies,
                 **kwargs,
@@ -619,56 +726,59 @@ class RemoteAPI:
     def has_url(self) -> bool:
         return bool(self._url)
 
+    @try_request
+    def _get_index(self) -> IndexResponse:
+        """
+        Return the index of the endpoint the current request targets.
+        """
+        res = self.get("", authenticate=False)
+        return IndexResponse.model_validate_json(res.content)
+
     @versioned_method("v1.2", "v1.3")
     @try_request
     def get_token(self) -> str:
         res = self.get("token")
-        data = res.json()
-        return data["token"]
+        return TokenResponse.model_validate_json(res.content).token
 
     @versioned_method("v1.2", "v1.3")
-    @try_request
     def get_endpoints(self) -> List[str]:
-        res = self.get("", authenticate=False)
-        data = res.json()
-        return data["endpoints"]
+        return self._get_index().endpoints
 
     @versioned_method("v1.2", "v1.3")
-    @try_request
     def get_server_authentication(self) -> Optional[str]:
-        res = self.get("", authenticate=False)
-        data = res.json()
-        return data.get("authentication")
+        return self._get_index().authentication
 
     @versioned_method("v1.2", "v1.3")
-    @try_request
     def get_api_version(self) -> str:
-        res = self.get("", authenticate=False)
-        data = res.json()
-        return data["api_version"]
+        version = self._get_index().api_version
+        if version is None:
+            raise RemoteError(f"Remote '{self._remote}' did not report an API version.")
+        return version
 
     @versioned_method("v1.2", "v1.3")
-    @try_request
     def get_server_version(self) -> str:
-        res = self.get("", authenticate=False)
-        data = res.json()
-        return data["server_version"]
+        version = self._get_index().server_version
+        if version is None:
+            raise RemoteError(
+                f"Remote '{self._remote}' did not report a server version."
+            )
+        return version
 
     @versioned_method("v1.2", "v1.3")
     @try_request
     def get_validation_schemas(self) -> List[Dict]:
         res = self.get("validation_schema")
-        return res.json()
+        return ValidationSchemaList.model_validate_json(res.content).root
 
     @versioned_method("v1.2", "v1.3")
     @try_request
-    def get_upload_options(self) -> Dict[str, Any]:
+    def get_upload_options(self) -> UploadOptions:
         try:
             res = self.get("upload_options")
-            return res.json()
+            return UploadOptions.model_validate_json(res.content)
         except FailedConnection:
             # old remotes may not provide this endpoint
-            return {}
+            return UploadOptions()
 
     @versioned_method("v1.2", "v1.3")
     @try_request
@@ -676,22 +786,24 @@ class RemoteAPI:
         self, meta: Optional[List[str]] = None, limit: int = 0
     ) -> List["Simulation"]:
         args = "?" + "&".join(meta) if meta else ""
-        headers = {"simdb-result-limit": str(limit)}
+        headers = _pagination_headers(limit)
         res = self.get("simulations" + args, headers=headers)
-        data = res.json(cls=CustomDecoder)
-        return [Simulation.from_data(sim) for sim in data["results"]]
+        data = PaginatedResponse[SimulationListItem].model_validate_json(res.content)
+        return [_simulation_from_list_item(sim) for sim in data.results]
 
     @versioned_method("v1.2", "v1.3")
     @try_request
     def get_simulation(self, sim_id: str) -> "Simulation":
         res = self.get("simulation/" + sim_id)
-        return Simulation.from_data(res.json(cls=CustomDecoder))
+        return Simulation.from_data_model(
+            SimulationDataResponse.model_validate_json(res.content)
+        )
 
     @versioned_method("v1.2", "v1.3")
     @try_request
-    def trace_simulation(self, sim_id: str) -> dict:
+    def trace_simulation(self, sim_id: str) -> SimulationTraceData:
         res = self.get("trace/" + sim_id)
-        return res.json(cls=CustomDecoder)
+        return SimulationTraceData.model_validate_json(res.content)
 
     @versioned_method("v1.2", "v1.3")
     @try_request
@@ -703,92 +815,104 @@ class RemoteAPI:
             (key, value) = item.split("=")
             params[key].append(value)
         args = "?" + "&".join(meta) if meta else ""
-        headers = {
-            APIConstants.LIMIT_HEADER: str(limit),
-            APIConstants.PAGE_HEADER: str(1),
-        }
+        headers = _pagination_headers(limit, page=1)
         res = self.get("simulations" + args, params, headers=headers)
-        data = res.json(cls=CustomDecoder)
-        return [Simulation.from_data(sim) for sim in data["results"]]
+        data = PaginatedResponse[SimulationListItem].model_validate_json(res.content)
+        return [_simulation_from_list_item(sim) for sim in data.results]
 
     @versioned_method("v1.2", "v1.3")
     @try_request
-    def delete_simulation(self, sim_id: str) -> Dict:
-        res = self.delete("simulation/" + sim_id, {})
-        return res.json()
+    def delete_simulation(self, sim_id: str) -> SimulationDeleteResponse:
+        res = self.delete("simulation/" + sim_id, None)
+        return SimulationDeleteResponse.model_validate_json(res.content)
 
     @versioned_method("v1.2", "v1.3")
     @try_request
     def update_simulation(self, sim_id: str, update_type: "Simulation.Status") -> None:
-        self.patch("simulation/" + sim_id, {"status": update_type.value})
+        res = self.patch(
+            "simulation/" + sim_id, StatusPatchData(status=update_type.value)
+        )
+        SimulationPatchResponse.model_validate_json(res.content)
 
     @versioned_method("v1.2", "v1.3")
     @try_request
     def validate_simulation(self, sim_id: str) -> Tuple[bool, str]:
-        res = self.post("validate/" + sim_id, {})
-        data = res.json()
-        if data["passed"]:
+        res = self.post("validate/" + sim_id, None)
+        result = ValidationResult.model_validate_json(res.content)
+        if result.passed:
             return True, ""
         else:
-            return False, data["error"]
+            return False, result.error or ""
 
     @versioned_method("v1.2", "v1.3")
     @try_request
     def add_watcher(
         self, sim_id: str, user: str, email: str, notification: "Watcher.Notification"
     ) -> None:
-        self.post(
+        res = self.post(
             "watchers/" + sim_id,
-            {"user": user, "email": email, "notification": notification.name},
+            WatcherPostRequest(user=user, email=email, notification=notification.name),
         )
+        WatcherPostResponse.model_validate_json(res.content)
 
     @versioned_method("v1.2", "v1.3")
     @try_request
     def remove_watcher(self, sim_id: str, user: str) -> None:
-        self.delete("watchers/" + sim_id, {"user": user})
+        res = self.delete("watchers/" + sim_id, WatcherDeleteRequest(user=user))
+        WatcherDeleteResponse.model_validate_json(res.content)
 
     @versioned_method("v1.2", "v1.3")
     @try_request
-    def list_watchers(self, sim_id: str) -> List[Tuple]:
+    def list_watchers(self, sim_id: str) -> List[WatcherData]:
         res = self.get("watchers/" + sim_id)
-        return [(d["username"], d["email"], d["notification"]) for d in res.json()]
+        return WatcherGetResponse.model_validate_json(res.content).root
 
     @versioned_method("v1.2", "v1.3")
     @try_request
     def set_metadata(
         self, sim_id: str, key: str, value: Union[str, uuid.UUID, int, float]
-    ) -> List[str]:
-        res = self.patch("simulation/metadata/" + sim_id, {"key": key, "value": value})
-        return [data["value"] for data in res.json()]
+    ) -> List[MetadataValue]:
+        """
+        Set a metadata value on the remote, returning the values it replaced.
+        """
+        res = self.patch(
+            "simulation/metadata/" + sim_id,
+            MetadataPatchData(key=key, value=str(value)),
+        )
+        return [
+            meta.value
+            for meta in MetadataDataList.model_validate_json(res.content).root
+        ]
 
     @versioned_method("v1.2", "v1.3")
     @try_request
-    def delete_metadata(self, sim_id: str, key: str) -> List[str]:
-        res = self.delete("simulation/metadata/" + sim_id, {"key": key})
-        return [data["value"] for data in res.json()]
+    def delete_metadata(self, sim_id: str, key: str) -> None:
+        res = self.delete("simulation/metadata/" + sim_id, MetadataDeleteData(key=key))
+        MetadataDeleteResponse.model_validate_json(res.content)
 
     @versioned_method("v1.3")
     @try_request
     def get_simulation_data(
         self, sim_id: str, path: str, dd_version: Optional[str] = None
-    ) -> Dict[str, Any]:
-        params = {"path": path}
-        if dd_version is not None:
-            params["dd_version"] = dd_version
-        res = self.get(f"simulation/{sim_id}/data", params=params)
-        return res.json()
+    ) -> ImasDataResponse:
+        query = ImasDataQueryParams(path=path, dd_version=dd_version)
+        res = self.get(
+            f"simulation/{sim_id}/data",
+            params=query.model_dump(exclude_none=True),
+        )
+        return ImasDataResponse.model_validate_json(res.content)
 
     @try_request
-    def get_directory(self) -> str:
+    def get_directory(self) -> Path:
         res = self.get("staging_dir")
-        return res.json()["staging_dir"]
+        return StagingDirectoryResponse.model_validate_json(res.content).staging_dir
 
     def _push_file(
         self,
         path: Path,
         uuid: uuid.UUID,
         file_type: str,
-        sim_data: Dict[str, Any],
+        sim_data: SimulationData,
         chunk_size: int,
         out_stream: IO,
         type: DataType,
@@ -808,18 +932,18 @@ class RemoteAPI:
         if type == DataType.FILE:
             self.post(
                 "files",
-                data={
-                    "simulation": sim_data,
-                    "obj_type": DataType.FILE,
-                    "files": [
-                        {
-                            "chunks": num_chunks,
-                            "file_type": file_type,
-                            "file_uuid": uuid.hex,
-                            "ids_list": None,
-                        }
+                data=FileRegistrationData(
+                    simulation=sim_data,
+                    obj_type=DataType.FILE,
+                    files=[
+                        FileRegistrationItem(
+                            chunks=num_chunks,
+                            file_type=file_type,
+                            file_uuid=uuid,
+                            ids_list=None,
+                        )
                     ],
-                },
+                ),
             )
         print(f"\r{msg}", file=out_stream, end="")
         print(
@@ -835,25 +959,25 @@ class RemoteAPI:
         chunk_size: int,
         uuid: uuid.UUID,
         file_type: str,
-        sim_data: dict,
+        sim_data: SimulationData,
     ):
-        data = {
-            "simulation": sim_data,
-            "file_type": file_type,
-            "chunk_info": {uuid.hex: {"chunk_size": chunk_size, "chunk": chunk_index}},
-        }
+        data = FileUploadData(
+            simulation=sim_data,
+            file_type=file_type,
+            chunk_info={uuid.hex: ChunkInfo(chunk_size=chunk_size, chunk=chunk_index)},
+        )
         files: List[Tuple[str, Tuple[str, bytes, str]]] = [
             (
                 "data",
                 (
                     "data",
-                    json.dumps(data, cls=CustomEncoder).encode(),
+                    data.model_dump_json().encode(),
                     "text/json",
                 ),
             ),
             ("files", (uuid.hex, chunk, "application/octet-stream")),
         ]
-        self.post("files", data={}, files=files)
+        self.post("files", data=None, files=files)
 
     @versioned_method("v1.2", "v1.3")
     @try_request
@@ -875,13 +999,10 @@ class RemoteAPI:
                             remote server
         """
 
-        sim_data = simulation.data(recurse=True)
+        sim_data = simulation.to_model(recurse=True)
 
         try:
-            sim_json = json.dumps(
-                sim_data, cls=CustomEncoder, separators=(",", ":")
-            ).encode("utf-8")
-            sim_json_size = len(sim_json)
+            sim_json_size = len(sim_data.model_dump_json().encode("utf-8"))
         except Exception:
             sim_json_size = 0
 
@@ -897,17 +1018,17 @@ class RemoteAPI:
         )
 
         options = self.get_upload_options()
-        if options.get("copy_files", True):
+        if options.copy_files:
             chunk_size = allowed_chunk  # 10 MB limit on ITER network
 
-            copy_ids = options.get("copy_ids", True)
+            copy_ids = options.copy_ids
 
             for file in simulation.inputs:
                 if file.type == DataType.IMAS:
                     if not copy_ids:
                         print(f"Skipping IDS data {file}", file=out_stream, flush=True)
                         continue
-                    ids_list = simulation.meta_dict().get("input_ids", [])
+                    ids_list = _meta_list(simulation.meta_dict().get("input_ids"))
                     for path in imas_files(file.uri):
                         # Check if hdf5 ids_name is in ids_list
                         ids_name = Path(path).name.split(".")
@@ -918,9 +1039,9 @@ class RemoteAPI:
                         ):
                             continue
                         sim_file = next(
-                            f for f in sim_data["inputs"] if f.get("uuid") == file.uuid
+                            f for f in sim_data.inputs.root if f.uuid == file.uuid
                         )
-                        sim_file["uri"] = f"file:{path}"
+                        sim_file.uri = f"file:{path}"
                         self._push_file(
                             path,
                             file.uuid,
@@ -933,17 +1054,17 @@ class RemoteAPI:
 
                     self.post(
                         "files",
-                        data={
-                            "simulation": simulation.data(recurse=True),
-                            "obj_type": file.type,
-                            "files": [
-                                {
-                                    "file_type": "input",
-                                    "file_uuid": file.uuid.hex,
-                                    "ids_list": ids_list,
-                                }
+                        data=FileRegistrationData(
+                            simulation=simulation.to_model(recurse=True),
+                            obj_type=file.type,
+                            files=[
+                                FileRegistrationItem(
+                                    file_type="input",
+                                    file_uuid=file.uuid,
+                                    ids_list=ids_list,
+                                )
                             ],
-                        },
+                        ),
                     )
 
                 else:
@@ -964,7 +1085,7 @@ class RemoteAPI:
                         print(f"Skipping IDS data {file}", file=out_stream, flush=True)
                         continue
 
-                    ids_list = simulation.meta_dict().get("ids", [])
+                    ids_list = _meta_list(simulation.meta_dict().get("ids"))
                     for path in imas_files(file.uri):
                         # Check if hdf5 ids_name is in ids_list
                         ids_name = Path(path).name.split(".")
@@ -975,15 +1096,11 @@ class RemoteAPI:
                         ):
                             continue
                         sim_file = next(
-                            (
-                                f
-                                for f in sim_data["outputs"]
-                                if f.get("uuid") == file.uuid
-                            ),
+                            (f for f in sim_data.outputs.root if f.uuid == file.uuid),
                             None,
                         )
                         if sim_file:
-                            sim_file["uri"] = f"file:{path}"
+                            sim_file.uri = f"file:{path}"
                         self._push_file(
                             path,
                             file.uuid,
@@ -996,17 +1113,17 @@ class RemoteAPI:
 
                     self.post(
                         "files",
-                        data={
-                            "simulation": simulation.data(recurse=True),
-                            "obj_type": file.type,
-                            "files": [
-                                {
-                                    "file_type": "output",
-                                    "file_uuid": file.uuid.hex,
-                                    "ids_list": ids_list,
-                                }
+                        data=FileRegistrationData(
+                            simulation=simulation.to_model(recurse=True),
+                            obj_type=file.type,
+                            files=[
+                                FileRegistrationItem(
+                                    file_type="output",
+                                    file_uuid=file.uuid,
+                                    ids_list=ids_list,
+                                )
                             ],
-                        },
+                        ),
                     )
                 else:
                     if file.uri and file.uri.path:
@@ -1020,24 +1137,22 @@ class RemoteAPI:
                             file.type,
                         )
 
-        sim_data = simulation.data(recurse=True)
-        uploaded_by = simulation.meta_dict().get("uploaded_by", None)
+        uploaded_by = simulation.meta_dict().get("uploaded_by")
         print("Uploading simulation data ... ", file=out_stream, end="", flush=True)
         self.post(
             "simulations",
-            data={
-                "simulation": sim_data,
-                "add_watcher": add_watcher,
-                "uploaded_by": uploaded_by,
-            },
+            data=SimulationPostData(
+                simulation=simulation.to_model(recurse=True),
+                add_watcher=add_watcher,
+                uploaded_by=str(uploaded_by) if uploaded_by is not None else None,
+            ),
         )
         print("Success", file=out_stream, flush=True)
 
     def _get_file_info(self, uuid: uuid.UUID) -> List[Tuple[Path, str]]:
-        r = self.get(f"file/{uuid.hex}")
-        data = r.json()
-        files = data["files"]
-        return [(Path(file["path"]), file["checksum"]) for file in files]
+        res = self.get(f"file/{uuid.hex}")
+        data = FileGetDataResponse.model_validate_json(res.content)
+        return [(file.path, file.checksum) for file in data.files]
 
     def _pull_file(
         self,
@@ -1145,4 +1260,4 @@ class RemoteAPI:
     @versioned_method("v1.2", "v1.3")
     @try_request
     def reset_database(self) -> None:
-        self.post("reset", {})
+        self.post("reset", None)

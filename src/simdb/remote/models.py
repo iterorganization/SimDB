@@ -240,6 +240,28 @@ class MetadataData(BaseModel):
             data["value"] = _array_to_range(data["value"])
         return data
 
+    @staticmethod
+    def _coerce_ids_list(v: str) -> list[str]:
+        """Accept the display-string form of the IDS list, ``"[a, b, c]"``."""
+        text = v.strip()
+        if text.startswith("[") and text.endswith("]"):
+            text = text[1:-1]
+        return [name.strip() for name in text.split(",") if name.strip()]
+
+    @model_validator(mode="before")
+    @classmethod
+    def fix_input_ids_string(cls, data: Any) -> Any:
+        """Convert funky ids input list strings to actual lists."""
+        if (
+            isinstance(data, dict)
+            and "value" in data
+            and "element" in data
+            and data["element"] == "input_ids"
+            and isinstance(data["value"], str)
+        ):
+            data["value"] = MetadataData._coerce_ids_list(data["value"])
+        return data
+
     def as_dict(self) -> dict:
         """Convert to dictionary."""
         return {self.element: self.value}
@@ -521,8 +543,11 @@ class FileUploadResponse(BaseModel):
 class FileRegistrationItem(BaseModel):
     """A single file entry in the file registration payload."""
 
-    chunks: int
-    """The amount of chunks to be processed."""
+    chunks: Optional[int] = None
+    """The amount of chunks to be processed.
+
+    Only sent for plain file uploads; omitted for IMAS registrations, where a
+    single item covers the many files pushed under one UUID."""
     file_type: str
     """The file type."""
     file_uuid: HexUUID
@@ -660,6 +685,59 @@ class ImasDataResponse(BaseModel):
     """The requested quantity"""
     coordinates: List[QuantityData]
     """Coordinates for each dimension of *field*, in dimension order."""
+
+
+class IndexResponse(BaseModel):
+    """Response from an API index endpoint.
+
+    Both the server root (``/``) and the versioned API roots (``/v1.x/``) are
+    described by this model; each populates only the fields it provides, so every
+    field carries a default.
+    """
+
+    api: Optional[str] = None
+    """Name of the API."""
+    api_version: Optional[str] = None
+    """Version of the API served by this endpoint."""
+    server_version: Optional[str] = None
+    """Version of the SimDB server."""
+    endpoints: List[str] = []
+    """URLs of the endpoints provided by this endpoint."""
+    documentation: Optional[str] = None
+    """URL of the API documentation."""
+    authentication: Optional[str] = None
+    """Name of the authenticator the server uses by default."""
+    authenticators: List[str] = []
+    """Names of all the authenticators the server accepts."""
+
+
+class TokenResponse(BaseModel):
+    """Response from the get token endpoint."""
+
+    token: str
+    """The JWT token to authenticate subsequent requests with."""
+    status: Optional[str] = None
+    """Status of the token request."""
+
+
+class UploadOptions(BaseModel):
+    """Response from the upload options endpoint.
+
+    Describes how the server expects simulation data to be uploaded. Remotes that
+    do not provide the endpoint are treated as if they returned the defaults.
+    """
+
+    copy_files: bool = True
+    """Whether files have to be uploaded to the server."""
+    copy_ids: bool = True
+    """Whether IMAS data has to be uploaded to the server."""
+
+
+class ValidationSchemaList(RootModel):
+    """Response from the validation schema endpoint."""
+
+    root: List[Dict[str, Any]] = []
+    """The validation schemas the server validates simulations against."""
 
 
 class ErrorResponse(BaseModel):
