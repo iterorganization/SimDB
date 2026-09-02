@@ -1,10 +1,19 @@
+import pytest
 from conftest import (
     HEADERS,
     generate_simulation_data,
     post_simulation,
 )
 
-from simdb.remote.models import MetadataKeyInfoList, MetadataValueList, RangeValue
+from simdb.database.models.simulation import Simulation
+from simdb.remote.models import (
+    IDS_LIST_KEYS,
+    MetadataData,
+    MetadataKeyInfoList,
+    MetadataValueList,
+    RangeValue,
+    coerce_ids_list,
+)
 
 
 def test_get_metadata_keys(client):
@@ -85,3 +94,16 @@ def test_get_metadata_values_nonexistent_key(client):
     assert rv.status_code == 200
     # Should return an empty list or list without the key
     assert isinstance(rv.json, list)
+
+
+@pytest.mark.parametrize("element", ["ids", "input_ids"])
+def test_ids_list_display_string_is_coerced(element):
+    """Both IDS list keys accept the display-string form written by SimDB <= 1.2.
+
+    These were stored as ``"[core_profiles, equilibrium]"`` rather than a list
+    (#119), and the coercion has to cover ``ids`` as well as ``input_ids``.
+    """
+    meta = MetadataData.model_validate(
+        {"element": element, "value": "[core_profiles, equilibrium]"}
+    )
+    assert meta.value == ["core_profiles", "equilibrium"]

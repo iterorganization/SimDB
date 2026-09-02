@@ -12,6 +12,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Tuple,
     TypeVar,
     Union,
 )
@@ -224,6 +225,31 @@ scalars are automatically converted to their plain Python equivalents before
 validation."""
 
 
+IDS_LIST_KEYS: Tuple[str, ...] = ("ids", "input_ids")
+"""Metadata keys whose value is a list of IDS names."""
+
+
+def coerce_ids_list(value: Any) -> Any:
+    """Repair an IDS list written as the display string ``"[a, b, c]"``.
+
+    SimDB <= 1.2 stored the :data:`IDS_LIST_KEYS` metadata that way rather than as a
+    list (#119), so both forms have to be accepted wherever such a value crosses into
+    the models. Values that are not strings are returned unchanged.
+
+    Kept as a single definition because it is applied at three separate boundaries:
+    :meth:`MetadataData.fix_ids_list_string` on the way out to the API,
+    ``Simulation._set_metadata_dict`` on the way in to the ORM, and the
+    ``a3f1c7d94e02`` migration for rows already at rest. The migration carries its own
+    copy on purpose -- migrations must stay frozen against later changes here.
+    """
+    if not isinstance(value, str):
+        return value
+    text = value.strip()
+    if text.startswith("[") and text.endswith("]"):
+        text = text[1:-1]
+    return [name.strip() for name in text.split(",") if name.strip()]
+
+
 class MetadataData(BaseModel):
     """Key-value pair for simulation metadata."""
 
@@ -240,26 +266,20 @@ class MetadataData(BaseModel):
             data["value"] = _array_to_range(data["value"])
         return data
 
-    @staticmethod
-    def _coerce_ids_list(v: str) -> list[str]:
-        """Accept the display-string form of the IDS list, ``"[a, b, c]"``."""
-        text = v.strip()
-        if text.startswith("[") and text.endswith("]"):
-            text = text[1:-1]
-        return [name.strip() for name in text.split(",") if name.strip()]
-
     @model_validator(mode="before")
     @classmethod
-    def fix_input_ids_string(cls, data: Any) -> Any:
-        """Convert funky ids input list strings to actual lists."""
+    def fix_ids_list_string(cls, data: Any) -> Any:
+        """Convert funky ids list strings to actual lists.
+
+        Applies to every key in :data:`IDS_LIST_KEYS`; see :func:`coerce_ids_list`.
+        """
         if (
             isinstance(data, dict)
             and "value" in data
             and "element" in data
-            and data["element"] == "input_ids"
-            and isinstance(data["value"], str)
+            and data["element"] in IDS_LIST_KEYS
         ):
-            data["value"] = MetadataData._coerce_ids_list(data["value"])
+            data["value"] = coerce_ids_list(data["value"])
         return data
 
     def as_dict(self) -> dict:
