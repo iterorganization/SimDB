@@ -331,6 +331,15 @@ def imas_files(uri: SimDBUrl) -> List[Path]:
 
     path = _get_path(uri)
 
+    if backend == "uda":
+        query_backend = dict(uri.query_params()).get("backend")
+        if query_backend is None:
+            raise ValueError(
+                "Invalid IMAS URI - 'backend' query argument not provided for UDA "
+                "backend"
+            )
+        backend = query_backend
+
     if backend == "hdf5":
         return [p.absolute() for p in path.glob("*.h5")]
     elif backend == "mdsplus":
