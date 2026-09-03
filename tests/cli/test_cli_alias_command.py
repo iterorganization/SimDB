@@ -1,80 +1,110 @@
+"""Tests for ``simdb alias``."""
+
 from unittest import mock
 
-from click.testing import CliRunner
-from utils import config_test_file
-
-from simdb.cli.simdb import cli
+import pytest
+from cli_helpers import make_simulation
 
 LOCAL_ALIASES = ["hello", "world", "foo-123"]
 REMOTE_ALIASES = ["foo#1", "bar", "barfoo", "123foo", "barbaz"]
 
 
-def _generate_mock_data(get_local_db, remote_list_simulations):
-    simulations = []
-
-    for alias in REMOTE_ALIASES:
-        sim = mock.Mock()
-        sim.alias = alias
-        simulations.append(sim)
-    remote_list_simulations.return_value = simulations
-    simulations = []
-
-    for alias in LOCAL_ALIASES:
-        sim = mock.Mock()
-        sim.alias = alias
-        simulations.append(sim)
-    get_local_db.return_value.list_simulations.return_value = simulations
+@pytest.fixture
+def aliases(local_db, remote_handshake):
+    """A local database and a remote, each holding a known set of aliases."""
+    local_db.list_simulations.return_value = [
+        make_simulation(alias) for alias in LOCAL_ALIASES
+    ]
+    with mock.patch(
+        "simdb.cli.remote_api.RemoteAPI.list_simulations",
+        return_value=[make_simulation(alias) for alias in REMOTE_ALIASES],
+    ), mock.patch("simdb.cli.remote_api.RemoteAPI.has_url", return_value=True):
+        yield
 
 
-@mock.patch("simdb.cli.commands.alias.get_local_db")
-@mock.patch("simdb.cli.remote_api.RemoteAPI.list_simulations")
-@mock.patch("simdb.cli.remote_api.RemoteAPI.__init__")
-def test_alias_search_command(init, remote_list_simulations, get_local_db):
-    init.return_value = None
-    _generate_mock_data(get_local_db, remote_list_simulations)
+def test_search_returns_local_and_remote_matches(invoke, aliases):
+    result = invoke("alias", "search", "foo")
 
-    config_file = config_test_file()
-    runner = CliRunner()
-    result = runner.invoke(
-        cli, [f"--config-file={config_file}", "alias", "search", "foo"]
-    )
-    assert result.exception is None
-    expected_sims = ["foo#1", "barfoo", "123foo", "foo-123"]
-    assert "\n".join(expected_sims) in result.output
+    assert result.exit_code == 0
+    assert "\n".join(["foo#1", "barfoo", "123foo", "foo-123"]) in result.output
 
 
-@mock.patch("simdb.cli.commands.alias.get_local_db")
-@mock.patch("simdb.cli.remote_api.RemoteAPI.list_simulations")
-@mock.patch("simdb.cli.remote_api.RemoteAPI.has_url")
-@mock.patch("simdb.cli.remote_api.RemoteAPI.__init__")
-def test_alias_list_command(init, has_url, remote_list_simulations, get_local_db):
-    init.return_value = None
-    has_url.return_value = True
-    _generate_mock_data(get_local_db, remote_list_simulations)
+def test_search_without_matches_prints_nothing(invoke, aliases):
+    result = invoke("alias", "search", "nothing-matches-this")
 
-    config_file = config_test_file()
-    runner = CliRunner()
-    result = runner.invoke(cli, [f"--config-file={config_file}", "alias", "list"])
-    assert result.exception is None
+    assert result.exit_code == 0
+    for alias in LOCAL_ALIASES + REMOTE_ALIASES:
+        assert alias not in result.output
+
+
+def test_list_shows_the_local_aliases(invoke, aliases):
+    result = invoke("alias", "list")
+
+    assert result.exit_code == 0
     assert "\n  ".join(LOCAL_ALIASES) in result.output
 
 
-@mock.patch("simdb.cli.commands.alias.get_local_db")
-@mock.patch("simdb.cli.remote_api.RemoteAPI.list_simulations")
-@mock.patch("simdb.cli.remote_api.RemoteAPI.has_url")
-@mock.patch("simdb.cli.remote_api.RemoteAPI.__init__")
-def test_alias_list_command_with_remote_name(
-    init, has_url, remote_list_simulations, get_local_db
-):
-    init.return_value = None
-    has_url.return_value = True
-    _generate_mock_data(get_local_db, remote_list_simulations)
+def test_list_with_a_remote_name_shows_both_sides(invoke, aliases):
+    result = invoke("alias", "test", "list")
 
-    config_file = config_test_file()
-    runner = CliRunner()
-    result = runner.invoke(
-        cli, [f"--config-file={config_file}", "alias", "test", "list"]
-    )
-    assert result.exception is None
+    assert result.exit_code == 0
     assert "\n  ".join(REMOTE_ALIASES) in result.output
     assert "\n  ".join(LOCAL_ALIASES) in result.output
+
+
+def test_list_can_skip_the_remote(invoke, aliases):
+    result = invoke("alias", "list", "--local")
+
+    assert result.exit_code == 0
+    assert "Remote:" not in result.output
+    assert "\n  ".join(LOCAL_ALIASES) in result.output
+
+
+def test_list_explains_a_remote_without_a_url(invoke, local_db, remote_handshake):
+    local_db.list_simulations.return_value = []
+    with mock.patch("simdb.cli.remote_api.RemoteAPI.has_url", return_value=False):
+        result = invoke("alias", "list")
+
+    assert result.exit_code == 0
+    assert "The Remote Server has not been specified" in result.output
+
+
+def test_make_unique_returns_an_unused_alias_unchanged(invoke, aliases):
+    result = invoke("alias", "make-unique", "brand-new")
+
+    assert result.exit_code == 0
+    assert result.output.strip() == "brand-new"
+
+
+def test_make_unique_appends_a_counter_to_a_taken_alias(invoke, aliases):
+    result = invoke("alias", "make-unique", "bar")
+
+    assert result.exit_code == 0
+    assert result.output.strip() == "bar-1"
+
+
+def test_make_unique_replaces_reserved_characters(invoke, aliases):
+    result = invoke("alias", "make-unique", "a#b/c(d)e=f,g*h%i")
+
+    assert result.exit_code == 0
+    assert result.output.strip() == "a_b_c_d_e_f_g_h_i"
+
+
+def test_make_unique_keeps_counting_past_a_taken_suffix(invoke, aliases, local_db):
+    local_db.list_simulations.return_value = [
+        make_simulation("bar"),
+        make_simulation("bar-1"),
+    ]
+
+    result = invoke("alias", "make-unique", "bar")
+
+    assert result.exit_code == 0
+    assert result.output.strip() == "bar-2"
+
+
+def test_the_group_shows_help_when_no_subcommand_is_given(invoke):
+    result = invoke("alias")
+
+    assert result.exit_code == 0
+    assert "Query remote and local aliases." in result.output
+    assert "make-unique" in result.output
