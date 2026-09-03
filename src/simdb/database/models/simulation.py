@@ -17,12 +17,14 @@ from sqlalchemy.orm import relationship
 from simdb.enums import IngestionStatus
 from simdb.imas.utils import SimDBUrl
 from simdb.remote.models import (
+    IDS_LIST_KEYS,
     FileDataList,
     MetadataData,
     MetadataDataList,
     SimulationData,
     SimulationDataResponse,
     SimulationTraceData,
+    coerce_ids_list,
 )
 
 if "sphinx" in sys.modules:
@@ -164,6 +166,12 @@ class Simulation(Base):
         return self._metadata
 
     def _set_metadata_dict(self, meta_dict: Dict[str, Any]) -> None:
+        # Repair simulations pulled with odd formatted ids arrays. This is the only
+        # coercion on the raw-dict path (v1/v1.1 endpoints), which never builds a
+        # MetadataData.
+        for key in IDS_LIST_KEYS:
+            if key in meta_dict:
+                meta_dict[key] = coerce_ids_list(meta_dict[key])
         self._metadata = meta_dict
 
     def __init__(
@@ -214,7 +222,7 @@ class Simulation(Base):
             self.inputs.append(file)
 
         if all_input_idss:
-            self.set_meta("input_ids", "[{}]".format(", ".join(all_input_idss)))
+            self.set_meta("input_ids", all_input_idss)
 
         all_output_idss = []
 
@@ -242,7 +250,7 @@ class Simulation(Base):
             self.outputs.append(file)
 
         if all_output_idss:
-            self.set_meta("ids", "[{}]".format(", ".join(all_output_idss)))
+            self.set_meta("ids", all_output_idss)
 
         flattened_dict = flatten_dict(manifest.metadata)
 
@@ -286,6 +294,10 @@ class Simulation(Base):
                     first_line = False
             elif isinstance(value, dict) and "min" in value and "max" in value:
                 result += f"  {element}: [{value['min']}, {value['max']}]\n"
+            elif isinstance(value, list):
+                result += "  {}: [{}]\n".format(
+                    element, ", ".join(str(el) for el in value)
+                )
             else:
                 result += f"  {element}: {value}\n"
         result += "inputs:\n"

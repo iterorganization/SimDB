@@ -8,6 +8,8 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from simdb.remote.models import QuantityData, SimulationTraceData
+
 if TYPE_CHECKING:
     # Only importing these for type checking and documentation generation in order to
     # speed up runtime startup.
@@ -50,9 +52,9 @@ def is_numeric_1d(data: Any) -> bool:
     return isinstance(data, list) and bool(data) and all(_is_numeric(v) for v in data)
 
 
-def _quantity_axis_label(q: dict, fallback: str = "") -> str:
-    name = q.get("name") or fallback
-    units = q.get("units") or "-"
+def _quantity_axis_label(q: QuantityData, fallback: str = "") -> str:
+    name = q.name or fallback
+    units = q.units or "-"
     label = str(name).rsplit("/", 1)[-1] or str(name)
     return f"{label} [{units}]"
 
@@ -140,14 +142,14 @@ def _plot_panel(
 
 
 def show_quantity_textual_plot(
-    q: dict,
+    q: QuantityData,
     label: str = "",
-    x_quantity: Optional[dict] = None,
+    x_quantity: Optional[QuantityData] = None,
 ) -> None:
-    """Print line plot for a 1-D numeric QuantityData dict."""
-    name = q["name"]
-    units = q["units"] or "-"
-    data = q["data"]
+    """Print line plot for a 1-D numeric QuantityData."""
+    name = q.name
+    units = q.units or "-"
+    data = q.data
     if not is_numeric_1d(data):
         print_quantity(q, label=label)
         return
@@ -158,10 +160,10 @@ def show_quantity_textual_plot(
     xlabel = "index [-]"
     if (
         x_quantity
-        and is_numeric_1d(x_quantity.get("data"))
-        and len(x_quantity["data"]) == len(y_values)
+        and is_numeric_1d(x_quantity.data)
+        and len(x_quantity.data) == len(y_values)
     ):
-        x_values = [float(value) for value in x_quantity["data"]]
+        x_values = [float(value) for value in x_quantity.data]
         xlabel = _quantity_axis_label(x_quantity, fallback="x")
 
     title = label or name
@@ -191,11 +193,11 @@ def show_quantity_textual_plot(
     print_quantity(q, label=label)
 
 
-def print_quantity(q: dict, label: str = "", show_stats: bool = True) -> None:
-    """Print a QuantityData dict with array display and stats."""
-    name = q["name"]
-    units = q["units"] or "-"
-    data = q["data"]
+def print_quantity(q: QuantityData, label: str = "", show_stats: bool = True) -> None:
+    """Print a QuantityData with array display and stats."""
+    name = q.name
+    units = q.units or "-"
+    data = q.data
     title = f"[bold]{label or name}[/bold]  [dim]\\[{units}][/dim]"
 
     if not isinstance(data, list):
@@ -241,7 +243,10 @@ def _format_meta_value(meta_value: Any, max_len: int) -> str:
     if isinstance(meta_value, list):
         values = []
         for i, v in enumerate(meta_value):
-            values.append(f"{v:.2f}")
+            if isinstance(v, bool) or not isinstance(v, (int, float)):
+                values.append(str(v))
+            else:
+                values.append(f"{v:.2f}")
             if i >= max_len - 1:
                 values.append("...")
                 break
@@ -334,44 +339,36 @@ def print_simulations(
         )
 
 
-def _print_trace_sim(trace_data: dict, indentation: int):
+def _print_trace_sim(trace_data: SimulationTraceData, indentation: int):
     spaces = " " * indentation
 
-    if "error" in trace_data:
-        error = trace_data["error"]
-        click.echo(f"{spaces}{error}")
-        return
+    status = trace_data.status or "unknown"
 
-    uuid = trace_data["uuid"]
-    alias = trace_data["alias"]
-    status = trace_data.get("status", "unknown")
-
-    click.echo(f"{spaces}Simulation: {uuid}")
-    click.echo(f"{spaces}     Alias: {alias}")
+    click.echo(f"{spaces}Simulation: {trace_data.uuid}")
+    click.echo(f"{spaces}     Alias: {trace_data.alias}")
     click.echo(f"{spaces}    Status: {status}")
-    status_on_name = status + "_on"
-    if status_on_name in trace_data:
-        status_on = trace_data[status_on_name]
+    status_on_name = status.replace(" ", "_") + "_on"
+    status_on = getattr(trace_data, status_on_name, None)
+    if status_on is not None:
         label = status_on_name.replace("_", " ").capitalize()
         click.echo(f"{spaces}{label}: {status_on}")
 
-    if "replaces" in trace_data:
-        if "replaces_reason" in trace_data:
-            replaces_reason = trace_data["replaces_reason"]
-            click.echo(f"{spaces}Replaces: (reason: {replaces_reason})")
+    if trace_data.replaces is not None:
+        if trace_data.replaces_reason is not None:
+            click.echo(f"{spaces}Replaces: (reason: {trace_data.replaces_reason})")
         else:
             click.echo(f"{spaces}Replaces:")
-        _print_trace_sim(trace_data["replaces"], indentation + 2)
+        _print_trace_sim(trace_data.replaces, indentation + 2)
 
 
-def print_trace(trace_data: dict) -> None:
+def print_trace(trace_data: Optional[SimulationTraceData]) -> None:
     """
     Print the simulation trace data to the console.
 
-    :param trace_data: A dictionary containing the simulation trace data.
+    :param trace_data: The trace data of the simulation.
     :return: None
     """
-    if not trace_data:
+    if trace_data is None:
         click.echo("No simulations trace found")
         return
 
