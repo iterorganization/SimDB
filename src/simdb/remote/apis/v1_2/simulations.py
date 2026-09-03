@@ -20,7 +20,11 @@ from simdb.remote.core.alias import create_alias_dir
 from simdb.remote.core.auth import User, requires_auth
 from simdb.remote.core.cache import cache, cache_key, clear_cache
 from simdb.remote.core.errors import error
-from simdb.remote.core.path import find_common_root, secure_path
+from simdb.remote.core.path import (
+    UnsafePathError,
+    find_common_root,
+    secure_path,
+)
 from simdb.remote.core.pydantic_utils import (
     Body,
     Header,
@@ -163,6 +167,16 @@ def _build_trace(sim_id: str) -> SimulationTraceData:
     return data
 
 
+def _staging_path(
+    path: Path, common_root: Optional[Path], staging_dir: Path, is_file: bool = True
+) -> Path:
+    """secure_path, reporting a path it refuses to stage as a client error."""
+    try:
+        return secure_path(path, common_root, staging_dir, is_file=is_file)
+    except UnsafePathError as err:
+        raise ResponseException(str(err)) from err
+
+
 @api.route("/simulations")
 class SimulationList(Resource):
     @requires_auth()
@@ -267,7 +281,7 @@ class SimulationList(Resource):
                     and sim_file.uri.scheme == "file"
                     and sim_file.uri.path is not None
                 ):
-                    path = secure_path(
+                    path = _staging_path(
                         Path(sim_file.uri.path), common_root, staging_dir
                     )
                     if not path.exists():
@@ -278,11 +292,11 @@ class SimulationList(Resource):
                 elif sim_file.uri.scheme == "imas":
                     qs = dict(sim_file.uri.query_params())
                     if copy_files:
-                        path = secure_path(
+                        path = _staging_path(
                             Path(qs["path"]),
                             common_root,
                             staging_dir,
-                            is_file=common_root is not None,
+                            is_file=False,
                         )
                     else:
                         path = Path(qs["path"])

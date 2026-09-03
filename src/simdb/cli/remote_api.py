@@ -75,6 +75,7 @@ from simdb.remote.models import (
     WatcherGetResponse,
     WatcherPostRequest,
     WatcherPostResponse,
+    coerce_ids_list,
 )
 
 from .manifest import DataType
@@ -320,8 +321,9 @@ def _pagination_headers(limit: int, page: int = 1) -> Dict[str, str]:
 
 def _meta_list(value: Any) -> List[Any]:
     """
-    Return a metadata value as the list of names the files endpoint expects.
+    Return an IDS metadata value as the list of names the files endpoint expects.
     """
+    value = coerce_ids_list(value)
     if value is None:
         return []
     if isinstance(value, (list, tuple)):
@@ -827,12 +829,8 @@ class RemoteAPI:
     @versioned_method("v1.2", "v1.3")
     @try_request
     def get_upload_options(self) -> UploadOptions:
-        try:
-            res = self.get("upload_options")
-            return UploadOptions.model_validate_json(res.content)
-        except FailedConnection:
-            # old remotes may not provide this endpoint
-            return UploadOptions()
+        res = self.get("upload_options")
+        return UploadOptions.model_validate_json(res.content)
 
     @versioned_method("v1.2", "v1.3")
     @try_request

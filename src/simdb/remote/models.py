@@ -743,8 +743,7 @@ class TokenResponse(BaseModel):
 class UploadOptions(BaseModel):
     """Response from the upload options endpoint.
 
-    Describes how the server expects simulation data to be uploaded. Remotes that
-    do not provide the endpoint are treated as if they returned the defaults.
+    Describes how the server expects simulation data to be uploaded.
     """
 
     copy_files: bool = True
