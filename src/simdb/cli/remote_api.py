@@ -9,6 +9,7 @@ import os
 import pickle
 import shutil
 import sys
+import time
 import uuid
 from collections import defaultdict
 from io import BytesIO
@@ -25,19 +26,32 @@ from typing import (
     Tuple,
     Union,
 )
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import appdirs
 import click
 import requests
+from netCDF4 import Dataset
 from requests.auth import AuthBase
+from rich.progress import (
+    BarColumn,
+    DownloadColumn,
+    Progress,
+    TextColumn,
+    TimeRemainingColumn,
+    TransferSpeedColumn,
+)
 from semantic_version import Version
 
+from simdb.checksum import CHECKSUM_ALGORITHM, READ_CHUNK_SIZE, hash_file
+from simdb.cli.resumable_upload import resumable_upload
 from simdb.config import Config
 from simdb.database.models import Simulation
-from simdb.imas.utils import SimDBUrl, imas_files
+from simdb.enums import IngestionStatus
+from simdb.imas.utils import SimDBUrl, imas_backend_for_directory, imas_files
 from simdb.json import CustomDecoder, CustomEncoder
 from simdb.remote import CLIENT_API_VERSIONS, APIConstants
+from simdb.remote.models import FileData, SimulationPostData
 
 from .manifest import DataType
 
@@ -233,6 +247,207 @@ def _get_paths(file: "File") -> Iterable[Path]:
         return []
     else:
         return imas_files(file.uri)
+
+
+def _check_file_is_imas(file: Path) -> bool:
+    # NetCDF is identified by the IMAS "Conventions" attribute
+    if file.suffix == ".nc":
+        try:
+            with Dataset(file, "r") as ds:
+                if getattr(ds, "Conventions", None) == "IMAS":
+                    return True
+        except OSError:
+            # Not a readable NetCDF file; fall back to the directory heuristics
+            pass
+
+    try:
+        imas_backend_for_directory(file.parent)
+    except ValueError:
+        return False
+    return True
+
+
+def _partition_roots(config: Config) -> dict[str, str]:
+    section = config.get_section("partition", default={})
+    return {k: str(v) for k, v in section.items()}
+
+
+def _find_partition_for_file(
+    file: Path, partitions: Dict[str, str]
+) -> Tuple[str, Path]:
+    # Match the partition with the longest root so that a catch-all mapping
+    # (e.g. "/") does not shadow more specific partitions.
+    best: Optional[Tuple[str, Path]] = None
+    best_depth = -1
+    for partition, path in partitions.items():
+        root = Path(path)
+        try:
+            relative = file.relative_to(root)
+        except ValueError:
+            continue
+        depth = len(root.parts)
+        if depth > best_depth:
+            best = (partition, relative)
+            best_depth = depth
+    if best is None:
+        raise APIError(
+            f"File {file} is not located under any configured partition "
+            f"(configured partitions: {', '.join(partitions) or 'none'})"
+        )
+    return best
+
+
+def _file_data_for_partition(
+    file: FileData, source: Path, partitions: Dict[str, str], keep_uuid: bool = True
+) -> FileData:
+    """Copy FILE with its URI rewritten relative to the partition holding SOURCE."""
+    partition, partition_path = _find_partition_for_file(source, partitions)
+    new_uri = SimDBUrl.build(scheme=partition, path=partition_path.as_posix())
+    update: Dict[str, Any] = {
+        "uri": new_uri.encoded_string(),
+        "checksum": hash_file(source),
+    }
+    if not keep_uuid:
+        update["uuid"] = uuid.uuid1()
+    return file.model_copy(update=update)
+
+
+def _source_files(file: FileData) -> List[Path]:
+    """Return the local files that FILE refers to, expanding directories."""
+    file_uri = SimDBUrl(file.uri)
+    if file_uri.path is None:
+        raise APIError(f"File URI has no path: {file.uri}")
+
+    if file_uri.scheme == "imas":
+        try:
+            sources = sorted(imas_files(file_uri))
+        except ValueError as err:
+            raise APIError(f"Failed to list IMAS files of {file.uri}: {err}") from err
+        if not sources:
+            raise APIError(f"IMAS URI does not contain any files: {file.uri}")
+        return sources
+
+    file_path = Path(file_uri.path)
+    if not file_path.is_dir():
+        return [file_path]
+
+    sources = []
+    for sub_file in sorted(file_path.iterdir()):
+        if sub_file.is_dir():
+            raise APIError(f"Nested directory found in {file_path}: {sub_file.name}")
+        sources.append(sub_file)
+    return sources
+
+
+def _expand_directories(
+    files: Iterable[FileData], partitions: Dict[str, str]
+) -> List[FileData]:
+    new_file_list = []
+    for file in files:
+        sources = _source_files(file)
+        keep_uuid = len(sources) == 1
+        for source in sources:
+            new_file_list.append(
+                _file_data_for_partition(file, source, partitions, keep_uuid=keep_uuid)
+            )
+    return new_file_list
+
+
+def _expand_directories_http(
+    files: Iterable[FileData], sim_uuid: uuid.UUID
+) -> List[Tuple[FileData, Path, str]]:
+    """Expand directories / IMAS data into individual files for HTTP upload.
+
+    Returns ``(file_data, local_source_path, target)`` triples. Structure
+    handling (IMAS directories stay grouped, standalone files stay flat) is
+    identical to local push, but unlike ``push_local`` the file bytes are
+    uploaded, so partitions play no role: each file keeps its absolute local
+    path, namespaced under ``<sim_uuid>/file/``, and is assigned an ``http://``
+    URI so the server stages it into the ``http`` partition. The server's
+    existing copy step strips the common root exactly as it does for local
+    push.
+    """
+    result: List[Tuple[FileData, Path, str]] = []
+    for file in files:
+        file_uri = SimDBUrl(file.uri)
+        if file_uri.path is None:
+            raise ValueError("File has no associated path")
+        file_path = Path(file_uri.path)
+        if file_uri.scheme == "imas":
+            qs = dict(file_uri.query_params())
+            path = qs.get("path")
+            if path is None:
+                raise ValueError("IMAS uri has not path set")
+            file_path = Path(path)
+
+        if file_path.is_dir():
+            for sub_file in file_path.iterdir():
+                if sub_file.is_dir():
+                    raise ValueError("Nested directory found")
+                result.append(_make_http_entry(file, sub_file, sim_uuid))
+        else:
+            result.append(_make_http_entry(file, file_path, sim_uuid))
+    return result
+
+
+def _make_http_entry(
+    template: FileData,
+    local_path: Path,
+    sim_uuid: uuid.UUID,
+) -> Tuple[FileData, Path, str]:
+    """Build the HTTP upload entry for a single local file.
+
+    HTTP uploads carry the file bytes from the local system, so partitions are
+    not consulted: the file's absolute path is namespaced under
+    ``<sim_uuid>/file/``, which keeps targets unique on the server.
+
+    The checksum is left empty here and filled in later by
+    :func:`_compute_checksums`, so that hashing (a full read of every file) can be
+    reported with a progress bar instead of stalling silently before the upload.
+    """
+    rel_posix = local_path.as_posix().lstrip("/")
+    target = f"{sim_uuid.hex}/file/{rel_posix}"
+    new_uri = SimDBUrl.build(scheme="http", path=target, host="")
+    file_type = "IMAS" if _check_file_is_imas(local_path) else template.type
+    return (
+        FileData(
+            type=file_type,
+            uri=new_uri.encoded_string(),
+            checksum="",
+            datetime=template.datetime,
+            usage=template.usage,
+            purpose=template.purpose,
+            sensitivity=template.sensitivity,
+            access=template.access,
+            embargo=template.embargo,
+        ),
+        local_path,
+        target,
+    )
+
+
+def _compute_checksums(files: List[Tuple[FileData, Path, str]]) -> None:
+    """Compute and store the SHA-1 checksum of each file, reporting progress.
+
+    Hashing reads every file in full and is the main delay before the upload
+    starts, so surface it with a byte-level progress bar (mirroring the upload
+    bars). The computed checksum is stored as the catalog checksum.
+    """
+    total_bytes = sum(local_path.stat().st_size for _, local_path, _ in files)
+    with Progress(
+        TextColumn("[bold blue]{task.description}"),
+        BarColumn(),
+        DownloadColumn(),
+        TransferSpeedColumn(),
+        TimeRemainingColumn(),
+    ) as progress:
+        task = progress.add_task("Calculating checksums", total=total_bytes)
+        for file_data, local_path, _target in files:
+            progress.update(task, description=f"Hashing {local_path.name}")
+            file_data.checksum = hash_file(
+                local_path, progress=lambda n: progress.advance(task, n)
+            )
+        progress.update(task, description="Calculated checksums")
 
 
 class RemoteAPI:
@@ -790,16 +1005,15 @@ class RemoteAPI:
         file_type: str,
         sim_data: Dict[str, Any],
         chunk_size: int,
-        out_stream: IO,
         type: DataType,
     ):
         msg = f"Uploading file {path} "
-        print(msg, file=out_stream, end="")
+        print(msg, end="")
         num_chunks = 0
         for chunk_index, chunk in enumerate(
             _read_bytes_in_chunks(path, compressed=True, chunk_size=chunk_size)
         ):
-            print(".", file=out_stream, end="", flush=True)
+            print(".", end="")
             self._send_chunk(chunk_index, chunk, chunk_size, uuid, file_type, sim_data)
             num_chunks += 1
         if num_chunks == 0:
@@ -821,11 +1035,9 @@ class RemoteAPI:
                     ],
                 },
             )
-        print(f"\r{msg}", file=out_stream, end="")
+        print(f"\r{msg}", end="")
         print(
             "Complete".rjust(shutil.get_terminal_size().columns - len(msg)),
-            file=out_stream,
-            flush=True,
         )
 
     def _send_chunk(
@@ -855,12 +1067,139 @@ class RemoteAPI:
         ]
         self.post("files", data={}, files=files)
 
-    @versioned_method("v1.2", "v1.3")
+    @versioned_method("v1.3")
+    @try_request
+    def push_local_simulation(self, simulation: Simulation, add_watcher: bool = False):
+        sim_data = simulation.to_model(recurse=True)
+
+        partitions = _partition_roots(self._config)
+        sim_data.inputs.root = _expand_directories(sim_data.inputs.root, partitions)
+        sim_data.outputs.root = _expand_directories(sim_data.outputs.root, partitions)
+
+        uploaded_by = simulation.meta_dict().get("uploaded_by")
+
+        post_data = SimulationPostData(
+            simulation=sim_data,
+            add_watcher=add_watcher,
+            uploaded_by=str(uploaded_by) if uploaded_by is not None else None,
+        )
+        self.post("simulations", data=post_data.model_dump(mode="json"))
+
+    def _upload_files(
+        self,
+        files: List[Tuple[FileData, Path, str]],
+        upload_headers: Dict[str, str],
+    ):
+        """Upload the expanded files over resumable HTTP, showing two progress
+        bars: an overall bar across all bytes and a sub-bar for the current file.
+        """
+        total_bytes = sum(local_path.stat().st_size for _, local_path, _ in files)
+
+        with Progress(
+            TextColumn("[bold blue]{task.description}"),
+            BarColumn(),
+            DownloadColumn(),
+            TransferSpeedColumn(),
+            TimeRemainingColumn(),
+        ) as progress:
+            overall = progress.add_task("Overall", total=total_bytes)
+            file_task = progress.add_task("", total=0)
+            uploaded = 0
+            for _file_data, local_path, target in files:
+                size = local_path.stat().st_size
+                progress.reset(
+                    file_task, total=size, description=f"  {local_path.name}"
+                )
+                url = f"{self._api_url}upload/{quote(target)}"
+
+                def _on_progress(completed: int, _base: int = uploaded) -> None:
+                    progress.update(file_task, completed=completed)
+                    progress.update(overall, completed=_base + completed)
+
+                resumable_upload(
+                    url,
+                    local_path,
+                    auth=self._get_auth() if self._server_auth != "None" else None,
+                    cookies=self._cookies,
+                    headers=upload_headers,
+                    progress=_on_progress,
+                )
+                uploaded += size
+                progress.update(file_task, completed=size)
+                progress.update(overall, completed=uploaded)
+
+    @versioned_method("v1.3")
     @try_request
     def push_simulation(
         self,
+        simulation: Simulation,
+        add_watcher: bool = False,
+    ):
+        """Push a simulation by uploading its files over resumable HTTP.
+
+        Unlike :meth:`push_local_simulation` (which requires a filesystem shared
+        with the server), this uploads the file bytes to the server's ``http``
+        partition using a resumable protocol, then pushes the metadata.
+        """
+        sim_data = simulation.to_model(recurse=True)
+
+        inputs = _expand_directories_http(sim_data.inputs.root, simulation.uuid)
+        outputs = _expand_directories_http(sim_data.outputs.root, simulation.uuid)
+
+        files = list(itertools.chain(inputs, outputs))
+        upload_headers = {"User-Agent": "it_script_basic"}
+        if files:
+            _compute_checksums(files)
+            self._upload_files(files, upload_headers)
+
+        sim_data.inputs.root = [file_data for file_data, _, _ in inputs]
+        sim_data.outputs.root = [file_data for file_data, _, _ in outputs]
+
+        uploaded_by = simulation.meta_dict().get("uploaded_by")
+
+        post_data = SimulationPostData(
+            simulation=sim_data,
+            add_watcher=add_watcher,
+            uploaded_by=str(uploaded_by) if uploaded_by is not None else None,
+        )
+        self.post("simulations", data=post_data.model_dump(mode="json"))
+
+        print("Waiting for ingestion to complete...", end="")
+        last_status = None
+        while True:
+            try:
+                status = self.get_ingestion_status(simulation.uuid.hex)
+            except Exception as err:
+                raise APIError(f"Failed to check ingestion status: {err}") from err
+
+            if status != last_status:
+                if last_status is not None:
+                    print(f" -> {status.value}", end="")
+                else:
+                    print(f" {status.value}", end="")
+                last_status = status
+
+            if status.is_terminal():
+                break
+
+            time.sleep(1)
+
+        if status == IngestionStatus.COMPLETED:
+            return
+        else:
+            raise APIError(f"Simulation ingestion failed with status: {status.value}")
+
+    @versioned_method("v1.3")
+    @try_request
+    def get_ingestion_status(self, sim_id: str) -> IngestionStatus:
+        res = self.get(f"simulation/status/{sim_id}")
+        return IngestionStatus(res.json()["status"])
+
+    @push_simulation.register("v1.2")
+    @try_request
+    def _push_simulation_v12(
+        self,
         simulation: "Simulation",
-        out_stream: IO[str] = sys.stdout,
         add_watcher: bool = True,
     ) -> None:
         """
@@ -870,7 +1209,6 @@ class RemoteAPI:
         simulation metadata.
 
         :param simulation: The Simulation to push to remote server
-        :param out_stream: The IO stream to write messages to the user (default: stdout)
         :param add_watcher: Add the current user as a watcher of the simulation on the
                             remote server
         """
@@ -905,7 +1243,7 @@ class RemoteAPI:
             for file in simulation.inputs:
                 if file.type == DataType.IMAS:
                     if not copy_ids:
-                        print(f"Skipping IDS data {file}", file=out_stream, flush=True)
+                        print(f"Skipping IDS data {file}")
                         continue
                     ids_list = simulation.meta_dict().get("input_ids", [])
                     for path in imas_files(file.uri):
@@ -927,7 +1265,6 @@ class RemoteAPI:
                             "input",
                             sim_data,
                             chunk_size,
-                            out_stream,
                             file.type,
                         )
 
@@ -954,14 +1291,13 @@ class RemoteAPI:
                             "input",
                             sim_data,
                             chunk_size,
-                            out_stream,
                             file.type,
                         )
 
             for file in simulation.outputs:
                 if file.type == DataType.IMAS:
                     if not copy_ids:
-                        print(f"Skipping IDS data {file}", file=out_stream, flush=True)
+                        print(f"Skipping IDS data {file}")
                         continue
 
                     ids_list = simulation.meta_dict().get("ids", [])
@@ -990,7 +1326,6 @@ class RemoteAPI:
                             "output",
                             sim_data,
                             chunk_size,
-                            out_stream,
                             file.type,
                         )
 
@@ -1016,13 +1351,12 @@ class RemoteAPI:
                             "output",
                             sim_data,
                             chunk_size,
-                            out_stream,
                             file.type,
                         )
 
         sim_data = simulation.data(recurse=True)
         uploaded_by = simulation.meta_dict().get("uploaded_by", None)
-        print("Uploading simulation data ... ", file=out_stream, end="", flush=True)
+        print("Uploading simulation data ... ", end="")
         self.post(
             "simulations",
             data={
@@ -1031,7 +1365,7 @@ class RemoteAPI:
                 "uploaded_by": uploaded_by,
             },
         )
-        print("Success", file=out_stream, flush=True)
+        print("Success")
 
     def _get_file_info(self, uuid: uuid.UUID) -> List[Tuple[Path, str]]:
         r = self.get(f"file/{uuid.hex}")
@@ -1057,7 +1391,7 @@ class RemoteAPI:
         response = self.get(f"file/download/{uuid.hex}/{index}", stream=True)
 
         to_path.parent.mkdir(parents=True, exist_ok=True)
-        sha1 = hashlib.sha1()
+        digest = hashlib.new(CHECKSUM_ALGORITHM)
 
         with to_path.open("wb") as f:
             total_length = response.headers.get("content-length")
@@ -1066,8 +1400,8 @@ class RemoteAPI:
             else:
                 downloaded = 0
                 total_length = int(total_length)
-                for data in response.iter_content(chunk_size=4096):
-                    sha1.update(data)
+                for data in response.iter_content(chunk_size=READ_CHUNK_SIZE):
+                    digest.update(data)
                     downloaded += len(data)
                     f.write(data)
                     done = int(50 * downloaded / total_length)
@@ -1083,7 +1417,7 @@ class RemoteAPI:
                     )
                 print("\r", file=out_stream, end="", flush=True)
 
-        if sha1.hexdigest() != checksum:
+        if digest.hexdigest() != checksum:
             raise APIError(f"Checksum failed for file {from_path}")
 
     @versioned_method("v1.2", "v1.3")
