@@ -33,6 +33,7 @@ import requests
 from requests.auth import AuthBase
 from semantic_version import Version
 
+from simdb.checksum import checksums_match
 from simdb.config import Config
 from simdb.database.models import Simulation
 from simdb.imas.utils import SimDBUrl, imas_files
@@ -1083,7 +1084,7 @@ class RemoteAPI:
                     )
                 print("\r", file=out_stream, end="", flush=True)
 
-        if sha1.hexdigest() != checksum:
+        if not checksums_match(sha1.hexdigest(), checksum):
             raise APIError(f"Checksum failed for file {from_path}")
 
     @versioned_method("v1.2", "v1.3")

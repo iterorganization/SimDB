@@ -1,4 +1,5 @@
 import gzip
+import re
 import uuid
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
@@ -8,7 +9,7 @@ from flask import Response, jsonify, request, send_file
 from flask_restx import Namespace, Resource
 from werkzeug.datastructures import FileStorage
 
-from simdb.checksum import sha1_checksum
+from simdb.checksum import checksums_match, sha1_checksum, strip_checksum
 from simdb.cli.manifest import DataType
 from simdb.database import DatabaseError, models
 from simdb.imas.checksum import checksum as imas_checksum
@@ -27,6 +28,30 @@ from simdb.remote.models import (
 )
 
 api = Namespace("files", path="/")
+
+#: First API version whose wire format carries the ``<algorithm>:`` checksum
+#: prefix. Older clients expect a bare hex digest and compare it exactly, so we
+#: strip the prefix from responses served under earlier versions.
+_PREFIX_WIRE_MIN_VERSION = (1, 3)
+
+
+def _request_api_version() -> tuple:
+    """Return the API version of the current request as a ``(major, minor)`` tuple.
+
+    Derived from the Flask blueprint name (e.g. ``api_v1_2`` -> ``(1, 2)``).
+    Defaults to the newest behaviour when it cannot be determined.
+    """
+    match = re.match(r"api_v(\d+)(?:_(\d+))?", request.blueprint or "")
+    if not match:
+        return _PREFIX_WIRE_MIN_VERSION
+    return (int(match.group(1)), int(match.group(2) or 0))
+
+
+def _wire_checksum(checksum: str) -> str:
+    """Serialize a stored checksum for the wire, stripping the prefix pre-v1.3."""
+    if checksum and _request_api_version() < _PREFIX_WIRE_MIN_VERSION:
+        return strip_checksum(checksum)
+    return checksum
 
 
 def _verify_file(
@@ -50,7 +75,7 @@ def _verify_file(
         if not path.exists():
             raise ValueError(f"file {path} does not exist")
         checksum = sha1_checksum(SimDBUrl.build(scheme="file", path=path.as_posix()))
-        if sim_file.checksum != checksum:
+        if not checksums_match(sim_file.checksum, checksum):
             raise ValueError(f"checksum failed for file {sim_file!r}")
     elif sim_file.type == DataType.IMAS:
         uri = sim_file.uri
@@ -69,7 +94,7 @@ def _verify_file(
             scheme=uri.scheme, path=uri.path, query=f"path={path_value}"
         )
         checksum = imas_checksum(new_uri, ids_list or [])
-        if sim_file.checksum != checksum:
+        if not checksums_match(sim_file.checksum, checksum):
             raise ValueError(f"checksum failed for simulation {sim_file.uri}")
 
 
@@ -178,7 +203,12 @@ class FileList(Resource):
     @pydantic_validate(api)
     def get(self, user: User) -> FileDataList:
         files = current_app.db.list_files()
-        return FileDataList.model_validate([file.to_model() for file in files])
+        models_ = []
+        for file in files:
+            model = file.to_model()
+            model.checksum = _wire_checksum(model.checksum)
+            models_.append(model)
+        return FileDataList.model_validate(models_)
 
     @requires_auth()
     def post(self, user: User):
@@ -198,7 +228,11 @@ class File(Resource):
     @pydantic_validate(api)
     def get(self, file_uuid: str, user: Optional[User] = None) -> FileGetDataResponse:
         file = current_app.db.get_file(file_uuid)
-        return file.to_model_with_path()
+        response = file.to_model_with_path()
+        response.checksum = _wire_checksum(response.checksum)
+        for file_info in response.files:
+            file_info.checksum = _wire_checksum(file_info.checksum)
+        return response
 
 
 @api.route("/file/download/<string:file_uuid>")

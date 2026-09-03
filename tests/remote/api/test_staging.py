@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from conftest import HEADERS, generate_simulation_data, post_simulation
 
+from simdb.checksum import format_checksum
 from simdb.remote.models import FileData, StagingDirectoryResponse
 
 
@@ -27,7 +28,7 @@ def test_get_staging_dir_for_simulation_with_uuid(client):
 
 def test_create_simulation_from_staging_dir(client_copy_files):
     file_data = b"test_data"
-    checksum = hashlib.sha1(file_data).hexdigest()
+    checksum = format_checksum(hashlib.sha1(file_data).hexdigest())
     simulation_data = generate_simulation_data(
         alias="test-simulation",
         inputs=[
