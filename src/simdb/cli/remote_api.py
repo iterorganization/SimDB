@@ -24,6 +24,7 @@ from typing import (
     Optional,
     Tuple,
     Union,
+    cast,
 )
 from urllib.parse import urlparse
 
@@ -33,11 +34,13 @@ import requests
 from requests.auth import AuthBase
 from semantic_version import Version
 
+from simdb.checksum import calculate_checksum
 from simdb.config import Config
 from simdb.database.models import Simulation
 from simdb.imas.utils import SimDBUrl, imas_files
 from simdb.json import CustomDecoder, CustomEncoder
 from simdb.remote import CLIENT_API_VERSIONS, APIConstants
+from simdb.remote.models import FileData, SimulationPostData
 
 from .manifest import DataType
 
@@ -233,6 +236,87 @@ def _get_paths(file: "File") -> Iterable[Path]:
         return []
     else:
         return imas_files(file.uri)
+
+
+def _find_partition_for_file(
+    file: Path, partitions: Dict[str, str]
+) -> Tuple[str, Path]:
+    # Match the partition with the longest root so that a catch-all mapping
+    # (e.g. "/") does not shadow more specific partitions.
+    best: Optional[Tuple[str, Path]] = None
+    best_depth = -1
+    for partition, path in partitions.items():
+        root = Path(path)
+        try:
+            relative = file.relative_to(root)
+        except ValueError:
+            continue
+        depth = len(root.parts)
+        if depth > best_depth:
+            best = (partition, relative)
+            best_depth = depth
+    if best is None:
+        raise APIError(
+            f"File {file} is not located under any configured partition "
+            f"(configured partitions: {', '.join(partitions) or 'none'})"
+        )
+    return best
+
+
+def _file_data_for_partition(
+    file: FileData, source: Path, partitions: Dict[str, str], keep_uuid: bool = True
+) -> FileData:
+    """Copy FILE with its URI rewritten relative to the partition holding SOURCE."""
+    partition, partition_path = _find_partition_for_file(source, partitions)
+    new_uri = SimDBUrl.build(scheme=partition, path=partition_path.as_posix())
+    update: Dict[str, Any] = {
+        "uri": new_uri.encoded_string(),
+        "checksum": calculate_checksum(source),
+    }
+    if not keep_uuid:
+        update["uuid"] = uuid.uuid1()
+    return file.model_copy(update=update)
+
+
+def _source_files(file: FileData) -> List[Path]:
+    """Return the local files that FILE refers to, expanding directories."""
+    file_uri = SimDBUrl(file.uri)
+    if file_uri.path is None:
+        raise APIError(f"File URI has no path: {file.uri}")
+
+    if file_uri.scheme == "imas":
+        try:
+            sources = sorted(imas_files(file_uri))
+        except ValueError as err:
+            raise APIError(f"Failed to list IMAS files of {file.uri}: {err}") from err
+        if not sources:
+            raise APIError(f"IMAS URI does not contain any files: {file.uri}")
+        return sources
+
+    file_path = Path(file_uri.path)
+    if not file_path.is_dir():
+        return [file_path]
+
+    sources = []
+    for sub_file in sorted(file_path.iterdir()):
+        if sub_file.is_dir():
+            raise APIError(f"Nested directory found in {file_path}: {sub_file.name}")
+        sources.append(sub_file)
+    return sources
+
+
+def _expand_directories(
+    files: Iterable[FileData], partitions: Dict[str, str]
+) -> List[FileData]:
+    new_file_list = []
+    for file in files:
+        sources = _source_files(file)
+        keep_uuid = len(sources) == 1
+        for source in sources:
+            new_file_list.append(
+                _file_data_for_partition(file, source, partitions, keep_uuid=keep_uuid)
+            )
+    return new_file_list
 
 
 class RemoteAPI:
@@ -854,6 +938,32 @@ class RemoteAPI:
             ("files", (uuid.hex, chunk, "application/octet-stream")),
         ]
         self.post("files", data={}, files=files)
+
+    @versioned_method("v1.3")
+    @try_request
+    def push_local_simulation(self, simulation: Simulation, add_watcher: bool = False):
+        sim_data = simulation.to_model(recurse=True)
+
+        partitions = cast(
+            Dict[str, str], self._config.get_section("partition", default={})
+        )
+        sim_data.inputs.root = _expand_directories(sim_data.inputs.root, partitions)
+        sim_data.outputs.root = _expand_directories(sim_data.outputs.root, partitions)
+
+        uploaded_by = simulation.meta_dict().get("uploaded_by")
+
+        post_data = SimulationPostData(
+            simulation=sim_data,
+            add_watcher=add_watcher,
+            uploaded_by=str(uploaded_by) if uploaded_by is not None else None,
+        )
+        self.post("simulations", data=post_data.model_dump(mode="json"))
+
+    @versioned_method("v1.3")
+    @try_request
+    def get_ingestion_status(self, sim_id: str) -> str:
+        res = self.get(f"simulation/status/{sim_id}")
+        return res.json()["status"]
 
     @versioned_method("v1.2", "v1.3")
     @try_request

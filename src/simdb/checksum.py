@@ -4,6 +4,19 @@ from pathlib import Path
 from simdb.imas.utils import SimDBUrl
 
 
+def calculate_checksum(path: Path) -> str:
+    """Generate a SHA1 checksum from the file at the given path.
+
+    :param path: the path of the file to checksum
+    :return: a string containing the hex representation of the computed SHA1 checksum
+    """
+    sha1 = hashlib.sha1()
+    with path.open("rb") as file:
+        for chunk in iter(lambda: file.read(4096), b""):
+            sha1.update(chunk)
+    return sha1.hexdigest()
+
+
 def sha1_checksum(uri: SimDBUrl) -> str:
     """Generate a SHA1 checksum from the given file.
 
@@ -21,8 +34,4 @@ def sha1_checksum(uri: SimDBUrl) -> str:
     if not path.is_file():
         raise ValueError("File appears to be a directory")
 
-    sha1 = hashlib.sha1()
-    with path.open("rb") as file:
-        for chunk in iter(lambda: file.read(4096), b""):
-            sha1.update(chunk)
-    return sha1.hexdigest()
+    return calculate_checksum(path)

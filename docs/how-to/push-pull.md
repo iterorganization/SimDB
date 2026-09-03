@@ -42,6 +42,55 @@ simdb simulation push SIM_ID --add-watcher
 See [watchers](../explanation/concepts.md#watchers) and the
 `simdb remote watcher` commands in the [CLI reference](../reference/cli.md).
 
+## Push on a shared file system
+
+If your machine and the server can reach the same physical file paths (as on the
+ITER network), sending large datasets over HTTP is slow and redundant. Use
+`push_local` instead:
+
+```bash
+simdb simulation push_local SIM_ID
+```
+
+`push_local` sends only the metadata and the storage paths. The server then
+
+1. validates the metadata against the active schemas,
+2. queues the file copy as a background [Celery task](operate-server/run-celery-workers.md), and
+3. completes the ingestion once the copy finishes.
+
+The command blocks and reports the ingestion state as it changes:
+
+```text
+Waiting for ingestion to complete... QUEUED -> COPYING -> COPIED -> COMPLETED
+Successfully pushed simulation UUID
+```
+
+### Configure partitions
+
+For `push_local` to resolve files on both sides, client and server must agree on
+a set of *partitions*: short logical names mapped to absolute directories. Add a
+`[partition]` section to your client configuration (see
+[Client configuration](../reference/configuration.md#partition)):
+
+```ini
+[partition]
+data = /home/user/my_simdb_data
+work = /work/imas/shared
+sdcc = /
+```
+
+Mapping `sdcc` to the system root makes any path under `/sdcc/projects/...`
+match, so `/sdcc/projects/my_run` becomes `sdcc:sdcc/projects/my_run`. When
+several partitions contain a file the most specific (deepest) path wins, so a
+catch-all mapping like this never shadows the others.
+
+When you run `push_local`, SimDB checks every input and output path against your
+partitions. A path inside a partition is rewritten to a partition-relative URI —
+`/home/user/my_simdb_data/scenarios/run1.txt` becomes
+`data:scenarios/run1.txt`. The server resolves that URI against its own
+`[partition]` configuration, so the two sides may mount the same storage at
+different absolute paths.
+
 ## Pull
 
 Pull copies a simulation's metadata into your local catalogue and downloads its
