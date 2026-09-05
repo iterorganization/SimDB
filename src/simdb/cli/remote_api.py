@@ -342,7 +342,7 @@ class RemoteAPI:
 
         self._api_version = selected_version
         self._api_url += f"{selected_version}/"
-        self.version = Version.coerce(self.get_api_version())
+        self.version = Version.coerce(selected_version.lstrip("v"))
         self.server_version = Version.coerce(self.get_server_version())
 
     def _load_cookies(
@@ -459,6 +459,32 @@ class RemoteAPI:
                 stream=stream,
             )
 
+        check_return(res)
+        return res
+
+    def get_root(
+        self,
+        headers: Optional[Dict] = None,
+        stream: bool = False,
+    ) -> "requests.Response":
+        """
+        Perform an HTTP GET request to the server root endpoint.
+
+        @param headers: additional headers to send with the request.
+        @param stream: True to enable streaming.
+        @return:
+        """
+
+        headers = headers or {}
+        headers["Accept-encoding"] = "gzip"
+        headers["User-Agent"] = "it_script_basic"
+
+        res = requests.get(
+            self._url,
+            headers=headers,
+            cookies=self._cookies,
+            stream=stream,
+        )
         check_return(res)
         return res
 
@@ -642,16 +668,14 @@ class RemoteAPI:
 
     @versioned_method("v1.2", "v1.3")
     @try_request
-    def get_api_version(self) -> str:
-        res = self.get("", authenticate=False)
-        data = res.json()
-        return data["api_version"]
-
-    @versioned_method("v1.2", "v1.3")
-    @try_request
     def get_server_version(self) -> str:
-        res = self.get("", authenticate=False)
-        data = res.json()
+        try:
+            res = self.get_root().json()
+            if (server_version := res.get("server_version")) is not None:
+                return server_version
+        except Exception:
+            pass
+        data = self.get("", authenticate=False).json()
         return data["server_version"]
 
     @versioned_method("v1.2", "v1.3")

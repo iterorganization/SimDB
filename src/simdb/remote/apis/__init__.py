@@ -7,7 +7,6 @@ import jwt
 from flask import Blueprint, Response, jsonify, request
 from flask_restx import Resource
 
-from simdb import __version__
 from simdb.database import Database
 from simdb.remote.core.auth import AuthenticationError, User, requires_auth
 from simdb.remote.core.typing import current_app
@@ -42,7 +41,6 @@ def register(api, version, namespaces):
             {
                 "api": "simdb",
                 "api_version": api.version,
-                "server_version": __version__,
                 "endpoints": [
                     request.url + "simulations",
                     request.url + "files",
