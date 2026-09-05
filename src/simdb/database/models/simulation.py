@@ -156,7 +156,7 @@ class Simulation(Base):
         Returns a list of MetaDataWrapper objects from the JSON metadata.
         """
         meta_dict = self._get_metadata_dict()
-        return [MetaDataWrapper(k, v) for k, v in meta_dict.items()]
+        return list(itertools.starmap(MetaDataWrapper, meta_dict.items()))
 
     def _get_metadata_dict(self) -> Dict[str, Any]:
         if self._metadata is None:

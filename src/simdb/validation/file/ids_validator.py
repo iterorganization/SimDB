@@ -43,7 +43,7 @@ class IdsValidator(FileValidatorBase):
             .split(",")
         ]
 
-        ### Define logic for rule_filter
+        # Define logic for rule_filter
         list_of_filter_names = (
             arguments.get("rule_filter_name", "").strip('"').split(",")
         )
