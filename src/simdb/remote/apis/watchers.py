@@ -26,6 +26,13 @@ class Watcher(Resource):
     def post(
         self, sim_id: str, user: User, data: Annotated[WatcherPostRequest, Body()]
     ) -> WatcherPostResponse:
+        """Add a watcher to a simulation.
+
+        Registers a user to be notified (by email) about changes to the
+        simulation identified by ``sim_id``. The watcher's username, email and
+        notification level default to those of the authenticated user when not
+        supplied in the request body.
+        """
         username = data.user or user.name
         email = data.email or user.email
 
@@ -48,6 +55,12 @@ class Watcher(Resource):
     def delete(
         self, sim_id: str, user: User, data: Annotated[WatcherDeleteRequest, Body()]
     ) -> WatcherDeleteResponse:
+        """Remove a watcher from a simulation.
+
+        Stops notifying the given user about changes to the simulation
+        identified by ``sim_id``. The username defaults to the authenticated
+        user when not supplied in the request body.
+        """
         username = data.user or user.name
 
         current_app.db.remove_watcher(sim_id, username)
@@ -59,6 +72,11 @@ class Watcher(Resource):
     @requires_auth()
     @pydantic_validate(api)
     def get(self, sim_id: str, user: User) -> WatcherGetResponse:
+        """List the watchers of a simulation.
+
+        Returns every user currently watching the simulation identified by
+        ``sim_id``, along with their notification settings.
+        """
         return WatcherGetResponse(
             [watcher.to_model() for watcher in current_app.db.list_watchers(sim_id)]
         )

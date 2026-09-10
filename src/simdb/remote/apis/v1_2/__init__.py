@@ -40,6 +40,13 @@ class StagingDirectory(Resource):
     @requires_auth()
     @pydantic_validate(api)
     def get(self, sim_hex: str, user: User) -> StagingDirectoryResponse:
+        """Get (and create) a staging directory for file uploads.
+
+        Returns the staging directory path clients should upload simulation
+        files to before ingesting a simulation. Without ``sim_hex`` the base
+        upload folder is returned. With a ``sim_hex`` the per-simulation
+        subdirectory is created if needed and its path returned.
+        """
         upload_dir = current_app.simdb_config.get_string_option(
             "server.user_upload_folder", default=None
         )
