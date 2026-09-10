@@ -418,34 +418,33 @@ def simulation_data(
     except Exception as err:
         raise click.ClickException(str(err)) from err
 
-    click.echo(f"simulation : {result['simulation']}")
-    click.echo(f"path       : {result['path']}  (occurrence {result['occurrence']})")
+    click.echo(f"simulation : {result.simulation}")
+    click.echo(f"path       : {result.path}  (occurrence {result.occurrence})")
 
-    coordinates = result.get("coordinates") or []
+    field = result.field
+    coordinates = result.coordinates
     plot_coordinate = next(
         (
             coord
             for coord in coordinates
-            if isinstance(coord.get("data"), list)
-            and isinstance(result["field"].get("data"), list)
-            and len(coord["data"]) == len(result["field"]["data"])
+            if isinstance(coord.data, list)
+            and isinstance(field.data, list)
+            and len(coord.data) == len(field.data)
         ),
         None,
     )
-    field_is_1d = is_numeric_1d(result["field"].get("data"))
+    field_is_1d = is_numeric_1d(field.data)
     if field_is_1d:
-        show_quantity_textual_plot(
-            result["field"], label="field", x_quantity=plot_coordinate
-        )
+        show_quantity_textual_plot(field, label="field", x_quantity=plot_coordinate)
     else:
-        print_quantity(result["field"], label="field")
+        print_quantity(field, label="field")
 
     if config.verbose and coordinates:
         for coord in coordinates:
-            if field_is_1d and is_numeric_1d(coord.get("data")):
+            if field_is_1d and is_numeric_1d(coord.data):
                 continue
-            if isinstance(coord.get("data"), list):
-                print_quantity(coord, label=f"coord  {coord['name']}", show_stats=False)
+            if isinstance(coord.data, list):
+                print_quantity(coord, label=f"coord  {coord.name}", show_stats=False)
 
 
 @simulation.command("validate", cls=n_required_args_adaptor(1))

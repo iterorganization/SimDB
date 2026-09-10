@@ -12,6 +12,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Tuple,
     TypeVar,
     Union,
 )
@@ -224,6 +225,31 @@ scalars are automatically converted to their plain Python equivalents before
 validation."""
 
 
+IDS_LIST_KEYS: Tuple[str, ...] = ("ids", "input_ids")
+"""Metadata keys whose value is a list of IDS names."""
+
+
+def coerce_ids_list(value: Any) -> Any:
+    """Repair an IDS list written as the display string ``"[a, b, c]"``.
+
+    SimDB <= 1.2 stored the :data:`IDS_LIST_KEYS` metadata that way rather than as a
+    list (#119), so both forms have to be accepted wherever such a value crosses into
+    the models. Values that are not strings are returned unchanged.
+
+    Kept as a single definition because it is applied at three separate boundaries:
+    :meth:`MetadataData.fix_ids_list_string` on the way out to the API,
+    ``Simulation._set_metadata_dict`` on the way in to the ORM, and the
+    ``a3f1c7d94e02`` migration for rows already at rest. The migration carries its own
+    copy on purpose -- migrations must stay frozen against later changes here.
+    """
+    if not isinstance(value, str):
+        return value
+    text = value.strip()
+    if text.startswith("[") and text.endswith("]"):
+        text = text[1:-1]
+    return [name.strip() for name in text.split(",") if name.strip()]
+
+
 class MetadataData(BaseModel):
     """Key-value pair for simulation metadata."""
 
@@ -238,6 +264,22 @@ class MetadataData(BaseModel):
         """Convert numpy arrays and lists containing numeric data to RangeValue."""
         if isinstance(data, dict) and "value" in data:
             data["value"] = _array_to_range(data["value"])
+        return data
+
+    @model_validator(mode="before")
+    @classmethod
+    def fix_ids_list_string(cls, data: Any) -> Any:
+        """Convert funky ids list strings to actual lists.
+
+        Applies to every key in :data:`IDS_LIST_KEYS`; see :func:`coerce_ids_list`.
+        """
+        if (
+            isinstance(data, dict)
+            and "value" in data
+            and "element" in data
+            and data["element"] in IDS_LIST_KEYS
+        ):
+            data["value"] = coerce_ids_list(data["value"])
         return data
 
     def as_dict(self) -> dict:
@@ -521,8 +563,11 @@ class FileUploadResponse(BaseModel):
 class FileRegistrationItem(BaseModel):
     """A single file entry in the file registration payload."""
 
-    chunks: int
-    """The amount of chunks to be processed."""
+    chunks: Optional[int] = None
+    """The amount of chunks to be processed.
+
+    Only sent for plain file uploads; omitted for IMAS registrations, where a
+    single item covers the many files pushed under one UUID."""
     file_type: str
     """The file type."""
     file_uuid: HexUUID
@@ -660,6 +705,58 @@ class ImasDataResponse(BaseModel):
     """The requested quantity"""
     coordinates: List[QuantityData]
     """Coordinates for each dimension of *field*, in dimension order."""
+
+
+class IndexResponse(BaseModel):
+    """Response from an API index endpoint.
+
+    Both the server root (``/``) and the versioned API roots (``/v1.x/``) are
+    described by this model; each populates only the fields it provides, so every
+    field carries a default.
+    """
+
+    api: Optional[str] = None
+    """Name of the API."""
+    api_version: Optional[str] = None
+    """Version of the API served by this endpoint."""
+    server_version: Optional[str] = None
+    """Version of the SimDB server."""
+    endpoints: List[str] = []
+    """URLs of the endpoints provided by this endpoint."""
+    documentation: Optional[str] = None
+    """URL of the API documentation."""
+    authentication: Optional[str] = None
+    """Name of the authenticator the server uses by default."""
+    authenticators: List[str] = []
+    """Names of all the authenticators the server accepts."""
+
+
+class TokenResponse(BaseModel):
+    """Response from the get token endpoint."""
+
+    token: str
+    """The JWT token to authenticate subsequent requests with."""
+    status: Optional[str] = None
+    """Status of the token request."""
+
+
+class UploadOptions(BaseModel):
+    """Response from the upload options endpoint.
+
+    Describes how the server expects simulation data to be uploaded.
+    """
+
+    copy_files: bool = True
+    """Whether files have to be uploaded to the server."""
+    copy_ids: bool = True
+    """Whether IMAS data has to be uploaded to the server."""
+
+
+class ValidationSchemaList(RootModel):
+    """Response from the validation schema endpoint."""
+
+    root: List[Dict[str, Any]] = []
+    """The validation schemas the server validates simulations against."""
 
 
 class ErrorResponse(BaseModel):

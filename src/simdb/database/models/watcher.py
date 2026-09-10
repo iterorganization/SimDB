@@ -62,4 +62,12 @@ class Watcher(Base):
         return data
 
     def to_model(self) -> WatcherData:
-        return WatcherData.model_validate(self.data())
+        return WatcherData.model_validate(
+            {
+                "username": self.username,
+                "email": self.email,
+                "notification": self.NOTIFICATION_CHOICES[
+                    Notification(self.notification)
+                ],
+            }
+        )
