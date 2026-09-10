@@ -9,6 +9,7 @@ import appdirs
 import click
 from rich.prompt import Confirm
 
+from simdb.checksum import checksums_match
 from simdb.cli.manifest import Manifest
 from simdb.cli.remote_api import RemoteAPI, RemoteError
 from simdb.config.config import Config
@@ -479,7 +480,7 @@ def simulation_validate(
             # Pass config and ids_list parameters
             current_checksum = file.generate_checksum(config, ids_list)
 
-            if current_checksum != file.checksum:
+            if not checksums_match(current_checksum, file.checksum):
                 raise ValidationError(
                     f"Checksum mismatch for file {file.uri}. "
                     f"Expected: {file.checksum}, Got: {current_checksum}"

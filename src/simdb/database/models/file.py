@@ -30,7 +30,7 @@ class File(Base):
     id = Column(sql_types.Integer, primary_key=True)
     uuid = Column(UUID, nullable=False, unique=True, index=True)
     uri: SimDBUrl = Column(URI(1024), nullable=True)
-    checksum = Column(sql_types.String(64), nullable=True)
+    checksum = Column(sql_types.String(128), nullable=True)
     type = Column(sql_types.Enum(DataType), nullable=True)
     datetime = Column(sql_types.DateTime, nullable=False)
 

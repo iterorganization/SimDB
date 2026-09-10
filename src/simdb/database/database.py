@@ -933,7 +933,25 @@ def get_local_db(config: Config) -> Database:
             run_migrations(database.engine)
         else:
             raise e
+    # With the schema at head, apply any pending online (data) migrations. This
+    # runs on every open, but is a cheap no-op once the data is up to date.
+    _run_online_migrations(database, config)
     return database
+
+
+def _run_online_migrations(database: Database, config: Config) -> None:
+    """Apply online (data) migrations to the local database.
+
+    Recalculates any checksums still stored in the legacy (bare-hex) format.
+    Imported lazily to avoid a circular import: ``simdb.workers`` imports
+    ``tasks``, which imports ``get_db`` from this module.
+    """
+    from simdb.workers.migrations import run_online_migrations  # noqa: PLC0415
+
+    results = run_online_migrations(database, config)
+    changed = sum(results.values())
+    if changed:
+        print(f"Recalculated {changed} local checksum(s).")
 
 
 def get_db(config: Config) -> Database:
