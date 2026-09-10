@@ -1,54 +1,65 @@
-from unittest import mock
+"""Tests for ``simdb manifest``."""
 
-from click.testing import CliRunner
-from utils import config_test_file, create_manifest, get_file_path
+import yaml
 
-from simdb.cli.simdb import cli
-
-
-@mock.patch("simdb.cli.commands.manifest.Manifest")
-def test_manifest_check_command(manifest):
-    config_file = config_test_file()
-    runner = CliRunner()
-    file_name = create_manifest()
-    result = runner.invoke(
-        cli, [f"--config-file={config_file}", "manifest", "check", str(file_name)]
-    )
-    assert result.exception is None
-    assert "ok" in result.output
-    assert manifest.load_from_file.called
-    (args, kwargs) = manifest.load_from_file.call_args
-    assert str(args[0]) == str(file_name)
-    assert kwargs == {}
+from simdb.cli.manifest import Manifest
 
 
-def test_manifest_check_command_integration():
-    """Integration test that actually runs the manifest check without mocking."""
-    config_file = config_test_file()
-    runner = CliRunner()
-    file_name = create_manifest()
-    result = runner.invoke(
-        cli, [f"--config-file={config_file}", "manifest", "check", str(file_name)]
-    )
-    assert result.exception is None, f"Unexpected exception: {result.exception}"
-    assert result.exit_code == 0, (
-        f"Exit code: {result.exit_code}, Output: {result.output}"
-    )
+def test_check_accepts_a_valid_manifest(invoke, manifest_file):
+    result = invoke("manifest", "check", str(manifest_file))
+
+    assert result.exit_code == 0
     assert "ok" in result.output
 
 
-@mock.patch("simdb.cli.commands.manifest.Manifest")
-def test_manifest_create_command(manifest):
-    config_file = config_test_file()
-    runner = CliRunner()
-    file_name = get_file_path("manifest.yaml")
-    result = runner.invoke(
-        cli, [f"--config-file={config_file}", "manifest", "create", str(file_name)]
-    )
-    assert result.exception is None
-    assert str(file_name) in result.output
-    assert manifest.from_template.called
-    assert manifest.from_template().save.called
-    (args, kwargs) = manifest.from_template().save.call_args
-    assert args[0].name == str(file_name)
-    assert kwargs == {}
+def test_check_rejects_an_invalid_manifest(invoke, tmp_path):
+    manifest_file = tmp_path / "broken.yaml"
+    manifest_file.write_text("manifest_version: 2\nalias: 'not a valid alias'\n")
+
+    result = invoke("manifest", "check", str(manifest_file))
+
+    assert result.exit_code != 0
+    assert "illegal characters in alias" in str(result.exception)
+
+
+def test_check_requires_the_file_to_exist(invoke, tmp_path):
+    result = invoke("manifest", "check", str(tmp_path / "missing.yaml"))
+
+    assert result.exit_code == 2
+    assert "does not exist" in result.output
+
+
+def test_create_writes_a_manifest_from_the_template(invoke, tmp_path):
+    manifest_file = tmp_path / "new-manifest.yaml"
+
+    result = invoke("manifest", "create", str(manifest_file))
+
+    assert result.exit_code == 0
+    assert str(manifest_file) in result.output
+    assert manifest_file.exists()
+    assert yaml.safe_load(manifest_file.read_text())["manifest_version"] == 2
+
+
+def test_a_created_manifest_carries_the_template_placeholders(invoke, tmp_path):
+    """``create`` writes a skeleton, so ``check`` still has something to report.
+
+    The template points at ``/home/user/path/to/a/file1`` and friends, which the
+    user is expected to replace; checking it unedited must say so rather than
+    pass silently.
+    """
+    manifest_file = tmp_path / "new-manifest.yaml"
+    assert invoke("manifest", "create", str(manifest_file)).exit_code == 0
+
+    result = invoke("manifest", "check", str(manifest_file))
+
+    assert result.exit_code != 0
+    assert "No files found matching path" in str(result.exception)
+
+
+def test_check_loads_the_manifest_it_was_given(invoke, manifest_file):
+    """``check`` reports on the requested file, not on a default one."""
+    loaded = Manifest.load_from_file(manifest_file)
+
+    assert loaded.alias == "simulation-alias"
+    assert len(loaded.inputs) == 1
+    assert len(loaded.outputs) == 1
