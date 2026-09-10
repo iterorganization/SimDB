@@ -28,6 +28,7 @@ def test_get_root(client):
     assert rv.status_code == 200
     assert "endpoints" in rv.json
     assert len(rv.json["endpoints"]) > 0
+    assert "server_version" in rv.json
     assert all(
         endpoint.startswith("http://localhost/v") for endpoint in rv.json["endpoints"]
     )

@@ -466,7 +466,7 @@ class RemoteAPI:
             print(f"Selected API version {selected_version}")
 
         self._api_version = selected_version
-        self.version = Version.coerce(self.get_api_version())
+        self.version = Version.coerce(selected_version.lstrip("v"))
         self.server_version = Version.coerce(self.get_server_version())
 
     def _load_cookies(
@@ -583,6 +583,7 @@ class RemoteAPI:
         headers: Optional[Dict] = None,
         authenticate: Optional[bool] = True,
         stream: Optional[bool] = False,
+        base_url: Optional[str] = None,
     ) -> "requests.Response":
         """
         Perform an HTTP GET request.
@@ -593,17 +594,20 @@ class RemoteAPI:
         :param authenticate: True if we should send authentication headers with
             the request.
         :param stream: True to enable streaming.
+        :param base_url: the base URL to resolve the request against, defaulting
+            to the API version the current request targets.
         """
 
         params = params if params is not None else {}
         headers = headers if headers is not None else {}
         headers["Accept-encoding"] = "gzip"
         headers["User-Agent"] = "it_script_basic"
+        request_url = (base_url if base_url is not None else self._api_url) + url
 
         # Get token api expected basic auth in request
         if authenticate and self._server_auth != "None":
             res = requests.get(
-                self._api_url + url,
+                request_url,
                 params=params,
                 auth=self._get_auth(),
                 headers=headers,
@@ -612,7 +616,7 @@ class RemoteAPI:
             )
         else:
             res = requests.get(
-                self._api_url + url,
+                request_url,
                 params=params,
                 headers=headers,
                 cookies=self._cookies,
@@ -783,11 +787,14 @@ class RemoteAPI:
         return bool(self._url)
 
     @try_request
-    def _get_index(self) -> IndexResponse:
+    def _get_index(self, base_url: Optional[str] = None) -> IndexResponse:
         """
-        Return the index of the endpoint the current request targets.
+        Return the index of an endpoint.
+
+        @param base_url: the base URL of the index to read, defaulting to the index
+                         of the API version the current request targets.
         """
-        res = self.get("", authenticate=False)
+        res = self.get("", authenticate=False, base_url=base_url)
         return IndexResponse.model_validate_json(res.content)
 
     @versioned_method("v1.2", "v1.3")
@@ -805,15 +812,12 @@ class RemoteAPI:
         return self._get_index().authentication
 
     @versioned_method("v1.2", "v1.3")
-    def get_api_version(self) -> str:
-        version = self._get_index().api_version
-        if version is None:
-            raise RemoteError(f"Remote '{self._remote}' did not report an API version.")
-        return version
-
-    @versioned_method("v1.2", "v1.3")
     def get_server_version(self) -> str:
-        version = self._get_index().server_version
+        # The server root is the primary source; remotes that predate the move of
+        # the server version off the versioned API index still report it there.
+        version = self._get_index(base_url=self._base_url).server_version
+        if version is None:
+            version = self._get_index().server_version
         if version is None:
             raise RemoteError(
                 f"Remote '{self._remote}' did not report a server version."

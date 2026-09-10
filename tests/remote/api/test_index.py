@@ -12,5 +12,4 @@ def test_versioned_index(client, version):
     assert rv.json["api"] == "simdb"
     # v1 reports "1.0" for blueprint key "v1", so only compare the prefix
     assert rv.json["api_version"].startswith(version.lstrip("v"))
-    assert "server_version" in rv.json
     assert any(url.endswith("simulations") for url in rv.json["endpoints"])

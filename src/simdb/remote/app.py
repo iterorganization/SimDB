@@ -6,6 +6,7 @@ from flask import Flask, jsonify, request
 from flask_compress import Compress
 from flask_cors import CORS
 
+from simdb import __version__
 from simdb.config import Config
 from simdb.database.database import check_migrations, run_migrations
 
@@ -57,6 +58,7 @@ def create_app(
                 "endpoints": endpoints,
                 "authentication": authenticators[0].Name,
                 "authenticators": [auth.Name for auth in authenticators],
+                "server_version": __version__,
             }
         )
 
