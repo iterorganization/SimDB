@@ -311,6 +311,37 @@ def _get_path(uri: SimDBUrl) -> Path:
     return path
 
 
+def imas_backend_for_directory(directory: Path) -> str:
+    """
+    Identify the IMAS backend of a directory by inspecting its contents.
+
+    @param directory: a directory that may contain an IMAS dataset
+    @return: the backend name ("ascii", "hdf5" or "mdsplus")
+    @raise ValueError: if no IMAS dataset is detected
+    """
+    children = list(directory.iterdir())
+
+    # ASCII heuristic
+    if any(child.suffix == ".ids" for child in children):
+        return "ascii"
+
+    # HDF5 heuristic
+    if any(child.suffix == ".h5" for child in children) and any(
+        child.name == "master.h5" for child in children
+    ):
+        return "hdf5"
+
+    # MDSplus heuristic
+    if {p.name for p in children} >= {
+        "ids_001.tree",
+        "ids_001.characteristics",
+        "ids_001.datafile",
+    }:
+        return "mdsplus"
+
+    raise ValueError("IMAS backend could not be identified.")
+
+
 def imas_files(uri: SimDBUrl) -> List[Path]:
     """
     Return all the files associated with the given IMAS URI.

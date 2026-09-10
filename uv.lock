@@ -1266,7 +1266,7 @@ requires-dist = [
     { name = "imas-simdb", extras = ["imas-validator", "postgres", "server"], marker = "extra == 'all'" },
     { name = "imas-validator", marker = "extra == 'imas-validator'", specifier = ">=1.0.0" },
     { name = "myst-parser", marker = "extra == 'build-docs'", specifier = ">=0.18.0" },
-    { name = "netcdf4", specifier = ">=1.5" },
+    { name = "netcdf4", specifier = ">=1.7.2" },
     { name = "numpy", specifier = ">=1.14" },
     { name = "plotext", specifier = "==5.3.2" },
     { name = "psycopg2-binary", marker = "extra == 'postgres'", specifier = ">=2.8.0" },
