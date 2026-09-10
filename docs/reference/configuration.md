@@ -90,6 +90,17 @@ One section per configured remote server. Manage these with
 | --- | --- |
 | `file` | Path to the local SQLite catalogue. Defaults to `sim.db` in the user data directory (for example `~/.local/share/simdb/sim.db`). |
 
+### `[partition]`
+
+Maps logical partition names to absolute directories on this machine. Used by
+`simdb simulation push_local` to rewrite file paths into partition-relative URIs
+that the server can resolve (see
+[Push and pull simulations](../how-to/push-pull.md#configure-partitions)).
+
+| Option | Description |
+| --- | --- |
+| `NAME` | Directory that partition `NAME` is mounted at, for example `data = /home/user/my_simdb_data`. |
+
 ### `[development]`
 
 | Option | Description |

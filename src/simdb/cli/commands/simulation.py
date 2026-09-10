@@ -1,19 +1,21 @@
 import contextlib
 import sys
+import time
 import urllib.parse
 from itertools import chain
 from pathlib import Path
-from typing import Any, List, Optional, Tuple, Type
+from typing import Any, List, Optional, Tuple
 
 import appdirs
 import click
 from rich.prompt import Confirm
 
 from simdb.cli.manifest import Manifest
-from simdb.cli.remote_api import RemoteAPI, RemoteError
+from simdb.cli.remote_api import APIError, RemoteAPI, RemoteError
 from simdb.config.config import Config
 from simdb.database import DatabaseError, get_local_db
 from simdb.database.models import Simulation
+from simdb.enums import IngestionStatus
 from simdb.query import QueryType, parse_query_arg
 from simdb.validation import ValidationError, Validator
 
@@ -200,19 +202,185 @@ def simulation_ingest(config: Config, manifest_file: str, alias: str):
     click.echo("ALIAS: " + simulation.alias + "\nUUID: " + str(simulation.uuid))
 
 
-def n_required_args_adaptor(n) -> Type[click.Command]:
-    class NRequiredArgs(click.Command):
-        NArgs = n
+class OptionalRemoteCommand(click.Command):
+    """A command declared as `[REMOTE] ARG...` whose REMOTE may be left out."""
 
-        def parse_args(self, ctx, args):
-            if len(args) == self.NArgs:
-                args.insert(0, "")
-            super().parse_args(ctx, args)
+    def parse_args(self, ctx, args):
+        arguments = [p for p in self.get_params(ctx) if isinstance(p, click.Argument)]
+        if self._count_values_given(ctx, args, arguments) < len(arguments):
+            args = ["", *args]
+        super().parse_args(ctx, args)
 
-    return NRequiredArgs
+    def _count_values_given(self, ctx, args, arguments) -> int:
+        """Count how many of the ARGUMENTS the command line provides a value for."""
+        values = self.make_parser(ctx).parse_args(list(args))[0]
+        return sum(1 for argument in arguments if values.get(argument.name) is not None)
 
 
-@simulation.command("push", cls=n_required_args_adaptor(1))
+def _prepare_simulation(
+    config: Config, api: RemoteAPI, sim_id: str, replaces: Optional[str]
+) -> Simulation:
+    """Look up the local simulation SIM_ID and validate it against the remote
+    schemas."""
+    db = get_local_db(config)
+
+    simulation = db.get_simulation(sim_id)
+    if simulation is None:
+        raise click.ClickException(f"Failed to find simulation: {sim_id}")
+
+    if replaces:
+        simulation.set_meta("replaces", replaces)
+
+    schemas = api.get_validation_schemas()
+    try:
+        for schema in schemas:
+            Validator(schema).validate(simulation)
+    except ValidationError as err:
+        raise click.ClickException(f"Simulation does not validate: {err}") from err
+
+    return simulation
+
+
+def _wait_for_ingestion(api: RemoteAPI, sim_id: str, timeout: float) -> IngestionStatus:
+    """Poll the remote until the ingestion of SIM_ID reaches a terminal state.
+
+    Reports every status change and returns the terminal status.
+
+    :raise click.ClickException: if the remote cannot be reached, reports an
+                                 unknown status, or TIMEOUT seconds pass before
+                                 the ingestion finishes.
+    """
+    max_consecutive_failures = 5
+    poll_interval = 1.0
+
+    click.echo("Waiting for ingestion to complete...", nl=False)
+    last_status = None
+    consecutive_failures = 0
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            raw_status = api.get_ingestion_status(sim_id)
+        except RemoteError as err:
+            # The remote rejected the request, so retrying will not help.
+            click.echo()
+            raise click.ClickException(
+                f"Failed to check ingestion status: {err}"
+            ) from err
+        except ValueError as err:
+            # The remote reported a status this client does not know about, so
+            # waiting for it to change will not help.
+            click.echo()
+            raise click.ClickException(
+                f"Remote reported an unknown ingestion status: {err}"
+            ) from err
+        except Exception as err:
+            # Tolerate transient errors: the ingestion continues server-side
+            consecutive_failures += 1
+            if consecutive_failures >= max_consecutive_failures:
+                click.echo()
+                raise click.ClickException(
+                    f"Failed to check ingestion status "
+                    f"{consecutive_failures} times in a row: {err}"
+                ) from err
+            if time.monotonic() >= deadline:
+                click.echo()
+                raise click.ClickException(
+                    f"Timed out after {timeout:g}s waiting for ingestion to "
+                    f"complete (last status: {last_status})"
+                ) from err
+            time.sleep(poll_interval)
+            continue
+        consecutive_failures = 0
+
+        try:
+            status = IngestionStatus(raw_status)
+        except ValueError as err:
+            click.echo()
+            raise click.ClickException(
+                f"Remote reported an unknown ingestion status: {raw_status}"
+            ) from err
+
+        if status != last_status:
+            if last_status is not None:
+                click.echo(f" -> {status.value}", nl=False)
+            else:
+                click.echo(f" {status.value}", nl=False)
+            last_status = status
+
+        if status.is_terminal():
+            click.echo()
+            return status
+
+        if time.monotonic() >= deadline:
+            click.echo()
+            raise click.ClickException(
+                f"Timed out after {timeout:g}s waiting for ingestion to complete "
+                f"(last status: {status.value})"
+            )
+
+        time.sleep(poll_interval)
+
+
+@simulation.command(
+    "push_local",
+    cls=OptionalRemoteCommand,
+    short_help="Register a simulation whose files the REMOTE copies itself.",
+)
+@pass_config
+@click.argument("remote", required=False)
+@click.argument("sim_id")
+@click.option("--username", help="Username used to authenticate with the remote.")
+@click.option("--password", help="Password used to authenticate with the remote.")
+@click.option("--replaces", help="SIM_ID of simulation to deprecate and replace.")
+@click.option(
+    "--add-watcher",
+    is_flag=True,
+    help="Add the current user as a watcher of the simulation.",
+)
+@click.option(
+    "--timeout",
+    type=float,
+    default=600.0,
+    show_default=True,
+    help="Maximum number of seconds to wait for ingestion to complete.",
+)
+def simulation_push_local(
+    config: Config,
+    remote: Optional[str],
+    sim_id: str,
+    username: Optional[str],
+    password: Optional[str],
+    replaces: Optional[str],
+    add_watcher: bool,
+    timeout: float,
+):
+    """Register the simulation with the given SIM_ID (UUID or alias) on the REMOTE.
+
+    Only the metadata is sent: the REMOTE copies the simulation files itself from
+    the recorded paths, which must therefore be reachable from the remote.
+    Waits for the remote ingestion to reach a terminal state, or until --timeout
+    seconds have passed.
+    """
+
+    api = RemoteAPI(remote, username, password, config)
+    simulation = _prepare_simulation(config, api, sim_id, replaces)
+
+    api.push_local_simulation(simulation, add_watcher=add_watcher)
+
+    status = _wait_for_ingestion(api, simulation.uuid.hex, timeout)
+    if status is not IngestionStatus.COMPLETED:
+        raise click.ClickException(
+            f"Simulation ingestion failed with status: {status.value}"
+        )
+
+    click.echo(f"Successfully pushed simulation {simulation.uuid}")
+
+
+@simulation.command(
+    "push",
+    cls=OptionalRemoteCommand,
+    short_help="Upload a simulation and its files to the REMOTE.",
+)
 @pass_config
 @click.argument("remote", required=False)
 @click.argument("sim_id")
@@ -233,31 +401,24 @@ def simulation_push(
     replaces: Optional[str],
     add_watcher: bool,
 ):
-    """Push the simulation with the given SIM_ID (UUID or alias) to the REMOTE."""
+    """Push the simulation with the given SIM_ID (UUID or alias) to the REMOTE.
+
+    Both the metadata and the simulation files are uploaded over HTTP. Use
+    push_local instead when the REMOTE can read the files itself.
+    """
 
     api = RemoteAPI(remote, username, password, config)
-    db = get_local_db(config)
+    simulation = _prepare_simulation(config, api, sim_id, replaces)
 
-    simulation = db.get_simulation(sim_id)
-    if simulation is None:
-        raise click.ClickException(f"Failed to find simulation: {sim_id}")
-
-    if replaces:
-        simulation.set_meta("replaces", replaces)
-
-    schemas = api.get_validation_schemas()
     try:
-        for schema in schemas:
-            Validator(schema).validate(simulation)
-    except ValidationError as err:
-        raise click.ClickException(f"Simulation does not validate: {err}") from err
-
-    api.push_simulation(simulation, out_stream=sys.stdout, add_watcher=add_watcher)
+        api.push_simulation(simulation, add_watcher=add_watcher)
+    except APIError as err:
+        raise click.ClickException(f"Failed to push simulation: {err}") from err
 
     click.echo(f"Successfully pushed simulation {simulation.uuid}")
 
 
-@simulation.command("pull", cls=n_required_args_adaptor(2))
+@simulation.command("pull", cls=OptionalRemoteCommand)
 @pass_config
 @click.argument("remote", required=False)
 @click.argument("sim_id")
@@ -380,7 +541,7 @@ def simulation_query(
     )
 
 
-@simulation.command("data", cls=n_required_args_adaptor(2))
+@simulation.command("data", cls=OptionalRemoteCommand)
 @pass_config
 @click.argument("remote", required=False)
 @click.argument("sim_id")
@@ -448,7 +609,7 @@ def simulation_data(
                 print_quantity(coord, label=f"coord  {coord['name']}", show_stats=False)
 
 
-@simulation.command("validate", cls=n_required_args_adaptor(1))
+@simulation.command("validate", cls=OptionalRemoteCommand)
 @pass_config
 @click.argument("remote", required=False)
 @click.argument("sim_id")
