@@ -163,7 +163,25 @@ class Simulation(Base):
             return {}
         return self._metadata
 
+    def _coerce_ids_list(self, v: Any) -> Any:
+        """Repair ``ids``/``input_ids`` metadata written as a display string.
+
+        SimDB <= 1.2 stored these as ``"[core_profiles, equilibrium]"`` rather than a
+        list, which fails validation when the simulation is pushed back (#119).
+        remains.
+        """
+        if not isinstance(v, str):
+            return v
+        text = v.strip()
+        if text.startswith("[") and text.endswith("]"):
+            text = text[1:-1]
+        return [name.strip() for name in text.split(",") if name.strip()]
+
     def _set_metadata_dict(self, meta_dict: Dict[str, Any]) -> None:
+        # Fix simulations pulled with odd formatted ids arrays:
+        for key in ("ids", "input_ids"):
+            if key in meta_dict:
+                meta_dict[key] = self._coerce_ids_list(meta_dict[key])
         self._metadata = meta_dict
 
     def __init__(
@@ -214,7 +232,7 @@ class Simulation(Base):
             self.inputs.append(file)
 
         if all_input_idss:
-            self.set_meta("input_ids", "[{}]".format(", ".join(all_input_idss)))
+            self.set_meta("input_ids", all_input_idss)
 
         all_output_idss = []
 
@@ -242,7 +260,7 @@ class Simulation(Base):
             self.outputs.append(file)
 
         if all_output_idss:
-            self.set_meta("ids", "[{}]".format(", ".join(all_output_idss)))
+            self.set_meta("ids", all_output_idss)
 
         flattened_dict = flatten_dict(manifest.metadata)
 
@@ -286,6 +304,10 @@ class Simulation(Base):
                     first_line = False
             elif isinstance(value, dict) and "min" in value and "max" in value:
                 result += f"  {element}: [{value['min']}, {value['max']}]\n"
+            elif isinstance(value, list):
+                result += "  {}: [{}]\n".format(
+                    element, ", ".join(str(el) for el in value)
+                )
             else:
                 result += f"  {element}: {value}\n"
         result += "inputs:\n"

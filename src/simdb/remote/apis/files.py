@@ -58,15 +58,11 @@ def _verify_file(
         path_value = qs.get("path")
         if path_value is None:
             raise ValueError("The 'path' key is missing in the URI query")
-        if common_root == Path("/"):
-            path_value = str(staging_dir) + path_value
-        elif common_root is not None and common_root == path_value:
-            path_value = path_value.replace(str(common_root), str(staging_dir))
-
-        else:
-            path_value = str(staging_dir)
+        staged_dir = secure_path(
+            Path(path_value), common_root, staging_dir, is_file=False
+        )
         new_uri = uri.build(
-            scheme=uri.scheme, path=uri.path, query=f"path={path_value}"
+            scheme=uri.scheme, path=uri.path, query=f"path={staged_dir.as_posix()}"
         )
         checksum = imas_checksum(new_uri, ids_list or [])
         if sim_file.checksum != checksum:
