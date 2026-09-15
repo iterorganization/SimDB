@@ -232,7 +232,8 @@ class Validator:
             validation_cls = getattr(module, class_name)
         except AttributeError as err:
             raise AttributeError(
-                f"Module '{module_name}' does not have class or attribute '{class_name}'"
+                f"Module '{module_name}' does not have class or attribute "
+                f"'{class_name}'"
             ) from err
         return validation_cls
 
