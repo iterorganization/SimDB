@@ -44,9 +44,7 @@ class TestCustomValidatorExt:
         with pytest.raises(ValueError) as exc_info:
             validator_instance._custom_validation_ext(config)
 
-        assert "Expected format: 'package.module.ClassName'" in str(
-            exc_info.value
-        )
+        assert "Expected format: 'package.module.ClassName'" in str(exc_info.value)
 
         config.get_option.assert_called_once_with(
             "validation.custom_validator", default=None
