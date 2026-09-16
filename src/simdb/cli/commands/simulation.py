@@ -248,7 +248,7 @@ def simulation_push(
     schemas = api.get_validation_schemas()
     try:
         for schema in schemas:
-            Validator(schema).validate(simulation)
+            Validator(schema, config).validate(simulation)
     except ValidationError as err:
         raise click.ClickException(f"Simulation does not validate: {err}") from err
 
@@ -471,7 +471,7 @@ def simulation_validate(
 
     click.echo("validating metadata ... ", nl=False)
     for schema in schemas:
-        Validator(schema).validate(simulation)
+        Validator(schema, config).validate(simulation)
 
     ids_list = []
     for file in chain(simulation.inputs, simulation.outputs):
