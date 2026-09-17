@@ -1,6 +1,10 @@
 services:
   migrations:
-    build: .
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-0.0.0}
+    image: simdb:${SIMDB_IMAGE_TAG:-local}
     volumes:
       - ./config:/app/config:ro
     environment:
@@ -11,7 +15,12 @@ services:
     restart: "no"
 
   web:
-    build: .
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-0.0.0}
+    image: simdb:${SIMDB_IMAGE_TAG:-local}
+    container_name: ${SIMDB_CONTAINER_NAME:-simdb-web}
     environment:
       IMAS_LOCAL_HOSTS: localhost
     ports:
@@ -33,7 +42,11 @@ services:
   worker:
     profiles: [with_workers]
     # docker compose --profile with_workers enables this service
-    build: .
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-0.0.0}
+    image: simdb:${SIMDB_IMAGE_TAG:-local}
     command: uv run simdb_worker
     volumes:
       - ./config:/app/config:ro
@@ -51,7 +64,11 @@ services:
   beat:
     profiles: [with_workers]
     # docker compose --profile with_workers enables this service
-    build: .
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-0.0.0}
+    image: simdb:${SIMDB_IMAGE_TAG:-local}
     command: uv run simdb_beat
     volumes:
       - ./config:/app/config:ro
