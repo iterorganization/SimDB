@@ -245,12 +245,13 @@ def simulation_push(
     if replaces:
         simulation.set_meta("replaces", replaces)
 
-    schemas = api.get_validation_schemas()
-    try:
-        for schema in schemas:
-            Validator(schema).validate(simulation)
-    except ValidationError as err:
-        raise click.ClickException(f"Simulation does not validate: {err}") from err
+    if api.get_upload_options().get("auto_validate", True):
+        schemas = api.get_validation_schemas()
+        try:
+            for schema in schemas:
+                Validator(schema).validate(simulation)
+        except ValidationError as err:
+            raise click.ClickException(f"Simulation does not validate: {err}") from err
 
     api.push_simulation(simulation, out_stream=sys.stdout, add_watcher=add_watcher)
 
