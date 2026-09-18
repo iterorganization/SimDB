@@ -111,6 +111,11 @@ where = ["src"]
 [tool.setuptools.package-data]
 simdb = ["py.typed", "LICENSE"]
 "simdb.cli" = ["template.yaml"]
+"simdb.database" = [
+    "migrations/script.py.mako",
+    "migrations/env.py",
+    "migrations/versions/*.py",
+]
 "simdb.remote" = ["scripts/simdb.initd", "scripts/simdb.nginx"]
 
 [tool.setuptools_scm]

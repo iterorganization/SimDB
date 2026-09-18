@@ -1,7 +1,7 @@
 # Run database migrations
 
 SimDB manages its database schema with [Alembic](https://alembic.sqlalchemy.org/).
-Migration scripts live in `alembic/versions/`.
+Migration scripts live in `src/simdb/database/migrations/versions/`.
 
 ## Configure the database URL
 
@@ -44,7 +44,7 @@ After changing the SQLAlchemy models, autogenerate a migration:
 alembic revision --autogenerate -m "short description of change"
 ```
 
-Review the generated script in `alembic/versions/` carefully before applying it.
+Review the generated script in `src/simdb/database/migrations/versions/` carefully before applying it.
 Autogenerate may miss some changes, such as custom column types or server
 defaults. Then apply it:
 
