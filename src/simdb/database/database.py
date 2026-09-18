@@ -55,7 +55,7 @@ class SimulationIngestionInProgressError(DatabaseError):
 def _alembic_config() -> AlembicConfig:
     """Build an Alembic config pointing at the migrations shipped with this package.
 
-    The migration scripts live inside the ``simdb`` package 
+    The migration scripts live inside the ``simdb`` package
     """
     config = AlembicConfig()
     config.set_main_option("script_location", str(_MIGRATIONS_DIR))
