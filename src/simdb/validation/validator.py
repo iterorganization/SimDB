@@ -230,6 +230,12 @@ class Validator:
             ) from err
         try:
             validation_cls = getattr(module, class_name)
+            if not isinstance(validation_cls, type) or not issubclass(
+                validation_cls, cerberus.Validator
+            ):
+                raise TypeError(
+                    f"'{module_path}' must be a subclass of cerberus.Validator"
+                )
         except AttributeError as err:
             raise AttributeError(
                 f"Module '{module_name}' does not have class or attribute "

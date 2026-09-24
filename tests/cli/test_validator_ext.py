@@ -1,5 +1,6 @@
 from unittest import mock
 
+import cerberus
 import pytest
 
 from simdb.validation.validator import CustomValidator, Validator
@@ -66,7 +67,7 @@ class TestCustomValidatorExt:
         mock_import_module.assert_called_once_with("non_existent_pkg.module")
 
     @mock.patch("simdb.validation.validator.import_module")
-    def test_returns_custom_class_successfully(
+    def test_raises_import_error_for_invalid_subclass(
         self, mock_import_module, validator_instance
     ):
         config = mock.MagicMock()
@@ -79,10 +80,37 @@ class TestCustomValidatorExt:
 
         mock_import_module.return_value = mock_module
 
+        with pytest.raises(
+            TypeError,
+            match=(
+                r"'mypackage.validator.MyValidator' "
+                r"must be a subclass of cerberus.Validator"
+            ),
+        ):
+            validator_instance._custom_validation_ext(config)
+            mock_import_module.assert_called_once_with("mypackage.validator")
+
+    @mock.patch("simdb.validation.validator.import_module")
+    def test_returns_custom_class_successfully(
+        self, mock_import_module, validator_instance
+    ):
+        config = mock.MagicMock()
+        config.get_option.return_value = "mypackage.validator.MyValidator"
+
+        # Create a real, dynamic subclass of cerberus.Validator for testing
+        MockCustomValidator = type("MyValidator", (cerberus.Validator,), {})
+
+        mock_module = mock.MagicMock()
+
+        mock_module.MyValidator = MockCustomValidator
+
+        mock_import_module.return_value = mock_module
+
         result = validator_instance._custom_validation_ext(config)
 
-        assert result is mock_validator_class
+        assert result is MockCustomValidator
         mock_import_module.assert_called_once_with("mypackage.validator")
+
 
     @mock.patch("simdb.validation.validator.import_module")
     def test_raise_attribute_error_when_class_missing(
