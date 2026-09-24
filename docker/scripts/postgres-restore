@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -ne 1 ]]; then
+    echo "usage: $0 BACKUP_FILE" >&2
+    exit 2
+fi
+
+backup_file="$1"
+[[ -f "$backup_file" ]] || {
+    echo "backup file does not exist: $backup_file" >&2
+    exit 2
+}
+
+docker compose exec -T postgres \
+    pg_restore \
+    --username="${POSTGRES_USER:-simdb}" \
+    --dbname="${POSTGRES_DB:-simdb}" \
+    --clean \
+    --if-exists \
+    --no-owner \
+    <"$backup_file"
