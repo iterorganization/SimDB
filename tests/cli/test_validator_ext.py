@@ -111,7 +111,6 @@ class TestCustomValidatorExt:
         assert result is MockCustomValidator
         mock_import_module.assert_called_once_with("mypackage.validator")
 
-
     @mock.patch("simdb.validation.validator.import_module")
     def test_raise_attribute_error_when_class_missing(
         self, mock_import_module, validator_instance
