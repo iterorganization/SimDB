@@ -9,6 +9,7 @@ from conftest import (
     generate_simulation_data,
 )
 
+from simdb.checksum import calculate_checksum
 from simdb.cli.manifest import Manifest
 from simdb.config import Config
 from simdb.database.models import Simulation
@@ -19,7 +20,6 @@ from simdb.remote.models import (
 )
 from simdb.workers import tasks as simdb_tasks
 from simdb.workers.celery import celery_app
-from simdb.workers.tasks import _calculate_checksum
 
 
 @pytest.fixture(autouse=True)
@@ -82,7 +82,7 @@ def generate_simulation_file(path) -> FileData:
     file_path = path / "partition/file.txt"
     file_path.parent.mkdir(exist_ok=True)
     file_path.write_text("test data")
-    checksum = _calculate_checksum(file_path)
+    checksum = calculate_checksum(file_path)
     return FileData(
         type="FILE",
         uri="data:///file.txt",

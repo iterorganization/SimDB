@@ -4,13 +4,13 @@ from uuid import uuid1
 
 import pytest
 
+from simdb.checksum import calculate_checksum
 from simdb.config import Config
 from simdb.enums import IngestionStatus
 from simdb.imas.utils import SimDBUrl
 from simdb.remote.models import FileData
 from simdb.workers import tasks as simdb_tasks
 from simdb.workers.tasks import (
-    _calculate_checksum,
     _copy_files,
     _create_file_from_data,
     _get_imas_identifier_path,
@@ -189,7 +189,7 @@ def test_copy_files_task_copies_inputs_and_marks_copied(task_environment):
 
     input_files = [
         _make_file_data(
-            f"data:/{source_file.name}", checksum=_calculate_checksum(source_file)
+            f"data:/{source_file.name}", checksum=calculate_checksum(source_file)
         )
     ]
 
