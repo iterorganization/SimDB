@@ -1,4 +1,3 @@
-import hashlib
 import itertools
 import logging
 import os
@@ -8,14 +7,13 @@ from pathlib import Path
 from typing import Iterable, List
 from uuid import UUID
 
-from pydantic import AnyUrl
-
+from simdb.checksum import hash_file
 from simdb.config import Config
 from simdb.database.database import get_db
 from simdb.database.models import File
 from simdb.email.server import EmailServer
 from simdb.enums import IngestionStatus
-from simdb.imas.utils import SimDBUrl
+from simdb.imas.utils import SimDBUrl, imas_backend_for_directory
 from simdb.remote.models import FileData, FileDataList
 from simdb.workers.celery import celery_app
 
@@ -62,36 +60,14 @@ def _imas_path_to_uri(imas_path: Path) -> SimDBUrl:
     if imas_path.suffix == ".nc":
         return SimDBUrl.build(scheme="file", path=imas_path.as_posix())
 
-    children = set(imas_path.iterdir())
+    backend = imas_backend_for_directory(imas_path)
 
-    if any(child.suffix == ".ids" for child in children):
-        u = SimDBUrl.build(
-            scheme="imas", path="ascii", query=f"path={imas_path.as_posix()}"
-        )
-        return u
-
-    if any(child.suffix == ".h5" for child in children) and any(
-        child.name == "master.h5" for child in children
-    ):
-        u = SimDBUrl.build(
-            scheme="imas", path="hdf5", query=f"path={imas_path.as_posix()}"
-        )
-        return u
-
-    if {p.name for p in children} >= {
-        "ids_001.tree",
-        "ids_001.characteristics",
-        "ids_001.datafile",
-    }:
-        u = SimDBUrl.build(
-            scheme="imas", path="mdsplus", query=f"path={imas_path.as_posix()}"
-        )
-        return u
-
-    raise ValueError("IMAS backend could not be identified.")
+    return SimDBUrl.build(
+        scheme="imas", path=backend, query=f"path={imas_path.as_posix()}"
+    )
 
 
-def _resolve_uri_to_path(uri: AnyUrl, config: Config) -> Path:
+def _resolve_uri_to_path(uri: SimDBUrl, config: Config) -> Path:
     partition = uri.scheme
     if not partition:
         raise ValueError("Partition not given")
@@ -106,6 +82,10 @@ def _resolve_uri_to_path(uri: AnyUrl, config: Config) -> Path:
         raise ValueError("Path not given")
     path = Path(path)
     path = path.relative_to(path.anchor)
+    # Standard schemes (e.g. ``http``) parse the first path segment as the URL
+    # authority. Fold it back in so the full relative path is reconstructed.
+    if uri.host:
+        path = Path(uri.host) / path
     target = (partition_path / path).resolve()
     if not target.is_relative_to(partition_path):
         raise ValueError("Access denied.")
@@ -133,12 +113,9 @@ def _copy_files(
         shutil.copy2(source, destination)
 
 
-def _calculate_checksum(path: Path) -> str:
-    sha1 = hashlib.sha1()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            sha1.update(chunk)
-    return sha1.hexdigest()
+def _checksum_matches(path: Path, expected: str) -> bool:
+    """Whether ``path`` matches ``expected``."""
+    return hash_file(path) == expected
 
 
 def _get_imas_identifier_path(path: Path) -> Path:
@@ -153,8 +130,7 @@ def _create_file_from_data(
     uri = SimDBUrl(data.uri)
     path = _resolve_uri_to_path(uri, config)
 
-    checksum = _calculate_checksum(path)
-    if data.checksum != checksum:
+    if not _checksum_matches(path, data.checksum):
         raise ValueError("Hash of file does not match provided checksum")
 
     file = File.from_data_model(data)
@@ -182,8 +158,7 @@ def _create_files_from_data_list(
             seen_imas_paths.add(imas_path)
             file = _create_file_from_data(file_data, config, imas_path)
         else:
-            checksum = _calculate_checksum(path)
-            if file_data.checksum != checksum:
+            if not _checksum_matches(path, file_data.checksum):
                 raise ValueError("Hash of file does not match provided checksum")
             file = File.from_data_model(file_data)
             file.uri = SimDBUrl.build(scheme="file", path=path.as_posix())
@@ -314,3 +289,25 @@ def fail_stale_ingestions_task() -> dict:
         return {"failed": failed}
     finally:
         database.close()
+
+
+@celery_app.task
+def cleanup_http_staging_task(simulation_uuid: UUID):
+    """Remove a simulation's staged files from the ``http`` partition.
+
+    HTTP-uploaded files are staged into the ``http`` partition and then copied
+    into the simulation's upload folder by :func:`copy_files_task`. Once copied
+    they are duplicates, so the staging directory is removed here.
+    """
+    config = Config()
+    config.load()
+
+    partition_path_str = config.get_string_option("partition.http", default=None)
+    if not partition_path_str:
+        return
+
+    partition_path = Path(partition_path_str).resolve()
+    staging_dir = (partition_path / simulation_uuid.hex).resolve()
+    # Guard against escaping the partition before removing anything.
+    if staging_dir.is_relative_to(partition_path) and staging_dir != partition_path:
+        shutil.rmtree(staging_dir, ignore_errors=True)

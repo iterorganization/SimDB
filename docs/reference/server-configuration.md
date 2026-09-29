@@ -43,6 +43,7 @@ See [Set up PostgreSQL](../how-to/operate-server/set-up-postgresql.md).
 | `copy_files` | No | `True`/`False`: copy uploaded data files into the server's storage. Defaults to `True`. |
 | `copy_ids` | No | `True`/`False`: copy uploaded IMAS IDS data into the server's storage. Defaults to `True`. |
 | `user_upload_folder` | No | Optional staging directory clients upload into before ingest (returned by the `staging_dir` endpoint). Falls back to `upload_folder` if unset. |
+| `max_append_size` | No | Maximum size in bytes of a single resumable-upload chunk, advertised to clients via the `Upload-Limit` header. Defaults to `8388608` (8 MiB). Lower it to fit a reverse proxy's request body limit. |
 
 ## `[flask]`
 
@@ -174,6 +175,7 @@ Used by the optional
 | Option | Required | Description |
 | --- | --- | --- |
 | `data` | No | Directory used for partitioned data, for example `/data/simdb/partition`. |
+| `http` | For `push` | Directory where resumable HTTP uploads are staged before ingestion, for example `/var/lib/simdb/http-staging`. Required for `simdb simulation push` against a v1.3 server. |
 
 ## `[role "NAME"]`
 
