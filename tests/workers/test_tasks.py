@@ -143,9 +143,23 @@ def test_create_file_from_data_raises_on_checksum_mismatch(tmp_path):
     data_file = partition_path / "testfile.txt"
     data_file.write_text("content")
 
-    file_data = _make_file_data("data:testfile.txt", checksum="wrong_checksum")
+    file_data = _make_file_data("data:testfile.txt", checksum="sha1:wrong_checksum")
 
     with pytest.raises(ValueError, match="Hash of file does not match"):
+        _create_file_from_data(file_data, config, data_file)
+
+
+def test_create_file_from_data_raises_on_unprefixed_checksum(tmp_path):
+    config = Config()
+    partition_path = tmp_path / "partition_data"
+    partition_path.mkdir()
+    config.set_option("partition.data", str(partition_path))
+    data_file = partition_path / "testfile.txt"
+    data_file.write_text("content")
+
+    file_data = _make_file_data("data:testfile.txt", checksum="deadbeef")
+
+    with pytest.raises(ValueError, match="algorithm prefix"):
         _create_file_from_data(file_data, config, data_file)
 
 
