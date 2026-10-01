@@ -124,7 +124,7 @@ prepare_worktree() {
     for required_file in \
         Dockerfile.dev \
         docker-compose-dev.yml \
-        deploy/nginx.dev.conf.template; do
+        docker/nginx.dev.conf.template; do
         [[ -f "$worktree/$required_file" ]] ||
             die "$required_file is missing from commit $commit"
     done

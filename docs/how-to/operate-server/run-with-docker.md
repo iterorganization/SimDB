@@ -76,6 +76,19 @@ match the published port.
 See the [server configuration reference](../../reference/server-configuration.md)
 for all options.
 
+### Gunicorn runtime
+
+The `web` service runs Gunicorn with three `gthread` workers, four threads per
+worker, and a 120-second request timeout by default. Override these settings
+through the environment when starting Compose:
+
+```bash
+GUNICORN_WORKERS=4 GUNICORN_THREADS=8 GUNICORN_TIMEOUT=180 docker compose up --build
+```
+
+The available variables are `GUNICORN_BIND`, `GUNICORN_WORKERS`,
+`GUNICORN_WORKER_CLASS`, `GUNICORN_THREADS`, and `GUNICORN_TIMEOUT`.
+
 ## Start
 
 ```bash
@@ -113,14 +126,11 @@ docker compose --profile with_workers up --build
 
 They use the `[celery]` broker and result backend from `config/simdb.cfg`.
 
-## Testing against multiple Python versions
+## Building against a different Python version
 
-The image accepts a `PYVER` build argument (the default is 3.12).
-`docker-compose-pyver.yml` extends the base setup to build the server against
-several Python versions at once, sharing one PostgreSQL and Redis instance. It
-publishes a `web-311` service (Python 3.11, on port 5001) and a `web-313`
-service (Python 3.13, on port 5003) alongside the default 3.12 service:
+The image accepts a `PYVER` build argument, which selects the Python version
+used as the build base; the default is 3.12:
 
 ```bash
-docker compose -f docker-compose-pyver.yml up --build
+docker build --build-arg PYVER=3.11 .
 ```

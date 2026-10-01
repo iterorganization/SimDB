@@ -1,0 +1,23 @@
+# Systemd override for docker-compose.yml.
+#
+# Uses the GHCR-published image instead of a local build.
+#
+# Set SIMDB_SERVER_TAG in the environment file to pin a specific
+# version. The default is the latest tag at the time of writing.
+#
+# Enable this override by including it in COMPOSE_FILE,
+# after the original, e.g.
+#   COMPOSE_FILE="docker-compose.yml:docker-compose.systemd.yml"
+#
+services:
+  web:
+    # Systemd deployment should only manage a single container instance, docker requires
+    # container_name to be unique, so use it to ensure a fixed name.
+    container_name: ${SYSTEMD_CONTAINER_SIMDB:-simdb-server-systemd}
+    image: ${SIMDB_SERVER_IMAGE:-ghcr.io/iterorganization/simdb-server}:${SIMDB_SERVER_TAG:-latest}
+    logging:
+      driver: journald
+      options:
+        tag: simdb-server-systemd
+  postgres:
+    container_name: ${SYSTEMD_CONTAINER_POSTGRES:-simdb-postgres-systemd}

@@ -1,7 +1,8 @@
 # Use the dashboard
 
-Besides the CLI, a SimDB server has a web dashboard for browsing simulation
-metadata in the browser.
+Apart from using the SimDB CLI, a SimDB server can be explored via
+[SimDB-Dashboard](https://github.com/iterorganization/SimDB-Dashboard) for browsing
+simulation metadata in the browser.
 
 ## Open a simulation by UUID
 

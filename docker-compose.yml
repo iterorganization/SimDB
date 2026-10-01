@@ -1,19 +1,34 @@
 services:
   migrations:
-    build: .
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-0.0.0}
+    image: simdb:${SIMDB_IMAGE_TAG:-local}
     volumes:
       - ./config:/app/config:ro
     environment:
       DATABASE_URL: postgresql+psycopg2://simdb:simdb@postgres:5432/simdb
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     command: uv run alembic upgrade head
     restart: "no"
 
   web:
-    build: .
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-0.0.0}
+    image: simdb:${SIMDB_IMAGE_TAG:-local}
+    container_name: ${SIMDB_CONTAINER_NAME:-simdb-web}
     environment:
       IMAS_LOCAL_HOSTS: localhost
+      GUNICORN_BIND: ${GUNICORN_BIND:-0.0.0.0:5000}
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-3}
+      GUNICORN_WORKER_CLASS: ${GUNICORN_WORKER_CLASS:-gthread}
+      GUNICORN_THREADS: ${GUNICORN_THREADS:-4}
+      GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-120}
     ports:
       - "5000:5000"
     volumes:
@@ -33,7 +48,11 @@ services:
   worker:
     profiles: [with_workers]
     # docker compose --profile with_workers enables this service
-    build: .
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-0.0.0}
+    image: simdb:${SIMDB_IMAGE_TAG:-local}
     command: uv run simdb_worker
     volumes:
       - ./config:/app/config:ro
@@ -51,7 +70,11 @@ services:
   beat:
     profiles: [with_workers]
     # docker compose --profile with_workers enables this service
-    build: .
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-0.0.0}
+    image: simdb:${SIMDB_IMAGE_TAG:-local}
     command: uv run simdb_beat
     volumes:
       - ./config:/app/config:ro
@@ -65,7 +88,7 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:8-alpine
+    image: redis:8.6.6-alpine3.23@sha256:23a604374ece8069b34131faac7a1f05ae73c64280e46af1de844f29af2846d4
     volumes:
       - redis_data:/data
     healthcheck:
@@ -76,18 +99,20 @@ services:
     restart: unless-stopped
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.15-alpine3.23@sha256:621a761097839bdb50207afd6b87a72f38e2d718dd46c3d744828d8917c4f1e0
     environment:
       - POSTGRES_USER=simdb
       - POSTGRES_PASSWORD=simdb
       - POSTGRES_DB=simdb
+      - POSTGRES_INITDB_ARGS=--locale-provider=icu --icu-locale=en_US.utf8  # workaround for alpine not having locale
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U simdb"]
-      interval: 1s
+      test: ["CMD-SHELL", "pg_isready -U simdb -d simdb"]
+      interval: 2s
       timeout: 5s
-      retries: 5
+      retries: 15
+      start_period: 30s
     restart: unless-stopped
 
 volumes:
