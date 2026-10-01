@@ -11,6 +11,7 @@ from semantic_version import Version
 
 from simdb.cli.remote_api import RemoteAPI
 from simdb.database.models.simulation import Simulation
+from simdb.database.models.watcher import Watcher
 from simdb.notifications import Notification
 
 from . import check_meta_args, pass_config
@@ -270,6 +271,13 @@ def config_set_option(config: "Config", name: str, option: str, value: str):
     config.save()
 
 
+_NOTIFICATION_NAMES = {
+    value: notification.name
+    for notification, value in Watcher.NOTIFICATION_CHOICES.items()
+}
+"""Notification names by the single character the remote reports them as."""
+
+
 @remote.group(cls=RemoteSubGroup)
 def watcher():
     """Manage simulation watchers on REMOTE SimDB server."""
@@ -285,7 +293,10 @@ def list_watchers(api: RemoteAPI, sim_id: str):
     if watchers:
         click.echo(f"Watchers for simulation {sim_id}:")
         for watcher in watchers:
-            click.echo(watcher)
+            notification = _NOTIFICATION_NAMES.get(
+                watcher.notification, watcher.notification
+            )
+            click.echo(f"{watcher.username} <{watcher.email}> ({notification})")
     else:
         click.echo(f"no watchers found for simulation {sim_id}")
 

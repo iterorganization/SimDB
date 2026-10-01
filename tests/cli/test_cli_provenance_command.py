@@ -1,22 +1,48 @@
-from unittest import mock
+"""Tests for ``simdb provenance``."""
 
-from click.testing import CliRunner
-from utils import config_test_file, get_file_path
-
-from simdb.cli.simdb import cli
+import yaml
 
 
-@mock.patch("yaml.dump")
-def test_provenance_command(dump):
-    config_file = config_test_file()
-    runner = CliRunner()
-    file_name = get_file_path("provenance.yaml")
-    result = runner.invoke(
-        cli, [f"--config-file={config_file}", "provenance", str(file_name)]
-    )
-    assert result.exception is None
-    assert str(file_name) in result.output
-    assert dump.called
-    (args, kwargs) = dump.call_args
-    assert args[1].name == str(file_name)
-    assert kwargs == {"default_flow_style": False}
+def test_provenance_writes_a_yaml_description_of_the_system(invoke, tmp_path):
+    provenance_file = tmp_path / "provenance.yaml"
+
+    result = invoke("provenance", str(provenance_file))
+
+    assert result.exit_code == 0
+    assert str(provenance_file) in result.output
+
+    provenance = yaml.safe_load(provenance_file.read_text())
+    assert set(provenance) == {"environment", "platform"}
+    assert provenance["platform"]["system"]
+    assert provenance["platform"]["python_version"]
+
+
+def test_path_like_environment_variables_are_split_into_lists(
+    invoke, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("SIMDB_TEST_PATH", "/first:/second")
+    provenance_file = tmp_path / "provenance.yaml"
+
+    assert invoke("provenance", str(provenance_file)).exit_code == 0
+
+    environment = yaml.safe_load(provenance_file.read_text())["environment"]
+    assert environment["SIMDB_TEST_PATH"] == ["/first", "/second"]
+
+
+def test_other_environment_variables_are_kept_as_strings(invoke, tmp_path, monkeypatch):
+    monkeypatch.setenv("SIMDB_TEST_VALUE", "plain")
+    provenance_file = tmp_path / "provenance.yaml"
+
+    assert invoke("provenance", str(provenance_file)).exit_code == 0
+
+    environment = yaml.safe_load(provenance_file.read_text())["environment"]
+    assert environment["SIMDB_TEST_VALUE"] == "plain"
+
+
+def test_the_file_is_overwritten_on_a_second_run(invoke, tmp_path):
+    provenance_file = tmp_path / "provenance.yaml"
+    provenance_file.write_text("stale: true\n")
+
+    assert invoke("provenance", str(provenance_file)).exit_code == 0
+
+    assert "stale" not in provenance_file.read_text()
