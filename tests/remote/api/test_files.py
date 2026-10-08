@@ -3,6 +3,7 @@ import hashlib
 import io
 import json
 import tarfile
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -189,3 +190,17 @@ def test_download_file(client):
     assert rv.status_code == 200
 
     assert rv.data == file_content
+
+
+def test_file_registration_item_without_chunks():
+    """The IMAS registration payload omits ``chunks``.
+
+    A single item covers all the files pushed under one file UUID, so the
+    client has no meaningful chunk count to report and leaves it unset.
+    """
+    item = FileRegistrationItem(
+        file_type="input",
+        file_uuid=uuid.uuid4(),
+        ids_list=["core_profiles"],
+    )
+    assert item.chunks is None

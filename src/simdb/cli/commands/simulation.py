@@ -3,7 +3,7 @@ import sys
 import urllib.parse
 from itertools import chain
 from pathlib import Path
-from typing import Any, List, Optional, Tuple, Type
+from typing import Any, List, Optional, Tuple
 
 import appdirs
 import click
@@ -200,19 +200,22 @@ def simulation_ingest(config: Config, manifest_file: str, alias: str):
     click.echo("ALIAS: " + simulation.alias + "\nUUID: " + str(simulation.uuid))
 
 
-def n_required_args_adaptor(n) -> Type[click.Command]:
-    class NRequiredArgs(click.Command):
-        NArgs = n
+class OptionalRemoteCommand(click.Command):
+    """A command declared as `[REMOTE] ARG...` whose REMOTE may be left out."""
 
-        def parse_args(self, ctx, args):
-            if len(args) == self.NArgs:
-                args.insert(0, "")
-            super().parse_args(ctx, args)
+    def parse_args(self, ctx, args):
+        arguments = [p for p in self.get_params(ctx) if isinstance(p, click.Argument)]
+        if self._count_values_given(ctx, args, arguments) < len(arguments):
+            args = ["", *args]
+        super().parse_args(ctx, args)
 
-    return NRequiredArgs
+    def _count_values_given(self, ctx, args, arguments) -> int:
+        """Count how many of the ARGUMENTS the command line provides a value for."""
+        values = self.make_parser(ctx).parse_args(list(args))[0]
+        return sum(1 for argument in arguments if values.get(argument.name) is not None)
 
 
-@simulation.command("push", cls=n_required_args_adaptor(1))
+@simulation.command("push", cls=OptionalRemoteCommand)
 @pass_config
 @click.argument("remote", required=False)
 @click.argument("sim_id")
@@ -258,7 +261,7 @@ def simulation_push(
     click.echo(f"Successfully pushed simulation {simulation.uuid}")
 
 
-@simulation.command("pull", cls=n_required_args_adaptor(2))
+@simulation.command("pull", cls=OptionalRemoteCommand)
 @pass_config
 @click.argument("remote", required=False)
 @click.argument("sim_id")
@@ -381,7 +384,7 @@ def simulation_query(
     )
 
 
-@simulation.command("data", cls=n_required_args_adaptor(2))
+@simulation.command("data", cls=OptionalRemoteCommand)
 @pass_config
 @click.argument("remote", required=False)
 @click.argument("sim_id")
@@ -419,37 +422,36 @@ def simulation_data(
     except Exception as err:
         raise click.ClickException(str(err)) from err
 
-    click.echo(f"simulation : {result['simulation']}")
-    click.echo(f"path       : {result['path']}  (occurrence {result['occurrence']})")
+    click.echo(f"simulation : {result.simulation}")
+    click.echo(f"path       : {result.path}  (occurrence {result.occurrence})")
 
-    coordinates = result.get("coordinates") or []
+    field = result.field
+    coordinates = result.coordinates
     plot_coordinate = next(
         (
             coord
             for coord in coordinates
-            if isinstance(coord.get("data"), list)
-            and isinstance(result["field"].get("data"), list)
-            and len(coord["data"]) == len(result["field"]["data"])
+            if isinstance(coord.data, list)
+            and isinstance(field.data, list)
+            and len(coord.data) == len(field.data)
         ),
         None,
     )
-    field_is_1d = is_numeric_1d(result["field"].get("data"))
+    field_is_1d = is_numeric_1d(field.data)
     if field_is_1d:
-        show_quantity_textual_plot(
-            result["field"], label="field", x_quantity=plot_coordinate
-        )
+        show_quantity_textual_plot(field, label="field", x_quantity=plot_coordinate)
     else:
-        print_quantity(result["field"], label="field")
+        print_quantity(field, label="field")
 
     if config.verbose and coordinates:
         for coord in coordinates:
-            if field_is_1d and is_numeric_1d(coord.get("data")):
+            if field_is_1d and is_numeric_1d(coord.data):
                 continue
-            if isinstance(coord.get("data"), list):
-                print_quantity(coord, label=f"coord  {coord['name']}", show_stats=False)
+            if isinstance(coord.data, list):
+                print_quantity(coord, label=f"coord  {coord.name}", show_stats=False)
 
 
-@simulation.command("validate", cls=n_required_args_adaptor(1))
+@simulation.command("validate", cls=OptionalRemoteCommand)
 @pass_config
 @click.argument("remote", required=False)
 @click.argument("sim_id")
