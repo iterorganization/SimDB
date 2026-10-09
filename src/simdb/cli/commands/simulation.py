@@ -11,7 +11,7 @@ import click
 from rich.prompt import Confirm
 
 from simdb.cli.manifest import Manifest
-from simdb.cli.remote_api import RemoteAPI, RemoteError
+from simdb.cli.remote_api import APIError, RemoteAPI, RemoteError
 from simdb.config.config import Config
 from simdb.database import DatabaseError, get_local_db
 from simdb.database.models import Simulation
@@ -260,12 +260,19 @@ def _wait_for_ingestion(api: RemoteAPI, sim_id: str, timeout: float) -> Ingestio
     deadline = time.monotonic() + timeout
     while True:
         try:
-            status = api.get_ingestion_status(sim_id)
+            raw_status = api.get_ingestion_status(sim_id)
         except RemoteError as err:
             # The remote rejected the request, so retrying will not help.
             click.echo()
             raise click.ClickException(
                 f"Failed to check ingestion status: {err}"
+            ) from err
+        except ValueError as err:
+            # The remote reported a status this client does not know about, so
+            # waiting for it to change will not help.
+            click.echo()
+            raise click.ClickException(
+                f"Remote reported an unknown ingestion status: {err}"
             ) from err
         except Exception as err:
             # Tolerate transient errors: the ingestion continues server-side
@@ -287,29 +294,29 @@ def _wait_for_ingestion(api: RemoteAPI, sim_id: str, timeout: float) -> Ingestio
         consecutive_failures = 0
 
         try:
-            ingestion_status = IngestionStatus(status)
+            status = IngestionStatus(raw_status)
         except ValueError as err:
             click.echo()
             raise click.ClickException(
-                f"Remote reported an unknown ingestion status: {status}"
+                f"Remote reported an unknown ingestion status: {raw_status}"
             ) from err
 
         if status != last_status:
             if last_status is not None:
-                click.echo(f" -> {status}", nl=False)
+                click.echo(f" -> {status.value}", nl=False)
             else:
-                click.echo(f" {status}", nl=False)
+                click.echo(f" {status.value}", nl=False)
             last_status = status
 
-        if ingestion_status.is_terminal():
+        if status.is_terminal():
             click.echo()
-            return ingestion_status
+            return status
 
         if time.monotonic() >= deadline:
             click.echo()
             raise click.ClickException(
                 f"Timed out after {timeout:g}s waiting for ingestion to complete "
-                f"(last status: {status})"
+                f"(last status: {status.value})"
             )
 
         time.sleep(poll_interval)
@@ -404,7 +411,10 @@ def simulation_push(
     api = RemoteAPI(remote, username, password, config)
     simulation = _prepare_simulation(config, api, sim_id, replaces)
 
-    api.push_simulation(simulation, out_stream=sys.stdout, add_watcher=add_watcher)
+    try:
+        api.push_simulation(simulation, add_watcher=add_watcher)
+    except APIError as err:
+        raise click.ClickException(f"Failed to push simulation: {err}") from err
 
     click.echo(f"Successfully pushed simulation {simulation.uuid}")
 

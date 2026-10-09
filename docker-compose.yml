@@ -20,6 +20,7 @@ services:
       - ./validation:/app/validation:ro
       - ./config:/app/config:ro
       - ./tmp/partition_data:/data/simdb/partition:ro
+      - ./tmp/http:/data/simdb/http
       - ./upload_folder:/data/simdb/simulations
     depends_on:
       redis:
@@ -38,6 +39,7 @@ services:
     volumes:
       - ./config:/app/config:ro
       - ./tmp/partition_data:/data/simdb/partition:ro
+      - ./tmp/http:/data/simdb/http
       - ./upload_folder:/data/simdb/simulations
     depends_on:
       redis:

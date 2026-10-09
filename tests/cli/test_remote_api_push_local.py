@@ -4,7 +4,7 @@ from typing import Literal
 
 import pytest
 
-from simdb.checksum import calculate_checksum
+from simdb.checksum import hash_file
 from simdb.cli.remote_api import (
     APIError,
     _expand_directories,
@@ -51,7 +51,7 @@ def test_expand_directories_rewrites_the_uri_of_a_single_file(tmp_path: Path):
 
     assert len(expanded) == 1
     assert expanded[0].uri == "data:run/x.txt"
-    assert expanded[0].checksum == calculate_checksum(source)
+    assert expanded[0].checksum == hash_file(source)
     # A file that maps onto a single source keeps its identity.
     assert expanded[0].uuid == file.uuid
 

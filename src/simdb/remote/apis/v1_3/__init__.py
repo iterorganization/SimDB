@@ -9,6 +9,7 @@ from simdb.remote.apis.watchers import api as watcher_ns
 from simdb.remote.core.auth import TokenAuthenticator
 
 from .simulation_data import api as data_ns
+from .upload import api as upload_ns
 
 api = Api(
     title="SimDB REST API",
@@ -28,7 +29,7 @@ api = Api(
     doc="/docs",
 )
 
-namespaces = [metadata_ns, watcher_ns, file_ns, sim_ns, data_ns]
+namespaces = [metadata_ns, watcher_ns, file_ns, sim_ns, data_ns, upload_ns]
 
 api.route("/staging_dir", defaults={"sim_hex": None})(StagingDirectory)
 api.route("/staging_dir/<string:sim_hex>")(StagingDirectory)

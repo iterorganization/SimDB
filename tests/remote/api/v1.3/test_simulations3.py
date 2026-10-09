@@ -9,7 +9,7 @@ from conftest import (
     generate_simulation_data,
 )
 
-from simdb.checksum import calculate_checksum
+from simdb.checksum import hash_file
 from simdb.cli.manifest import Manifest
 from simdb.config import Config
 from simdb.database.models import Simulation
@@ -82,7 +82,7 @@ def generate_simulation_file(path) -> FileData:
     file_path = path / "partition/file.txt"
     file_path.parent.mkdir(exist_ok=True)
     file_path.write_text("test data")
-    checksum = calculate_checksum(file_path)
+    checksum = hash_file(file_path)
     return FileData(
         type="FILE",
         uri="data:///file.txt",

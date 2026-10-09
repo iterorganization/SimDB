@@ -1,27 +1,42 @@
 import hashlib
 from pathlib import Path
+from typing import Callable, Optional
 
 from simdb.imas.utils import SimDBUrl
 
+#: Algorithm used for all catalog checksums.
+CHECKSUM_ALGORITHM = "sha1"
+#: Buffer size for reading files while hashing. Larger reads mean far fewer
+#: syscalls on big files, which noticeably speeds up checksumming.
+READ_CHUNK_SIZE = 1024 * 1024
 
-def calculate_checksum(path: Path) -> str:
-    """Generate a SHA1 checksum from the file at the given path.
 
-    :param path: the path of the file to checksum
-    :return: a string containing the hex representation of the computed SHA1 checksum
+def hash_file(
+    path: Path,
+    algorithm: str = CHECKSUM_ALGORITHM,
+    progress: Optional[Callable[[int], None]] = None,
+) -> str:
+    """Return the hex digest of ``path`` computed with ``algorithm``.
+
+    @param progress: optional callback invoked with the number of bytes read for
+                     each block, suitable for advancing a progress bar.
     """
-    sha1 = hashlib.sha1()
+    digest = hashlib.new(algorithm)
     with path.open("rb") as file:
-        for chunk in iter(lambda: file.read(4096), b""):
-            sha1.update(chunk)
-    return sha1.hexdigest()
+        for chunk in iter(lambda: file.read(READ_CHUNK_SIZE), b""):
+            digest.update(chunk)
+            if progress is not None:
+                progress(len(chunk))
+    return digest.hexdigest()
 
 
-def sha1_checksum(uri: SimDBUrl) -> str:
-    """Generate a SHA1 checksum from the given file.
+def file_checksum(uri: SimDBUrl, algorithm: str = CHECKSUM_ALGORITHM) -> str:
+    """Generate a checksum for the file at ``uri``.
+
+    Checksums use :data:`CHECKSUM_ALGORITHM` (SHA-1).
 
     :param uri: the URI of the file to checksum
-    :return: a string containing the hex representation of the computed SHA1 checksum
+    :return: a string containing the hex representation of the computed checksum
     """
     if uri.scheme != "file":
         raise ValueError(f"invalid scheme for file checksum: {uri.scheme}")
@@ -34,4 +49,4 @@ def sha1_checksum(uri: SimDBUrl) -> str:
     if not path.is_file():
         raise ValueError("File appears to be a directory")
 
-    return calculate_checksum(path)
+    return hash_file(path, algorithm)
