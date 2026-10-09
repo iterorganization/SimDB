@@ -28,7 +28,8 @@ jobs:
         
   publish-to-pypi:
     name: Publish SimDB distribution to PyPI
-    if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
+    if: github.repository == 'iterorganization/SimDB' && startsWith(github.ref, 'refs/tags/')
+    # only publish to PyPI the privileged repo's tag pushes
     needs:
     - build
     runs-on: ubuntu-22.04
@@ -48,7 +49,8 @@ jobs:
       
   publish-to-testpypi:
     name: Publish SimDB distribution to TestPyPI
-    if: github.ref=='refs/heads/develop'  # only publish to TestPyPI on develop pushes
+    if: github.repository == 'iterorganization/SimDB' && github.ref == 'refs/heads/develop'  
+    # only publish to TestPyPI from the privileged repo's develop branch
     needs:
     - build
     runs-on: ubuntu-22.04

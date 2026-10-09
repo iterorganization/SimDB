@@ -1,0 +1,53 @@
+# SimDB Server systemd service unit.
+
+[Unit]
+Description=SimDB Server — ITER simulation management tool
+Documentation=https://github.com/iterorganization/SimDB
+Requires=docker.service
+After=docker.service network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+
+# --- paths ------------------------------------------------------------
+EnvironmentFile=/etc/simdb-server/simdb-server.env
+WorkingDirectory=/opt/simdb-server
+
+# --- defaults (overridden by env file when set) -----------------------
+Environment="COMPOSE_FILE=docker-compose.yml:docker-compose.systemd.yml"
+#Environment="SIMDB_TAG=latest"
+#Environment="SIMDB_IMAGE=ghcr.io/iterorganization/simdb-server"
+#Environment="GUNICORN_BIND=0.0.0.0:5000"
+#Environment="GUNICORN_WORKERS=3"
+#Environment="GUNICORN_WORKER_CLASS=gthread"
+#Environment="GUNICORN_THREADS=4"
+#Environment="GUNICORN_TIMEOUT=120"
+
+# --- lifecycle --------------------------------------------------------
+ExecStartPre=-/usr/bin/docker compose --profile with_workers pull --ignore-pull-failures
+ExecStart=/usr/bin/docker compose --profile with_workers up --detach --remove-orphans --no-build
+ExecStop=/usr/bin/docker compose --profile with_workers down
+
+# --- restart behaviour ------------------------------------------------
+Restart=on-failure
+RestartSec=10s
+
+# --- stop timeout -----------------------------------------------------
+TimeoutStopSec=30
+
+# --- security hardening -----------------------------------------------
+NoNewPrivileges=yes
+CapabilityBoundingSet=~CAP_SYS_ADMIN CAP_NET_ADMIN
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+# --- logging ----------------------------------------------------------
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

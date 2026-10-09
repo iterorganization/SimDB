@@ -38,5 +38,5 @@ Each API version publishes Swagger UI documentation, for example
 ## Troubleshooting the port
 
 If the server cannot bind to port 5000, another service is using it. Stop that
-service, or change the port in the `simdb_server` script (find it with
-`which simdb_server`). See also [Troubleshooting](../../troubleshooting.md).
+service, or change the `server.port` setting in your SimDB configuration. See
+also [Troubleshooting](../../troubleshooting.md).

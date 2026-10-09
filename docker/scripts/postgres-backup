@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -ne 1 ]]; then
+    echo "usage: $0 BACKUP_FILE" >&2
+    exit 2
+fi
+
+backup_file="$1"
+backup_dir="$(dirname "$backup_file")"
+[[ -d "$backup_dir" ]] || {
+    echo "backup directory does not exist: $backup_dir" >&2
+    exit 2
+}
+
+temporary_file="$(mktemp "${backup_file}.tmp.XXXXXX")"
+trap 'rm -f "$temporary_file"' EXIT
+
+docker compose exec -T postgres \
+    pg_dump \
+    --username="${POSTGRES_USER:-simdb}" \
+    --dbname="${POSTGRES_DB:-simdb}" \
+    --format=custom \
+    >"$temporary_file"
+
+mv "$temporary_file" "$backup_file"
+trap - EXIT

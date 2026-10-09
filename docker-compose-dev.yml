@@ -4,9 +4,11 @@ services:
       context: .
       dockerfile: Dockerfile.dev
       args:
+        APP_VERSION: ${APP_VERSION:-0.0.0}
         SIMDB_GIT_BRANCH: ${SIMDB_GIT_BRANCH:-unknown}
         SIMDB_GIT_COMMIT: ${SIMDB_GIT_COMMIT:-unknown}
         SIMDB_DEPLOYMENT: ${SIMDB_DEPLOYMENT:-local}
+    image: simdb-dev:${SIMDB_TAG:-local}
     volumes:
       - ./config:/app/config:ro
     environment:
@@ -26,9 +28,11 @@ services:
       context: .
       dockerfile: Dockerfile.dev
       args:
+        APP_VERSION: ${APP_VERSION:-0.0.0}
         SIMDB_GIT_BRANCH: ${SIMDB_GIT_BRANCH:-unknown}
         SIMDB_GIT_COMMIT: ${SIMDB_GIT_COMMIT:-unknown}
         SIMDB_DEPLOYMENT: ${SIMDB_DEPLOYMENT:-local}
+    image: simdb-dev:${SIMDB_TAG:-local}
     environment:
       IMAS_LOCAL_HOSTS: localhost
       SIMDB_DEPLOYMENT: ${SIMDB_DEPLOYMENT:-local}
@@ -78,7 +82,7 @@ services:
       org.simdb.git.branch: ${SIMDB_GIT_BRANCH:-unknown}
       org.simdb.git.commit: ${SIMDB_GIT_COMMIT:-unknown}
     volumes:
-      - ./deploy/nginx.dev.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./docker/nginx.dev.conf.template:/etc/nginx/templates/default.conf.template:ro
     depends_on:
       web:
         condition: service_healthy
@@ -102,9 +106,11 @@ services:
       context: .
       dockerfile: Dockerfile.dev
       args:
+        APP_VERSION: ${APP_VERSION:-0.0.0}
         SIMDB_GIT_BRANCH: ${SIMDB_GIT_BRANCH:-unknown}
         SIMDB_GIT_COMMIT: ${SIMDB_GIT_COMMIT:-unknown}
         SIMDB_DEPLOYMENT: ${SIMDB_DEPLOYMENT:-local}
+    image: simdb-dev:${SIMDB_TAG:-local}
     command: uv run simdb_worker
     environment:
       SIMDB_DEPLOYMENT: ${SIMDB_DEPLOYMENT:-local}
@@ -131,9 +137,11 @@ services:
       context: .
       dockerfile: Dockerfile.dev
       args:
+        APP_VERSION: ${APP_VERSION:-0.0.0}
         SIMDB_GIT_BRANCH: ${SIMDB_GIT_BRANCH:-unknown}
         SIMDB_GIT_COMMIT: ${SIMDB_GIT_COMMIT:-unknown}
         SIMDB_DEPLOYMENT: ${SIMDB_DEPLOYMENT:-local}
+    image: simdb-dev:${SIMDB_TAG:-local}
     command: uv run simdb_beat
     environment:
       SIMDB_DEPLOYMENT: ${SIMDB_DEPLOYMENT:-local}
@@ -168,6 +176,7 @@ services:
       - POSTGRES_USER=simdb
       - POSTGRES_PASSWORD=simdb
       - POSTGRES_DB=simdb
+      - POSTGRES_INITDB_ARGS=--locale-provider=icu --icu-locale=en_US.utf8  # workaround for alpine not having locale
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

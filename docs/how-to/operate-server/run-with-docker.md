@@ -77,6 +77,39 @@ match the published port.
 See the [server configuration reference](../../reference/server-configuration.md)
 for all options.
 
+### Writable bind mounts
+
+The runtime image drops privileges and runs as the `simdb` user. By default
+that user is created with UID/GID `1000:1000` in the image. If you bind-mount a
+host directory onto `upload_folder` (the Compose setup does this with
+`./upload_folder:/data/simdb/simulations`), Docker uses the host directory's
+existing ownership and mode bits. The container cannot fix that from inside the
+mount.
+
+In practice, the host directory must be writable by the same numeric UID/GID as
+the container process before the container starts. For example:
+
+```bash
+sudo install -d -m 0775 -o 1000 -g 1000 ./upload_folder
+```
+
+Avoid world-writable workarounds such as `chmod a+rwX`. If you build your own
+image with different `APP_UID`/`APP_GID` values, apply the same numeric
+ownership to the host path.
+
+### Gunicorn runtime
+
+The `web` service runs Gunicorn with three `gthread` workers, four threads per
+worker, and a 120-second request timeout by default. Override these settings
+through the environment when starting Compose:
+
+```bash
+GUNICORN_WORKERS=4 GUNICORN_THREADS=8 GUNICORN_TIMEOUT=180 docker compose up --build
+```
+
+The available variables are `GUNICORN_BIND`, `GUNICORN_WORKERS`,
+`GUNICORN_WORKER_CLASS`, `GUNICORN_THREADS`, and `GUNICORN_TIMEOUT`.
+
 ## Start
 
 ```bash
@@ -114,14 +147,11 @@ docker compose --profile with_workers up --build
 
 They use the `[celery]` broker and result backend from `config/simdb.cfg`.
 
-## Testing against multiple Python versions
+## Building against a different Python version
 
-The image accepts a `PYVER` build argument (the default is 3.12).
-`docker-compose-pyver.yml` extends the base setup to build the server against
-several Python versions at once, sharing one PostgreSQL and Redis instance. It
-publishes a `web-311` service (Python 3.11, on port 5001) and a `web-313`
-service (Python 3.13, on port 5003) alongside the default 3.12 service:
+The image accepts a `PYVER` build argument, which selects the Python version
+used as the build base; the default is 3.12:
 
 ```bash
-docker compose -f docker-compose-pyver.yml up --build
+docker build --build-arg PYVER=3.11 .
 ```

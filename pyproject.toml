@@ -55,15 +55,15 @@ dependencies = [
 [project.optional-dependencies]
 server = [
     "Flask>=3.0",
+    "celery>=5.3.0",
     "flask-caching>=1.10",
     "flask-compress>=1.12",
     "flask-cors>=3",
-    "flask-mail~=0.9.1",
     "flask-restx>=1.0.0",
+    "gunicorn>=26.2.0",
     "python-magic~=0.4",
-    "simplejson~=3.0",
-    "celery>=5.3.0",
     "redis>=5.0.0",
+    "simplejson~=3.0",
 ]
 auth-ad = [
     "easyad>=1.0",
@@ -101,7 +101,7 @@ simdb_worker = "simdb.workers.cli:worker"
 simdb_beat = "simdb.workers.cli:beat"
 
 [project.urls]
-Homepage = "https://simdb.iter.org/dashboard/"
+Homepage = "https://simdb.iter.org/"
 Documentation = "https://simdb.readthedocs.io/en/latest/"
 Repository = "https://github.com/iterorganization/SimDB"
 
