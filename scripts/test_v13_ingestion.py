@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Test script for v1.3 simulation ingestion against a running server."""
-from simdb.workers.tasks import _calculate_checksum
+from simdb.checksum import calculate_checksum
 from pathlib import Path
 
 import base64
@@ -37,7 +37,7 @@ HEADERS = {"Authorization": f"Basic {CREDENTIALS}"}
 
 
 def generate_simulation_file():
-    checksum = _calculate_checksum(Path("tmp/partition_data/subdir/test_file.txt"))
+    checksum = calculate_checksum(Path("tmp/partition_data/subdir/test_file.txt"))
     return FileData(
         type="FILE",
         uri="data:///subdir/test_file.txt",
@@ -46,7 +46,7 @@ def generate_simulation_file():
     )
 
 def generate_imas_file(relative_path):
-    checksum = _calculate_checksum(Path(f"tmp/partition_data/subdir/{relative_path}"))
+    checksum = calculate_checksum(Path(f"tmp/partition_data/subdir/{relative_path}"))
     return FileData(
         type="IMAS",
         uri=f"data:///subdir/{relative_path}",
