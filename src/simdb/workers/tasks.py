@@ -1,3 +1,4 @@
+import hashlib
 import itertools
 import logging
 import os
@@ -7,7 +8,9 @@ from pathlib import Path
 from typing import Iterable, List
 from uuid import UUID
 
-from simdb.checksum import calculate_checksum
+from celery.signals import worker_ready
+
+from simdb.checksum import format_checksum, is_prefixed
 from simdb.config import Config
 from simdb.database.database import get_db
 from simdb.database.models import File
@@ -21,6 +24,7 @@ from simdb.imas.utils import (
 )
 from simdb.remote.models import FileData, FileDataList
 from simdb.workers.celery import celery_app
+from simdb.workers.migrations import run_online_migrations
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +118,14 @@ def _copy_files(
         shutil.copy2(source, destination)
 
 
+def _calculate_checksum(path: Path) -> str:
+    sha1 = hashlib.sha1()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            sha1.update(chunk)
+    return format_checksum(sha1.hexdigest())
+
+
 def _get_imas_identifier_path(path: Path) -> Path:
     if path.suffix == ".nc":
         return path
@@ -126,7 +138,9 @@ def _create_file_from_data(
     uri = SimDBUrl(data.uri)
     path = _resolve_uri_to_path(uri, config)
 
-    checksum = calculate_checksum(path)
+    checksum = _calculate_checksum(path)
+    if not is_prefixed(data.checksum):
+        raise ValueError("Checksum must include an algorithm prefix (e.g. 'sha1:...')")
     if data.checksum != checksum:
         raise ValueError("Hash of file does not match provided checksum")
 
@@ -157,7 +171,11 @@ def _create_files_from_data_list(
             seen_imas_paths.add(imas_path)
             file = _create_file_from_data(file_data, config, imas_path)
         else:
-            checksum = calculate_checksum(path)
+            checksum = _calculate_checksum(path)
+            if not is_prefixed(file_data.checksum):
+                raise ValueError(
+                    "Checksum must include an algorithm prefix (e.g. 'sha1:...')"
+                )
             if file_data.checksum != checksum:
                 raise ValueError("Hash of file does not match provided checksum")
             file = File.from_data_model(file_data)
@@ -289,3 +307,27 @@ def fail_stale_ingestions_task() -> dict:
         return {"failed": failed}
     finally:
         database.close()
+
+
+@celery_app.task
+def run_online_migrations_task() -> dict:
+    """Run all pending online (data) migrations against the server database.
+
+    Automatically queued when a Celery worker becomes ready. Every migration is
+    idempotent, so running this repeatedly (e.g. once per worker) is safe.
+    """
+    config = Config()
+    config.load()
+    database = get_db(config)
+
+    try:
+        results = run_online_migrations(database, config)
+        return {"status": "completed", "migrations": results}
+    finally:
+        database.close()
+
+
+@worker_ready.connect
+def _queue_online_migrations(sender=None, **_kwargs) -> None:
+    """Queue the online migrations once a worker is ready to process them."""
+    run_online_migrations_task.delay()
