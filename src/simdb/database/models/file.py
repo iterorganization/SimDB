@@ -7,7 +7,7 @@ from dateutil import parser as date_parser
 from sqlalchemy import Column
 from sqlalchemy import types as sql_types
 
-from simdb.checksum import sha1_checksum
+from simdb.checksum import file_checksum
 from simdb.cli.manifest import DataType
 from simdb.config.config import Config
 from simdb.docstrings import inherit_docstrings
@@ -78,7 +78,7 @@ class File(Base):
         elif self.type == DataType.IMAS:
             checksum = imas_checksum(self.uri, ids_list)
         elif self.type == DataType.FILE:
-            checksum = sha1_checksum(self.uri)
+            checksum = file_checksum(self.uri)
         else:
             raise NotImplementedError(f"Cannot generate checksum for type {self.type}.")
         return checksum
@@ -139,7 +139,12 @@ class File(Base):
             files = [FileInfo(path=Path(self.uri.path), checksum=self.checksum)]
         else:
             files = [
-                FileInfo(path=path, checksum=sha1_checksum(SimDBUrl(f"file:{path}")))
+                FileInfo(
+                    path=path,
+                    checksum=file_checksum(
+                        SimDBUrl.build(scheme="file", path=path.as_posix())
+                    ),
+                )
                 for path in imas_files(self.uri)
             ]
         return FileGetDataResponse(

@@ -1,6 +1,7 @@
 import hashlib
 from pathlib import Path
 
+from simdb.checksum import CHECKSUM_ALGORITHM, READ_CHUNK_SIZE
 from simdb.imas.utils import SimDBUrl
 
 from .utils import imas_files, list_idss, open_imas
@@ -8,8 +9,8 @@ from .utils import imas_files, list_idss, open_imas
 IGNORED_FIELDS = ("data_dictionary", "access_layer", "access_layer_language")
 
 
-def checksum(uri: SimDBUrl, ids_list: list) -> str:
-    sha1 = hashlib.sha1()
+def checksum(uri: SimDBUrl, ids_list: list, algorithm: str = CHECKSUM_ALGORITHM) -> str:
+    digest = hashlib.new(algorithm)
 
     if not ids_list:
         entry = open_imas(uri)
@@ -25,6 +26,6 @@ def checksum(uri: SimDBUrl, ids_list: list) -> str:
                 and ids_name[0] not in ids_list
             ):
                 continue
-            for chunk in iter(lambda: file.read(4096), b""):
-                sha1.update(chunk)
-    return sha1.hexdigest()
+            for chunk in iter(lambda: file.read(READ_CHUNK_SIZE), b""):
+                digest.update(chunk)
+    return digest.hexdigest()
