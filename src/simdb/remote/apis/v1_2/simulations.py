@@ -10,6 +10,7 @@ from typing import Annotated, Optional
 from flask import send_file
 from flask_restx import Namespace, Resource
 
+from simdb.config import ConfigError
 from simdb.database import DatabaseError, SimulationIngestionInProgressError
 from simdb.database.models import simulation as models_sim
 from simdb.database.models import watcher as models_watcher
@@ -30,6 +31,7 @@ from simdb.remote.core.pydantic_utils import (
     Header,
     Query,
     ResponseException,
+    ServerException,
     pydantic_validate,
 )
 from simdb.remote.core.typing import current_app
@@ -53,8 +55,7 @@ from simdb.remote.models import (
     StatusPatchData,
     ValidationResult,
 )
-from simdb.validation import ValidationError, Validator
-from simdb.validation.file import find_file_validator
+from simdb.validation import ValidationError, validate_simulation
 
 api = Namespace("simulations", path="/")
 
@@ -84,39 +85,15 @@ Note: please don't reply to this email, replies to this address are not monitore
 
 
 def _validate(simulation, user) -> ValidationResult:
-    schemas = Validator.validation_schemas(current_app.simdb_config, simulation)
     try:
-        for schema in schemas:
-            Validator(schema, current_app.simdb_config).validate(simulation)
-            _update_simulation_status(
-                simulation, models_sim.Simulation.Status.PASSED, user
-            )
+        validate_simulation(simulation, current_app.simdb_config)
     except ValidationError as err:
         _update_simulation_status(simulation, models_sim.Simulation.Status.FAILED, user)
         return ValidationResult(passed=False, error=str(err))
+    except ConfigError as err:
+        raise ServerException(str(err)) from err
 
-    file_validator_type = current_app.simdb_config.get_string_option(
-        "file_validation.type", default=None
-    )
-    file_validator_options = current_app.simdb_config.get_section(
-        "file_validation", default={}
-    )
-    if file_validator_type not in [None, "none", ""]:
-        validator_type, validator_options = find_file_validator(
-            file_validator_type, file_validator_options
-        )
-        if validator_type:
-            for output in simulation.outputs:
-                try:
-                    validator_type.validate_uri(output.uri, validator_options)
-                except ValidationError as err:
-                    _update_simulation_status(
-                        simulation, models_sim.Simulation.Status.FAILED, user
-                    )
-                    return ValidationResult(passed=False, error=str(err))
-        else:
-            error("Invalid file validator specified in configuration")
-
+    _update_simulation_status(simulation, models_sim.Simulation.Status.PASSED, user)
     return ValidationResult(passed=True, error=None)
 
 

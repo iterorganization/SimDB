@@ -1,4 +1,3 @@
-import itertools
 import logging
 import os
 import shutil
@@ -10,7 +9,7 @@ from uuid import UUID
 from simdb.checksum import calculate_checksum
 from simdb.config import Config
 from simdb.database.database import get_db
-from simdb.database.models import File
+from simdb.database.models import File, Simulation
 from simdb.email.server import EmailServer
 from simdb.enums import IngestionStatus
 from simdb.imas.utils import (
@@ -20,6 +19,7 @@ from simdb.imas.utils import (
     remote_substitution_enabled,
 )
 from simdb.remote.models import FileData, FileDataList
+from simdb.validation import ValidationError, validate_simulation
 from simdb.workers.celery import celery_app
 
 logger = logging.getLogger(__name__)
@@ -214,8 +214,9 @@ def copy_files_task(
         simulation.outputs = outputs
         simulation.ingestion_status = IngestionStatus.COPIED
         database.session.commit()
-    except Exception:
+    except Exception as err:
         simulation.ingestion_status = IngestionStatus.COPY_FAILED
+        simulation.ingestion_error = str(err)
         database.session.commit()
         label = _simulation_label(simulation)
         _notify_watchers(
@@ -231,6 +232,19 @@ def copy_files_task(
 
 @celery_app.task
 def validate_imas_task(simulation_uuid: UUID):
+    """Validate the metadata and files of an ingested simulation.
+
+    Runs the same checks as a v1.2 upload with ``validation.auto_validate``:
+    the metadata schemas and, when ``file_validation.type`` is configured, the
+    file validator (the IMAS-Validator for ``ids_validator``). The outcome is
+    recorded in the simulation status (passed/failed) exactly as for v1.2.
+
+    A failed validation sets the ingestion status to VALIDATION_FAILED. With
+    ``validation.error_on_fail`` the task then raises, which aborts the
+    ingestion chain so the simulation is never marked COMPLETED. Without it the
+    ingestion carries on, mirroring v1.2 where the simulation is ingested with
+    a failed validation status.
+    """
     config = Config()
     config.load()
     database = get_db(config)
@@ -240,10 +254,33 @@ def validate_imas_task(simulation_uuid: UUID):
         simulation.ingestion_status = IngestionStatus.VALIDATING
         database.session.commit()
 
-        for _file in itertools.chain(simulation.inputs, simulation.outputs):
-            # TODO
-            pass
+        try:
+            validate_simulation(simulation, config)
+        except ValidationError as err:
+            simulation.status = Simulation.Status.FAILED
+            simulation.ingestion_status = IngestionStatus.VALIDATION_FAILED
+            simulation.ingestion_error = str(err)
+            database.session.commit()
 
+            label = _simulation_label(simulation)
+            _notify_watchers(
+                simulation,
+                f"Simulation {label} failed validation",
+                f"Validation of simulation {label} failed:\n\n{err}{_EMAIL_FOOTER}",
+            )
+
+            if config.get_option("validation.error_on_fail", default=False):
+                # Abort the chain so the simulation is never marked COMPLETED.
+                raise
+            logger.warning(
+                "Validation of simulation %s failed, ingesting anyway "
+                "(validation.error_on_fail is not set): %s",
+                simulation_uuid.hex,
+                err,
+            )
+            return
+
+        simulation.status = Simulation.Status.PASSED
         simulation.ingestion_status = IngestionStatus.VALIDATED
         database.session.commit()
     finally:

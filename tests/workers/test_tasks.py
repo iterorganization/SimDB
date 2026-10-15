@@ -6,9 +6,11 @@ import pytest
 
 from simdb.checksum import calculate_checksum
 from simdb.config import Config
+from simdb.database.models import Simulation
 from simdb.enums import IngestionStatus
 from simdb.imas.utils import SimDBUrl
 from simdb.remote.models import FileData
+from simdb.validation import ValidationError
 from simdb.workers import tasks as simdb_tasks
 from simdb.workers.tasks import (
     _copy_files,
@@ -19,6 +21,7 @@ from simdb.workers.tasks import (
     _resolve_paths,
     _resolve_uri_to_path,
     copy_files_task,
+    validate_imas_task,
 )
 
 
@@ -226,3 +229,65 @@ def test_notify_watchers_noop_without_watchers():
         _notify_watchers(simulation, "subject", "body")
 
     delay.assert_not_called()
+
+
+def test_copy_files_task_records_why_the_copy_failed(task_environment):
+    env = task_environment
+    source_file = env["partition_dir"] / "source.txt"
+    source_file.write_text("test content")
+    input_files = [_make_file_data(f"data:/{source_file.name}", checksum="wrong")]
+
+    with pytest.raises(ValueError, match="Hash of file does not match"):
+        copy_files_task(env["simulation_uuid"], input_files, [])
+
+    assert env["simulation"].ingestion_status == IngestionStatus.COPY_FAILED
+    assert "Hash of file does not match" in env["simulation"].ingestion_error
+
+
+def test_validate_imas_task_marks_a_valid_simulation(task_environment):
+    env = task_environment
+
+    with mock.patch("simdb.workers.tasks.validate_simulation") as validate:
+        validate_imas_task(env["simulation_uuid"])
+
+    validate.assert_called_once_with(env["simulation"], env["config"])
+    assert env["simulation"].status == Simulation.Status.PASSED
+    assert env["simulation"].ingestion_status == IngestionStatus.VALIDATED
+    env["db"].close.assert_called_once()
+
+
+def test_validate_imas_task_ingests_a_failed_simulation_by_default(task_environment):
+    env = task_environment
+    watcher = mock.MagicMock(email="watcher@example.com")
+    env["simulation"].watchers = [watcher]
+
+    with mock.patch(
+        "simdb.workers.tasks.validate_simulation",
+        side_effect=ValidationError("machine is required"),
+    ), mock.patch.object(simdb_tasks.send_email_task, "delay") as delay:
+        validate_imas_task(env["simulation_uuid"])
+
+    assert env["simulation"].status == Simulation.Status.FAILED
+    assert env["simulation"].ingestion_status == IngestionStatus.VALIDATION_FAILED
+    assert env["simulation"].ingestion_error == "machine is required"
+    subject, body, to_addresses = delay.call_args.args
+    assert "failed validation" in subject
+    assert "machine is required" in body
+    assert to_addresses == ["watcher@example.com"]
+    env["db"].close.assert_called_once()
+
+
+def test_validate_imas_task_aborts_the_ingestion_on_error_on_fail(task_environment):
+    env = task_environment
+    env["config"].set_option("validation.error_on_fail", True)
+
+    with mock.patch(
+        "simdb.workers.tasks.validate_simulation",
+        side_effect=ValidationError("machine is required"),
+    ), pytest.raises(ValidationError, match="machine is required"):
+        validate_imas_task(env["simulation_uuid"])
+
+    assert env["simulation"].status == Simulation.Status.FAILED
+    assert env["simulation"].ingestion_status == IngestionStatus.VALIDATION_FAILED
+    assert env["simulation"].ingestion_error == "machine is required"
+    env["db"].close.assert_called_once()

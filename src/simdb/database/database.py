@@ -502,6 +502,10 @@ class Database:
             .all()
         )
         for simulation in stale:
+            simulation.ingestion_error = (
+                f"Ingestion did not progress from {simulation.ingestion_status.value} "
+                f"within {older_than}"
+            )
             simulation.ingestion_status = IngestionStatus.COPY_FAILED
         if stale:
             self.session.commit()

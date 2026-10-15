@@ -1043,6 +1043,13 @@ class RemoteAPI:
         res = self.get(f"simulation/status/{sim_id}")
         return res.json()["status"]
 
+    @versioned_method("v1.3")
+    @try_request
+    def get_ingestion_error(self, sim_id: str) -> Optional[str]:
+        """Return why the ingestion of SIM_ID failed, or None if it did not."""
+        res = self.get(f"simulation/status/{sim_id}")
+        return res.json().get("error")
+
     @versioned_method("v1.2")
     @try_request
     def push_simulation(

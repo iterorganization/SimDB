@@ -147,6 +147,8 @@ class Simulation(Base):
         onupdate=dt.now,
         server_default=text("CURRENT_TIMESTAMP"),
     )
+    # Why the ingestion ended in a failed status, for the client to report.
+    ingestion_error = Column(sql_types.Text, nullable=True)
     ingestion_version = Column(sql_types.Integer, nullable=False, default=0)
 
     @property

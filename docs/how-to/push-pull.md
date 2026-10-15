@@ -55,15 +55,26 @@ simdb simulation push_local SIM_ID
 `push_local` sends only the metadata and the storage paths. The server then
 
 1. validates the metadata against the active schemas,
-2. queues the file copy as a background [Celery task](operate-server/run-celery-workers.md), and
-3. completes the ingestion once the copy finishes.
+2. queues the file copy as a background [Celery task](operate-server/run-celery-workers.md),
+3. validates the copied simulation, if the server is
+   [configured to validate uploads](operate-server/configure-validation.md), and
+4. completes the ingestion once these steps finish.
 
 The command blocks and reports the ingestion state as it changes:
 
 ```text
-Waiting for ingestion to complete... QUEUED -> COPYING -> COPIED -> COMPLETED
+Waiting for ingestion to complete... QUEUED -> COPYING -> COPIED -> VALIDATING -> VALIDATED -> COMPLETED
 Successfully pushed simulation UUID
 ```
+
+The `VALIDATING` and `VALIDATED` states only appear when the server validates
+uploads. Server-side validation runs the metadata schemas again and, when the
+server has a [file validator](../explanation/validation.md#file-content-validation)
+such as the IMAS-Validator configured, checks the contents of the output files.
+When validation fails the server records the reason and the command reports it:
+with `error_on_fail` set on the server the ingestion ends in `VALIDATION_FAILED`
+and the command fails, otherwise the simulation is ingested with a failed
+validation status and the command prints the reason as a warning.
 
 ### Configure partitions
 

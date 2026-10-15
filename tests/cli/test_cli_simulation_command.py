@@ -310,3 +310,54 @@ def test_simulation_push_local_rejected_status_check(get_local_db, remote_api, s
     assert result.exit_code != 0
     assert "Failed to check ingestion status: Simulation not found" in result.output
     assert remote_api.return_value.get_ingestion_status.call_count == 1
+
+
+@mock.patch("simdb.cli.commands.simulation.RemoteAPI")
+@mock.patch("simdb.cli.commands.simulation.get_local_db")
+def test_simulation_push_local_reports_why_ingestion_failed(get_local_db, remote_api):
+    """push_local shows the reason the remote gives for a failed ingestion."""
+    remote_api.return_value.get_ingestion_status.return_value = (
+        IngestionStatus.VALIDATION_FAILED.value
+    )
+    remote_api.return_value.get_ingestion_error.return_value = (
+        "{'machine': ['required field']}"
+    )
+
+    result = _invoke_push_local(remote_api)
+
+    assert result.exit_code != 0
+    assert "Simulation ingestion failed with status: VALIDATION_FAILED" in result.output
+    assert "{'machine': ['required field']}" in result.output
+
+
+@mock.patch("simdb.cli.commands.simulation.RemoteAPI")
+@mock.patch("simdb.cli.commands.simulation.get_local_db")
+def test_simulation_push_local_warns_when_validation_failed(get_local_db, remote_api):
+    """A simulation ingested despite failing validation is reported as such."""
+    sim_uuid = uuid1()
+    get_local_db.return_value.get_simulation.return_value.uuid = sim_uuid
+    remote_api.return_value.get_ingestion_status.return_value = (
+        IngestionStatus.COMPLETED.value
+    )
+    remote_api.return_value.get_ingestion_error.return_value = "rule X failed"
+
+    result = _invoke_push_local(remote_api)
+
+    assert result.exit_code == 0, result.output
+    assert "Warning: simulation validation failed:\nrule X failed" in result.output
+    assert f"Successfully pushed simulation {sim_uuid}" in result.output
+
+
+@mock.patch("simdb.cli.commands.simulation.RemoteAPI")
+@mock.patch("simdb.cli.commands.simulation.get_local_db")
+def test_simulation_push_local_without_a_failure_reason(get_local_db, remote_api):
+    """A remote that cannot report the reason still gets the status reported."""
+    remote_api.return_value.get_ingestion_status.return_value = (
+        IngestionStatus.COPY_FAILED.value
+    )
+    remote_api.return_value.get_ingestion_error.side_effect = RemoteError("old server")
+
+    result = _invoke_push_local(remote_api)
+
+    assert result.exit_code != 0
+    assert "Simulation ingestion failed with status: COPY_FAILED" in result.output

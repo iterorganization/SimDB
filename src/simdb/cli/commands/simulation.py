@@ -315,6 +315,15 @@ def _wait_for_ingestion(api: RemoteAPI, sim_id: str, timeout: float) -> Ingestio
         time.sleep(poll_interval)
 
 
+def _ingestion_error(api: RemoteAPI, sim_id: str) -> Optional[str]:
+    """Return why the remote ingestion of SIM_ID failed, if it reported a reason."""
+    try:
+        error = api.get_ingestion_error(sim_id)
+    except Exception:
+        return None
+    return error if isinstance(error, str) and error else None
+
+
 @simulation.command(
     "push_local",
     cls=OptionalRemoteCommand,
@@ -362,10 +371,15 @@ def simulation_push_local(
     api.push_local_simulation(simulation, add_watcher=add_watcher)
 
     status = _wait_for_ingestion(api, simulation.uuid.hex, timeout)
+    error = _ingestion_error(api, simulation.uuid.hex)
     if status is not IngestionStatus.COMPLETED:
-        raise click.ClickException(
-            f"Simulation ingestion failed with status: {status.value}"
-        )
+        message = f"Simulation ingestion failed with status: {status.value}"
+        if error:
+            message += f"\n{error}"
+        raise click.ClickException(message)
+    if error:
+        # The remote ingested the simulation although its validation failed.
+        click.echo(f"Warning: simulation validation failed:\n{error}", err=True)
 
     click.echo(f"Successfully pushed simulation {simulation.uuid}")
 

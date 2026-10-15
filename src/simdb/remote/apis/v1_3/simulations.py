@@ -19,6 +19,7 @@ from simdb.remote.core.auth import User, requires_auth
 from simdb.remote.core.cache import clear_cache
 from simdb.remote.core.pydantic_utils import (
     Body,
+    ResponseException,
     ServerException,
     pydantic_validate,
 )
@@ -29,9 +30,11 @@ from simdb.remote.models import (
     SimulationPostResponse,
     SimulationStatusResponse,
 )
+from simdb.validation import ValidationError
 from simdb.workers.tasks import (
     complete_ingestion_task,
     copy_files_task,
+    validate_imas_task,
 )
 
 api = Namespace("simulations", path="/")
@@ -79,6 +82,24 @@ class SimulationList(SimulationListV12):
         user: User,
         body: Annotated[SimulationPostData, Body()],
     ) -> SimulationPostResponse:
+        """Register a simulation and ingest its files in the background.
+
+        The files are copied by a Celery worker from the given partition URIs.
+        When the server validates uploads automatically the worker then runs
+        the metadata and file validators; with ``validation.error_on_fail`` a
+        failed validation stops the ingestion in the VALIDATION_FAILED state.
+        Poll the status endpoint to follow the ingestion.
+        """
+        config = current_app.simdb_config
+        auto_validate = config.get_option("validation.auto_validate", default=False)
+        if config.get_option("validation.error_on_fail", default=False) and (
+            not auto_validate
+        ):
+            raise ResponseException(
+                "Validation config option error_on_fail=True without "
+                "auto_validate=True."
+            )
+
         simulation_data = body.model_copy(deep=True)
 
         # Clear the file inputs and outputs.
@@ -116,10 +137,27 @@ class SimulationList(SimulationListV12):
         # The complete job will set simulation.ingestion_status = Completed
         complete = complete_ingestion_task.si(simulation.uuid)
 
+        if auto_validate:
+            # Validate once the files are in place, as v1.2 does on upload.
+            validate = validate_imas_task.si(simulation.uuid)
+            chain = copy_files | validate | complete
+        else:
+            chain = copy_files | complete
+
         try:
-            _ = (copy_files | complete).apply_async()
+            _ = chain.apply_async()
+        except ValidationError as err:
+            # Only reachable when the tasks run in-process (task_always_eager):
+            # the validation task has recorded the failure, answer as v1.2 does.
+            clear_cache()
+            raise ResponseException(
+                f"Simulation validation failed and server has "
+                f"error_on_fail=True.\n{err}"
+            ) from err
         except Exception as err:
-            simulation.ingestion_status = IngestionStatus.COPY_FAILED
+            if not simulation.ingestion_status.is_terminal():
+                simulation.ingestion_status = IngestionStatus.COPY_FAILED
+                simulation.ingestion_error = f"Failed to queue ingestion: {err}"
             current_app.db.session.commit()
             clear_cache()
             raise ServerException(
@@ -144,5 +182,11 @@ class SimulationIngestionStatus(Resource):
         sim_id: str,
         user: User,
     ) -> SimulationStatusResponse:
+        """Report how far the ingestion of a simulation has progressed.
+
+        Includes the reason when the ingestion has failed.
+        """
         simulation = current_app.db.get_simulation(sim_id)
-        return SimulationStatusResponse(status=simulation.ingestion_status)
+        return SimulationStatusResponse(
+            status=simulation.ingestion_status, error=simulation.ingestion_error
+        )

@@ -82,27 +82,27 @@ class IdsValidator(FileValidatorBase):
             # Skip non IMAS data
             return
 
-        try:
-            qs = dict(uri.query_params())
-            backend = qs.get("backend")
-            path = qs.get("path")
-            validate_uri = SimDBUrl.build(
-                scheme="imas", path=backend, query=f"path={path}"
-            )
+        # Validation runs on the server, so always access the data locally: a
+        # remote access URI (imas://host/uda?path=...&backend=...) is rewritten
+        # to the local form (imas:<backend>?path=...) it was created from.
+        qs = dict(uri.query_params())
+        backend = qs.get("backend") or uri.path
+        path = qs.get("path")
+        if not backend or not path:
+            raise ValidationError(f"Cannot determine the backend and path of {uri}")
+        validate_uri = SimDBUrl.build(scheme="imas", path=backend, query=f"path={path}")
 
+        try:
             validate_output = validate(
                 imas_uri=validate_uri.encoded_string(),
                 validate_options=validate_options,
             )
-
-            validate_result = all(result.success for result in validate_output.results)
-
-            report_generator = ValidationReportGenerator(validate_output)
-
-            if not validate_result:
-                raise ValidationError(
-                    f"Validation of following URI: [{validate_uri}], failed with"
-                    f"following report: \n{report_generator.txt}"
-                )
         except Exception as err:
-            raise ValidationError("validate_uri exception") from err
+            raise ValidationError(f"Failed to validate {validate_uri}: {err}") from err
+
+        if not all(result.success for result in validate_output.results):
+            report_generator = ValidationReportGenerator(validate_output)
+            raise ValidationError(
+                f"Validation of following URI: [{validate_uri}], failed with "
+                f"following report: \n{report_generator.txt}"
+            )

@@ -58,7 +58,10 @@ and runs when the server is set to validate uploads automatically.
   push, so you can fix problems early.
 - **On the server**, when `auto_validate` is enabled, uploaded simulations are
   validated automatically (including any configured file validation). With
-  `error_on_fail` enabled, simulations that fail are rejected.
+  `error_on_fail` enabled, simulations that fail are rejected. For uploads
+  through the v1.3 API this happens in a background worker after the files
+  have been copied, and the failure reason is reported through the ingestion
+  status (see [Push and pull](../how-to/push-pull.md#push-on-a-shared-file-system)).
 
 The outcome is reflected in the simulation's
 [status](concepts.md#status-and-lifecycle).

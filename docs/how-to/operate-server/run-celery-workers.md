@@ -46,19 +46,22 @@ celery -A simdb.workers.celery flower --port=5555
 | Task | Purpose |
 | --- | --- |
 | `copy_files_task` | Copies input and output files to the server's upload folder and updates the ingestion status. |
+| `validate_imas_task` | Validates the metadata and, with a file validator configured, the output files of the copied simulation. Only queued when `auto_validate` is set: see [Configure validation](configure-validation.md). |
 | `complete_ingestion_task` | Marks a simulation as fully ingested. |
-| `validate_imas_task` | Runs validation checks on IMAS data. |
 | `send_email_task` | Sends email notifications. |
 | `fail_stale_ingestions_task` | Periodic sweep that fails simulations stuck in a non-terminal ingestion state. |
 
 ## Recover stuck ingestions
 
-A simulation moves through non-terminal ingestion states (`QUEUED`, `COPYING`)
-before reaching a terminal one (`COMPLETED`, `COPY_FAILED`,
-`VALIDATION_FAILED`), and it can only be deleted once it reaches a terminal
-state. Three mechanisms keep it from getting stuck:
+A simulation moves through non-terminal ingestion states (`QUEUED`, `COPYING`,
+`COPIED`, `VALIDATING`, `VALIDATED`) before reaching a terminal one
+(`COMPLETED`, `COPY_FAILED`, `VALIDATION_FAILED`), and it can only be deleted
+once it reaches a terminal state. The reason for a failed state is stored with
+the simulation and returned by the status endpoint. Three mechanisms keep a
+simulation from getting stuck:
 
-1. A task that raises is caught, and the simulation is marked `COPY_FAILED`.
+1. A task that raises is caught, and the simulation is marked `COPY_FAILED` (or
+   `VALIDATION_FAILED` when validation fails with `error_on_fail` set).
 2. A task that hangs is stopped by `task_soft_time_limit` and then marked
    `COPY_FAILED`. The hard `task_time_limit` is an absolute backstop.
 3. A worker that is hard-killed (SIGKILL, out of memory, node reboot) never runs
