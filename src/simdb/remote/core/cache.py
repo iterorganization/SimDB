@@ -5,7 +5,8 @@ from flask_caching import Cache
 
 from simdb.config import Config
 
-config = Config("app.cfg")
+# TODO remove hard-coded config_file path to "app.cfg"
+config = Config(file_name="app.cfg")
 config.load()
 cache_options = {
     "CACHE_" + k.upper(): v for (k, v) in config.get_section("cache", {}).items()

@@ -41,6 +41,12 @@ def create_app(
     gunicorn_logger = logging.getLogger("gunicorn.error")
     app.logger.handlers.extend(gunicorn_logger.handlers)
     app.logger.setLevel(gunicorn_logger.level)
+    gunicorn_logger.info(
+        "SimDB server boot: version=%s loglevel=%s auth_type=%s",
+        __version__,
+        app.logger.level,
+        app.simdb_config.get_string_option("authentication.type", default="None"),
+    )
 
     @app.route("/")
     def index():
