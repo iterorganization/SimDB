@@ -67,3 +67,54 @@ The outcome is reflected in the simulation's
 [status](concepts.md#status-and-lifecycle), and the result of every check is
 stored in its `validation_report` metadata so it can be read back later.
 
+### The validation report
+
+`validation_report` is a structured value, so a client can show how many tests
+passed or which rule failed without parsing text. Every level carries `passed`
+and `tests` (`total`, `passed`, `failed`):
+
+```json
+{
+  "passed": false,
+  "tests": {"total": 89559, "passed": 69383, "failed": 20176},
+  "metadata": {"passed": true, "error": null},
+  "files": [
+    {
+      "uri": "imas:hdf5?path=/data/simdb/simulations/.../run",
+      "passed": false,
+      "error": null,
+      "tests": {"total": 89559, "passed": 69383, "failed": 20176},
+      "ids": [
+        {
+          "name": "core_profiles",
+          "occurrence": 0,
+          "passed": false,
+          "tests": {"total": 89559, "passed": 69383, "failed": 20176},
+          "rules": [
+            {
+              "name": "generic/core_profiles.py:validate_zeff",
+              "passed": false,
+              "tests": {"total": 59736, "passed": 40520, "failed": 19216},
+              "message": "Effective charge zeff not consistent with ion square charge and density",
+              "failed_nodes": 159216,
+              "sample_nodes": ["profiles_1d[0]/zeff", "profiles_1d[1]/zeff"]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+- `metadata.error` holds the schema violations when the metadata check failed.
+- A file the validator could not open at all has `error` set and no `ids`.
+- A rule is evaluated once per node or time slice it covers, so it has test
+  counts of its own; it `passed` only if every evaluation passed. `message` is
+  the reason of the first failure, `failed_nodes` how many nodes the failures
+  affect and `sample_nodes` a few of them.
+- Rules that did not run, because a rule filter excluded them, are not listed.
+
+`simdb remote info` prints the report as nested metadata, and the email sent
+to watchers on a failure renders it as text.
+

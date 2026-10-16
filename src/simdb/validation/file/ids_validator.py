@@ -1,4 +1,3 @@
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -24,6 +23,13 @@ else:
             getattr(_imas_interface.ll_interface, "_al_version", None) is not None,
         )
 
+from simdb.validation.report import (
+    NODES_SHOWN,
+    FileReport,
+    IdsReport,
+    RuleReport,
+    TestCounts,
+)
 from simdb.validation.validator import ValidationError
 
 from .validator_base import FileValidatorBase
@@ -39,70 +45,42 @@ def _split_list(value) -> List[str]:
     return [item.strip() for item in str(value).strip('"').split(",") if item.strip()]
 
 
-_NODES_SHOWN = 5
+def _file_report(uri: str, validation_result) -> FileReport:
+    """Summarise an IMAS-Validator result collection per IDS and rule.
 
-
-@dataclass
-class _RuleOutcome:
-    passed: int = 0
-    failed: int = 0
-    message: str = ""
-    failed_nodes: int = 0
-    sample_nodes: List[str] = field(default_factory=list)
-
-
-def _text_report(validation_result) -> str:
-    """Summarise an IMAS-Validator result collection as readable text.
-
-    Lists every rule that ran on each IDS with its outcome. The validator's own
-    text report repeats every affected node, which runs to megabytes for a
-    failing profile; this one keeps a handful of nodes per rule so the report
-    can be stored with the simulation and mailed to its watchers.
+    The validator evaluates each rule on every node or time slice it covers,
+    so a rule has test counts of its own. Only a handful of the affected nodes
+    is kept: the validator's own report repeats every one, which runs to
+    megabytes for a failing profile.
     """
-    results = validation_result.results
-    failed = sum(1 for result in results if not result.success)
-    lines = [
-        f"Tested URI : {validation_result.imas_uri}",
-        f"Number of tests carried out : {len(results)}",
-        f"Number of successful tests : {len(results) - failed}",
-        f"Number of failed tests : {failed}",
-    ]
-
-    per_ids: Dict[Tuple[str, int], Dict[str, _RuleOutcome]] = {}
-    for result in results:
-        for ids_key in result.idss:
-            outcome = per_ids.setdefault(ids_key, {}).setdefault(
-                result.rule.name, _RuleOutcome()
+    rules: Dict[Tuple[str, int], Dict[str, RuleReport]] = {}
+    for result in validation_result.results:
+        for ids_name, occurrence in result.idss:
+            # The validator hands back numpy integers, which JSON cannot store.
+            ids_key = (str(ids_name), int(occurrence))
+            rule = rules.setdefault(ids_key, {}).setdefault(
+                result.rule.name, RuleReport(name=result.rule.name, tests=TestCounts())
             )
             if result.success:
-                outcome.passed += 1
+                rule.tests = rule.tests + TestCounts.of(1, 0)
                 continue
-            outcome.failed += 1
-            outcome.message = result.msg
-            for node in result.nodes_dict.get(ids_key, ()):
+            rule.tests = rule.tests + TestCounts.of(0, 1)
+            if not rule.message:
+                rule.message = str(result.msg)
+            for node in result.nodes_dict.get((ids_name, occurrence), ()):
                 if not node:
                     continue
-                outcome.failed_nodes += 1
-                if len(outcome.sample_nodes) < _NODES_SHOWN:
-                    outcome.sample_nodes.append(str(node))
+                rule.failed_nodes += 1
+                if len(rule.sample_nodes) < NODES_SHOWN:
+                    rule.sample_nodes.append(str(node))
 
-    for (ids, occurrence), rules in sorted(per_ids.items()):
-        status = "FAILED" if any(rule.failed for rule in rules.values()) else "PASSED"
-        lines.append("")
-        lines.append(f"{status} IDS {ids} occurrence {occurrence}")
-        for name, rule in sorted(rules.items()):
-            if not rule.failed:
-                lines.append(f"  PASSED {name}")
-                continue
-            lines.append(f"  FAILED {name}: {rule.message}")
-            if rule.failed_nodes:
-                nodes = ", ".join(sorted(rule.sample_nodes))
-                more = rule.failed_nodes - len(rule.sample_nodes)
-                if more > 0:
-                    nodes += f" and {more} more"
-                lines.append(f"    {rule.failed_nodes} affected nodes: {nodes}")
-
-    return "\n".join(lines) + "\n"
+    return FileReport(
+        uri=uri,
+        ids=[
+            IdsReport(name=name, occurrence=occurrence, rules=list(ids_rules.values()))
+            for (name, occurrence), ids_rules in sorted(rules.items())
+        ],
+    )
 
 
 class IdsValidator(FileValidatorBase):
@@ -143,7 +121,7 @@ class IdsValidator(FileValidatorBase):
             "rule_files": [],
         }
 
-    def validate_uri(self, uri: SimDBUrl, validate_options) -> Optional[str]:
+    def validate_uri(self, uri: SimDBUrl, validate_options) -> Optional[FileReport]:
         if not imas_validator_available:
             raise RuntimeError(
                 "IMAS-validator not available, please install this optional dependency"
@@ -171,7 +149,4 @@ class IdsValidator(FileValidatorBase):
             raise ValidationError(f"Failed to validate {validate_uri}: {err}") from err
 
         # The report lists every rule that ran, whether it passed or failed.
-        report = _text_report(validate_output)
-        if not all(result.success for result in validate_output.results):
-            raise ValidationError(report)
-        return report
+        return _file_report(str(uri), validate_output)

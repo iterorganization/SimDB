@@ -29,8 +29,10 @@ simulation is kept whatever the outcome. The worker needs the same
 
 Either way the outcome is stored with the simulation: its status becomes
 `passed` or `failed`, and the `validation_report` metadata holds the result of
-every check, so it can be read back later with `simdb remote REMOTE info SIM_ID`
-or from the simulation's metadata in the API.
+every check, with the number of tests that passed and failed per file, IDS and
+rule (see [the validation report](../../explanation/validation.md#the-validation-report)).
+It can be read back later with `simdb remote REMOTE info SIM_ID` or from the
+simulation's metadata in the API.
 
 ## Require metadata
 

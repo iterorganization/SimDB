@@ -90,7 +90,7 @@ def _validate(simulation, user) -> ValidationResult:
     except ConfigError as err:
         raise ServerException(str(err)) from err
 
-    simulation.set_meta(VALIDATION_REPORT_KEY, report.text)
+    simulation.set_meta(VALIDATION_REPORT_KEY, report.to_dict())
     status = (
         models_sim.Simulation.Status.PASSED
         if report.passed

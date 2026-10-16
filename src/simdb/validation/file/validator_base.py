@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 from simdb.imas.utils import SimDBUrl
+from simdb.validation.report import FileReport
 
 
 class FileValidatorBase(ABC):
@@ -27,12 +28,11 @@ class FileValidatorBase(ABC):
         """
 
     @abstractmethod
-    def validate_uri(self, uri: SimDBUrl, validate_options) -> Optional[str]:
+    def validate_uri(self, uri: SimDBUrl, validate_options) -> Optional[FileReport]:
         """
         Validate the given simulation output file.
 
-        :return: a report of the checks performed, or None if the file was not
-            checked
-        :raise ValidationError: if the file fails validation; the message is the
-            report
+        :return: a report of the checks performed, whether they passed or
+            failed, or None if the file was not checked
+        :raise ValidationError: if the file could not be validated at all
         """

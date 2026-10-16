@@ -20,6 +20,7 @@ from simdb.remote.models import (
     SimulationPostResponse,
     SimulationStatusResponse,
 )
+from simdb.validation import FileReport, IdsReport, RuleReport, TestCounts
 from simdb.workers import tasks as simdb_tasks
 from simdb.workers.celery import celery_app
 
@@ -265,7 +266,9 @@ def test_post_simulations_v13_validates_after_completing(
     simulation = client.application.db.get_simulation(sim_hex)
     assert simulation.ingestion_status == IngestionStatus.COMPLETED
     assert simulation.status == Simulation.Status.PASSED
-    assert "Metadata passed validation." in simulation.meta_dict()["validation_report"]
+    report = simulation.meta_dict()["validation_report"]
+    assert report["passed"] is True
+    assert report["metadata"] == {"passed": True, "error": None}
     status = SimulationStatusResponse.model_validate(
         get_simulation_status(client, simulation.uuid).json
     )
@@ -283,7 +286,10 @@ def test_post_simulations_v13_runs_the_file_validator(
         alias="test-file-validated-v13", outputs=[generate_simulation_file(tmp_path)]
     )
     validator = mock.MagicMock()
-    validator.validate_uri.return_value = "1 rule passed"
+    validator.validate_uri.side_effect = lambda uri, options: FileReport(
+        uri=str(uri),
+        ids=[IdsReport("pf_active", 0, [RuleReport("coil_name", TestCounts.of(1, 0))])],
+    )
 
     with mock.patch(
         "simdb.validation.simulation.find_file_validator",
@@ -299,7 +305,12 @@ def test_post_simulations_v13_runs_the_file_validator(
     assert uri == simulation.outputs[0].uri
     assert options == "options"
     assert simulation.status == Simulation.Status.PASSED
-    assert "1 rule passed" in simulation.meta_dict()["validation_report"]
+    report = simulation.meta_dict()["validation_report"]
+    assert report["passed"] is True
+    assert report["tests"] == {"total": 1, "passed": 1, "failed": 0}
+    (file_report,) = report["files"]
+    assert file_report["uri"] == str(simulation.outputs[0].uri)
+    assert file_report["ids"][0]["rules"][0]["name"] == "coil_name"
 
 
 def test_post_simulations_v13_keeps_a_failed_validation(
@@ -320,7 +331,9 @@ def test_post_simulations_v13_keeps_a_failed_validation(
     simulation = client.application.db.get_simulation(sim_hex)
     assert simulation.ingestion_status == IngestionStatus.COMPLETED
     assert simulation.status == Simulation.Status.FAILED
-    assert "machine" in simulation.meta_dict()["validation_report"]
+    report = simulation.meta_dict()["validation_report"]
+    assert report["passed"] is False
+    assert "machine" in report["metadata"]["error"]
     status = SimulationStatusResponse.model_validate(
         get_simulation_status(client, simulation.uuid).json
     )
@@ -331,7 +344,8 @@ def test_post_simulations_v13_keeps_a_failed_validation(
     assert rv.status_code == 200
     metadata = {item["element"]: item["value"] for item in rv.json["metadata"]}
     assert metadata["status"] == "failed"
-    assert "machine" in metadata["validation_report"]
+    assert metadata["validation_report"]["passed"] is False
+    assert "machine" in metadata["validation_report"]["metadata"]["error"]
 
 
 def test_validate_simulation_reports_a_misconfigured_file_validator(

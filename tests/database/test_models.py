@@ -53,3 +53,30 @@ def test_simulation_str_prints_every_line_of_multiline_metadata():
     assert "  validation_report: first line\n" in text
     assert "\n                     second line\n" in text
     assert "\n                     fourth line\n" in text
+
+
+def test_simulation_str_indents_nested_metadata():
+    simulation = Simulation(Manifest())
+    simulation.set_meta(
+        "validation_report",
+        {
+            "passed": False,
+            "tests": {"total": 3, "passed": 2, "failed": 1},
+            "files": [{"uri": "imas:hdf5?path=/run", "rules": ["a", "b"]}],
+        },
+    )
+
+    text = str(simulation)
+
+    assert (
+        "  validation_report:\n"
+        "    passed: False\n"
+        "    tests:\n"
+        "      total: 3\n"
+        "      passed: 2\n"
+        "      failed: 1\n"
+        "    files:\n"
+        "      - uri: imas:hdf5?path=/run\n"
+        "        rules: [a, b]\n"
+        "inputs:\n"
+    ) in text

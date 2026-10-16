@@ -1,7 +1,9 @@
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
+import numpy as np
 import pytest
 
 from simdb.cli.manifest import Manifest
@@ -10,6 +12,11 @@ from simdb.database.models import Simulation
 from simdb.imas.utils import SimDBUrl
 from simdb.validation import (
     VALIDATION_REPORT_KEY,
+    FileReport,
+    IdsReport,
+    MetadataReport,
+    RuleReport,
+    TestCounts,
     ValidationError,
     ValidationReport,
     record_validation,
@@ -32,11 +39,43 @@ def _simulation(*output_uris: str):
     return mock.MagicMock(outputs=outputs)
 
 
+def _passing_file(uri: str) -> FileReport:
+    return FileReport(
+        uri=uri,
+        ids=[IdsReport("pf_active", 0, [RuleReport("coil_name", TestCounts.of(2, 0))])],
+    )
+
+
+def _failing_file(uri: str) -> FileReport:
+    return FileReport(
+        uri=uri,
+        ids=[
+            IdsReport(
+                "core_profiles",
+                0,
+                [
+                    RuleReport("validate_time", TestCounts.of(3, 0)),
+                    RuleReport(
+                        "validate_zeff",
+                        TestCounts.of(1, 2),
+                        message="zeff inconsistent",
+                        failed_nodes=12,
+                        sample_nodes=["profiles_1d[0]/zeff", "profiles_1d[1]/zeff"],
+                    ),
+                ],
+            ),
+            IdsReport(
+                "equilibrium", 0, [RuleReport("validate_time", TestCounts.of(1, 0))]
+            ),
+        ],
+    )
+
+
 @pytest.fixture
 def file_validator():
-    """A configured file validator that reports "ok" for every file."""
+    """A configured file validator that reports a pass for every file."""
     validator = mock.MagicMock()
-    validator.validate_uri.return_value = "ok"
+    validator.validate_uri.side_effect = lambda uri, options: _passing_file(str(uri))
     config = _config(
         **{"file_validation.type": "ids_validator", "file_validation.rulesets": "a"}
     )
@@ -77,84 +116,159 @@ def test_validate_files_reports_every_output(file_validator):
     assert validator.validate_uri.call_args_list == [
         mock.call(output.uri, "options") for output in simulation.outputs
     ]
-    assert reports == [
-        "File imas:hdf5?path=/data/run passed validation:\nok",
-        "File imas:hdf5?path=/data/run2 passed validation:\nok",
+    assert [report.uri for report in reports] == [
+        "imas:hdf5?path=/data/run",
+        "imas:hdf5?path=/data/run2",
     ]
+    assert all(report.passed for report in reports)
 
 
 def test_validate_files_skips_files_the_validator_does_not_check(file_validator):
     validator, config, _ = file_validator
+    validator.validate_uri.side_effect = None
     validator.validate_uri.return_value = None
     simulation = _simulation("file:///data/log.txt")
 
     assert validate_files(simulation, config) == []
 
 
-def test_validate_files_checks_every_output_before_failing(file_validator):
+def test_validate_files_records_a_file_that_cannot_be_validated(file_validator):
     validator, config, _ = file_validator
-    validator.validate_uri.side_effect = [ValidationError("rule X failed"), "ok"]
+    validator.validate_uri.side_effect = [
+        ValidationError("cannot open"),
+        _passing_file("imas:hdf5?path=/data/run2"),
+    ]
     simulation = _simulation("imas:hdf5?path=/data/run", "imas:hdf5?path=/data/run2")
 
-    with pytest.raises(ValidationError) as excinfo:
-        validate_files(simulation, config)
+    reports = validate_files(simulation, config)
 
     assert validator.validate_uri.call_count == 2
-    assert str(excinfo.value) == (
-        "File imas:hdf5?path=/data/run failed validation:\nrule X failed\n\n"
-        "File imas:hdf5?path=/data/run2 passed validation:\nok"
-    )
+    assert reports[0] == FileReport(uri="imas:hdf5?path=/data/run", error="cannot open")
+    assert reports[0].passed is False
+    assert reports[1].passed is True
 
 
 def test_validate_simulation_reports_a_pass():
+    files = [_passing_file("imas:hdf5?path=/data/run")]
     with mock.patch("simdb.validation.simulation.validate_metadata"), mock.patch(
-        "simdb.validation.simulation.validate_files", return_value=["File A ok"]
+        "simdb.validation.simulation.validate_files", return_value=files
     ):
         report = validate_simulation(_simulation(), _config())
 
-    assert report == ValidationReport(
-        passed=True, text="Metadata passed validation.\n\nFile A ok"
-    )
+    assert report == ValidationReport(metadata=MetadataReport(), files=files)
+    assert report.passed is True
+    assert report.tests == TestCounts(total=2, passed=2, failed=0)
 
 
 def test_validate_simulation_checks_files_despite_failing_metadata():
+    files = [_passing_file("imas:hdf5?path=/data/run")]
     with mock.patch(
         "simdb.validation.simulation.validate_metadata",
         side_effect=ValidationError("{'machine': ['required field']}"),
     ), mock.patch(
-        "simdb.validation.simulation.validate_files", return_value=["File A ok"]
-    ) as files:
+        "simdb.validation.simulation.validate_files", return_value=files
+    ) as validate:
         report = validate_simulation(_simulation(), _config())
 
-    files.assert_called_once()
+    validate.assert_called_once()
     assert report.passed is False
-    assert report.text == (
-        "Metadata failed validation:\n{'machine': ['required field']}\n\nFile A ok"
-    )
+    assert report.metadata == MetadataReport(error="{'machine': ['required field']}")
+    assert report.files == files
 
 
 def test_validate_simulation_reports_failing_files():
+    files = [_failing_file("imas:hdf5?path=/data/run")]
     with mock.patch("simdb.validation.simulation.validate_metadata"), mock.patch(
-        "simdb.validation.simulation.validate_files",
-        side_effect=ValidationError("File A failed validation:\nrule X"),
+        "simdb.validation.simulation.validate_files", return_value=files
     ):
         report = validate_simulation(_simulation(), _config())
 
     assert report.passed is False
-    assert report.text == (
-        "Metadata passed validation.\n\nFile A failed validation:\nrule X"
-    )
+    assert report.metadata.passed is True
+    assert report.tests == TestCounts(total=7, passed=5, failed=2)
 
 
 @pytest.mark.parametrize("passed", [True, False])
 def test_record_validation_stores_status_and_report(passed):
     simulation = Simulation(Manifest())
+    report = ValidationReport(
+        metadata=MetadataReport(error=None if passed else "missing machine")
+    )
 
-    record_validation(simulation, ValidationReport(passed=passed, text="the report"))
+    record_validation(simulation, report)
 
     expected = Simulation.Status.PASSED if passed else Simulation.Status.FAILED
     assert simulation.status == expected
-    assert simulation.meta_dict()[VALIDATION_REPORT_KEY] == "the report"
+    assert simulation.meta_dict()[VALIDATION_REPORT_KEY] == report.to_dict()
+
+
+def test_report_dict_has_the_outcome_and_counts_at_every_level():
+    report = ValidationReport(
+        metadata=MetadataReport(),
+        files=[_failing_file("imas:hdf5?path=/data/run")],
+    )
+
+    data = report.to_dict()
+
+    assert data["passed"] is False
+    assert data["tests"] == {"total": 7, "passed": 5, "failed": 2}
+    assert data["metadata"] == {"passed": True, "error": None}
+    (file,) = data["files"]
+    assert file["uri"] == "imas:hdf5?path=/data/run"
+    assert file["passed"] is False
+    assert file["error"] is None
+    assert file["tests"] == {"total": 7, "passed": 5, "failed": 2}
+    core_profiles, equilibrium = file["ids"]
+    assert core_profiles["name"] == "core_profiles"
+    assert core_profiles["occurrence"] == 0
+    assert core_profiles["passed"] is False
+    assert core_profiles["tests"] == {"total": 6, "passed": 4, "failed": 2}
+    assert core_profiles["rules"][1] == {
+        "name": "validate_zeff",
+        "passed": False,
+        "tests": {"total": 3, "passed": 1, "failed": 2},
+        "message": "zeff inconsistent",
+        "failed_nodes": 12,
+        "sample_nodes": ["profiles_1d[0]/zeff", "profiles_1d[1]/zeff"],
+    }
+    assert equilibrium["passed"] is True
+    assert ValidationReport.from_dict(data) == report
+
+
+def test_report_text_lists_every_rule_with_a_few_nodes():
+    report = ValidationReport(
+        metadata=MetadataReport(),
+        files=[
+            _failing_file("imas:hdf5?path=/data/run"),
+            FileReport(uri="file:///data/other", error="cannot open"),
+        ],
+    )
+
+    assert report.text == (
+        "Metadata passed validation.\n"
+        "\n"
+        "File imas:hdf5?path=/data/run failed validation:\n"
+        "Number of tests carried out : 7\n"
+        "Number of successful tests : 5\n"
+        "Number of failed tests : 2\n"
+        "\n"
+        "FAILED IDS core_profiles occurrence 0\n"
+        "  PASSED validate_time\n"
+        "  FAILED validate_zeff: zeff inconsistent\n"
+        "    12 affected nodes: profiles_1d[0]/zeff, profiles_1d[1]/zeff and 10 more\n"
+        "\n"
+        "PASSED IDS equilibrium occurrence 0\n"
+        "  PASSED validate_time\n"
+        "\n"
+        "File file:///data/other could not be validated:\n"
+        "cannot open"
+    )
+
+
+def test_report_text_of_a_failed_metadata_check():
+    report = ValidationReport(metadata=MetadataReport(error="{'machine': [...]}"))
+
+    assert report.text == "Metadata failed validation:\n{'machine': [...]}"
 
 
 @pytest.fixture
@@ -162,12 +276,10 @@ def imas_validator():
     """Stand in for the imas-validator package, whether or not it is installed."""
     with mock.patch.object(
         ids_validator, "imas_validator_available", True
-    ), mock.patch.object(
-        ids_validator, "validate", create=True
-    ) as validate, mock.patch.object(
-        ids_validator, "_text_report", return_value="REPORT"
-    ):
-        validate.return_value.results = [mock.MagicMock(success=True)]
+    ), mock.patch.object(ids_validator, "validate", create=True) as validate:
+        validate.return_value = SimpleNamespace(
+            results=[_rule_result("rule_a", "pf_active", True)]
+        )
         yield validate
 
 
@@ -189,7 +301,11 @@ def test_ids_validator_skips_non_imas_files(imas_validator):
 def test_ids_validator_validates_the_local_dataset(imas_validator, uri):
     report = IdsValidator().validate_uri(SimDBUrl(uri), "options")
 
-    assert report == "REPORT"
+    assert report == FileReport(
+        uri=uri,
+        ids=[IdsReport("pf_active", 0, [RuleReport("rule_a", TestCounts.of(1, 0))])],
+    )
+    assert report.passed is True
     imas_validator.assert_called_once_with(
         imas_uri="imas:hdf5?path=/data/run", validate_options="options"
     )
@@ -197,12 +313,23 @@ def test_ids_validator_validates_the_local_dataset(imas_validator, uri):
 
 def test_ids_validator_reports_the_failed_rules(imas_validator):
     imas_validator.return_value.results = [
-        mock.MagicMock(success=True),
-        mock.MagicMock(success=False),
+        _rule_result("rule_a", "pf_active", True),
+        _rule_result("rule_a", "pf_active", False, "bad coil", ["coil[0]/name"]),
     ]
 
-    with pytest.raises(ValidationError, match=r"^REPORT$"):
-        IdsValidator().validate_uri(SimDBUrl("imas:hdf5?path=/data/run"), "options")
+    report = IdsValidator().validate_uri(
+        SimDBUrl("imas:hdf5?path=/data/run"), "options"
+    )
+
+    assert report.passed is False
+    (rule,) = report.ids[0].rules
+    assert rule == RuleReport(
+        "rule_a",
+        TestCounts.of(1, 1),
+        message="bad coil",
+        failed_nodes=1,
+        sample_nodes=["coil[0]/name"],
+    )
 
 
 def test_ids_validator_reports_an_unreadable_dataset(imas_validator):
@@ -250,53 +377,44 @@ def test_ids_validator_ignores_unset_list_options():
 
 
 def _rule_result(name, ids, success, msg="", nodes=()):
+    # The validator reports occurrences as numpy integers.
+    occurrence = np.int32(0)
     return SimpleNamespace(
         success=success,
         msg=msg,
         rule=SimpleNamespace(name=name),
-        idss=[(ids, 0)],
-        nodes_dict={(ids, 0): set(nodes)},
+        idss=[(ids, occurrence)],
+        nodes_dict={(ids, occurrence): set(nodes)},
     )
 
 
-def test_text_report_lists_every_rule_with_a_few_nodes():
+def test_file_report_groups_results_per_ids_and_rule():
     nodes = [f"profiles_1d[{i}]/zeff" for i in range(12)]
     results = [
-        _rule_result("generic/core_profiles.py:validate_zeff", "core_profiles", True),
+        _rule_result("validate_zeff", "core_profiles", True),
         _rule_result(
-            "generic/core_profiles.py:validate_zeff",
-            "core_profiles",
-            False,
-            "zeff inconsistent",
-            nodes,
+            "validate_zeff", "core_profiles", False, "zeff inconsistent", nodes
         ),
-        _rule_result("generic/generic.py:validate_time", "core_profiles", True),
-        _rule_result("generic/generic.py:validate_time", "equilibrium", True),
-        _rule_result(
-            "generic/generic.py:validate_empty", "equilibrium", False, "", [""]
-        ),
+        _rule_result("validate_time", "core_profiles", True),
+        _rule_result("validate_time", "equilibrium", True),
+        _rule_result("validate_empty", "equilibrium", False, "", [""]),
     ]
     collection = SimpleNamespace(results=results, imas_uri="imas:hdf5?path=/data/run")
 
-    report = ids_validator._text_report(collection)
+    report = ids_validator._file_report("imas:hdf5?path=/data/run", collection)
 
-    assert report.startswith(
-        "Tested URI : imas:hdf5?path=/data/run\n"
-        "Number of tests carried out : 5\n"
-        "Number of successful tests : 3\n"
-        "Number of failed tests : 2\n"
-    )
-    core_profiles, equilibrium = report.split("\nFAILED IDS equilibrium occurrence 0\n")
-    assert "\nFAILED IDS core_profiles occurrence 0\n" in core_profiles
-    assert "  PASSED generic/generic.py:validate_time\n" in core_profiles
-    assert (
-        "  FAILED generic/core_profiles.py:validate_zeff: zeff inconsistent\n"
-        in core_profiles
-    )
-    assert "    12 affected nodes: " in core_profiles
-    assert "and 7 more\n" in core_profiles
-    assert core_profiles.count("profiles_1d[") == 5
-    assert equilibrium == (
-        "  FAILED generic/generic.py:validate_empty: \n"
-        "  PASSED generic/generic.py:validate_time\n"
-    )
+    assert report.tests == TestCounts(total=5, passed=3, failed=2)
+    json.dumps(report.to_dict())  # no numpy types left behind
+    core_profiles, equilibrium = report.ids
+    assert type(core_profiles.occurrence) is int
+    assert (core_profiles.name, core_profiles.occurrence) == ("core_profiles", 0)
+    zeff = next(rule for rule in core_profiles.rules if rule.name == "validate_zeff")
+    assert zeff.tests == TestCounts.of(1, 1)
+    assert zeff.message == "zeff inconsistent"
+    assert zeff.failed_nodes == 12
+    assert len(zeff.sample_nodes) == ids_validator.NODES_SHOWN
+    assert set(zeff.sample_nodes) < set(nodes)
+    empty = next(rule for rule in equilibrium.rules if rule.name == "validate_empty")
+    assert empty.passed is False
+    assert empty.failed_nodes == 0
+    assert empty.sample_nodes == []

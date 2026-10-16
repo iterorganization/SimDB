@@ -80,6 +80,43 @@ def _update_legacy_uri(data_object: DataObject):
     return SimDBUrl.build(scheme="imas", path=backend, query=f"path={path}")
 
 
+def _inline_meta(value: Any) -> Optional[str]:
+    """VALUE on one line, or None if it needs a block of its own."""
+    if isinstance(value, dict):
+        if "min" in value and "max" in value:
+            return f"[{value['min']}, {value['max']}]"
+        return None
+    if isinstance(value, list):
+        if any(isinstance(item, (dict, list)) for item in value):
+            return None
+        return "[{}]".format(", ".join(str(item) for item in value))
+    return str(value)
+
+
+def _format_meta_value(value: Any) -> List[str]:
+    """The lines showing VALUE: nested dictionaries and lists are indented."""
+    inline = _inline_meta(value)
+    if inline is not None:
+        return [line for line in inline.split("\n") if line] or [""]
+    if isinstance(value, dict):
+        return [line for key, item in value.items() for line in _format_meta(key, item)]
+    lines = []
+    for item in value:
+        item_lines = _format_meta_value(item)
+        lines.append(f"- {item_lines[0]}")
+        lines.extend(f"  {line}" for line in item_lines[1:])
+    return lines
+
+
+def _format_meta(name: str, value: Any) -> List[str]:
+    """The lines showing the metadata element NAME with its VALUE."""
+    lines = _format_meta_value(value)
+    if _inline_meta(value) is None:
+        return [f"{name}:"] + [f"  {line}" for line in lines]
+    indent = " " * (len(name) + 2)
+    return [f"{name}: {lines[0]}"] + [f"{indent}{line}" for line in lines[1:]]
+
+
 class MetaDataWrapper:
     """Temporary wrapper to provide backwards compatibility with MetaData interface."""
 
@@ -295,23 +332,8 @@ class Simulation(Base):
         result += "metadata:\n"
         meta_dict = self._get_metadata_dict()
         for element, value in meta_dict.items():
-            if isinstance(value, str) and "\n" in value:
-                first_line = True
-                for line in value.split("\n"):
-                    if first_line:
-                        result += f"  {element}: {line}\n"
-                    elif line:
-                        indent = " " * (len(element) + 2)
-                        result += f"  {indent}{line}\n"
-                    first_line = False
-            elif isinstance(value, dict) and "min" in value and "max" in value:
-                result += f"  {element}: [{value['min']}, {value['max']}]\n"
-            elif isinstance(value, list):
-                result += "  {}: [{}]\n".format(
-                    element, ", ".join(str(el) for el in value)
-                )
-            else:
-                result += f"  {element}: {value}\n"
+            for line in _format_meta(element, value):
+                result += f"  {line}\n"
         result += "inputs:\n"
         for file in self.inputs:
             result += f"{file}\n"
