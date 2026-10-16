@@ -19,15 +19,18 @@ error_on_fail = True
 - `error_on_fail` rejects simulations that fail. It requires `auto_validate`.
 
 Uploads through the v1.2 API are validated inside the request, so the response
-carries the result. Uploads through the v1.3 API (`simdb simulation push_local`)
-are validated by a [background worker](run-celery-workers.md) once the files
-have been copied: the ingestion passes through the `VALIDATING` state, and a
-failure is recorded with the simulation and reported by the status endpoint.
-With `error_on_fail` the ingestion then ends in the `VALIDATION_FAILED` state
-and the simulation can be deleted; without it the simulation is ingested with a
-failed validation status. The worker needs the same `[validation]` and
-`[file_validation]` configuration as the server, and the `imas-validator` extra
-installed when the IDS validator is enabled.
+carries the result and `error_on_fail` can reject the upload. Uploads through the
+v1.3 API (`simdb simulation push_local`) are validated by a
+[background worker](run-celery-workers.md) after the ingestion has completed, so
+the client does not wait for it and `error_on_fail` does not apply: the
+simulation is kept whatever the outcome. The worker needs the same
+`[validation]` and `[file_validation]` configuration as the server, and the
+`imas-validator` extra installed when the IDS validator is enabled.
+
+Either way the outcome is stored with the simulation: its status becomes
+`passed` or `failed`, and the `validation_report` metadata holds the result of
+every check, so it can be read back later with `simdb remote REMOTE info SIM_ID`
+or from the simulation's metadata in the API.
 
 ## Require metadata
 

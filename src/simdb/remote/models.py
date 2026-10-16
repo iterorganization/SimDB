@@ -726,4 +726,4 @@ class SimulationStatusResponse(BaseModel):
     status: IngestionStatus
     """Current ingestion status."""
     error: Optional[str] = None
-    """Why the ingestion, or the validation of the simulation, failed."""
+    """Why the ingestion failed, when the status is a failed one."""

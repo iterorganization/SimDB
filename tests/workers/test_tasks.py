@@ -10,7 +10,7 @@ from simdb.database.models import Simulation
 from simdb.enums import IngestionStatus
 from simdb.imas.utils import SimDBUrl
 from simdb.remote.models import FileData
-from simdb.validation import ValidationError
+from simdb.validation import ValidationReport
 from simdb.workers import tasks as simdb_tasks
 from simdb.workers.tasks import (
     _copy_files,
@@ -244,50 +244,43 @@ def test_copy_files_task_records_why_the_copy_failed(task_environment):
     assert "Hash of file does not match" in env["simulation"].ingestion_error
 
 
-def test_validate_imas_task_marks_a_valid_simulation(task_environment):
+def test_validate_imas_task_records_a_passed_validation(task_environment):
     env = task_environment
+    report = ValidationReport(passed=True, text="all good")
 
-    with mock.patch("simdb.workers.tasks.validate_simulation") as validate:
+    with mock.patch(
+        "simdb.workers.tasks.validate_simulation", return_value=report
+    ) as validate, mock.patch.object(simdb_tasks.send_email_task, "delay") as delay:
         validate_imas_task(env["simulation_uuid"])
 
     validate.assert_called_once_with(env["simulation"], env["config"])
     assert env["simulation"].status == Simulation.Status.PASSED
-    assert env["simulation"].ingestion_status == IngestionStatus.VALIDATED
+    env["simulation"].set_meta.assert_called_once_with("validation_report", "all good")
+    delay.assert_not_called()
     env["db"].close.assert_called_once()
 
 
-def test_validate_imas_task_ingests_a_failed_simulation_by_default(task_environment):
+def test_validate_imas_task_records_a_failed_validation(task_environment):
+    """A failed validation is kept with the simulation and does not touch the
+    ingestion, which has already completed."""
     env = task_environment
+    env["simulation"].ingestion_status = IngestionStatus.COMPLETED
     watcher = mock.MagicMock(email="watcher@example.com")
     env["simulation"].watchers = [watcher]
+    report = ValidationReport(passed=False, text="rule X failed")
 
     with mock.patch(
-        "simdb.workers.tasks.validate_simulation",
-        side_effect=ValidationError("machine is required"),
+        "simdb.workers.tasks.validate_simulation", return_value=report
     ), mock.patch.object(simdb_tasks.send_email_task, "delay") as delay:
         validate_imas_task(env["simulation_uuid"])
 
     assert env["simulation"].status == Simulation.Status.FAILED
-    assert env["simulation"].ingestion_status == IngestionStatus.VALIDATION_FAILED
-    assert env["simulation"].ingestion_error == "machine is required"
+    assert env["simulation"].ingestion_status == IngestionStatus.COMPLETED
+    env["simulation"].set_meta.assert_called_once_with(
+        "validation_report", "rule X failed"
+    )
     subject, body, to_addresses = delay.call_args.args
     assert "failed validation" in subject
-    assert "machine is required" in body
+    assert "rule X failed" in body
     assert to_addresses == ["watcher@example.com"]
-    env["db"].close.assert_called_once()
-
-
-def test_validate_imas_task_aborts_the_ingestion_on_error_on_fail(task_environment):
-    env = task_environment
-    env["config"].set_option("validation.error_on_fail", True)
-
-    with mock.patch(
-        "simdb.workers.tasks.validate_simulation",
-        side_effect=ValidationError("machine is required"),
-    ), pytest.raises(ValidationError, match="machine is required"):
-        validate_imas_task(env["simulation_uuid"])
-
-    assert env["simulation"].status == Simulation.Status.FAILED
-    assert env["simulation"].ingestion_status == IngestionStatus.VALIDATION_FAILED
-    assert env["simulation"].ingestion_error == "machine is required"
     env["db"].close.assert_called_once()

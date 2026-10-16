@@ -332,24 +332,6 @@ def test_simulation_push_local_reports_why_ingestion_failed(get_local_db, remote
 
 @mock.patch("simdb.cli.commands.simulation.RemoteAPI")
 @mock.patch("simdb.cli.commands.simulation.get_local_db")
-def test_simulation_push_local_warns_when_validation_failed(get_local_db, remote_api):
-    """A simulation ingested despite failing validation is reported as such."""
-    sim_uuid = uuid1()
-    get_local_db.return_value.get_simulation.return_value.uuid = sim_uuid
-    remote_api.return_value.get_ingestion_status.return_value = (
-        IngestionStatus.COMPLETED.value
-    )
-    remote_api.return_value.get_ingestion_error.return_value = "rule X failed"
-
-    result = _invoke_push_local(remote_api)
-
-    assert result.exit_code == 0, result.output
-    assert "Warning: simulation validation failed:\nrule X failed" in result.output
-    assert f"Successfully pushed simulation {sim_uuid}" in result.output
-
-
-@mock.patch("simdb.cli.commands.simulation.RemoteAPI")
-@mock.patch("simdb.cli.commands.simulation.get_local_db")
 def test_simulation_push_local_without_a_failure_reason(get_local_db, remote_api):
     """A remote that cannot report the reason still gets the status reported."""
     remote_api.return_value.get_ingestion_status.return_value = (

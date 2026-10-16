@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Optional
 
 from simdb.imas.utils import SimDBUrl
 
@@ -73,14 +74,14 @@ class IdsValidator(FileValidatorBase):
             "rule_files": [],
         }
 
-    def validate_uri(self, uri: SimDBUrl, validate_options):
+    def validate_uri(self, uri: SimDBUrl, validate_options) -> Optional[str]:
         if not imas_validator_available:
             raise RuntimeError(
                 "IMAS-validator not available, please install this optional dependency"
             )
         if uri.scheme != "imas":
             # Skip non IMAS data
-            return
+            return None
 
         # Validation runs on the server, so always access the data locally: a
         # remote access URI (imas://host/uda?path=...&backend=...) is rewritten
@@ -100,9 +101,8 @@ class IdsValidator(FileValidatorBase):
         except Exception as err:
             raise ValidationError(f"Failed to validate {validate_uri}: {err}") from err
 
+        # The report lists every rule that ran, whether it passed or failed.
+        report = ValidationReportGenerator(validate_output).txt
         if not all(result.success for result in validate_output.results):
-            report_generator = ValidationReportGenerator(validate_output)
-            raise ValidationError(
-                f"Validation of following URI: [{validate_uri}], failed with "
-                f"following report: \n{report_generator.txt}"
-            )
+            raise ValidationError(report)
+        return report

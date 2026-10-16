@@ -55,7 +55,7 @@ from simdb.remote.models import (
     StatusPatchData,
     ValidationResult,
 )
-from simdb.validation import ValidationError, validate_simulation
+from simdb.validation import VALIDATION_REPORT_KEY, validate_simulation
 
 api = Namespace("simulations", path="/")
 
@@ -86,15 +86,20 @@ Note: please don't reply to this email, replies to this address are not monitore
 
 def _validate(simulation, user) -> ValidationResult:
     try:
-        validate_simulation(simulation, current_app.simdb_config)
-    except ValidationError as err:
-        _update_simulation_status(simulation, models_sim.Simulation.Status.FAILED, user)
-        return ValidationResult(passed=False, error=str(err))
+        report = validate_simulation(simulation, current_app.simdb_config)
     except ConfigError as err:
         raise ServerException(str(err)) from err
 
-    _update_simulation_status(simulation, models_sim.Simulation.Status.PASSED, user)
-    return ValidationResult(passed=True, error=None)
+    simulation.set_meta(VALIDATION_REPORT_KEY, report.text)
+    status = (
+        models_sim.Simulation.Status.PASSED
+        if report.passed
+        else models_sim.Simulation.Status.FAILED
+    )
+    _update_simulation_status(simulation, status, user)
+    return ValidationResult(
+        passed=report.passed, error=None if report.passed else report.text
+    )
 
 
 def _set_alias(alias: str):

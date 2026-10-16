@@ -13,7 +13,6 @@ from conftest import (
 from simdb.checksum import calculate_checksum
 from simdb.cli.manifest import Manifest
 from simdb.config import Config
-from simdb.database import DatabaseError
 from simdb.database.models import Simulation
 from simdb.enums import IngestionStatus
 from simdb.remote.models import (
@@ -241,23 +240,32 @@ def test_post_simulations_v13_skips_validation_by_default(
     assert simulation.status is None
 
 
-def test_post_simulations_v13_validates_after_copying(
+def test_post_simulations_v13_validates_after_completing(
     client_with_task_mock, auto_validate, tmp_path
 ):
-    """With auto_validate the worker validates the simulation and records it."""
+    """With auto_validate the worker validates once the ingestion is complete."""
     client = client_with_task_mock
     auto_validate({"description": {"type": "string"}})
     simulation_data = generate_simulation_data(
         alias="test-validated-v13", inputs=[generate_simulation_file(tmp_path)]
     )
+    statuses_seen = []
+    real_validate = simdb_tasks.validate_simulation
 
-    rv = post_simulation_v13(client, simulation_data)
+    def validate(simulation, config):
+        statuses_seen.append(simulation.ingestion_status)
+        return real_validate(simulation, config)
+
+    with mock.patch("simdb.workers.tasks.validate_simulation", side_effect=validate):
+        rv = post_simulation_v13(client, simulation_data)
 
     assert rv.status_code == 200
+    assert statuses_seen == [IngestionStatus.COMPLETED]
     sim_hex = SimulationPostResponse.model_validate(rv.json).ingested.hex
     simulation = client.application.db.get_simulation(sim_hex)
     assert simulation.ingestion_status == IngestionStatus.COMPLETED
     assert simulation.status == Simulation.Status.PASSED
+    assert "Metadata passed validation." in simulation.meta_dict()["validation_report"]
     status = SimulationStatusResponse.model_validate(
         get_simulation_status(client, simulation.uuid).json
     )
@@ -275,6 +283,7 @@ def test_post_simulations_v13_runs_the_file_validator(
         alias="test-file-validated-v13", outputs=[generate_simulation_file(tmp_path)]
     )
     validator = mock.MagicMock()
+    validator.validate_uri.return_value = "1 rule passed"
 
     with mock.patch(
         "simdb.validation.simulation.find_file_validator",
@@ -289,12 +298,15 @@ def test_post_simulations_v13_runs_the_file_validator(
     (uri, options), _ = validator.validate_uri.call_args
     assert uri == simulation.outputs[0].uri
     assert options == "options"
+    assert simulation.status == Simulation.Status.PASSED
+    assert "1 rule passed" in simulation.meta_dict()["validation_report"]
 
 
-def test_post_simulations_v13_ingests_a_failed_simulation_by_default(
+def test_post_simulations_v13_keeps_a_failed_validation(
     client_with_task_mock, auto_validate, tmp_path
 ):
-    """Without error_on_fail a failed validation only marks the simulation."""
+    """A failed validation is stored with the completed simulation, readable
+    through its metadata."""
     client = client_with_task_mock
     auto_validate({"machine": {"type": "string", "required": True}})
     simulation_data = generate_simulation_data(
@@ -308,62 +320,18 @@ def test_post_simulations_v13_ingests_a_failed_simulation_by_default(
     simulation = client.application.db.get_simulation(sim_hex)
     assert simulation.ingestion_status == IngestionStatus.COMPLETED
     assert simulation.status == Simulation.Status.FAILED
+    assert "machine" in simulation.meta_dict()["validation_report"]
     status = SimulationStatusResponse.model_validate(
         get_simulation_status(client, simulation.uuid).json
     )
     assert status.status == IngestionStatus.COMPLETED
-    assert "machine" in status.error
+    assert status.error is None
 
-
-def test_post_simulations_v13_error_on_fail_stops_the_ingestion(
-    client_with_task_mock, auto_validate, tmp_path
-):
-    """With error_on_fail a failed validation ends the ingestion."""
-    client = client_with_task_mock
-    auto_validate({"machine": {"type": "string", "required": True}}, error_on_fail=True)
-    simulation_data = generate_simulation_data(
-        alias="test-rejected-validation-v13",
-        inputs=[generate_simulation_file(tmp_path)],
-    )
-
-    rv = post_simulation_v13(client, simulation_data)
-
-    # The tasks run in-process here, so the failed validation is reported in
-    # the response as v1.2 does. With a worker the request returns 200 and the
-    # failure surfaces through the status endpoint checked below.
-    assert rv.status_code == 400
-    assert "error_on_fail=True" in rv.json["error"]
-    assert "machine" in rv.json["error"]
-    sim_hex = simulation_data.simulation.uuid.hex
-    simulation = client.application.db.get_simulation(sim_hex)
-    assert simulation.ingestion_status == IngestionStatus.VALIDATION_FAILED
-    assert simulation.status == Simulation.Status.FAILED
-    status = SimulationStatusResponse.model_validate(
-        get_simulation_status(client, simulation.uuid).json
-    )
-    assert status.status == IngestionStatus.VALIDATION_FAILED
-    assert "machine" in status.error
-
-    # A failed ingestion is terminal, so the simulation can be cleaned up.
-    rv = client.delete(f"/v1.3/simulation/{sim_hex}", headers=HEADERS)
+    rv = client.get(f"/v1.3/simulation/{sim_hex}", headers=HEADERS)
     assert rv.status_code == 200
-
-
-def test_post_simulations_v13_rejects_error_on_fail_without_auto_validate(
-    client_with_task_mock, tmp_path
-):
-    client = client_with_task_mock
-    client.application.simdb_config.set_option("validation.error_on_fail", True)
-    simulation_data = generate_simulation_data(
-        alias="test-misconfigured-v13", inputs=[generate_simulation_file(tmp_path)]
-    )
-
-    rv = post_simulation_v13(client, simulation_data)
-
-    assert rv.status_code == 400
-    assert "error_on_fail=True without auto_validate=True" in rv.json["error"]
-    with pytest.raises(DatabaseError):
-        client.application.db.get_simulation(simulation_data.simulation.uuid.hex)
+    metadata = {item["element"]: item["value"] for item in rv.json["metadata"]}
+    assert metadata["status"] == "failed"
+    assert "machine" in metadata["validation_report"]
 
 
 def test_validate_simulation_reports_a_misconfigured_file_validator(
