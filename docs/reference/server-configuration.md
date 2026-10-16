@@ -75,8 +75,8 @@ the `ids_validator` is available. See
 | `rulesets` | For `ids_validator` | Comma-separated ruleset names to apply. |
 | `bundled_ruleset` | For `ids_validator` | `True`/`False`: load rulesets bundled with `ids_validator`. Defaults to `True`. |
 | `apply_generic` | For `ids_validator` | `True`/`False`: apply generic rulesets. Defaults to `True`. |
-| `rule_filter_name` | For `ids_validator` | Only apply rulesets whose names match these comma-separated values. |
-| `rule_filter_ids` | For `ids_validator` | Only apply rulesets for these comma-separated IDS names. |
+| `rule_filter_name` | For `ids_validator` | Only apply rules whose name contains every one of these comma-separated values. |
+| `rule_filter_ids` | For `ids_validator` | Only apply rules written for every one of these comma-separated IDS names. Generic rules are not selected. |
 
 ## `[email]`
 

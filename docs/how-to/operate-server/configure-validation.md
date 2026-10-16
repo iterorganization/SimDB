@@ -60,8 +60,18 @@ To check the contents of IMAS data files, enable a file validator. The
 type = ids_validator
 bundled_ruleset = True
 apply_generic = True
-rule_filter_ids = summary,equilibrium
+rule_filter_ids = core_profiles
 ```
+
+The rule filters select the rules to run. `rule_filter_ids` keeps only the
+rules written for the given IDS, and a rule must match every listed value, so
+`rule_filter_ids = core_profiles,equilibrium` runs only rules that cover both
+IDSs. Generic rules that apply to every IDS are not selected by an IDS filter.
+A filter that matches no rule makes the validation pass with zero tests, which
+the stored report shows as `Number of tests carried out : 0`.
+
+Validating a large dataset takes minutes: the validator loads every IDS and
+evaluates the rules on each time slice.
 
 See the
 [file validation options](../../reference/server-configuration.md#file_validation)
