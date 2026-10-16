@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
@@ -164,10 +165,9 @@ def imas_validator():
     ), mock.patch.object(
         ids_validator, "validate", create=True
     ) as validate, mock.patch.object(
-        ids_validator, "ValidationReportGenerator", create=True
-    ) as report:
+        ids_validator, "_text_report", return_value="REPORT"
+    ):
         validate.return_value.results = [mock.MagicMock(success=True)]
-        report.return_value.txt = "REPORT"
         yield validate
 
 
@@ -235,3 +235,68 @@ def test_ids_validator_configures_from_the_server_section():
     assert options.extra_rule_dirs == [Path("/rules")]
     assert options.rule_filter.ids == ["summary"]
     assert options.use_bundled_rulesets is False
+
+
+def test_ids_validator_ignores_unset_list_options():
+    pytest.importorskip("imas_validator")
+    options = IdsValidator().configure({"type": "ids_validator"})
+
+    assert options.rulesets == []
+    assert options.extra_rule_dirs == []
+    assert options.rule_filter.name == []
+    assert options.rule_filter.ids == []
+    assert options.use_bundled_rulesets is True
+    assert options.apply_generic is True
+
+
+def _rule_result(name, ids, success, msg="", nodes=()):
+    return SimpleNamespace(
+        success=success,
+        msg=msg,
+        rule=SimpleNamespace(name=name),
+        idss=[(ids, 0)],
+        nodes_dict={(ids, 0): set(nodes)},
+    )
+
+
+def test_text_report_lists_every_rule_with_a_few_nodes():
+    nodes = [f"profiles_1d[{i}]/zeff" for i in range(12)]
+    results = [
+        _rule_result("generic/core_profiles.py:validate_zeff", "core_profiles", True),
+        _rule_result(
+            "generic/core_profiles.py:validate_zeff",
+            "core_profiles",
+            False,
+            "zeff inconsistent",
+            nodes,
+        ),
+        _rule_result("generic/generic.py:validate_time", "core_profiles", True),
+        _rule_result("generic/generic.py:validate_time", "equilibrium", True),
+        _rule_result(
+            "generic/generic.py:validate_empty", "equilibrium", False, "", [""]
+        ),
+    ]
+    collection = SimpleNamespace(results=results, imas_uri="imas:hdf5?path=/data/run")
+
+    report = ids_validator._text_report(collection)
+
+    assert report.startswith(
+        "Tested URI : imas:hdf5?path=/data/run\n"
+        "Number of tests carried out : 5\n"
+        "Number of successful tests : 3\n"
+        "Number of failed tests : 2\n"
+    )
+    core_profiles, equilibrium = report.split("\nFAILED IDS equilibrium occurrence 0\n")
+    assert "\nFAILED IDS core_profiles occurrence 0\n" in core_profiles
+    assert "  PASSED generic/generic.py:validate_time\n" in core_profiles
+    assert (
+        "  FAILED generic/core_profiles.py:validate_zeff: zeff inconsistent\n"
+        in core_profiles
+    )
+    assert "    12 affected nodes: " in core_profiles
+    assert "and 7 more\n" in core_profiles
+    assert core_profiles.count("profiles_1d[") == 5
+    assert equilibrium == (
+        "  FAILED generic/generic.py:validate_empty: \n"
+        "  PASSED generic/generic.py:validate_time\n"
+    )
