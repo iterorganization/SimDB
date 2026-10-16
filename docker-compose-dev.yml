@@ -4,6 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile.dev
       args:
+        APP_VERSION: ${APP_VERSION:-0.0.0}
         SIMDB_GIT_BRANCH: ${SIMDB_GIT_BRANCH:-unknown}
         SIMDB_GIT_COMMIT: ${SIMDB_GIT_COMMIT:-unknown}
         SIMDB_DEPLOYMENT: ${SIMDB_DEPLOYMENT:-local}
@@ -26,6 +27,7 @@ services:
       context: .
       dockerfile: Dockerfile.dev
       args:
+        APP_VERSION: ${APP_VERSION:-0.0.0}
         SIMDB_GIT_BRANCH: ${SIMDB_GIT_BRANCH:-unknown}
         SIMDB_GIT_COMMIT: ${SIMDB_GIT_COMMIT:-unknown}
         SIMDB_DEPLOYMENT: ${SIMDB_DEPLOYMENT:-local}
@@ -78,7 +80,7 @@ services:
       org.simdb.git.branch: ${SIMDB_GIT_BRANCH:-unknown}
       org.simdb.git.commit: ${SIMDB_GIT_COMMIT:-unknown}
     volumes:
-      - ./deploy/nginx.dev.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./docker/nginx.dev.conf.template:/etc/nginx/templates/default.conf.template:ro
     depends_on:
       web:
         condition: service_healthy
@@ -102,6 +104,7 @@ services:
       context: .
       dockerfile: Dockerfile.dev
       args:
+        APP_VERSION: ${APP_VERSION:-0.0.0}
         SIMDB_GIT_BRANCH: ${SIMDB_GIT_BRANCH:-unknown}
         SIMDB_GIT_COMMIT: ${SIMDB_GIT_COMMIT:-unknown}
         SIMDB_DEPLOYMENT: ${SIMDB_DEPLOYMENT:-local}
@@ -131,6 +134,7 @@ services:
       context: .
       dockerfile: Dockerfile.dev
       args:
+        APP_VERSION: ${APP_VERSION:-0.0.0}
         SIMDB_GIT_BRANCH: ${SIMDB_GIT_BRANCH:-unknown}
         SIMDB_GIT_COMMIT: ${SIMDB_GIT_COMMIT:-unknown}
         SIMDB_DEPLOYMENT: ${SIMDB_DEPLOYMENT:-local}
