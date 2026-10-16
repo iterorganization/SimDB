@@ -1,7 +1,7 @@
 from pathlib import Path
 from unittest import mock
 
-from simdb.cli.manifest import DataType
+from simdb.cli.manifest import DataType, Manifest
 from simdb.database.models import Simulation
 from simdb.imas.utils import SimDBUrl
 
@@ -42,3 +42,14 @@ def test_create_simulation_with_manifest(manifest_cls, data_object_cls):
         "status": "not validated",
         "uploaded_by": "test user",
     }
+
+
+def test_simulation_str_prints_every_line_of_multiline_metadata():
+    simulation = Simulation(Manifest())
+    simulation.set_meta("validation_report", "first line\nsecond line\n\nfourth line")
+
+    text = str(simulation)
+
+    assert "  validation_report: first line\n" in text
+    assert "\n                     second line\n" in text
+    assert "\n                     fourth line\n" in text

@@ -302,7 +302,7 @@ class Simulation(Base):
                         result += f"  {element}: {line}\n"
                     elif line:
                         indent = " " * (len(element) + 2)
-                        result += f"  {indent}{line}"
+                        result += f"  {indent}{line}\n"
                     first_line = False
             elif isinstance(value, dict) and "min" in value and "max" in value:
                 result += f"  {element}: [{value['min']}, {value['max']}]\n"
