@@ -140,8 +140,9 @@ See [Configure authentication](../how-to/operate-server/configure-authentication
 
 | Option | Required | Description |
 | --- | --- | --- |
-| `type` | No | `NullCache` (default), `SimpleCache`, or `FileSystemCache`. |
+| `type` | No | `NullCache` (default), `SimpleCache`, `FileSystemCache`, or `RedisCache`. |
 | `dir` | No | Directory for `FileSystemCache`. |
+| `redis_url` | For `RedisCache` | Redis connection URL, for example `redis://redis:6379/0`. |
 | `default_timeout` | No | Default cache timeout in seconds. |
 | `threshold` | No | Maximum number of items before eviction (`SimpleCache`/`FileSystemCache`). |
 
