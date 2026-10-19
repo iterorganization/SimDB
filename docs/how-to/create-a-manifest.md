@@ -83,4 +83,13 @@ Before ingesting, validate the file's structure:
 simdb manifest check manifest.yaml
 ```
 
+If the file is invalid, the command exits with a non-zero status and lists every
+problem it found, each with its line and column in the file and the offending item:
+
+```text
+Error: invalid manifest manifest.yaml (2 errors):
+  manifest.yaml:7:5: outputs[0].uri: URL scheme should be 'file' or 'imas'
+  manifest.yaml:10:5: metadata[1]: invalid metadata field name machine:name - contains forbidden character(s): :
+```
+
 Then ingest it (see [Ingest and manage simulations](ingest-and-manage.md)).
