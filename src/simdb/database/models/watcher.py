@@ -57,7 +57,7 @@ class Watcher(Base):
         data = {
             "username": self.username,
             "email": self.email,
-            "notification": str(self.notification),
+            "notification": self.NOTIFICATION_CHOICES[self.notification],
         }
         return data
 
