@@ -14,10 +14,8 @@ NODES_SHOWN = 5
 
 
 @dataclass
-class TestCounts:
-    """How many tests passed and how many failed."""
-
-    __test__ = False
+class ValidationCounts:
+    """How many validation checks passed and how many failed."""
 
     passed: int = 0
     failed: int = 0
@@ -26,15 +24,20 @@ class TestCounts:
     def total(self) -> int:
         return self.passed + self.failed
 
-    def __add__(self, other: "TestCounts") -> "TestCounts":
-        return TestCounts(self.passed + other.passed, self.failed + other.failed)
+    def __add__(self, other: "ValidationCounts") -> "ValidationCounts":
+        return ValidationCounts(self.passed + other.passed, self.failed + other.failed)
 
     def to_dict(self) -> Dict[str, int]:
         return {"total": self.total, "passed": self.passed, "failed": self.failed}
 
 
-def _sum(counts: Iterable[TestCounts]) -> TestCounts:
-    return sum(counts, TestCounts())
+def _sum(counts: Iterable[ValidationCounts]) -> ValidationCounts:
+    passed = 0
+    failed = 0
+    for c in counts:
+        passed += c.passed
+        failed += c.failed
+    return ValidationCounts(passed, failed)
 
 
 @dataclass
@@ -46,7 +49,7 @@ class RuleReport:
     """
 
     name: str
-    tests: TestCounts = field(default_factory=TestCounts)
+    tests: ValidationCounts = field(default_factory=ValidationCounts)
     message: str = ""
     """Why the rule failed, from the first failing evaluation."""
     failed_nodes: int = 0
@@ -78,7 +81,7 @@ class IdsReport:
     rules: List[RuleReport] = field(default_factory=list)
 
     @property
-    def tests(self) -> TestCounts:
+    def tests(self) -> ValidationCounts:
         return _sum(rule.tests for rule in self.rules)
 
     @property
@@ -105,7 +108,7 @@ class FileReport:
     """Why the file could not be validated at all, if it could not."""
 
     @property
-    def tests(self) -> TestCounts:
+    def tests(self) -> ValidationCounts:
         return _sum(ids.tests for ids in self.ids)
 
     @property
@@ -192,7 +195,7 @@ class ValidationReport:
         )
 
     @property
-    def tests(self) -> TestCounts:
+    def tests(self) -> ValidationCounts:
         """The file validation tests over every file."""
         return _sum(file.tests for file in self.files)
 

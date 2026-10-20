@@ -1,12 +1,12 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.13' and platform_machine == 'ARM64' and sys_platform == 'win32'",
-    "python_full_version == '3.12.*' and platform_machine == 'ARM64' and sys_platform == 'win32'",
-    "python_full_version < '3.12' and platform_machine == 'ARM64' and sys_platform == 'win32'",
     "(python_full_version >= '3.13' and platform_machine != 'ARM64') or (python_full_version >= '3.13' and sys_platform != 'win32')",
+    "python_full_version == '3.12.*' and platform_machine == 'ARM64' and sys_platform == 'win32'",
     "(python_full_version == '3.12.*' and platform_machine != 'ARM64') or (python_full_version == '3.12.*' and sys_platform != 'win32')",
+    "python_full_version < '3.12' and platform_machine == 'ARM64' and sys_platform == 'win32'",
     "(python_full_version < '3.12' and platform_machine != 'ARM64') or (python_full_version < '3.12' and sys_platform != 'win32')",
 ]
 
@@ -1264,7 +1264,7 @@ requires-dist = [
     { name = "imas-python", specifier = ">=2.0.1" },
     { name = "imas-simdb", extras = ["auth-ad", "auth-keycloak", "auth-ldap"], marker = "extra == 'auth'" },
     { name = "imas-simdb", extras = ["imas-validator", "postgres", "server"], marker = "extra == 'all'" },
-    { name = "imas-validator", marker = "extra == 'imas-validator'", specifier = ">=1.0.0" },
+    { name = "imas-validator", marker = "extra == 'imas-validator'", git = "https://github.com/iterorganization/imas-validator.git?rev=develop" },
     { name = "myst-parser", marker = "extra == 'build-docs'", specifier = ">=0.18.0" },
     { name = "netcdf4", specifier = ">=1.7.2" },
     { name = "numpy", specifier = ">=1.14" },
@@ -1300,8 +1300,8 @@ dev = [
 
 [[package]]
 name = "imas-validator"
-version = "1.0.0"
-source = { registry = "https://pypi.org/simple" }
+version = "1.0.1.dev94"
+source = { git = "https://github.com/iterorganization/imas-validator.git?rev=develop#0b8a55d563962555b645ea026d1f1bf28c8f89eb" }
 dependencies = [
     { name = "h5py" },
     { name = "imas-python" },
@@ -1312,10 +1312,6 @@ dependencies = [
     { name = "numpy", version = "2.5.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "packaging" },
     { name = "rich" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/cc/89/9c8078134ac670815815cb0f89813324eeb26c65e1fe80bafd7e3d9327e3/imas_validator-1.0.0.tar.gz", hash = "sha256:132d73b7b7f24628e8e12a60381fc8c65bf1ed996f817c442a0a4d1124e8c63b", size = 85911, upload-time = "2025-06-05T15:19:38.408Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/58/ca/17a035ddae1bbb6a0d42b91e2aea4092790be553dc337a0626636b7c49dd/imas_validator-1.0.0-py3-none-any.whl", hash = "sha256:9c2e482aaf6988e74d71204a4dd3e1a7987dd7a38aa0c00fbf87d204a76f7719", size = 63676, upload-time = "2025-06-05T15:19:36.763Z" },
 ]
 
 [[package]]
@@ -1679,8 +1675,8 @@ version = "2.5.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.13' and platform_machine == 'ARM64' and sys_platform == 'win32'",
-    "python_full_version == '3.12.*' and platform_machine == 'ARM64' and sys_platform == 'win32'",
     "(python_full_version >= '3.13' and platform_machine != 'ARM64') or (python_full_version >= '3.13' and sys_platform != 'win32')",
+    "python_full_version == '3.12.*' and platform_machine == 'ARM64' and sys_platform == 'win32'",
     "(python_full_version == '3.12.*' and platform_machine != 'ARM64') or (python_full_version == '3.12.*' and sys_platform != 'win32')",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/22/fd/89965aa4ac08c74998539fcbf24fa3540f3e15237fbeb6bcf9c908f4aade/numpy-2.5.1.tar.gz", hash = "sha256:a48a113e6afea91f5608793bafa7ef2ad481fefbda87ec5069f483de61cb9fa3", size = 20755553, upload-time = "2026-07-04T17:08:00.933Z" }
@@ -2447,8 +2443,8 @@ version = "1.18.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.13' and platform_machine == 'ARM64' and sys_platform == 'win32'",
-    "python_full_version == '3.12.*' and platform_machine == 'ARM64' and sys_platform == 'win32'",
     "(python_full_version >= '3.13' and platform_machine != 'ARM64') or (python_full_version >= '3.13' and sys_platform != 'win32')",
+    "python_full_version == '3.12.*' and platform_machine == 'ARM64' and sys_platform == 'win32'",
     "(python_full_version == '3.12.*' and platform_machine != 'ARM64') or (python_full_version == '3.12.*' and sys_platform != 'win32')",
 ]
 dependencies = [
@@ -2611,8 +2607,8 @@ version = "9.1.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.13' and platform_machine == 'ARM64' and sys_platform == 'win32'",
-    "python_full_version == '3.12.*' and platform_machine == 'ARM64' and sys_platform == 'win32'",
     "(python_full_version >= '3.13' and platform_machine != 'ARM64') or (python_full_version >= '3.13' and sys_platform != 'win32')",
+    "python_full_version == '3.12.*' and platform_machine == 'ARM64' and sys_platform == 'win32'",
     "(python_full_version == '3.12.*' and platform_machine != 'ARM64') or (python_full_version == '3.12.*' and sys_platform != 'win32')",
 ]
 dependencies = [
@@ -2661,8 +2657,8 @@ version = "3.13.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.13' and platform_machine == 'ARM64' and sys_platform == 'win32'",
-    "python_full_version == '3.12.*' and platform_machine == 'ARM64' and sys_platform == 'win32'",
     "(python_full_version >= '3.13' and platform_machine != 'ARM64') or (python_full_version >= '3.13' and sys_platform != 'win32')",
+    "python_full_version == '3.12.*' and platform_machine == 'ARM64' and sys_platform == 'win32'",
     "(python_full_version == '3.12.*' and platform_machine != 'ARM64') or (python_full_version == '3.12.*' and sys_platform != 'win32')",
 ]
 dependencies = [

@@ -3,7 +3,7 @@ from .report import (
     IdsReport,
     MetadataReport,
     RuleReport,
-    TestCounts,
+    ValidationCounts,
     ValidationReport,
 )
 from .simulation import (
@@ -21,8 +21,8 @@ __all__ = [
     "IdsReport",
     "MetadataReport",
     "RuleReport",
-    "TestCounts",
     "TestParameters",
+    "ValidationCounts",
     "ValidationError",
     "ValidationReport",
     "Validator",

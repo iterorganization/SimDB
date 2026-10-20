@@ -78,7 +78,7 @@ auth = [
     "imas-simdb[auth-ad, auth-keycloak, auth-ldap]"
 ]
 imas-validator = [
-    "imas-validator>=1.0.0",
+    "imas-validator @ git+https://github.com/iterorganization/imas-validator.git@develop",
 ]
 build-docs = [
     "sphinx>=4.5",

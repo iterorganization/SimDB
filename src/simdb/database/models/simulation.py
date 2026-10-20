@@ -296,25 +296,21 @@ class Simulation(Base):
         self.set_meta("status", status.value)
 
     def __str__(self):
-        result = ""
+        lines = []
         for name in ("uuid", "alias"):
-            result += "{}:{}{}\n".format(
-                name,
-                ((10 - len(name)) * " "),
-                getattr(self, name),
-            )
-        result += "metadata:\n"
+            lines.append(f"{name}:{' ' * (10 - len(name))}{getattr(self, name)}")
+        lines.append("metadata:")
         meta_dict = self._get_metadata_dict()
         for element, value in meta_dict.items():
             for line in _format_meta(element, value):
-                result += f"  {line}\n" if line else "\n"
-        result += "inputs:\n"
+                lines.append(f"  {line}" if line else "")
+        lines.append("inputs:")
         for file in self.inputs:
-            result += f"{file}\n"
-        result += "outputs:\n"
+            lines.append(f"{file}")
+        lines.append("outputs:")
         for file in self.outputs:
-            result += f"{file}\n"
-        return result
+            lines.append(f"{file}")
+        return "\n".join(lines) + "\n"
 
     def find_meta(self, name: str) -> List[Any]:
         meta_dict = self._get_metadata_dict()

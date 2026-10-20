@@ -20,7 +20,7 @@ from simdb.remote.models import (
     SimulationPostResponse,
     SimulationStatusResponse,
 )
-from simdb.validation import FileReport, IdsReport, RuleReport, TestCounts
+from simdb.validation import FileReport, IdsReport, RuleReport, ValidationCounts
 from simdb.workers import tasks as simdb_tasks
 from simdb.workers.celery import celery_app
 
@@ -288,7 +288,9 @@ def test_post_simulations_v13_runs_the_file_validator(
     validator = mock.MagicMock()
     validator.validate_uri.side_effect = lambda uri, options: FileReport(
         uri=str(uri),
-        ids=[IdsReport("pf_active", 0, [RuleReport("coil_name", TestCounts(1, 0))])],
+        ids=[
+            IdsReport("pf_active", 0, [RuleReport("coil_name", ValidationCounts(1, 0))])
+        ],
     )
 
     with mock.patch(

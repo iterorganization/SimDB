@@ -8,7 +8,7 @@ from simdb.validation.report import (
     FileReport,
     IdsReport,
     RuleReport,
-    TestCounts,
+    ValidationCounts,
 )
 from simdb.validation.validator import ValidationError
 
@@ -25,39 +25,20 @@ except ImportError:
     imas_validator_available = False
 
 
-def _shim_imas_validator_compatibility() -> None:
-    # imas-validator 1.0.0 checks imas.backends.imas_core.imas_interface.has_imas,
-    # which imas-python dropped in 2.1. Restore it from the lowlevel interface
-    # so the validator does not fail on newer imas-python releases.
-    try:
-        from imas.backends.imas_core import (  # noqa: PLC0415
-            imas_interface as _imas_interface,
-        )
-
-        if not hasattr(_imas_interface, "has_imas"):
-            ll = getattr(_imas_interface, "ll_interface", None)
-            has_imas = getattr(ll, "_al_version", None) is not None
-            setattr(_imas_interface, "has_imas", has_imas)  # noqa: B010
-            logger.debug(
-                "Shimmed imas_interface.has_imas=%s for imas-validator",
-                has_imas,
-            )
-    except Exception as err:
-        logger.debug("Could not shim imas_interface.has_imas: %s", err)
-
-
-if imas_validator_available:
-    _shim_imas_validator_compatibility()
-
-
 def _split_list(value) -> List[str]:
     """Split a comma-separated option into its non-empty, stripped entries.
 
-    An unset option is an empty string, which must not become the single empty
+    An unset option is an empty string or None, which must not become the single empty
     entry [""]: the validator would then look for a ruleset or rule directory
     named "" and fail.
     """
-    return [item.strip() for item in str(value).strip('"').split(",") if item.strip()]
+    if not value:
+        return []
+    if isinstance(value, (list, tuple)):
+        items = [str(item) for item in value]
+    else:
+        items = str(value).split(",")
+    return [item.strip().strip("\"'") for item in items if item.strip().strip("\"'")]
 
 
 def _file_report(uri: str, validation_result) -> FileReport:
@@ -83,9 +64,9 @@ def _file_report(uri: str, validation_result) -> FileReport:
                 result.rule.name, RuleReport(name=result.rule.name)
             )
             if result.success:
-                rule.tests += TestCounts(1, 0)
+                rule.tests += ValidationCounts(1, 0)
                 continue
-            rule.tests += TestCounts(0, 1)
+            rule.tests += ValidationCounts(0, 1)
             if not rule.message:
                 rule.message = str(result.msg)
             for node in result.nodes_dict.get((ids_name, occurrence), ()):
