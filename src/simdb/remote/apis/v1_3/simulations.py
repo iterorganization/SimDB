@@ -140,16 +140,18 @@ class SimulationList(SimulationListV12):
             # The tasks may have been published before the error, in which
             # case a worker can already have finished the ingestion. The
             # insert above committed, so reading the status here reloads it
-            # from the database rather than the QUEUED value set earlier.
+            # from the database rather than the QUEUED value set earlier. An
+            # ingestion that ran is reported as such: a 503 would make the
+            # client retry and upload the simulation twice.
             if not simulation.ingestion_status.is_terminal():
                 simulation.fail_ingestion(f"Failed to queue ingestion: {err}")
-            current_app.db.session.commit()
-            clear_cache()
-            raise ServerException(
-                f"Failed to queue ingestion for simulation {simulation.uuid.hex}: "
-                f"{err}",
-                return_code=503,
-            ) from err
+                current_app.db.session.commit()
+                clear_cache()
+                raise ServerException(
+                    f"Failed to queue ingestion for simulation "
+                    f"{simulation.uuid.hex}: {err}",
+                    return_code=503,
+                ) from err
 
         result = SimulationPostResponse(ingested=simulation.uuid)
 

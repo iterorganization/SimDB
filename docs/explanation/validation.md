@@ -111,7 +111,8 @@ and `tests` (`total`, `passed`, `failed`):
 - The top-level `error` is set, and nothing else is filled in, when the
   validation could not run at all: for example the file validator is not
   installed on the worker or the configuration names an unknown one. The
-  simulation is marked failed in that case too.
+  simulation is marked failed in that case too, but its watchers are not
+  emailed, since this is a problem for the operator rather than for them.
 - `metadata.error` holds the schema violations when the metadata check failed.
 - A file the validator could not open at all has `error` set and no `ids`.
 - A rule is evaluated once per node or time slice it covers, so it has test

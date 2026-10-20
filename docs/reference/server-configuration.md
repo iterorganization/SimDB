@@ -153,10 +153,12 @@ drop the `CACHE_` prefix and lowercase it, for example `CACHE_ARGS` becomes
 ```{note}
 The [Celery workers](../how-to/operate-server/run-celery-workers.md) change
 simulations outside the API process, so they empty the cache after updating the
-ingestion status, the ingested files or the validation outcome. They can only
-do so for a `FileSystemCache` whose `dir` they share with the API. With a
-`SimpleCache`, which lives in the memory of each API process, those changes
-are not visible through cached endpoints until `default_timeout` has passed.
+ingestion status, the ingested files or the validation outcome. They read the
+same `[cache]` section, so this works for any backend shared between processes:
+a `FileSystemCache` whose `dir` both can reach, or a `RedisCache` or
+`MemcachedCache` server. With a `SimpleCache`, which lives in the memory of
+each API process, those changes are not visible through cached endpoints until
+`default_timeout` has passed.
 ```
 
 ## `[development]`
@@ -174,7 +176,7 @@ Used by the optional
 | --- | --- | --- |
 | `broker_url` | For workers | Message broker URL, for example `redis://redis:6379/0`. |
 | `result_backend` | For workers | Result backend URL, for example `redis://redis:6379/0`. |
-| `task_soft_time_limit` | No | Seconds before a running task is asked to stop. Ingestion tasks turn this into a `COPY_FAILED` status. Defaults to `3600`. |
+| `task_soft_time_limit` | No | Seconds before a running task is asked to stop. Ingestion tasks turn this into a `COPY_FAILED` status; the validation task records it as a validation that could not run. Validating a large dataset takes minutes, so keep the limit well above that. Defaults to `3600`. |
 | `task_time_limit` | No | Hard limit in seconds, after which the task is killed. Defaults to `3660`. |
 | `stale_sweep_interval` | No | How often, in seconds, beat runs the stale-ingestion sweep. Defaults to `300`. |
 | `stale_ingestion_timeout` | No | How long, in seconds, a simulation may sit in a non-terminal ingestion state before the sweep fails it. Should be larger than `task_time_limit`. Defaults to `7200`. |

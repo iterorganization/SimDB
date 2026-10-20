@@ -365,3 +365,52 @@ def test_validate_endpoint_reports_a_misconfigured_file_validator(
 
     assert rv.status_code == 500
     assert "nope" in rv.json["error"]
+
+
+def test_post_simulations_v13_fails_the_ingestion_it_could_not_queue(
+    client_with_task_mock, tmp_path
+):
+    """When the tasks cannot be queued the simulation is failed with the
+    reason, and the client is told to come back later."""
+    client = client_with_task_mock
+    simulation_data = generate_simulation_data(
+        alias="test-not-queued-v13", inputs=[generate_simulation_file(tmp_path)]
+    )
+
+    with mock.patch("simdb.remote.apis.v1_3.simulations.chain") as chain:
+        chain.return_value.apply_async.side_effect = ConnectionError("broker down")
+        rv = post_simulation_v13(client, simulation_data)
+
+    assert rv.status_code == 503
+    simulation = client.application.db.get_simulation(
+        client.application.db.list_simulations()[-1].uuid.hex
+    )
+    assert simulation.ingestion_status == IngestionStatus.COPY_FAILED
+    assert "Failed to queue ingestion" in simulation.ingestion_error
+
+
+def test_post_simulations_v13_reports_an_ingestion_a_worker_already_ran(
+    client_with_task_mock, tmp_path
+):
+    """If the tasks were published before the error and a worker has already
+    finished, the upload succeeded: a 503 would make the client upload twice."""
+    client = client_with_task_mock
+    simulation_data = generate_simulation_data(
+        alias="test-queued-after-all-v13", inputs=[generate_simulation_file(tmp_path)]
+    )
+
+    def worker_finishes_then_error():
+        simulation = client.application.db.list_simulations()[-1]
+        simulation.ingestion_status = IngestionStatus.COMPLETED
+        client.application.db.session.commit()
+        raise ConnectionError("result backend down")
+
+    with mock.patch("simdb.remote.apis.v1_3.simulations.chain") as chain:
+        chain.return_value.apply_async.side_effect = worker_finishes_then_error
+        rv = post_simulation_v13(client, simulation_data)
+
+    assert rv.status_code == 200
+    sim_hex = SimulationPostResponse.model_validate(rv.json).ingested.hex
+    simulation = client.application.db.get_simulation(sim_hex)
+    assert simulation.ingestion_status == IngestionStatus.COMPLETED
+    assert simulation.ingestion_error is None

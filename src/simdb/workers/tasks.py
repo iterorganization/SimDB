@@ -18,12 +18,22 @@ from simdb.imas.utils import (
     imas_backend_for_directory,
     remote_substitution_enabled,
 )
-from simdb.remote.core.cache import clear_cache_from_worker
+from simdb.remote.core.cache_backend import clear_api_cache_from_worker
 from simdb.remote.models import FileData, FileDataList
 from simdb.validation import ValidationReport, record_validation, validate_simulation
 from simdb.workers.celery import celery_app
 
 logger = logging.getLogger(__name__)
+
+
+class IngestionError(ValueError):
+    """A problem with the uploaded simulation that the client can act on.
+
+    Its message is stored with the simulation and returned to the client by
+    the status endpoint, so it must describe the upload and not the server.
+    Any other exception during the ingestion is reported to the client by
+    type only, with the details kept in the worker log.
+    """
 
 
 @celery_app.task
@@ -66,7 +76,12 @@ def _imas_path_to_uri(imas_path: Path) -> SimDBUrl:
     if imas_path.suffix == ".nc":
         return SimDBUrl.build(scheme="file", path=imas_path.as_posix())
 
-    backend = imas_backend_for_directory(imas_path)
+    try:
+        backend = imas_backend_for_directory(imas_path)
+    except ValueError as err:
+        # The uploaded output directory holds no recognisable IMAS data: that
+        # is about the upload, so the client may see the message.
+        raise IngestionError(str(err)) from err
 
     return SimDBUrl.build(
         scheme="imas", path=backend, query=f"path={imas_path.as_posix()}"
@@ -76,21 +91,21 @@ def _imas_path_to_uri(imas_path: Path) -> SimDBUrl:
 def _resolve_uri_to_path(uri: SimDBUrl, config: Config) -> Path:
     partition = uri.scheme
     if not partition:
-        raise ValueError("Partition not given")
+        raise IngestionError("Partition not given")
     partition_path_str = config.get_string_option(
         f"partition.{partition}", default=None
     )
     if not partition_path_str:
-        raise ValueError(f"Partition '{partition}' not found in config")
+        raise IngestionError(f"Partition '{partition}' not found in config")
     partition_path = Path(partition_path_str)
     path = uri.path
     if not path:
-        raise ValueError("Path not given")
+        raise IngestionError("Path not given")
     path = Path(path)
     path = path.relative_to(path.anchor)
     target = (partition_path / path).resolve()
     if not target.is_relative_to(partition_path):
-        raise ValueError("Access denied.")
+        raise IngestionError("Access denied.")
     return target
 
 
@@ -129,7 +144,7 @@ def _create_file_from_data(
 
     checksum = calculate_checksum(path)
     if data.checksum != checksum:
-        raise ValueError("Hash of file does not match provided checksum")
+        raise IngestionError("Hash of file does not match provided checksum")
 
     file = File.from_data_model(data)
     file.uri = _imas_path_to_uri(imas_identifier_path)
@@ -160,7 +175,7 @@ def _create_files_from_data_list(
         else:
             checksum = calculate_checksum(path)
             if file_data.checksum != checksum:
-                raise ValueError("Hash of file does not match provided checksum")
+                raise IngestionError("Hash of file does not match provided checksum")
             file = File.from_data_model(file_data)
             file.uri = SimDBUrl.build(scheme="file", path=path.as_posix())
 
@@ -215,11 +230,23 @@ def copy_files_task(
         simulation.outputs = outputs
         simulation.ingestion_status = IngestionStatus.COPIED
         database.session.commit()
-        clear_cache_from_worker()
+        clear_api_cache_from_worker(config)
     except Exception as err:
-        simulation.fail_ingestion(str(err))
+        if isinstance(err, IngestionError):
+            reason = str(err)
+        else:
+            # Paths, configuration and database errors are the operator's
+            # business: keep them out of the reason the client sees.
+            logger.exception(
+                "Copying the files of simulation %s failed", simulation_uuid.hex
+            )
+            reason = (
+                f"{type(err).__name__} while copying the files; "
+                "see the worker log for details"
+            )
+        simulation.fail_ingestion(reason)
         database.session.commit()
-        clear_cache_from_worker()
+        clear_api_cache_from_worker(config)
         label = _simulation_label(simulation)
         _notify_watchers(
             simulation,
@@ -266,8 +293,12 @@ def validate_simulation_task(simulation_uuid: UUID):
         record_validation(simulation, report)
         database.session.commit()
         # The API may have cached the simulation before the outcome was known.
-        clear_cache_from_worker()
+        clear_api_cache_from_worker(config)
 
+        if report.error is not None:
+            # The validator could not run: that is the operator's problem,
+            # already logged above, not something the watchers can act on.
+            return
         if not report.passed:
             logger.warning(
                 "Validation of simulation %s failed:\n%s",
@@ -295,7 +326,7 @@ def complete_ingestion_task(simulation_uuid: UUID):
         simulation = database.get_simulation(simulation_uuid.hex)
         simulation.ingestion_status = IngestionStatus.COMPLETED
         database.session.commit()
-        clear_cache_from_worker()
+        clear_api_cache_from_worker(config)
 
         label = _simulation_label(simulation)
         _notify_watchers(
@@ -322,7 +353,7 @@ def fail_stale_ingestions_task() -> dict:
         failed = database.fail_stale_ingestions(timedelta(seconds=timeout))
         if failed:
             logger.warning("Marked %d stale ingestion(s) as failed", failed)
-            clear_cache_from_worker()
+            clear_api_cache_from_worker(config)
         return {"failed": failed}
     finally:
         database.close()
