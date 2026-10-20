@@ -18,6 +18,7 @@ from simdb.imas.utils import (
     imas_backend_for_directory,
     remote_substitution_enabled,
 )
+from simdb.remote.core.cache import clear_cache_from_worker
 from simdb.remote.models import FileData, FileDataList
 from simdb.validation import ValidationReport, record_validation, validate_simulation
 from simdb.workers.celery import celery_app
@@ -214,10 +215,11 @@ def copy_files_task(
         simulation.outputs = outputs
         simulation.ingestion_status = IngestionStatus.COPIED
         database.session.commit()
+        clear_cache_from_worker()
     except Exception as err:
-        simulation.ingestion_status = IngestionStatus.COPY_FAILED
-        simulation.ingestion_error = str(err)
+        simulation.fail_ingestion(str(err))
         database.session.commit()
+        clear_cache_from_worker()
         label = _simulation_label(simulation)
         _notify_watchers(
             simulation,
@@ -231,7 +233,7 @@ def copy_files_task(
 
 
 @celery_app.task
-def validate_imas_task(simulation_uuid: UUID):
+def validate_simulation_task(simulation_uuid: UUID):
     """Validate the metadata and files of an ingested simulation.
 
     Runs the same checks as a v1.2 upload with ``validation.auto_validate``:
@@ -263,6 +265,8 @@ def validate_imas_task(simulation_uuid: UUID):
             report = ValidationReport(error=f"{type(err).__name__}: {err}")
         record_validation(simulation, report)
         database.session.commit()
+        # The API may have cached the simulation before the outcome was known.
+        clear_cache_from_worker()
 
         if not report.passed:
             logger.warning(
@@ -291,6 +295,7 @@ def complete_ingestion_task(simulation_uuid: UUID):
         simulation = database.get_simulation(simulation_uuid.hex)
         simulation.ingestion_status = IngestionStatus.COMPLETED
         database.session.commit()
+        clear_cache_from_worker()
 
         label = _simulation_label(simulation)
         _notify_watchers(
@@ -317,6 +322,7 @@ def fail_stale_ingestions_task() -> dict:
         failed = database.fail_stale_ingestions(timedelta(seconds=timeout))
         if failed:
             logger.warning("Marked %d stale ingestion(s) as failed", failed)
+            clear_cache_from_worker()
         return {"failed": failed}
     finally:
         database.close()

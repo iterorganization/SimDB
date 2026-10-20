@@ -350,7 +350,7 @@ def test_post_simulations_v13_keeps_a_failed_validation(
     assert "machine" in metadata["validation_report"]["metadata"]["error"]
 
 
-def test_validate_simulation_reports_a_misconfigured_file_validator(
+def test_validate_endpoint_reports_a_misconfigured_file_validator(
     client_with_task_mock, auto_validate
 ):
     """A file validator the server does not know is a server error, not a pass."""

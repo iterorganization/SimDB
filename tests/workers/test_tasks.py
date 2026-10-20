@@ -21,7 +21,7 @@ from simdb.workers.tasks import (
     _resolve_paths,
     _resolve_uri_to_path,
     copy_files_task,
-    validate_imas_task,
+    validate_simulation_task,
 )
 
 
@@ -240,29 +240,51 @@ def test_copy_files_task_records_why_the_copy_failed(task_environment):
     with pytest.raises(ValueError, match="Hash of file does not match"):
         copy_files_task(env["simulation_uuid"], input_files, [])
 
-    assert env["simulation"].ingestion_status == IngestionStatus.COPY_FAILED
-    assert "Hash of file does not match" in env["simulation"].ingestion_error
+    (reason,), _ = env["simulation"].fail_ingestion.call_args
+    assert "Hash of file does not match" in reason
 
 
-def test_validate_imas_task_records_a_passed_validation(task_environment):
+def test_validate_simulation_task_records_a_passed_validation(task_environment):
     env = task_environment
     report = ValidationReport(metadata=MetadataReport())
 
     with mock.patch(
         "simdb.workers.tasks.validate_simulation", return_value=report
-    ) as validate, mock.patch.object(simdb_tasks.send_email_task, "delay") as delay:
-        validate_imas_task(env["simulation_uuid"])
+    ) as validate, mock.patch.object(
+        simdb_tasks.send_email_task, "delay"
+    ) as delay, mock.patch("simdb.workers.tasks.clear_cache_from_worker") as clear:
+        validate_simulation_task(env["simulation_uuid"])
 
     validate.assert_called_once_with(env["simulation"], env["config"])
     assert env["simulation"].status == Simulation.Status.PASSED
     env["simulation"].set_meta.assert_called_once_with(
         "validation_report", report.to_dict()
     )
+    # The API may have cached the simulation before the outcome was recorded.
+    clear.assert_called_once_with()
     delay.assert_not_called()
     env["db"].close.assert_called_once()
 
 
-def test_validate_imas_task_records_a_failed_validation(task_environment):
+def test_copy_files_task_clears_the_api_cache(task_environment):
+    """The copied files are only visible through the API once its cache of the
+    simulation has been emptied."""
+    env = task_environment
+    source_file = env["partition_dir"] / "source.txt"
+    source_file.write_text("test content")
+    input_files = [
+        _make_file_data(
+            f"data:/{source_file.name}", checksum=calculate_checksum(source_file)
+        )
+    ]
+
+    with mock.patch("simdb.workers.tasks.clear_cache_from_worker") as clear:
+        copy_files_task(env["simulation_uuid"], input_files, [])
+
+    clear.assert_called_once_with()
+
+
+def test_validate_simulation_task_records_a_failed_validation(task_environment):
     """A failed validation is kept with the simulation and does not touch the
     ingestion, which has already completed."""
     env = task_environment
@@ -274,7 +296,7 @@ def test_validate_imas_task_records_a_failed_validation(task_environment):
     with mock.patch(
         "simdb.workers.tasks.validate_simulation", return_value=report
     ), mock.patch.object(simdb_tasks.send_email_task, "delay") as delay:
-        validate_imas_task(env["simulation_uuid"])
+        validate_simulation_task(env["simulation_uuid"])
 
     assert env["simulation"].status == Simulation.Status.FAILED
     assert env["simulation"].ingestion_status == IngestionStatus.COMPLETED
@@ -288,7 +310,9 @@ def test_validate_imas_task_records_a_failed_validation(task_environment):
     env["db"].close.assert_called_once()
 
 
-def test_validate_imas_task_records_a_validation_that_could_not_run(task_environment):
+def test_validate_simulation_task_records_a_validation_that_could_not_run(
+    task_environment,
+):
     """A validator that cannot run (not installed, misconfigured) is a failed
     validation with the reason on the simulation, not only in the worker log."""
     env = task_environment
@@ -298,7 +322,7 @@ def test_validate_imas_task_records_a_validation_that_could_not_run(task_environ
         "simdb.workers.tasks.validate_simulation",
         side_effect=RuntimeError("IMAS-validator not available"),
     ), mock.patch.object(simdb_tasks.send_email_task, "delay") as delay:
-        validate_imas_task(env["simulation_uuid"])
+        validate_simulation_task(env["simulation_uuid"])
 
     assert env["simulation"].status == Simulation.Status.FAILED
     report = env["simulation"].set_meta.call_args.args[1]

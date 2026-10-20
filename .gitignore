@@ -34,6 +34,5 @@ src/simdb/_version.py
 simdb.db
 /sims/
 /upload_folder/
-*.pdf
 /SimDB*.html
 /SimDB*.md

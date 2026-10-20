@@ -150,6 +150,15 @@ More options are available; take any setting from the
 drop the `CACHE_` prefix and lowercase it, for example `CACHE_ARGS` becomes
 `args`.
 
+```{note}
+The [Celery workers](../how-to/operate-server/run-celery-workers.md) change
+simulations outside the API process, so they empty the cache after updating the
+ingestion status, the ingested files or the validation outcome. They can only
+do so for a `FileSystemCache` whose `dir` they share with the API. With a
+`SimpleCache`, which lives in the memory of each API process, those changes
+are not visible through cached endpoints until `default_timeout` has passed.
+```
+
 ## `[development]`
 
 | Option | Required | Description |

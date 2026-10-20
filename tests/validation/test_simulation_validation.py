@@ -283,6 +283,24 @@ def test_report_of_a_validation_that_could_not_run():
     )
 
 
+def _rule_result(name, ids, success, msg="", nodes=(), exc=None):
+    """An IDSValidationResult as the validator's ResultCollector builds it.
+
+    ``assert_`` records the rule's message with ``exc=None``; a rule that raised
+    is recorded by ``add_error_result`` with an empty message and the exception
+    in ``exc``. Occurrences are numpy integers.
+    """
+    occurrence = np.int32(0)
+    return SimpleNamespace(
+        success=success,
+        msg=msg,
+        rule=SimpleNamespace(name=name),
+        idss=[(ids, occurrence)],
+        nodes_dict={(ids, occurrence): set(nodes)},
+        exc=exc,
+    )
+
+
 @pytest.fixture
 def imas_validator():
     """Stand in for the imas-validator package, whether or not it is installed."""
@@ -388,23 +406,16 @@ def test_ids_validator_ignores_unset_list_options():
     assert options.apply_generic is True
 
 
-def _rule_result(name, ids, success, msg="", nodes=()):
-    # The validator reports occurrences as numpy integers.
-    occurrence = np.int32(0)
-    return SimpleNamespace(
-        success=success,
-        msg=msg,
-        rule=SimpleNamespace(name=name),
-        idss=[(ids, occurrence)],
-        nodes_dict={(ids, occurrence): set(nodes)},
-    )
-
-
 def test_file_report_fails_the_file_for_a_failure_without_an_ids():
-    """A rule that failed before it was bound to an IDS still fails the file,
+    """A rule that crashed before it was bound to an IDS still fails the file,
     without discarding the other rules that ran."""
     unbound = SimpleNamespace(
-        success=False, msg="rule crashed", rule=SimpleNamespace(name="rule_x"), idss=[]
+        success=False,
+        msg="",
+        rule=SimpleNamespace(name="rule_x"),
+        idss=[],
+        nodes_dict={},
+        exc=IndexError("list index out of range"),
     )
     collection = SimpleNamespace(
         results=[_rule_result("rule_a", "pf_active", True), unbound]
@@ -413,10 +424,35 @@ def test_file_report_fails_the_file_for_a_failure_without_an_ids():
     report = ids_validator._file_report("imas:hdf5?path=/data/run", collection)
 
     assert report.passed is False
-    assert report.error == "rule_x: rule crashed"
+    assert report.error == "rule_x: IndexError: list index out of range"
     assert len(report.ids) == 1
     assert report.ids[0].name == "pf_active"
     assert report.ids[0].passed is True
+
+
+def test_file_report_names_the_exception_of_a_crashed_rule():
+    """A rule that raised has no message, so the exception is the reason."""
+    results = [
+        _rule_result("rule_a", "pf_active", True),
+        _rule_result("rule_a", "pf_active", False, exc=KeyError("profiles_1d[0]/zeff")),
+    ]
+    collection = SimpleNamespace(results=results)
+
+    report = ids_validator._file_report("imas:hdf5?path=/data/run", collection)
+
+    (rule,) = report.ids[0].rules
+    assert rule.passed is False
+    assert rule.message == "KeyError: 'profiles_1d[0]/zeff'"
+    assert "FAILED rule_a: KeyError: 'profiles_1d[0]/zeff'" in report.text
+
+
+def test_file_report_prefers_the_rule_message_over_the_exception():
+    result = _rule_result("rule_a", "pf_active", False, "bad coil", exc=ValueError())
+    collection = SimpleNamespace(results=[result])
+
+    report = ids_validator._file_report("imas:hdf5?path=/data/run", collection)
+
+    assert report.ids[0].rules[0].message == "bad coil"
 
 
 def test_file_report_groups_results_per_ids_and_rule():

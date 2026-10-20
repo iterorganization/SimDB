@@ -1264,7 +1264,7 @@ requires-dist = [
     { name = "imas-python", specifier = ">=2.0.1" },
     { name = "imas-simdb", extras = ["auth-ad", "auth-keycloak", "auth-ldap"], marker = "extra == 'auth'" },
     { name = "imas-simdb", extras = ["imas-validator", "postgres", "server"], marker = "extra == 'all'" },
-    { name = "imas-validator", marker = "extra == 'imas-validator'", git = "https://github.com/iterorganization/imas-validator.git?rev=develop" },
+    { name = "imas-validator", marker = "extra == 'imas-validator'", git = "https://github.com/iterorganization/imas-validator.git?rev=0b8a55d563962555b645ea026d1f1bf28c8f89eb" },
     { name = "myst-parser", marker = "extra == 'build-docs'", specifier = ">=0.18.0" },
     { name = "netcdf4", specifier = ">=1.7.2" },
     { name = "numpy", specifier = ">=1.14" },
@@ -1301,7 +1301,7 @@ dev = [
 [[package]]
 name = "imas-validator"
 version = "1.0.1.dev94"
-source = { git = "https://github.com/iterorganization/imas-validator.git?rev=develop#0b8a55d563962555b645ea026d1f1bf28c8f89eb" }
+source = { git = "https://github.com/iterorganization/imas-validator.git?rev=0b8a55d563962555b645ea026d1f1bf28c8f89eb#0b8a55d563962555b645ea026d1f1bf28c8f89eb" }
 dependencies = [
     { name = "h5py" },
     { name = "imas-python" },

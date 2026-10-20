@@ -7,7 +7,7 @@ and for emails (see :attr:`ValidationReport.text`).
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, List, Optional
 
 NODES_SHOWN = 5
 """How many affected nodes a failed rule keeps as examples."""
@@ -29,15 +29,6 @@ class ValidationCounts:
 
     def to_dict(self) -> Dict[str, int]:
         return {"total": self.total, "passed": self.passed, "failed": self.failed}
-
-
-def _sum(counts: Iterable[ValidationCounts]) -> ValidationCounts:
-    passed = 0
-    failed = 0
-    for c in counts:
-        passed += c.passed
-        failed += c.failed
-    return ValidationCounts(passed, failed)
 
 
 @dataclass
@@ -82,7 +73,7 @@ class IdsReport:
 
     @property
     def tests(self) -> ValidationCounts:
-        return _sum(rule.tests for rule in self.rules)
+        return sum((rule.tests for rule in self.rules), ValidationCounts())
 
     @property
     def passed(self) -> bool:
@@ -109,7 +100,7 @@ class FileReport:
 
     @property
     def tests(self) -> ValidationCounts:
-        return _sum(ids.tests for ids in self.ids)
+        return sum((ids.tests for ids in self.ids), ValidationCounts())
 
     @property
     def passed(self) -> bool:
@@ -197,7 +188,7 @@ class ValidationReport:
     @property
     def tests(self) -> ValidationCounts:
         """The file validation tests over every file."""
-        return _sum(file.tests for file in self.files)
+        return sum((file.tests for file in self.files), ValidationCounts())
 
     def to_dict(self) -> Dict[str, Any]:
         """The report as stored in the simulation metadata.

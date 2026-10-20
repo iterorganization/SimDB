@@ -78,7 +78,11 @@ auth = [
     "imas-simdb[auth-ad, auth-keycloak, auth-ldap]"
 ]
 imas-validator = [
-    "imas-validator @ git+https://github.com/iterorganization/imas-validator.git@develop",
+    # Pinned to a commit so installs are reproducible. The fixes needed are
+    # not in a PyPI release yet (1.0.0 is the latest); PyPI rejects packages
+    # with URL dependencies, so switch back to a version range such as
+    # "imas-validator>=1.0.1" before publishing imas-simdb.
+    "imas-validator @ git+https://github.com/iterorganization/imas-validator.git@0b8a55d563962555b645ea026d1f1bf28c8f89eb",
 ]
 build-docs = [
     "sphinx>=4.5",

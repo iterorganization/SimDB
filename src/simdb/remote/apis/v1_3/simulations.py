@@ -33,7 +33,7 @@ from simdb.remote.models import (
 from simdb.workers.tasks import (
     complete_ingestion_task,
     copy_files_task,
-    validate_imas_task,
+    validate_simulation_task,
 )
 
 api = Namespace("simulations", path="/")
@@ -132,14 +132,17 @@ class SimulationList(SimulationListV12):
         ):
             # Validation follows the completed ingestion and does not change
             # the ingestion status, so clients need not wait for it.
-            pipeline.append(validate_imas_task.si(simulation.uuid))
+            pipeline.append(validate_simulation_task.si(simulation.uuid))
 
         try:
             _ = chain(*pipeline).apply_async()
         except Exception as err:
+            # The tasks may have been published before the error, in which
+            # case a worker can already have finished the ingestion. The
+            # insert above committed, so reading the status here reloads it
+            # from the database rather than the QUEUED value set earlier.
             if not simulation.ingestion_status.is_terminal():
-                simulation.ingestion_status = IngestionStatus.COPY_FAILED
-                simulation.ingestion_error = f"Failed to queue ingestion: {err}"
+                simulation.fail_ingestion(f"Failed to queue ingestion: {err}")
             current_app.db.session.commit()
             clear_cache()
             raise ServerException(

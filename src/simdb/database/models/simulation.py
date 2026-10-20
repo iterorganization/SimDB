@@ -48,7 +48,7 @@ from simdb.imas.utils import (
 from .base import Base
 from .file import File
 from .types import UUID
-from .utils import _format_meta, checked_get, flatten_dict, unflatten_dict
+from .utils import checked_get, flatten_dict, format_meta, unflatten_dict
 from .watcher import Watcher
 
 simulation_input_files = Table(
@@ -159,6 +159,15 @@ class Simulation(Base):
         ):
             self.ingestion_error = None
         return status
+
+    def fail_ingestion(self, reason: str) -> None:
+        """Mark the ingestion as COPY_FAILED, recording REASON for the client.
+
+        The reason is kept until the ingestion moves on to a non-failed
+        status, which clears it (see ``_clear_stale_ingestion_error``).
+        """
+        self.ingestion_status = IngestionStatus.COPY_FAILED
+        self.ingestion_error = reason
 
     ingestion_version = Column(sql_types.Integer, nullable=False, default=0)
 
@@ -302,14 +311,12 @@ class Simulation(Base):
         lines.append("metadata:")
         meta_dict = self._get_metadata_dict()
         for element, value in meta_dict.items():
-            for line in _format_meta(element, value):
+            for line in format_meta(element, value):
                 lines.append(f"  {line}" if line else "")
         lines.append("inputs:")
-        for file in self.inputs:
-            lines.append(f"{file}")
+        lines.extend(str(file) for file in self.inputs)
         lines.append("outputs:")
-        for file in self.outputs:
-            lines.append(f"{file}")
+        lines.extend(str(file) for file in self.outputs)
         return "\n".join(lines) + "\n"
 
     def find_meta(self, name: str) -> List[Any]:

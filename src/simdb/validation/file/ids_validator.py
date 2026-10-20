@@ -1,20 +1,11 @@
-import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from simdb.imas.utils import SimDBUrl
-from simdb.validation.report import (
-    NODES_SHOWN,
-    FileReport,
-    IdsReport,
-    RuleReport,
-    ValidationCounts,
-)
+from simdb.validation.report import NODES_SHOWN, FileReport, IdsReport, RuleReport
 from simdb.validation.validator import ValidationError
 
 from .validator_base import FileValidatorBase
-
-logger = logging.getLogger(__name__)
 
 try:
     from imas_validator.validate.validate import validate
@@ -38,7 +29,23 @@ def _split_list(value) -> List[str]:
         items = [str(item) for item in value]
     else:
         items = str(value).split(",")
-    return [item.strip().strip("\"'") for item in items if item.strip().strip("\"'")]
+    cleaned = (item.strip().strip("\"'") for item in items)
+    return [item for item in cleaned if item]
+
+
+def _failure_message(result) -> str:
+    """Why RESULT failed: the rule's own message, or the exception it raised.
+
+    The validator records a rule that raised with an empty message and the
+    exception in ``exc``, so without the fallback a crashed rule would show no
+    reason at all.
+    """
+    if result.msg:
+        return str(result.msg)
+    exc = getattr(result, "exc", None)
+    if exc is not None:
+        return f"{type(exc).__name__}: {exc}"
+    return ""
 
 
 def _file_report(uri: str, validation_result) -> FileReport:
@@ -55,20 +62,21 @@ def _file_report(uri: str, validation_result) -> FileReport:
         if not result.success and not result.idss:
             # The rule failed before it was bound to an IDS, so it cannot be
             # listed per IDS: record it as a file-level error instead.
-            unbound_errors.append(f"{result.rule.name}: {result.msg}")
+            unbound_errors.append(f"{result.rule.name}: {_failure_message(result)}")
             continue
         for ids_name, occurrence in result.idss:
             # The validator hands back numpy integers, which JSON cannot store.
             ids_key = (str(ids_name), int(occurrence))
-            rule = rules.setdefault(ids_key, {}).setdefault(
-                result.rule.name, RuleReport(name=result.rule.name)
-            )
+            ids_rules = rules.setdefault(ids_key, {})
+            rule = ids_rules.get(result.rule.name)
+            if rule is None:
+                rule = ids_rules[result.rule.name] = RuleReport(name=result.rule.name)
             if result.success:
-                rule.tests += ValidationCounts(1, 0)
+                rule.tests.passed += 1
                 continue
-            rule.tests += ValidationCounts(0, 1)
+            rule.tests.failed += 1
             if not rule.message:
-                rule.message = str(result.msg)
+                rule.message = _failure_message(result)
             for node in result.nodes_dict.get((ids_name, occurrence), ()):
                 if not node:
                     continue

@@ -264,6 +264,9 @@ def _wait_for_ingestion(
     while True:
         try:
             response = api.get_ingestion_status(sim_id)
+            # A body without a status (a proxy error page, a restarting
+            # remote) is as transient as a failed connection.
+            status = response["status"]
         except RemoteError as err:
             # The remote rejected the request, so retrying will not help.
             click.echo()
@@ -289,7 +292,6 @@ def _wait_for_ingestion(
             continue
         consecutive_failures = 0
 
-        status = response["status"]
         try:
             ingestion_status = IngestionStatus(status)
         except ValueError as err:

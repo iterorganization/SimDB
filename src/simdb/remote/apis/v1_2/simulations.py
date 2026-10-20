@@ -94,6 +94,9 @@ def _validate(simulation, user) -> ValidationResult:
     try:
         report = validate_simulation(simulation, current_app.simdb_config)
     except (ConfigError, RuntimeError) as err:
+        # The validation runs inside the request here, so a validator that
+        # cannot run (unknown type, extra not installed) is a server error the
+        # caller sees at once. The worker records it on the simulation instead.
         raise ServerException(str(err)) from err
 
     old_status = simulation.status

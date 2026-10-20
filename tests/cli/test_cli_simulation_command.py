@@ -288,6 +288,26 @@ def test_simulation_push_local_transient_errors(get_local_db, remote_api, sleep)
 @mock.patch("simdb.cli.commands.simulation.time.sleep")
 @mock.patch("simdb.cli.commands.simulation.RemoteAPI")
 @mock.patch("simdb.cli.commands.simulation.get_local_db")
+def test_simulation_push_local_tolerates_a_response_without_a_status(
+    get_local_db, remote_api, sleep
+):
+    """A body without a status (a proxy error page) is retried like a failed
+    connection rather than crashing the poll."""
+    remote_api.return_value.get_ingestion_status.side_effect = [
+        {"error": "Bad Gateway"},
+        {"status": IngestionStatus.COMPLETED.value},
+    ]
+
+    result = _invoke_push_local(remote_api)
+
+    assert result.exit_code == 0, result.output
+    assert "KeyError" not in result.output
+    assert "COMPLETED" in result.output
+
+
+@mock.patch("simdb.cli.commands.simulation.time.sleep")
+@mock.patch("simdb.cli.commands.simulation.RemoteAPI")
+@mock.patch("simdb.cli.commands.simulation.get_local_db")
 def test_simulation_push_local_persistent_errors(get_local_db, remote_api, sleep):
     """push_local gives up once the status check keeps failing."""
     remote_api.return_value.get_ingestion_status.side_effect = FailedConnection("down")

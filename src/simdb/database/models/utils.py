@@ -116,27 +116,38 @@ def _inline_meta(value: Any) -> Optional[str]:
     return str(value)
 
 
-def _format_meta_value(value: Any) -> List[str]:
-    """The lines showing VALUE: nested dictionaries and lists are indented."""
-    inline = _inline_meta(value)
-    if inline is not None:
-        return inline.split("\n") or [""]
+def _indent(lines: List[str], indent: str) -> List[str]:
+    """LINES indented, leaving blank lines blank."""
+    return [f"{indent}{line}" if line else "" for line in lines]
+
+
+def _format_meta_block(value: Any) -> List[str]:
+    """The lines of a VALUE that does not fit on one line.
+
+    A dictionary becomes one element per entry, a list one dash per item.
+    """
     if isinstance(value, dict):
-        return [line for key, item in value.items() for line in _format_meta(key, item)]
+        return [line for key, item in value.items() for line in format_meta(key, item)]
     lines = []
     for item in value:
-        item_lines = _format_meta_value(item) or [""]
+        inline = _inline_meta(item)
+        item_lines = (
+            inline.split("\n") if inline is not None else _format_meta_block(item)
+        ) or [""]
         lines.append(f"- {item_lines[0]}")
-        lines.extend(f"  {line}" if line else "" for line in item_lines[1:])
+        lines.extend(_indent(item_lines[1:], "  "))
     return lines
 
 
-def _format_meta(name: str, value: Any) -> List[str]:
-    """The lines showing the metadata element NAME with its VALUE."""
-    lines = _format_meta_value(value)
-    if _inline_meta(value) is None:
-        return [f"{name}:"] + [f"  {line}" if line else "" for line in lines]
-    indent = " " * (len(name) + 2)
-    return [f"{name}: {lines[0]}"] + [
-        f"{indent}{line}" if line else "" for line in lines[1:]
-    ]
+def format_meta(name: str, value: Any) -> List[str]:
+    """The lines showing the metadata element NAME with its VALUE.
+
+    A scalar, a range or a flat list follows the name on its line, with any
+    further lines of a multi-line string aligned under the first. A nested
+    dictionary or list is indented below the name.
+    """
+    inline = _inline_meta(value)
+    if inline is None:
+        return [f"{name}:", *_indent(_format_meta_block(value), "  ")]
+    first, *rest = inline.split("\n")
+    return [f"{name}: {first}", *_indent(rest, " " * (len(name) + 2))]

@@ -78,6 +78,16 @@ def test_ingestion_error_is_cleared_when_the_ingestion_moves_on():
     assert simulation.ingestion_error is None
 
 
+def test_fail_ingestion_records_the_status_and_the_reason():
+    simulation = Simulation(Manifest())
+    simulation.ingestion_status = IngestionStatus.COPYING
+
+    simulation.fail_ingestion("disk full")
+
+    assert simulation.ingestion_status == IngestionStatus.COPY_FAILED
+    assert simulation.ingestion_error == "disk full"
+
+
 def test_simulation_str_indents_nested_metadata():
     simulation = Simulation(Manifest())
     simulation.set_meta(
