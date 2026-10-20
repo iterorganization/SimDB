@@ -242,10 +242,13 @@ def _prepare_simulation(
     return simulation
 
 
-def _wait_for_ingestion(api: RemoteAPI, sim_id: str, timeout: float) -> IngestionStatus:
+def _wait_for_ingestion(
+    api: RemoteAPI, sim_id: str, timeout: float
+) -> Tuple[IngestionStatus, Optional[str]]:
     """Poll the remote until the ingestion of SIM_ID reaches a terminal state.
 
-    Reports every status change and returns the terminal status.
+    Reports every status change and returns the terminal status with the
+    reason the remote gives for a failure, if any.
 
     :raise click.ClickException: if the remote cannot be reached, reports an
                                  unknown status, or TIMEOUT seconds pass before
@@ -260,7 +263,7 @@ def _wait_for_ingestion(api: RemoteAPI, sim_id: str, timeout: float) -> Ingestio
     deadline = time.monotonic() + timeout
     while True:
         try:
-            status = api.get_ingestion_status(sim_id)
+            response = api.get_ingestion_status(sim_id)
         except RemoteError as err:
             # The remote rejected the request, so retrying will not help.
             click.echo()
@@ -286,6 +289,7 @@ def _wait_for_ingestion(api: RemoteAPI, sim_id: str, timeout: float) -> Ingestio
             continue
         consecutive_failures = 0
 
+        status = response["status"]
         try:
             ingestion_status = IngestionStatus(status)
         except ValueError as err:
@@ -303,7 +307,7 @@ def _wait_for_ingestion(api: RemoteAPI, sim_id: str, timeout: float) -> Ingestio
 
         if ingestion_status.is_terminal():
             click.echo()
-            return ingestion_status
+            return ingestion_status, response.get("error")
 
         if time.monotonic() >= deadline:
             click.echo()
@@ -313,15 +317,6 @@ def _wait_for_ingestion(api: RemoteAPI, sim_id: str, timeout: float) -> Ingestio
             )
 
         time.sleep(poll_interval)
-
-
-def _ingestion_error(api: RemoteAPI, sim_id: str) -> Optional[str]:
-    """Return why the remote ingestion of SIM_ID failed, if it reported a reason."""
-    try:
-        error = api.get_ingestion_error(sim_id)
-    except Exception:
-        return None
-    return error if isinstance(error, str) and error else None
 
 
 @simulation.command(
@@ -370,10 +365,9 @@ def simulation_push_local(
 
     api.push_local_simulation(simulation, add_watcher=add_watcher)
 
-    status = _wait_for_ingestion(api, simulation.uuid.hex, timeout)
+    status, error = _wait_for_ingestion(api, simulation.uuid.hex, timeout)
     if status is not IngestionStatus.COMPLETED:
         message = f"Simulation ingestion failed with status: {status.value}"
-        error = _ingestion_error(api, simulation.uuid.hex)
         if error:
             message += f"\n{error}"
         raise click.ClickException(message)
