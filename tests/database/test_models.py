@@ -3,6 +3,7 @@ from unittest import mock
 
 from simdb.cli.manifest import DataType, Manifest
 from simdb.database.models import Simulation
+from simdb.enums import IngestionStatus
 from simdb.imas.utils import SimDBUrl
 
 
@@ -52,7 +53,29 @@ def test_simulation_str_prints_every_line_of_multiline_metadata():
 
     assert "  validation_report: first line\n" in text
     assert "\n                     second line\n" in text
+    assert "\n\n" in text
     assert "\n                     fourth line\n" in text
+
+
+def test_simulation_str_prints_empty_nested_metadata():
+    simulation = Simulation(Manifest())
+    simulation.set_meta("odd", [{}, [], "", {"a": [{}]}])
+
+    text = str(simulation)
+
+    assert "  odd:\n    - \n    - []\n    - \n    - a:\n        - \n" in text
+
+
+def test_ingestion_error_is_cleared_when_the_ingestion_moves_on():
+    simulation = Simulation(Manifest())
+    simulation.ingestion_status = IngestionStatus.COPYING
+    simulation.ingestion_error = "did not progress"
+    simulation.ingestion_status = IngestionStatus.COPY_FAILED
+    assert simulation.ingestion_error == "did not progress"
+
+    simulation.ingestion_status = IngestionStatus.COMPLETED
+
+    assert simulation.ingestion_error is None
 
 
 def test_simulation_str_indents_nested_metadata():

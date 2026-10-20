@@ -12,7 +12,7 @@ from sqlalchemy import JSON, Column, ForeignKey, Table, text
 from sqlalchemy import types as sql_types
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.mutable import MutableDict
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, validates
 
 from simdb.enums import IngestionStatus
 from simdb.imas.utils import SimDBUrl
@@ -48,7 +48,7 @@ from simdb.imas.utils import (
 from .base import Base
 from .file import File
 from .types import UUID
-from .utils import checked_get, flatten_dict, unflatten_dict
+from .utils import _format_meta, checked_get, flatten_dict, unflatten_dict
 from .watcher import Watcher
 
 simulation_input_files = Table(
@@ -78,43 +78,6 @@ def _update_legacy_uri(data_object: DataObject):
     qs = dict(data_object.uri.query_params())
     backend = qs.get("backend", "hdf5")
     return SimDBUrl.build(scheme="imas", path=backend, query=f"path={path}")
-
-
-def _inline_meta(value: Any) -> Optional[str]:
-    """VALUE on one line, or None if it needs a block of its own."""
-    if isinstance(value, dict):
-        if "min" in value and "max" in value:
-            return f"[{value['min']}, {value['max']}]"
-        return None
-    if isinstance(value, list):
-        if any(isinstance(item, (dict, list)) for item in value):
-            return None
-        return "[{}]".format(", ".join(str(item) for item in value))
-    return str(value)
-
-
-def _format_meta_value(value: Any) -> List[str]:
-    """The lines showing VALUE: nested dictionaries and lists are indented."""
-    inline = _inline_meta(value)
-    if inline is not None:
-        return [line for line in inline.split("\n") if line] or [""]
-    if isinstance(value, dict):
-        return [line for key, item in value.items() for line in _format_meta(key, item)]
-    lines = []
-    for item in value:
-        item_lines = _format_meta_value(item)
-        lines.append(f"- {item_lines[0]}")
-        lines.extend(f"  {line}" for line in item_lines[1:])
-    return lines
-
-
-def _format_meta(name: str, value: Any) -> List[str]:
-    """The lines showing the metadata element NAME with its VALUE."""
-    lines = _format_meta_value(value)
-    if _inline_meta(value) is None:
-        return [f"{name}:"] + [f"  {line}" for line in lines]
-    indent = " " * (len(name) + 2)
-    return [f"{name}: {lines[0]}"] + [f"{indent}{line}" for line in lines[1:]]
 
 
 class MetaDataWrapper:
@@ -185,7 +148,18 @@ class Simulation(Base):
         server_default=text("CURRENT_TIMESTAMP"),
     )
     # Why the ingestion ended in a failed status, for the client to report.
+    # Cleared below whenever the ingestion moves on to a non-failed status.
     ingestion_error = Column(sql_types.Text, nullable=True)
+
+    @validates("ingestion_status")
+    def _clear_stale_ingestion_error(self, _key, status):
+        if status not in (
+            IngestionStatus.COPY_FAILED,
+            IngestionStatus.VALIDATION_FAILED,
+        ):
+            self.ingestion_error = None
+        return status
+
     ingestion_version = Column(sql_types.Integer, nullable=False, default=0)
 
     @property
@@ -333,7 +307,7 @@ class Simulation(Base):
         meta_dict = self._get_metadata_dict()
         for element, value in meta_dict.items():
             for line in _format_meta(element, value):
-                result += f"  {line}\n"
+                result += f"  {line}\n" if line else "\n"
         result += "inputs:\n"
         for file in self.inputs:
             result += f"{file}\n"

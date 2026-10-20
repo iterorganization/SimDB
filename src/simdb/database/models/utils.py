@@ -1,5 +1,5 @@
 from collections import deque
-from typing import Any, Deque, Dict, List, Tuple, Type, Union, cast
+from typing import Any, Deque, Dict, List, Optional, Tuple, Type, Union, cast
 
 FLATTEN_DICT_DELIM = "."
 
@@ -101,3 +101,42 @@ def checked_get(data: Dict[str, Any], key, expected_type: Type, optional: bool =
             f"{expected_type_name}."
         )
     return data[key]
+
+
+def _inline_meta(value: Any) -> Optional[str]:
+    """VALUE on one line, or None if it needs a block of its own."""
+    if isinstance(value, dict):
+        if "min" in value and "max" in value:
+            return f"[{value['min']}, {value['max']}]"
+        return None
+    if isinstance(value, list):
+        if any(isinstance(item, (dict, list)) for item in value):
+            return None
+        return "[{}]".format(", ".join(str(item) for item in value))
+    return str(value)
+
+
+def _format_meta_value(value: Any) -> List[str]:
+    """The lines showing VALUE: nested dictionaries and lists are indented."""
+    inline = _inline_meta(value)
+    if inline is not None:
+        return inline.split("\n") or [""]
+    if isinstance(value, dict):
+        return [line for key, item in value.items() for line in _format_meta(key, item)]
+    lines = []
+    for item in value:
+        item_lines = _format_meta_value(item) or [""]
+        lines.append(f"- {item_lines[0]}")
+        lines.extend(f"  {line}" if line else "" for line in item_lines[1:])
+    return lines
+
+
+def _format_meta(name: str, value: Any) -> List[str]:
+    """The lines showing the metadata element NAME with its VALUE."""
+    lines = _format_meta_value(value)
+    if _inline_meta(value) is None:
+        return [f"{name}:"] + [f"  {line}" if line else "" for line in lines]
+    indent = " " * (len(name) + 2)
+    return [f"{name}: {lines[0]}"] + [
+        f"{indent}{line}" if line else "" for line in lines[1:]
+    ]
