@@ -19,7 +19,7 @@ from simdb.imas.utils import (
     remote_substitution_enabled,
 )
 from simdb.remote.models import FileData, FileDataList
-from simdb.validation import record_validation, validate_simulation
+from simdb.validation import ValidationReport, record_validation, validate_simulation
 from simdb.workers.celery import celery_app
 
 logger = logging.getLogger(__name__)
@@ -251,7 +251,16 @@ def validate_imas_task(simulation_uuid: UUID):
 
     try:
         simulation = database.get_simulation(simulation_uuid.hex)
-        report = validate_simulation(simulation, config)
+        try:
+            report = validate_simulation(simulation, config)
+        except Exception as err:
+            # A validator that cannot run (not installed, misconfigured, a bad
+            # schema) is a failed validation too: record why, so the outcome
+            # is visible on the simulation and not only in this worker's log.
+            logger.exception(
+                "Validation of simulation %s could not run", simulation_uuid.hex
+            )
+            report = ValidationReport(error=f"{type(err).__name__}: {err}")
         record_validation(simulation, report)
         database.session.commit()
 

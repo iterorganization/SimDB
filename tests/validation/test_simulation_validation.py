@@ -42,7 +42,7 @@ def _simulation(*output_uris: str):
 def _passing_file(uri: str) -> FileReport:
     return FileReport(
         uri=uri,
-        ids=[IdsReport("pf_active", 0, [RuleReport("coil_name", TestCounts.of(2, 0))])],
+        ids=[IdsReport("pf_active", 0, [RuleReport("coil_name", TestCounts(2, 0))])],
     )
 
 
@@ -54,10 +54,10 @@ def _failing_file(uri: str) -> FileReport:
                 "core_profiles",
                 0,
                 [
-                    RuleReport("validate_time", TestCounts.of(3, 0)),
+                    RuleReport("validate_time", TestCounts(3, 0)),
                     RuleReport(
                         "validate_zeff",
-                        TestCounts.of(1, 2),
+                        TestCounts(1, 2),
                         message="zeff inconsistent",
                         failed_nodes=12,
                         sample_nodes=["profiles_1d[0]/zeff", "profiles_1d[1]/zeff"],
@@ -65,7 +65,7 @@ def _failing_file(uri: str) -> FileReport:
                 ],
             ),
             IdsReport(
-                "equilibrium", 0, [RuleReport("validate_time", TestCounts.of(1, 0))]
+                "equilibrium", 0, [RuleReport("validate_time", TestCounts(1, 0))]
             ),
         ],
     )
@@ -157,7 +157,7 @@ def test_validate_simulation_reports_a_pass():
 
     assert report == ValidationReport(metadata=MetadataReport(), files=files)
     assert report.passed is True
-    assert report.tests == TestCounts(total=2, passed=2, failed=0)
+    assert report.tests == TestCounts(2, 0)
 
 
 def test_validate_simulation_checks_files_despite_failing_metadata():
@@ -185,7 +185,7 @@ def test_validate_simulation_reports_failing_files():
 
     assert report.passed is False
     assert report.metadata.passed is True
-    assert report.tests == TestCounts(total=7, passed=5, failed=2)
+    assert report.tests == TestCounts(5, 2)
 
 
 @pytest.mark.parametrize("passed", [True, False])
@@ -232,7 +232,6 @@ def test_report_dict_has_the_outcome_and_counts_at_every_level():
         "sample_nodes": ["profiles_1d[0]/zeff", "profiles_1d[1]/zeff"],
     }
     assert equilibrium["passed"] is True
-    assert ValidationReport.from_dict(data) == report
 
 
 def test_report_text_lists_every_rule_with_a_few_nodes():
@@ -271,6 +270,17 @@ def test_report_text_of_a_failed_metadata_check():
     assert report.text == "Metadata failed validation:\n{'machine': [...]}"
 
 
+def test_report_of_a_validation_that_could_not_run():
+    report = ValidationReport(error="RuntimeError: IMAS-validator not available")
+
+    assert report.passed is False
+    assert report.to_dict()["error"] == "RuntimeError: IMAS-validator not available"
+    assert report.text == (
+        "Validation could not be carried out:\n"
+        "RuntimeError: IMAS-validator not available"
+    )
+
+
 @pytest.fixture
 def imas_validator():
     """Stand in for the imas-validator package, whether or not it is installed."""
@@ -303,7 +313,7 @@ def test_ids_validator_validates_the_local_dataset(imas_validator, uri):
 
     assert report == FileReport(
         uri=uri,
-        ids=[IdsReport("pf_active", 0, [RuleReport("rule_a", TestCounts.of(1, 0))])],
+        ids=[IdsReport("pf_active", 0, [RuleReport("rule_a", TestCounts(1, 0))])],
     )
     assert report.passed is True
     imas_validator.assert_called_once_with(
@@ -325,7 +335,7 @@ def test_ids_validator_reports_the_failed_rules(imas_validator):
     (rule,) = report.ids[0].rules
     assert rule == RuleReport(
         "rule_a",
-        TestCounts.of(1, 1),
+        TestCounts(1, 1),
         message="bad coil",
         failed_nodes=1,
         sample_nodes=["coil[0]/name"],
@@ -388,6 +398,25 @@ def _rule_result(name, ids, success, msg="", nodes=()):
     )
 
 
+def test_file_report_fails_the_file_for_a_failure_without_an_ids():
+    """A rule that failed before it was bound to an IDS still fails the file,
+    without discarding the other rules that ran."""
+    unbound = SimpleNamespace(
+        success=False, msg="rule crashed", rule=SimpleNamespace(name="rule_x"), idss=[]
+    )
+    collection = SimpleNamespace(
+        results=[_rule_result("rule_a", "pf_active", True), unbound]
+    )
+
+    report = ids_validator._file_report("imas:hdf5?path=/data/run", collection)
+
+    assert report.passed is False
+    assert report.error == "rule_x: rule crashed"
+    assert len(report.ids) == 1
+    assert report.ids[0].name == "pf_active"
+    assert report.ids[0].passed is True
+
+
 def test_file_report_groups_results_per_ids_and_rule():
     nodes = [f"profiles_1d[{i}]/zeff" for i in range(12)]
     results = [
@@ -403,13 +432,13 @@ def test_file_report_groups_results_per_ids_and_rule():
 
     report = ids_validator._file_report("imas:hdf5?path=/data/run", collection)
 
-    assert report.tests == TestCounts(total=5, passed=3, failed=2)
+    assert report.tests == TestCounts(3, 2)
     json.dumps(report.to_dict())  # no numpy types left behind
     core_profiles, equilibrium = report.ids
     assert type(core_profiles.occurrence) is int
     assert (core_profiles.name, core_profiles.occurrence) == ("core_profiles", 0)
     zeff = next(rule for rule in core_profiles.rules if rule.name == "validate_zeff")
-    assert zeff.tests == TestCounts.of(1, 1)
+    assert zeff.tests == TestCounts(1, 1)
     assert zeff.message == "zeff inconsistent"
     assert zeff.failed_nodes == 12
     assert len(zeff.sample_nodes) == ids_validator.NODES_SHOWN

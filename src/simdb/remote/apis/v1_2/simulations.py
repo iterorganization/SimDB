@@ -55,7 +55,7 @@ from simdb.remote.models import (
     StatusPatchData,
     ValidationResult,
 )
-from simdb.validation import VALIDATION_REPORT_KEY, validate_simulation
+from simdb.validation import record_validation, validate_simulation
 
 api = Namespace("simulations", path="/")
 
@@ -65,6 +65,12 @@ def _update_simulation_status(
 ) -> None:
     old_status = simulation.status
     simulation.status = status
+    _notify_status_change(simulation, old_status, user)
+
+
+def _notify_status_change(simulation: models_sim.Simulation, old_status, user) -> None:
+    """Email the watchers of SIMULATION if its status is no longer OLD_STATUS."""
+    status = simulation.status
     if status != old_status and len(list(simulation.watchers)) > 0:
         server = EmailServer(current_app.simdb_config)
         msg = f"""\
@@ -87,16 +93,12 @@ Note: please don't reply to this email, replies to this address are not monitore
 def _validate(simulation, user) -> ValidationResult:
     try:
         report = validate_simulation(simulation, current_app.simdb_config)
-    except ConfigError as err:
+    except (ConfigError, RuntimeError) as err:
         raise ServerException(str(err)) from err
 
-    simulation.set_meta(VALIDATION_REPORT_KEY, report.to_dict())
-    status = (
-        models_sim.Simulation.Status.PASSED
-        if report.passed
-        else models_sim.Simulation.Status.FAILED
-    )
-    _update_simulation_status(simulation, status, user)
+    old_status = simulation.status
+    record_validation(simulation, report)
+    _notify_status_change(simulation, old_status, user)
     return ValidationResult(
         passed=report.passed, error=None if report.passed else report.text
     )

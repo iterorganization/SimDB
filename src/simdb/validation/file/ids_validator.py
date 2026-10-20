@@ -1,28 +1,8 @@
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from simdb.imas.utils import SimDBUrl
-
-try:
-    from imas_validator.validate.validate import validate
-    from imas_validator.validate_options import RuleFilter, ValidateOptions
-
-    imas_validator_available = True
-except ImportError:
-    imas_validator_available = False
-else:
-    # imas-validator 1.0.0 checks imas.backends.imas_core.imas_interface.has_imas,
-    # which imas-python dropped in 2.1. Restore it from the lowlevel interface
-    # so the validator does not fail on newer imas-python releases.
-    from imas.backends.imas_core import imas_interface as _imas_interface
-
-    if not hasattr(_imas_interface, "has_imas"):
-        setattr(  # noqa: B010
-            _imas_interface,
-            "has_imas",
-            getattr(_imas_interface.ll_interface, "_al_version", None) is not None,
-        )
-
 from simdb.validation.report import (
     NODES_SHOWN,
     FileReport,
@@ -33,6 +13,41 @@ from simdb.validation.report import (
 from simdb.validation.validator import ValidationError
 
 from .validator_base import FileValidatorBase
+
+logger = logging.getLogger(__name__)
+
+try:
+    from imas_validator.validate.validate import validate
+    from imas_validator.validate_options import RuleFilter, ValidateOptions
+
+    imas_validator_available = True
+except ImportError:
+    imas_validator_available = False
+
+
+def _shim_imas_validator_compatibility() -> None:
+    # imas-validator 1.0.0 checks imas.backends.imas_core.imas_interface.has_imas,
+    # which imas-python dropped in 2.1. Restore it from the lowlevel interface
+    # so the validator does not fail on newer imas-python releases.
+    try:
+        from imas.backends.imas_core import (  # noqa: PLC0415
+            imas_interface as _imas_interface,
+        )
+
+        if not hasattr(_imas_interface, "has_imas"):
+            ll = getattr(_imas_interface, "ll_interface", None)
+            has_imas = getattr(ll, "_al_version", None) is not None
+            setattr(_imas_interface, "has_imas", has_imas)  # noqa: B010
+            logger.debug(
+                "Shimmed imas_interface.has_imas=%s for imas-validator",
+                has_imas,
+            )
+    except Exception as err:
+        logger.debug("Could not shim imas_interface.has_imas: %s", err)
+
+
+if imas_validator_available:
+    _shim_imas_validator_compatibility()
 
 
 def _split_list(value) -> List[str]:
@@ -54,17 +69,23 @@ def _file_report(uri: str, validation_result) -> FileReport:
     megabytes for a failing profile.
     """
     rules: Dict[Tuple[str, int], Dict[str, RuleReport]] = {}
+    unbound_errors: List[str] = []
     for result in validation_result.results:
+        if not result.success and not result.idss:
+            # The rule failed before it was bound to an IDS, so it cannot be
+            # listed per IDS: record it as a file-level error instead.
+            unbound_errors.append(f"{result.rule.name}: {result.msg}")
+            continue
         for ids_name, occurrence in result.idss:
             # The validator hands back numpy integers, which JSON cannot store.
             ids_key = (str(ids_name), int(occurrence))
             rule = rules.setdefault(ids_key, {}).setdefault(
-                result.rule.name, RuleReport(name=result.rule.name, tests=TestCounts())
+                result.rule.name, RuleReport(name=result.rule.name)
             )
             if result.success:
-                rule.tests = rule.tests + TestCounts.of(1, 0)
+                rule.tests += TestCounts(1, 0)
                 continue
-            rule.tests = rule.tests + TestCounts.of(0, 1)
+            rule.tests += TestCounts(0, 1)
             if not rule.message:
                 rule.message = str(result.msg)
             for node in result.nodes_dict.get((ids_name, occurrence), ()):
@@ -74,8 +95,10 @@ def _file_report(uri: str, validation_result) -> FileReport:
                 if len(rule.sample_nodes) < NODES_SHOWN:
                     rule.sample_nodes.append(str(node))
 
+    error = "; ".join(unbound_errors) if unbound_errors else None
     return FileReport(
         uri=uri,
+        error=error,
         ids=[
             IdsReport(name=name, occurrence=occurrence, rules=list(ids_rules.values()))
             for (name, occurrence), ids_rules in sorted(rules.items())

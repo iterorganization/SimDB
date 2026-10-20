@@ -7,7 +7,7 @@ and for emails (see :attr:`ValidationReport.text`).
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 NODES_SHOWN = 5
 """How many affected nodes a failed rule keeps as examples."""
@@ -15,40 +15,26 @@ NODES_SHOWN = 5
 
 @dataclass
 class TestCounts:
-    """How many tests ran and how many of them passed or failed."""
+    """How many tests passed and how many failed."""
 
-    total: int = 0
+    __test__ = False
+
     passed: int = 0
     failed: int = 0
 
-    @classmethod
-    def of(cls, passed: int, failed: int) -> "TestCounts":
-        return cls(total=passed + failed, passed=passed, failed=failed)
+    @property
+    def total(self) -> int:
+        return self.passed + self.failed
 
     def __add__(self, other: "TestCounts") -> "TestCounts":
-        return TestCounts(
-            total=self.total + other.total,
-            passed=self.passed + other.passed,
-            failed=self.failed + other.failed,
-        )
+        return TestCounts(self.passed + other.passed, self.failed + other.failed)
 
     def to_dict(self) -> Dict[str, int]:
         return {"total": self.total, "passed": self.passed, "failed": self.failed}
 
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "TestCounts":
-        return cls(
-            total=int(data.get("total", 0)),
-            passed=int(data.get("passed", 0)),
-            failed=int(data.get("failed", 0)),
-        )
 
-
-def _sum(counts: List[TestCounts]) -> TestCounts:
-    total = TestCounts()
-    for count in counts:
-        total = total + count
-    return total
+def _sum(counts: Iterable[TestCounts]) -> TestCounts:
+    return sum(counts, TestCounts())
 
 
 @dataclass
@@ -60,7 +46,7 @@ class RuleReport:
     """
 
     name: str
-    tests: TestCounts
+    tests: TestCounts = field(default_factory=TestCounts)
     message: str = ""
     """Why the rule failed, from the first failing evaluation."""
     failed_nodes: int = 0
@@ -82,16 +68,6 @@ class RuleReport:
             "sample_nodes": list(self.sample_nodes),
         }
 
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "RuleReport":
-        return cls(
-            name=str(data["name"]),
-            tests=TestCounts.from_dict(data.get("tests", {})),
-            message=str(data.get("message", "")),
-            failed_nodes=int(data.get("failed_nodes", 0)),
-            sample_nodes=[str(node) for node in data.get("sample_nodes", [])],
-        )
-
 
 @dataclass
 class IdsReport:
@@ -103,7 +79,7 @@ class IdsReport:
 
     @property
     def tests(self) -> TestCounts:
-        return _sum([rule.tests for rule in self.rules])
+        return _sum(rule.tests for rule in self.rules)
 
     @property
     def passed(self) -> bool:
@@ -118,14 +94,6 @@ class IdsReport:
             "rules": [rule.to_dict() for rule in self.rules],
         }
 
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "IdsReport":
-        return cls(
-            name=str(data["name"]),
-            occurrence=int(data.get("occurrence", 0)),
-            rules=[RuleReport.from_dict(rule) for rule in data.get("rules", [])],
-        )
-
 
 @dataclass
 class FileReport:
@@ -138,7 +106,7 @@ class FileReport:
 
     @property
     def tests(self) -> TestCounts:
-        return _sum([ids.tests for ids in self.ids])
+        return _sum(ids.tests for ids in self.ids)
 
     @property
     def passed(self) -> bool:
@@ -153,18 +121,9 @@ class FileReport:
             "ids": [ids.to_dict() for ids in self.ids],
         }
 
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "FileReport":
-        error = data.get("error")
-        return cls(
-            uri=str(data["uri"]),
-            ids=[IdsReport.from_dict(ids) for ids in data.get("ids", [])],
-            error=None if error is None else str(error),
-        )
-
     @property
     def text(self) -> str:
-        if self.error is not None:
+        if self.error is not None and not self.ids:
             return f"File {self.uri} could not be validated:\n{self.error}"
         outcome = "passed" if self.passed else "failed"
         tests = self.tests
@@ -174,6 +133,8 @@ class FileReport:
             f"Number of successful tests : {tests.passed}",
             f"Number of failed tests : {tests.failed}",
         ]
+        if self.error is not None:
+            lines.append(f"Errors outside IDS rules: {self.error}")
         for ids in sorted(self.ids, key=lambda ids: (ids.name, ids.occurrence)):
             status = "PASSED" if ids.passed else "FAILED"
             lines.append("")
@@ -206,11 +167,6 @@ class MetadataReport:
     def to_dict(self) -> Dict[str, Any]:
         return {"passed": self.passed, "error": self.error}
 
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "MetadataReport":
-        error = data.get("error")
-        return cls(error=None if error is None else str(error))
-
     @property
     def text(self) -> str:
         if self.passed:
@@ -224,15 +180,21 @@ class ValidationReport:
 
     metadata: MetadataReport = field(default_factory=MetadataReport)
     files: List[FileReport] = field(default_factory=list)
+    error: Optional[str] = None
+    """Why the validation could not be carried out at all, if it could not."""
 
     @property
     def passed(self) -> bool:
-        return self.metadata.passed and all(file.passed for file in self.files)
+        return (
+            self.error is None
+            and self.metadata.passed
+            and all(file.passed for file in self.files)
+        )
 
     @property
     def tests(self) -> TestCounts:
         """The file validation tests over every file."""
-        return _sum([file.tests for file in self.files])
+        return _sum(file.tests for file in self.files)
 
     def to_dict(self) -> Dict[str, Any]:
         """The report as stored in the simulation metadata.
@@ -242,21 +204,17 @@ class ValidationReport:
         """
         return {
             "passed": self.passed,
+            "error": self.error,
             "tests": self.tests.to_dict(),
             "metadata": self.metadata.to_dict(),
             "files": [file.to_dict() for file in self.files],
         }
 
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ValidationReport":
-        return cls(
-            metadata=MetadataReport.from_dict(data.get("metadata", {})),
-            files=[FileReport.from_dict(file) for file in data.get("files", [])],
-        )
-
     @property
     def text(self) -> str:
         """The report as readable text, for the CLI and for emails."""
+        if self.error is not None:
+            return f"Validation could not be carried out:\n{self.error}"
         sections = [self.metadata.text]
         sections.extend(file.text for file in self.files)
         return "\n\n".join(sections)

@@ -286,3 +286,23 @@ def test_validate_imas_task_records_a_failed_validation(task_environment):
     assert "rule X failed" in body
     assert to_addresses == ["watcher@example.com"]
     env["db"].close.assert_called_once()
+
+
+def test_validate_imas_task_records_a_validation_that_could_not_run(task_environment):
+    """A validator that cannot run (not installed, misconfigured) is a failed
+    validation with the reason on the simulation, not only in the worker log."""
+    env = task_environment
+    env["simulation"].watchers = [mock.MagicMock(email="watcher@example.com")]
+
+    with mock.patch(
+        "simdb.workers.tasks.validate_simulation",
+        side_effect=RuntimeError("IMAS-validator not available"),
+    ), mock.patch.object(simdb_tasks.send_email_task, "delay") as delay:
+        validate_imas_task(env["simulation_uuid"])
+
+    assert env["simulation"].status == Simulation.Status.FAILED
+    report = env["simulation"].set_meta.call_args.args[1]
+    assert report["passed"] is False
+    assert report["error"] == "RuntimeError: IMAS-validator not available"
+    assert "IMAS-validator not available" in delay.call_args.args[1]
+    env["db"].close.assert_called_once()

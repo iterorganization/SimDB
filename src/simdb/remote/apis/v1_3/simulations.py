@@ -1,6 +1,7 @@
 import datetime
 from typing import Annotated, Optional
 
+from celery import chain
 from flask_restx import Namespace, Resource
 
 from simdb.database.models import metadata as models_meta
@@ -125,16 +126,16 @@ class SimulationList(SimulationListV12):
         # The complete job will set simulation.ingestion_status = Completed
         complete = complete_ingestion_task.si(simulation.uuid)
 
-        chain = copy_files | complete
+        pipeline = [copy_files, complete]
         if current_app.simdb_config.get_option(
             "validation.auto_validate", default=False
         ):
             # Validation follows the completed ingestion and does not change
             # the ingestion status, so clients need not wait for it.
-            chain |= validate_imas_task.si(simulation.uuid)
+            pipeline.append(validate_imas_task.si(simulation.uuid))
 
         try:
-            _ = chain.apply_async()
+            _ = chain(*pipeline).apply_async()
         except Exception as err:
             if not simulation.ingestion_status.is_terminal():
                 simulation.ingestion_status = IngestionStatus.COPY_FAILED
