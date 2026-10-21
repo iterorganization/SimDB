@@ -44,7 +44,11 @@ class AliasCommandGroup(click.Group):
 
 
 # @tui()
-@click.group("simdb", cls=AliasCommandGroup)
+@click.group(
+    "simdb",
+    cls=AliasCommandGroup,
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
 @click.version_option(__version__)
 @click.option("-d", "--debug", is_flag=True, help="Run in debug mode.")
 @click.option("-v", "--verbose", is_flag=True, help="Run with verbose output.")

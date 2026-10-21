@@ -30,25 +30,28 @@ class RemoteGroup(click.Group):
         cmds = []
         skip_next = False
         for a in args:
-            if a.startswith("--") or a.startswith("-"):
-                skip_next = True
+            if a.startswith("-"):
+                # Group options (--username, --password) all take a value.
+                skip_next = "=" not in a and a not in ctx.help_option_names
                 continue
             if skip_next:
                 skip_next = False
                 continue
             cmds.append(a)
-        if "--help" in args:
-            if cmds and cmds[0] in self.commands:
-                cmd = self.commands[cmds[0]]
-                if isinstance(cmd, click.Group):
-                    grp = cmd
-                    for c in cmds[1:]:
-                        if c in grp.commands:
-                            cmd = grp.commands[c]
-                        else:
-                            raise click.ClickException(f"Unknown subcommand {c}")
-                ctx.command = cmd
-            args = ["--help"]
+        help_options = [a for a in args if a in ctx.help_option_names]
+        if help_options:
+            # Skip the optional NAME so help is shown for the subcommand.
+            if cmds and cmds[0] not in self.commands:
+                cmds = cmds[1:]
+            cmd = self
+            for c in cmds:
+                if not isinstance(cmd, click.Group):
+                    break
+                if c not in cmd.commands:
+                    raise click.UsageError(f"No such command '{c}'.", ctx)
+                cmd = cmd.commands[c]
+            ctx.command = cmd
+            args = [help_options[0]]
         elif cmds and cmds[0] in self.commands:
             args.insert(args.index(cmds[0]), "")
         super().parse_args(ctx, args)
