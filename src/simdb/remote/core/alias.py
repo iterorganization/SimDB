@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from simdb.remote.core.typing import current_app
@@ -15,4 +16,7 @@ def create_alias_dir(simulation):
         if len(alias_subpath.parts) > 1:
             alias_path.parent.mkdir(parents=True, exist_ok=True)
 
-        alias_path.symlink_to(base_dir / simulation.uuid.hex)
+        relative_target = os.path.relpath(
+            base_dir / simulation.uuid.hex, start=alias_path.parent
+        )
+        alias_path.symlink_to(relative_target, target_is_directory=True)
