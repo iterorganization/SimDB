@@ -80,7 +80,8 @@ imas-validator = [
     "imas-validator>=1.0.0",
 ]
 build-docs = [
-    "sphinx>=4.5",
+    # sphinx-immaterial search breaks on Sphinx 9 (jbms/sphinx-immaterial#485).
+    "sphinx>=4.5,<9",
     "sphinx-immaterial>=0.11.14",
     "sphinx-autodoc-typehints>=1.12.0",
     "myst-parser>=0.18.0",
