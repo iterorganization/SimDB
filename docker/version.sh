@@ -9,15 +9,15 @@
 #
 # Modes (default: pep440):
 #   gitdescribe  raw `git describe --tags --always`, e.g. 0.15.2-347-g23a0424
-#   pep440       PEP 440,                                e.g. 0.15.2.dev347+g23a0424
+#   pep440       PEP 440,                                e.g. 0.15.2.post1.dev347+g23a0424
 #   dockertag    PEP 440 with the "+<local>" segment removed,
-#                                                        e.g. 0.15.2.dev347
+#                                                        e.g. 0.15.2.post1.dev347
 #                (a Docker tag allows only [A-Za-z0-9_.-])
 #
 # A commit on a tag describes as "<tag>"; a commit between tags as
-# "<tag>-<n>-g<sha>". The "+<local>" segment is dropped inside the image too
-# (SETUPTOOLS_SCM_OVERRIDES_FOR_IMAS_SIMDB, local_scheme = no-local-version-strict),
-# so the image tag and `simdb --version` agree.
+# "<tag>-<n>-g<sha>". Post-tag commits use setuptools-scm's no-guess-dev
+# ordering: the next development version is after the tag, not before it.
+# The Docker tag omits the "+<local>" hash; APP_VERSION retains it.
 #
 # Examples:
 #
@@ -28,8 +28,8 @@
 #
 #   347 commits after 0.15.2:
 #     gitdescribe  0.15.2-347-g23a0424
-#     pep440       0.15.2.dev347+g23a0424
-#     dockertag    0.15.2.dev347
+#     pep440       0.15.2.post1.dev347+g23a0424
+#     dockertag    0.15.2.post1.dev347
 #
 #   Notes:
 #     * If several tags point at the same commit, git describe picks one
@@ -44,9 +44,9 @@ mode=${1:-pep440}
 
 gitdescribe=$(git describe --tags --always 2>/dev/null) || gitdescribe=
 
-# "0.15.2-347-g23a0424" -> "0.15.2.dev347+g23a0424"
+# "0.15.2-347-g23a0424" -> "0.15.2.post1.dev347+g23a0424"
 pep440=$(printf '%s\n' "$gitdescribe" \
-    | sed -r 's/-([0-9]+)-g([0-9a-f]+)$/.dev\1+g\2/')
+    | sed -r 's/-([0-9]+)-g([0-9a-f]+)$/.post1.dev\1+g\2/')
 
 # An empty version (no git, or a tagless shallow checkout) is not valid PEP 440.
 if [ -z "$pep440" ]; then
