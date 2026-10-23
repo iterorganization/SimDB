@@ -11,6 +11,7 @@ from semantic_version import Version
 
 from simdb.cli.remote_api import RemoteAPI
 from simdb.database.models.simulation import Simulation
+from simdb.database.models.watcher import Watcher
 from simdb.notifications import Notification
 
 from . import check_meta_args, pass_config
@@ -284,8 +285,9 @@ def list_watchers(api: RemoteAPI, sim_id: str):
     watchers = api.list_watchers(sim_id)
     if watchers:
         click.echo(f"Watchers for simulation {sim_id}:")
-        for watcher in watchers:
-            click.echo(watcher)
+        names = {code: n.name for n, code in Watcher.NOTIFICATION_CHOICES.items()}
+        for username, email, notification in watchers:
+            click.echo(f"{username} ({email}): {names[notification]}")
     else:
         click.echo(f"no watchers found for simulation {sim_id}")
 

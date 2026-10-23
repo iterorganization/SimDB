@@ -21,8 +21,10 @@ def test_remote_watchers_list_command(
     get_server_version.return_value = "0.11"
     get_server_authentication.return_value = "None"
     sim_id = "acbd1234"
-    watchers = ["a", "b", "c"]
-    list_watchers.return_value = watchers
+    list_watchers.return_value = [
+        ("a", "a@iter.org", "A"),
+        ("b", "b@iter.org", "V"),
+    ]
     config_file = config_test_file()
     runner = CliRunner()
     result = runner.invoke(
@@ -30,8 +32,8 @@ def test_remote_watchers_list_command(
     )
     assert result.exception is None
     assert sim_id in result.output
-    for watcher in watchers:
-        assert watcher in result.output
+    assert "a (a@iter.org): ALL" in result.output
+    assert "b (b@iter.org): VALIDATION" in result.output
     assert list_watchers.called
 
 

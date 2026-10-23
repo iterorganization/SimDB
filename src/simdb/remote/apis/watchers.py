@@ -39,7 +39,7 @@ class Watcher(Resource):
         notification = getattr(Notification, data.notification)
 
         watcher = models.Watcher(username, email, notification)
-        current_app.db.add_watcher(sim_id, watcher)
+        simulation = current_app.db.add_watcher(sim_id, watcher)
         clear_cache()
 
         if username != user.name:
@@ -47,7 +47,7 @@ class Watcher(Resource):
             pass
 
         return WatcherPostResponse.model_validate(
-            {"added": {"simulation": sim_id, "watcher": username}}
+            {"added": {"simulation": simulation.uuid, "watcher": username}}
         )
 
     @requires_auth()
@@ -63,10 +63,10 @@ class Watcher(Resource):
         """
         username = data.user or user.name
 
-        current_app.db.remove_watcher(sim_id, username)
+        simulation = current_app.db.remove_watcher(sim_id, username)
         clear_cache()
         return WatcherDeleteResponse.model_validate(
-            {"removed": {"simulation": sim_id, "watcher": username}}
+            {"removed": {"simulation": simulation.uuid, "watcher": username}}
         )
 
     @requires_auth()
