@@ -15,16 +15,21 @@ from simdb.remote.models import (
 
 ALIAS = "100001/1"
 
+# The ways a simulation can be referred to, as documented for SIM_ID.
+SIM_REFS = {
+    "uuid": lambda uuid: uuid.hex,
+    "short_uuid": lambda uuid: uuid.hex[:8],
+    "alias": lambda uuid: ALIAS,
+}
 
-@pytest.fixture(params=["uuid", "alias"])
-def simulation(client, request):
-    """A posted simulation and the reference (UUID or alias) to address it by."""
+
+@pytest.fixture
+def sim_uuid(client):
+    """UUID of a posted simulation with alias ALIAS."""
     simulation_data = generate_simulation_data(alias=ALIAS)
     rv_post = post_simulation(client, simulation_data)
     assert rv_post.status_code == 200
-    uuid = simulation_data.simulation.uuid
-    sim_ref = uuid.hex if request.param == "uuid" else ALIAS
-    return uuid, sim_ref
+    return simulation_data.simulation.uuid
 
 
 def _add_watcher(client, sim_ref):
@@ -49,21 +54,19 @@ def _remove_watcher(client, sim_ref):
     )
 
 
-def test_get_watchers(client, simulation):
+def test_get_watchers(client, sim_uuid):
     """Test GET /v1.2/watchers/{simulation_id} endpoint."""
-    _, sim_ref = simulation
-    rv = client.get(f"/v1.2/watchers/{sim_ref}", headers=HEADERS)
+    rv = client.get(f"/v1.2/watchers/{sim_uuid.hex}", headers=HEADERS)
 
     assert rv.status_code == 200
     assert WatcherGetResponse.model_validate(rv.json).root == []
 
 
-def test_get_watchers_after_add(client, simulation):
+def test_get_watchers_after_add(client, sim_uuid):
     """Test GET /v1.2/watchers/{simulation_id} endpoint - with a watcher."""
-    _, sim_ref = simulation
-    assert _add_watcher(client, sim_ref).status_code == 200
+    assert _add_watcher(client, sim_uuid.hex).status_code == 200
 
-    rv = client.get(f"/v1.2/watchers/{sim_ref}", headers=HEADERS)
+    rv = client.get(f"/v1.2/watchers/{sim_uuid.hex}", headers=HEADERS)
 
     assert rv.status_code == 200, rv.json
     (watcher,) = WatcherGetResponse.model_validate(rv.json).root
@@ -72,23 +75,38 @@ def test_get_watchers_after_add(client, simulation):
     assert watcher.notification == "A"
 
 
-def test_post_watchers(client, simulation):
+@pytest.mark.parametrize("ref", SIM_REFS)
+def test_post_watchers(client, sim_uuid, ref):
     """Test POST /v1.2/watchers/{simulation_id} endpoint - add watcher."""
-    uuid, sim_ref = simulation
-    rv = _add_watcher(client, sim_ref)
+    rv = _add_watcher(client, SIM_REFS[ref](sim_uuid))
 
     assert rv.status_code == 200, rv.json
     data = WatcherPostResponse.model_validate(rv.json)
-    assert data.added.simulation == uuid
+    assert data.added.simulation == sim_uuid
 
 
-def test_delete_watchers(client, simulation):
+@pytest.mark.parametrize("ref", SIM_REFS)
+def test_delete_watchers(client, sim_uuid, ref):
     """Test DELETE /v1.2/watchers/{simulation_id} endpoint - remove watcher."""
-    uuid, sim_ref = simulation
+    sim_ref = SIM_REFS[ref](sim_uuid)
     assert _add_watcher(client, sim_ref).status_code == 200
 
     rv = _remove_watcher(client, sim_ref)
 
     assert rv.status_code == 200, rv.json
     data = WatcherDeleteResponse.model_validate(rv.json)
-    assert data.removed.simulation == uuid
+    assert data.removed.simulation == sim_uuid
+
+
+def test_watchers_unknown_simulation(client):
+    """Watcher endpoints return 404 for a simulation that does not exist."""
+    assert client.get("/v1.2/watchers/999999/9", headers=HEADERS).status_code == 404
+    assert _add_watcher(client, "999999/9").status_code == 404
+    assert _remove_watcher(client, "999999/9").status_code == 404
+
+
+def test_delete_watchers_not_watching(client, sim_uuid):
+    """DELETE returns 404 when the user is not watching the simulation."""
+    rv = _remove_watcher(client, sim_uuid.hex)
+
+    assert rv.status_code == 404

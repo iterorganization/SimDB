@@ -2,11 +2,15 @@ from typing import Annotated
 
 from flask_restx import Namespace, Resource
 
-from simdb.database import models
+from simdb.database import DatabaseError, models
 from simdb.notifications import Notification
 from simdb.remote.core.auth import User, requires_auth
 from simdb.remote.core.cache import clear_cache
-from simdb.remote.core.pydantic_utils import Body, pydantic_validate
+from simdb.remote.core.pydantic_utils import (
+    Body,
+    ResponseException,
+    pydantic_validate,
+)
 from simdb.remote.core.typing import current_app
 from simdb.remote.models import (
     WatcherDeleteRequest,
@@ -39,7 +43,10 @@ class Watcher(Resource):
         notification = getattr(Notification, data.notification)
 
         watcher = models.Watcher(username, email, notification)
-        simulation = current_app.db.add_watcher(sim_id, watcher)
+        try:
+            simulation = current_app.db.add_watcher(sim_id, watcher)
+        except DatabaseError as err:
+            raise ResponseException(str(err), 404) from err
         clear_cache()
 
         if username != user.name:
@@ -63,7 +70,10 @@ class Watcher(Resource):
         """
         username = data.user or user.name
 
-        simulation = current_app.db.remove_watcher(sim_id, username)
+        try:
+            simulation = current_app.db.remove_watcher(sim_id, username)
+        except DatabaseError as err:
+            raise ResponseException(str(err), 404) from err
         clear_cache()
         return WatcherDeleteResponse.model_validate(
             {"removed": {"simulation": simulation.uuid, "watcher": username}}
@@ -77,6 +87,8 @@ class Watcher(Resource):
         Returns every user currently watching the simulation identified by
         ``sim_id``, along with their notification settings.
         """
-        return WatcherGetResponse(
-            [watcher.to_model() for watcher in current_app.db.list_watchers(sim_id)]
-        )
+        try:
+            watchers = current_app.db.list_watchers(sim_id)
+        except DatabaseError as err:
+            raise ResponseException(str(err), 404) from err
+        return WatcherGetResponse([watcher.to_model() for watcher in watchers])
