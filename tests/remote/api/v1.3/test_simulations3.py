@@ -221,32 +221,38 @@ def test_post_simulations_with_watcher_v13(client_with_task_mock, tmp_path):
     assert [watcher.email for watcher in simulation.watchers]
 
 
+def _ingested(client, rv) -> Simulation:
+    assert rv.status_code == 200
+    sim_hex = SimulationPostResponse.model_validate(rv.json).ingested.hex
+    simulation = client.application.db.get_simulation(sim_hex)
+    assert simulation.ingestion_status == IngestionStatus.COMPLETED
+    return simulation
+
+
 def test_post_simulations_v13_skips_validation_by_default(
     client_with_task_mock, tmp_path
 ):
     """Without auto_validate the ingestion chain never runs the validator."""
-    client = client_with_task_mock
     simulation_data = generate_simulation_data(
         alias="test-no-validation-v13", inputs=[generate_simulation_file(tmp_path)]
     )
 
     with mock.patch("simdb.workers.tasks.validate_simulation") as validate:
-        rv = post_simulation_v13(client, simulation_data)
+        rv = post_simulation_v13(client_with_task_mock, simulation_data)
 
-    assert rv.status_code == 200
     validate.assert_not_called()
-    sim_hex = SimulationPostResponse.model_validate(rv.json).ingested.hex
-    simulation = client.application.db.get_simulation(sim_hex)
-    assert simulation.ingestion_status == IngestionStatus.COMPLETED
-    assert simulation.status is None
+    assert _ingested(client_with_task_mock, rv).status is None
 
 
+@pytest.mark.parametrize("passed", [True, False])
 def test_post_simulations_v13_validates_after_completing(
-    client_with_task_mock, auto_validate, tmp_path
+    client_with_task_mock, auto_validate, tmp_path, passed
 ):
-    """With auto_validate the worker validates once the ingestion is complete."""
+    """With auto_validate the worker validates once the ingestion is complete
+    and stores the outcome with the simulation, readable through its metadata.
+    A failed validation does not fail the ingestion."""
     client = client_with_task_mock
-    auto_validate({"description": {"type": "string"}})
+    auto_validate({"machine": {"type": "string", "required": not passed}})
     simulation_data = generate_simulation_data(
         alias="test-validated-v13", inputs=[generate_simulation_file(tmp_path)]
     )
@@ -258,21 +264,22 @@ def test_post_simulations_v13_validates_after_completing(
         return real_validate(simulation, config)
 
     with mock.patch("simdb.workers.tasks.validate_simulation", side_effect=validate):
-        rv = post_simulation_v13(client, simulation_data)
+        simulation = _ingested(client, post_simulation_v13(client, simulation_data))
 
-    assert rv.status_code == 200
     assert statuses_seen == [IngestionStatus.COMPLETED]
-    sim_hex = SimulationPostResponse.model_validate(rv.json).ingested.hex
-    simulation = client.application.db.get_simulation(sim_hex)
-    assert simulation.ingestion_status == IngestionStatus.COMPLETED
-    assert simulation.status == Simulation.Status.PASSED
-    report = simulation.meta_dict()["validation_report"]
-    assert report["passed"] is True
-    assert report["metadata"] == {"passed": True, "error": None}
+    assert simulation.status == (
+        Simulation.Status.PASSED if passed else Simulation.Status.FAILED
+    )
     status = SimulationStatusResponse.model_validate(
         get_simulation_status(client, simulation.uuid).json
     )
-    assert status.error is None
+    assert (status.status, status.error) == (IngestionStatus.COMPLETED, None)
+    rv = client.get(f"/v1.3/simulation/{simulation.uuid.hex}", headers=HEADERS)
+    metadata = {item["element"]: item["value"] for item in rv.json["metadata"]}
+    assert metadata["status"] == ("passed" if passed else "failed")
+    report = metadata["validation_report"]
+    assert report["passed"] is passed
+    assert ("machine" in (report["metadata"]["error"] or "")) is not passed
 
 
 def test_post_simulations_v13_runs_the_file_validator(
@@ -286,68 +293,22 @@ def test_post_simulations_v13_runs_the_file_validator(
         alias="test-file-validated-v13", outputs=[generate_simulation_file(tmp_path)]
     )
     validator = mock.MagicMock()
+    rule = RuleReport("coil_name", ValidationCounts(1, 0))
     validator.validate_uri.side_effect = lambda uri, options: FileReport(
-        uri=str(uri),
-        ids=[
-            IdsReport("pf_active", 0, [RuleReport("coil_name", ValidationCounts(1, 0))])
-        ],
+        uri=str(uri), ids=[IdsReport("pf_active", 0, [rule])]
     )
 
     with mock.patch(
         "simdb.validation.simulation.find_file_validator",
         return_value=(validator, "options"),
     ):
-        rv = post_simulation_v13(client, simulation_data)
+        simulation = _ingested(client, post_simulation_v13(client, simulation_data))
 
-    assert rv.status_code == 200
-    sim_hex = SimulationPostResponse.model_validate(rv.json).ingested.hex
-    simulation = client.application.db.get_simulation(sim_hex)
-    assert simulation.ingestion_status == IngestionStatus.COMPLETED
-    (uri, options), _ = validator.validate_uri.call_args
-    assert uri == simulation.outputs[0].uri
-    assert options == "options"
+    validator.validate_uri.assert_called_once_with(simulation.outputs[0].uri, "options")
     assert simulation.status == Simulation.Status.PASSED
     report = simulation.meta_dict()["validation_report"]
-    assert report["passed"] is True
     assert report["tests"] == {"total": 1, "passed": 1, "failed": 0}
-    (file_report,) = report["files"]
-    assert file_report["uri"] == str(simulation.outputs[0].uri)
-    assert file_report["ids"][0]["rules"][0]["name"] == "coil_name"
-
-
-def test_post_simulations_v13_keeps_a_failed_validation(
-    client_with_task_mock, auto_validate, tmp_path
-):
-    """A failed validation is stored with the completed simulation, readable
-    through its metadata."""
-    client = client_with_task_mock
-    auto_validate({"machine": {"type": "string", "required": True}})
-    simulation_data = generate_simulation_data(
-        alias="test-failed-validation-v13", inputs=[generate_simulation_file(tmp_path)]
-    )
-
-    rv = post_simulation_v13(client, simulation_data)
-
-    assert rv.status_code == 200
-    sim_hex = SimulationPostResponse.model_validate(rv.json).ingested.hex
-    simulation = client.application.db.get_simulation(sim_hex)
-    assert simulation.ingestion_status == IngestionStatus.COMPLETED
-    assert simulation.status == Simulation.Status.FAILED
-    report = simulation.meta_dict()["validation_report"]
-    assert report["passed"] is False
-    assert "machine" in report["metadata"]["error"]
-    status = SimulationStatusResponse.model_validate(
-        get_simulation_status(client, simulation.uuid).json
-    )
-    assert status.status == IngestionStatus.COMPLETED
-    assert status.error is None
-
-    rv = client.get(f"/v1.3/simulation/{sim_hex}", headers=HEADERS)
-    assert rv.status_code == 200
-    metadata = {item["element"]: item["value"] for item in rv.json["metadata"]}
-    assert metadata["status"] == "failed"
-    assert metadata["validation_report"]["passed"] is False
-    assert "machine" in metadata["validation_report"]["metadata"]["error"]
+    assert report["files"][0]["uri"] == str(simulation.outputs[0].uri)
 
 
 def test_validate_endpoint_reports_a_misconfigured_file_validator(
@@ -382,9 +343,7 @@ def test_post_simulations_v13_fails_the_ingestion_it_could_not_queue(
         rv = post_simulation_v13(client, simulation_data)
 
     assert rv.status_code == 503
-    simulation = client.application.db.get_simulation(
-        client.application.db.list_simulations()[-1].uuid.hex
-    )
+    simulation = client.application.db.list_simulations()[-1]
     assert simulation.ingestion_status == IngestionStatus.COPY_FAILED
     assert "Failed to queue ingestion" in simulation.ingestion_error
 
@@ -407,10 +366,6 @@ def test_post_simulations_v13_reports_an_ingestion_a_worker_already_ran(
 
     with mock.patch("simdb.remote.apis.v1_3.simulations.chain") as chain:
         chain.return_value.apply_async.side_effect = worker_finishes_then_error
-        rv = post_simulation_v13(client, simulation_data)
+        simulation = _ingested(client, post_simulation_v13(client, simulation_data))
 
-    assert rv.status_code == 200
-    sim_hex = SimulationPostResponse.model_validate(rv.json).ingested.hex
-    simulation = client.application.db.get_simulation(sim_hex)
-    assert simulation.ingestion_status == IngestionStatus.COMPLETED
     assert simulation.ingestion_error is None

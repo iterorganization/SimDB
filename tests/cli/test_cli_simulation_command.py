@@ -334,31 +334,20 @@ def test_simulation_push_local_rejected_status_check(get_local_db, remote_api, s
     assert remote_api.return_value.get_ingestion_status.call_count == 1
 
 
+@pytest.mark.parametrize("error", ["{'machine': ['required field']}", None])
 @mock.patch("simdb.cli.commands.simulation.RemoteAPI")
 @mock.patch("simdb.cli.commands.simulation.get_local_db")
-def test_simulation_push_local_reports_why_ingestion_failed(get_local_db, remote_api):
-    """push_local shows the reason the remote gives for a failed ingestion."""
+def test_simulation_push_local_reports_why_ingestion_failed(
+    get_local_db, remote_api, error
+):
+    """push_local shows the reason the remote gives for a failed ingestion, if any."""
     remote_api.return_value.get_ingestion_status.return_value = {
         "status": IngestionStatus.VALIDATION_FAILED.value,
-        "error": "{'machine': ['required field']}",
+        "error": error,
     }
 
     result = _invoke_push_local(remote_api)
 
     assert result.exit_code != 0
     assert "Simulation ingestion failed with status: VALIDATION_FAILED" in result.output
-    assert "{'machine': ['required field']}" in result.output
-
-
-@mock.patch("simdb.cli.commands.simulation.RemoteAPI")
-@mock.patch("simdb.cli.commands.simulation.get_local_db")
-def test_simulation_push_local_without_a_failure_reason(get_local_db, remote_api):
-    """A remote that does not report the reason still gets the status reported."""
-    remote_api.return_value.get_ingestion_status.return_value = {
-        "status": IngestionStatus.COPY_FAILED.value
-    }
-
-    result = _invoke_push_local(remote_api)
-
-    assert result.exit_code != 0
-    assert "Simulation ingestion failed with status: COPY_FAILED" in result.output
+    assert error is None or error in result.output

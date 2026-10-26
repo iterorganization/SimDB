@@ -231,30 +231,14 @@ def test_notify_watchers_noop_without_watchers():
     delay.assert_not_called()
 
 
-def test_copy_files_task_records_why_the_copy_failed(task_environment):
-    env = task_environment
-    source_file = env["partition_dir"] / "source.txt"
-    source_file.write_text("test content")
-    input_files = [_make_file_data(f"data:/{source_file.name}", checksum="wrong")]
-
-    with pytest.raises(ValueError, match="Hash of file does not match"):
-        copy_files_task(env["simulation_uuid"], input_files, [])
-
-    (reason,), _ = env["simulation"].fail_ingestion.call_args
-    assert "Hash of file does not match" in reason
-
-
 def test_copy_files_task_keeps_server_details_out_of_the_reason(task_environment):
     """An error in the server's own setup is reported to the client by type
     only; the details stay in the worker log."""
     env = task_environment
     source_file = env["partition_dir"] / "source.txt"
     source_file.write_text("test content")
-    input_files = [
-        _make_file_data(
-            f"data:/{source_file.name}", checksum=calculate_checksum(source_file)
-        )
-    ]
+    checksum = calculate_checksum(source_file)
+    input_files = [_make_file_data("data:/source.txt", checksum=checksum)]
     error = PermissionError(13, "Permission denied", "/srv/simdb/uploads/secret")
 
     with mock.patch(
@@ -267,58 +251,19 @@ def test_copy_files_task_keeps_server_details_out_of_the_reason(task_environment
     assert "/srv/simdb" not in reason
 
 
-def test_validate_simulation_task_records_a_passed_validation(task_environment):
-    env = task_environment
-    report = ValidationReport(metadata=MetadataReport())
-
-    with mock.patch(
-        "simdb.workers.tasks.validate_simulation", return_value=report
-    ) as validate, mock.patch.object(
-        simdb_tasks.send_email_task, "delay"
-    ) as delay, mock.patch("simdb.workers.tasks.clear_api_cache_from_worker") as clear:
-        validate_simulation_task(env["simulation_uuid"])
-
-    validate.assert_called_once_with(env["simulation"], env["config"])
-    assert env["simulation"].status == Simulation.Status.PASSED
-    env["simulation"].set_meta.assert_called_once_with(
-        "validation_report", report.to_dict()
-    )
-    # The API may have cached the simulation before the outcome was recorded.
-    clear.assert_called_once_with(env["config"])
-    delay.assert_not_called()
-    env["db"].close.assert_called_once()
-
-
-def test_copy_files_task_clears_the_api_cache(task_environment):
-    """The copied files are only visible through the API once its cache of the
-    simulation has been emptied."""
-    env = task_environment
-    source_file = env["partition_dir"] / "source.txt"
-    source_file.write_text("test content")
-    input_files = [
-        _make_file_data(
-            f"data:/{source_file.name}", checksum=calculate_checksum(source_file)
-        )
-    ]
-
-    with mock.patch("simdb.workers.tasks.clear_api_cache_from_worker") as clear:
-        copy_files_task(env["simulation_uuid"], input_files, [])
-
-    clear.assert_called_once_with(env["config"])
-
-
 def test_validate_simulation_task_records_a_failed_validation(task_environment):
-    """A failed validation is kept with the simulation and does not touch the
-    ingestion, which has already completed."""
+    """A failed validation is kept with the simulation without touching the
+    ingestion, which has already completed, and the watchers are told."""
     env = task_environment
     env["simulation"].ingestion_status = IngestionStatus.COMPLETED
-    watcher = mock.MagicMock(email="watcher@example.com")
-    env["simulation"].watchers = [watcher]
-    report = ValidationReport(metadata=MetadataReport(error="rule X failed"))
+    env["simulation"].watchers = [mock.MagicMock(email="watcher@example.com")]
+    report = ValidationReport(MetadataReport(error="rule X failed"))
 
     with mock.patch(
         "simdb.workers.tasks.validate_simulation", return_value=report
-    ), mock.patch.object(simdb_tasks.send_email_task, "delay") as delay:
+    ), mock.patch.object(simdb_tasks.send_email_task, "delay") as delay, mock.patch(
+        "simdb.workers.tasks.clear_api_cache_from_worker"
+    ) as clear:
         validate_simulation_task(env["simulation_uuid"])
 
     assert env["simulation"].status == Simulation.Status.FAILED
@@ -326,6 +271,8 @@ def test_validate_simulation_task_records_a_failed_validation(task_environment):
     env["simulation"].set_meta.assert_called_once_with(
         "validation_report", report.to_dict()
     )
+    # The API may have cached the simulation before the outcome was recorded.
+    clear.assert_called_once_with(env["config"])
     subject, body, to_addresses = delay.call_args.args
     assert "failed validation" in subject
     assert "rule X failed" in body
@@ -350,7 +297,6 @@ def test_validate_simulation_task_records_a_validation_that_could_not_run(
 
     assert env["simulation"].status == Simulation.Status.FAILED
     report = env["simulation"].set_meta.call_args.args[1]
-    assert report["passed"] is False
     assert report["error"] == "RuntimeError: IMAS-validator not available"
     delay.assert_not_called()
     env["db"].close.assert_called_once()

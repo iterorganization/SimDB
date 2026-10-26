@@ -45,71 +45,45 @@ def test_create_simulation_with_manifest(manifest_cls, data_object_cls):
     }
 
 
-def test_simulation_str_prints_every_line_of_multiline_metadata():
-    simulation = Simulation(Manifest())
-    simulation.set_meta("validation_report", "first line\nsecond line\n\nfourth line")
-
-    text = str(simulation)
-
-    assert "  validation_report: first line\n" in text
-    assert "\n                     second line\n" in text
-    assert "\n\n" in text
-    assert "\n                     fourth line\n" in text
-
-
-def test_simulation_str_prints_empty_nested_metadata():
+def test_simulation_str_indents_nested_and_multiline_metadata():
     simulation = Simulation(Manifest())
     simulation.set_meta("odd", [{}, [], "", {"a": [{}]}])
-
-    text = str(simulation)
-
-    assert "  odd:\n    - \n    - []\n    - \n    - a:\n        - \n" in text
-
-
-def test_ingestion_error_is_cleared_when_the_ingestion_moves_on():
-    simulation = Simulation(Manifest())
-    simulation.ingestion_status = IngestionStatus.COPYING
-    simulation.ingestion_error = "did not progress"
-    simulation.ingestion_status = IngestionStatus.COPY_FAILED
-    assert simulation.ingestion_error == "did not progress"
-
-    simulation.ingestion_status = IngestionStatus.COMPLETED
-
-    assert simulation.ingestion_error is None
-
-
-def test_fail_ingestion_records_the_status_and_the_reason():
-    simulation = Simulation(Manifest())
-    simulation.ingestion_status = IngestionStatus.COPYING
-
-    simulation.fail_ingestion("disk full")
-
-    assert simulation.ingestion_status == IngestionStatus.COPY_FAILED
-    assert simulation.ingestion_error == "disk full"
-
-
-def test_simulation_str_indents_nested_metadata():
-    simulation = Simulation(Manifest())
+    simulation.set_meta("text", "first line\nsecond line\n\nfourth line")
     simulation.set_meta(
         "validation_report",
         {
             "passed": False,
-            "tests": {"total": 3, "passed": 2, "failed": 1},
+            "tests": {"total": 3, "passed": 2},
             "files": [{"uri": "imas:hdf5?path=/run", "rules": ["a", "b"]}],
         },
     )
 
-    text = str(simulation)
-
     assert (
+        "  odd:\n    - \n    - []\n    - \n    - a:\n        - \n"
+        "  text: first line\n"
+        "        second line\n"
+        "\n"
+        "        fourth line\n"
         "  validation_report:\n"
         "    passed: False\n"
         "    tests:\n"
         "      total: 3\n"
         "      passed: 2\n"
-        "      failed: 1\n"
         "    files:\n"
         "      - uri: imas:hdf5?path=/run\n"
         "        rules: [a, b]\n"
         "inputs:\n"
-    ) in text
+    ) in str(simulation)
+
+
+def test_ingestion_error_is_cleared_when_the_ingestion_moves_on():
+    simulation = Simulation(Manifest())
+    simulation.ingestion_status = IngestionStatus.COPYING
+    simulation.fail_ingestion("disk full")
+
+    assert simulation.ingestion_status == IngestionStatus.COPY_FAILED
+    assert simulation.ingestion_error == "disk full"
+
+    simulation.ingestion_status = IngestionStatus.COMPLETED
+
+    assert simulation.ingestion_error is None
