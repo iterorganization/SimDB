@@ -1,9 +1,11 @@
+import uuid
 from unittest import mock
 
 from click.testing import CliRunner
 from utils import config_test_file
 
 from simdb.cli.simdb import cli
+from simdb.database.models import Simulation
 from simdb.notifications import Notification
 
 
@@ -253,6 +255,38 @@ def test_remote_query_command(
     (args, kwargs) = query_simulations.call_args
     assert args == (constraints, (), 100)
     assert kwargs == {}
+
+
+@mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_authentication")
+@mock.patch("simdb.cli.remote_api.RemoteAPI.get_endpoints")
+@mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_version")
+@mock.patch("simdb.cli.remote_api.RemoteAPI.query_simulations")
+def test_remote_query_command_with_string_metadata(
+    query_simulations,
+    get_server_version,
+    get_endpoints,
+    get_server_authentication,
+):
+    get_endpoints.return_value = ["v1", "v1.1", "v1.1.1", "v1.2"]
+    get_server_version.return_value = "0.11"
+    get_server_authentication.return_value = "None"
+    query_simulations.return_value = [
+        Simulation.from_data(
+            {
+                "uuid": uuid.UUID("a7f5ef1c-1b0b-4b52-9a5a-1f3a3d8e2b11"),
+                "alias": "astra-run",
+                "metadata": [{"element": "code.name", "value": "ASTRA"}],
+            }
+        )
+    ]
+    config_file = config_test_file()
+    runner = CliRunner()
+    result = runner.invoke(
+        cli, [f"--config-file={config_file}", "remote", "query", "code.name=in:astra"]
+    )
+    assert result.exception is None
+    assert "astra-run" in result.output
+    assert "ASTRA" in result.output
 
 
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_authentication")
