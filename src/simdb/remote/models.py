@@ -21,7 +21,7 @@ from urllib.parse import urlencode
 from uuid import UUID, uuid1
 
 import numpy as np
-from imas.ids_defs import EMPTY_FLOAT
+from imas.ids_defs import EMPTY_FLOAT, EMPTY_INT
 from pydantic import (
     BaseModel as _BaseModel,
 )
@@ -81,6 +81,11 @@ def _is_valid_float(value: float) -> bool:
     return math.isfinite(value) and value != EMPTY_FLOAT
 
 
+def _is_empty_int(value: Any) -> bool:
+    """Return True for the IMAS empty int (only for integer values, not floats)."""
+    return isinstance(value, (int, np.integer)) and value == EMPTY_INT
+
+
 def _array_to_range(value: Any) -> Any:
     """Convert a numpy array or list to a RangeValue if it contains numeric data."""
     if value is None:
@@ -103,7 +108,7 @@ def _array_to_range(value: Any) -> Any:
             return value
 
         try:
-            float_values = [float(v) for v in value]
+            float_values = [float(v) for v in value if not _is_empty_int(v)]
         except (TypeError, ValueError):
             return value
         valid = [v for v in float_values if _is_valid_float(v)]
