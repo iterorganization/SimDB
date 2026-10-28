@@ -3,6 +3,7 @@ from click.testing import CliRunner
 from simdb.cli.simdb import cli
 from utils import config_test_file
 from simdb.notifications import Notification
+from simdb.cli.remote_api import RemoteError
 
 
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_authentication")
@@ -332,3 +333,33 @@ def test_remote_query_command_with_verbose(
 #     assert args == (sim_id, Simulation.Status.ACCEPTED)
 #     assert kwargs == {}
 #     assert get_api_version.called
+
+
+def _fake_get(root: dict, indexes: dict):
+    def get(self, url, *args, **kwargs):
+        response = mock.Mock()
+        version = self._api_url.rstrip("/").split("/")[-1]
+        response.json.return_value = indexes[version] if url == "" and version in indexes else root
+        return response
+
+    return get
+
+
+def test_remote_command_with_newer_server_api_advises_upgrade():
+    root = {
+        "endpoints": [f"http://0.0.0.0:5000/v{v}" for v in ("1", "1.1", "1.2", "1.3")],
+        "authentication": "None",
+        "server_version": "1.0.0",
+    }
+    indexes = {"v1.3": {"api": "simdb", "api_version": "1.3"}}
+    config_file = config_test_file()
+    runner = CliRunner()
+    with mock.patch(
+        "simdb.cli.remote_api.RemoteAPI.get", autospec=True, side_effect=_fake_get(root, indexes)
+    ):
+        result = runner.invoke(cli, [f"--config-file={config_file}", "remote", "list"])
+    assert isinstance(result.exception, RemoteError)
+    message = str(result.exception)
+    assert "1.0.0" in message
+    assert "API version 1.3" in message
+    assert "pip install --upgrade imas-simdb" in message

@@ -239,9 +239,23 @@ class RemoteAPI:
         if config.verbose:
             print(f"Selected latest endpoint version {latest_version}")
 
+        # newer servers only report the server version at the root
+        root_server_version = self.get_server_version()
+
         self._api_url += f"{latest_version}/"
         self.version = Version.coerce(self.get_api_version())
-        self.server_version = Version.coerce(self.get_server_version())
+        server_version = self.get_server_version() or root_server_version
+        if self.version > Version.coerce(config.api_version):
+            raise RemoteError(
+                f"""\
+Remote '{remote}' runs SimDB server version {server_version or "unknown"} (API version {self.version}),
+which is newer than this client supports (API version {config.api_version}).
+
+Please upgrade the SimDB client: pip install --upgrade imas-simdb"""
+            )
+        if server_version is None:
+            raise RemoteError(f"Remote '{remote}' did not report its server version")
+        self.server_version = Version.coerce(server_version)
 
     def _load_cookies(
         self, remote: str, username: Optional[str], password: Optional[str]
@@ -554,10 +568,10 @@ class RemoteAPI:
         return data["api_version"]
 
     @try_request
-    def get_server_version(self) -> str:
+    def get_server_version(self) -> Optional[str]:
         res = self.get("", authenticate=False)
         data = res.json()
-        return data["server_version"]
+        return data.get("server_version")
 
     @try_request
     def get_validation_schemas(self) -> List[Dict]:
