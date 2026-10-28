@@ -4,6 +4,7 @@ import uuid
 from typing import TYPE_CHECKING, Any, Dict
 
 import numpy as np
+from imas.ids_defs import EMPTY_FLOAT
 
 from simdb.remote.models import RangeValue
 
@@ -51,7 +52,12 @@ class CustomEncoder(json.JSONEncoder):
             return o.value
         elif isinstance(o, np.ndarray):
             if np.issubdtype(o.dtype, np.number):
-                valid = o[~np.isnan(o)] if np.issubdtype(o.dtype, np.floating) else o
+                if np.issubdtype(o.dtype, np.floating):
+                    valid = o[np.isfinite(o) & (o != EMPTY_FLOAT)]
+                else:
+                    valid = o
+                if valid.size == 0:
+                    return None
                 return {"min": float(valid.min()), "max": float(valid.max())}
             return o.tolist()
         return super().default(o)

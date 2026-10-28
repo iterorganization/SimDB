@@ -1,6 +1,7 @@
 """Pydantic models for the SimDB remote API."""
 
 import base64
+import math
 from datetime import datetime as dt
 from datetime import timezone
 from pathlib import Path
@@ -20,6 +21,7 @@ from urllib.parse import urlencode
 from uuid import UUID, uuid1
 
 import numpy as np
+from imas.ids_defs import EMPTY_FLOAT
 from pydantic import (
     BaseModel as _BaseModel,
 )
@@ -74,6 +76,11 @@ StatusLiteral = Literal[
 """String representation of a simulation status"""
 
 
+def _is_valid_float(value: float) -> bool:
+    """Return False for NaN, +/-inf and the IMAS empty float."""
+    return math.isfinite(value) and value != EMPTY_FLOAT
+
+
 def _array_to_range(value: Any) -> Any:
     """Convert a numpy array or list to a RangeValue if it contains numeric data."""
     if value is None:
@@ -97,9 +104,12 @@ def _array_to_range(value: Any) -> Any:
 
         try:
             float_values = [float(v) for v in value]
-            return RangeValue(min=min(float_values), max=max(float_values))
         except (TypeError, ValueError):
             return value
+        valid = [v for v in float_values if _is_valid_float(v)]
+        if not valid:
+            return None
+        return RangeValue(min=min(valid), max=max(valid))
 
     return value
 
