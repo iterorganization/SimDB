@@ -8,6 +8,7 @@ from simdb.database.models import metadata as models_meta
 from simdb.database.models import simulation as models_sim
 from simdb.database.models import watcher as models_watcher
 from simdb.enums import IngestionStatus
+from simdb.imas.utils import SimDBUrl
 from simdb.remote.apis.v1_2.simulations import (
     Simulation,
     SimulationMeta,
@@ -31,6 +32,7 @@ from simdb.remote.models import (
     SimulationStatusResponse,
 )
 from simdb.workers.tasks import (
+    cleanup_http_staging_task,
     complete_ingestion_task,
     copy_files_task,
     validate_simulation_task,
@@ -127,6 +129,16 @@ class SimulationList(SimulationListV12):
         complete = complete_ingestion_task.si(simulation.uuid)
 
         pipeline = [copy_files, complete]
+
+        # Files uploaded over HTTP are staged in the ``http`` partition; once
+        # copied into the upload folder, remove those staged duplicates.
+        all_files = [*body.simulation.inputs.root, *body.simulation.outputs.root]
+        if all(SimDBUrl(f.uri).scheme == "http" for f in all_files):
+            cleanup = cleanup_http_staging_task.si(simulation.uuid)
+            copy_files.link_error(cleanup)
+            complete.link_error(cleanup)
+            pipeline.append(cleanup)
+
         if current_app.simdb_config.get_option(
             "validation.auto_validate", default=False
         ):

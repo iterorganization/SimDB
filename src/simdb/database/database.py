@@ -715,7 +715,7 @@ class Database:
         query = (
             self.session.query(Simulation.uuid, Simulation.alias)
             .join(Simulation.outputs)
-            .filter(File.checksum.in_(subquery))
+            .filter(File.checksum.in_(subquery.select()))
             .filter(Simulation.alias != simulation.alias)
             .distinct()
         )
@@ -733,7 +733,7 @@ class Database:
         query = (
             self.session.query(Simulation.uuid, Simulation.alias)
             .join(Simulation.outputs)
-            .filter(File.checksum.in_(subquery))
+            .filter(File.checksum.in_(subquery.select()))
             .filter(Simulation.alias != simulation.alias)
             .distinct()
         )
@@ -749,7 +749,7 @@ class Database:
         query = (
             self.session.query(Simulation.uuid, Simulation.alias)
             .join(Simulation.inputs)
-            .filter(File.checksum.in_(subquery))
+            .filter(File.checksum.in_(subquery.select()))
             .filter(Simulation.alias != simulation.alias)
             .distinct()
         )
@@ -767,7 +767,7 @@ class Database:
         query = (
             self.session.query(Simulation.uuid, Simulation.alias)
             .join(Simulation.inputs)
-            .filter(File.checksum.in_(subquery))
+            .filter(File.checksum.in_(subquery.select()))
             .filter(Simulation.alias != simulation.alias)
             .distinct()
         )

@@ -87,9 +87,7 @@ The alias is an optional, human-readable identifier. Rules:
 - Once a simulation has been pushed to a server its alias is fixed.
 
 You can set the alias in the manifest, or override it at ingest time with
-`simdb simulation ingest -a ALIAS manifest.yaml`. Helper commands
-`simdb alias search` and `simdb alias make-unique` are documented in the
-[CLI reference](cli.md).
+`simdb simulation ingest -a ALIAS manifest.yaml`.
 
 ## Metadata
 

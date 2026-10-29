@@ -30,8 +30,7 @@ Good alias conventions:
 - a `pulse_number/run_number` form such as `100001/1`.
 
 The alias is optional in the manifest; you can also set it at ingest time with
-`simdb simulation ingest -a ALIAS`. Use `simdb alias make-unique` if you need a
-guaranteed-unique name.
+`simdb simulation ingest -a ALIAS`.
 
 ## List inputs and outputs
 

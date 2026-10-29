@@ -36,7 +36,6 @@ dependencies = [
     "argcomplete>=1.9.4",
     "click>=7.0,<=8.1.8",
     "click_option_group>=0.5",
-    "distro>=1.8.0",
     "email-validator>=1.1",
     "imas-python>=2.0.1",
     "netCDF4>=1.7.2",
@@ -55,15 +54,15 @@ dependencies = [
 [project.optional-dependencies]
 server = [
     "Flask>=3.0",
+    "celery>=5.3.0",
     "flask-caching>=1.10",
     "flask-compress>=1.12",
     "flask-cors>=3",
-    "flask-mail~=0.9.1",
     "flask-restx>=1.0.0",
+    "gunicorn>=26.2.0",
     "python-magic~=0.4",
-    "simplejson~=3.0",
-    "celery>=5.3.0",
     "redis>=5.0.0",
+    "simplejson~=3.0",
 ]
 auth-ad = [
     "easyad>=1.0",
@@ -124,6 +123,7 @@ simdb = ["py.typed", "LICENSE"]
 
 [tool.setuptools_scm]
 write_to = "src/simdb/_version.py"
+version_scheme = "no-guess-dev"
 local_scheme = "dirty-tag"
 
 [tool.ruff]

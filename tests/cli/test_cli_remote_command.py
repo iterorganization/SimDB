@@ -1,5 +1,6 @@
 from unittest import mock
 
+import pytest
 from click.testing import CliRunner
 from utils import config_test_file
 
@@ -303,3 +304,50 @@ def test_remote_query_command_with_verbose(
     (args, kwargs) = query_simulations.call_args
     assert args == (constraints, (), 100)
     assert kwargs == {}
+
+
+@pytest.mark.parametrize("help_option", ["--help", "-h"])
+@pytest.mark.parametrize(
+    "args, command",
+    [
+        (("watcher",), "watcher"),
+        (("PP", "watcher"), "watcher"),
+        (("PP", "watcher", "add"), "watcher add"),
+        (("PP", "watcher", "add", "abcd1234"), "watcher add"),
+        (("PP", "token", "new"), "token new"),
+        (("--username", "u", "PP", "info"), "info"),
+        (("--username=u", "PP", "list"), "list"),
+    ],
+)
+def test_remote_help_after_name(args, command, help_option):
+    config_file = config_test_file()
+    runner = CliRunner()
+    result = runner.invoke(
+        cli, [f"--config-file={config_file}", "remote", *args, help_option]
+    )
+    assert result.exit_code == 0, result.output
+    assert result.output.startswith(f"Usage: simdb remote [NAME] {command} [OPTIONS]")
+
+
+@pytest.mark.parametrize("args", [("PP", "bogus"), ("PP", "watcher", "bogus")])
+def test_remote_help_unknown_command(args):
+    config_file = config_test_file()
+    runner = CliRunner()
+    result = runner.invoke(cli, [f"--config-file={config_file}", "remote", *args, "-h"])
+    assert result.exit_code == 2
+    assert "No such command 'bogus'" in result.output
+
+
+@pytest.mark.parametrize(
+    "args, command",
+    [
+        (("PP", "-h", "watcher"), "watcher"),
+        (("PP", "watcher", "--help", "list"), "watcher list"),
+    ],
+)
+def test_remote_help_mid_line(args, command):
+    config_file = config_test_file()
+    runner = CliRunner()
+    result = runner.invoke(cli, [f"--config-file={config_file}", "remote", *args])
+    assert result.exit_code == 0, result.output
+    assert result.output.startswith(f"Usage: simdb remote [NAME] {command} [OPTIONS]")

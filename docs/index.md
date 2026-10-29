@@ -51,7 +51,6 @@ tutorials/push-to-remote
 :hidden:
 
 how-to/create-a-manifest
-how-to/capture-provenance
 how-to/ingest-and-manage
 how-to/query-simulations
 how-to/push-pull

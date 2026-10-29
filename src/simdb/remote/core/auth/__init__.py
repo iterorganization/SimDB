@@ -97,18 +97,27 @@ def check_auth(config: Config, request: Request) -> Optional[User]:
     if "token" not in authentication_types:
         authentication_types = ["token", *authentication_types]
 
+    auth_error_msgs: list[str] = []
+    last_error: Optional[AuthenticationError] = None
+
     for authentication_type in authentication_types:
         authenticator = Authenticator.get(authentication_type)
         try:
             user = authenticator.authenticate(config, request)
             if user is not None:
                 return user
-        except AuthenticationError:
-            AuthenticationError(
-                f"Authentication failed for user {username} using "
-                f"{authentication_type} authenticator."
-            )
-            ...
+        except AuthenticationError as exc:
+            auth_error_msgs.append(f"{authentication_type} authenticator: {exc}")
+            last_error = exc
+
+    if auth_error_msgs:
+        error = AuthenticationError(
+            f"Authentication failed for user {username} using "
+            f"{', '.join(authentication_types)} authenticators."
+        )
+        for error_msg in auth_error_msgs:
+            error.add_note(error_msg)
+        raise error from last_error
 
     return None
 
