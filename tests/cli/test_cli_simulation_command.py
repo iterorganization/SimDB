@@ -116,9 +116,9 @@ def test_optional_remote_argument(
     """REMOTE may be left out, wherever the options appear on the command line."""
     config_file = config_test_file()
     # push_local polls until the ingestion reaches a terminal state.
-    remote_api.return_value.get_ingestion_status.return_value = (
-        IngestionStatus.COMPLETED.value
-    )
+    remote_api.return_value.get_ingestion_status.return_value = {
+        "status": IngestionStatus.COMPLETED.value
+    }
     arguments = (*remote, "sim_id", *trailing_args)
     argv = (*options, *arguments) if options_first else (*arguments, *options)
 
@@ -138,9 +138,9 @@ def test_optional_remote_argument(
 def test_simulation_push_local_command(get_local_db, remote_api):
     """push_local waits for the remote ingestion to complete."""
     config_file = config_test_file()
-    remote_api.return_value.get_ingestion_status.return_value = (
-        IngestionStatus.COMPLETED.value
-    )
+    remote_api.return_value.get_ingestion_status.return_value = {
+        "status": IngestionStatus.COMPLETED.value
+    }
     simulation = get_local_db.return_value.get_simulation.return_value
 
     runner = CliRunner()
@@ -163,9 +163,9 @@ def test_simulation_push_local_validates(get_local_db, remote_api, validator):
     config_file = config_test_file()
     remote_api.return_value.get_upload_options.return_value = {}
     remote_api.return_value.get_validation_schemas.return_value = [{"schema": 1}]
-    remote_api.return_value.get_ingestion_status.return_value = (
-        IngestionStatus.COMPLETED.value
-    )
+    remote_api.return_value.get_ingestion_status.return_value = {
+        "status": IngestionStatus.COMPLETED.value
+    }
     simulation = get_local_db.return_value.get_simulation.return_value
 
     runner = CliRunner()
@@ -188,7 +188,7 @@ def test_simulation_push_local_validates(get_local_db, remote_api, validator):
 def test_simulation_push_local_failed_ingestion(get_local_db, remote_api, status):
     """push_local fails when the remote ingestion does."""
     config_file = config_test_file()
-    remote_api.return_value.get_ingestion_status.return_value = status.value
+    remote_api.return_value.get_ingestion_status.return_value = {"status": status.value}
 
     runner = CliRunner()
     result = runner.invoke(
@@ -204,9 +204,9 @@ def test_simulation_push_local_failed_ingestion(get_local_db, remote_api, status
 def test_simulation_push_local_timeout(get_local_db, remote_api):
     """push_local stops waiting once the --timeout has passed."""
     config_file = config_test_file()
-    remote_api.return_value.get_ingestion_status.return_value = (
-        IngestionStatus.COPYING.value
-    )
+    remote_api.return_value.get_ingestion_status.return_value = {
+        "status": IngestionStatus.COPYING.value
+    }
     argv = ("push_local", "sim_id", "--timeout=0")
 
     runner = CliRunner()
@@ -240,10 +240,10 @@ def test_simulation_push_local_reports_status_changes(get_local_db, remote_api, 
     sim_uuid = uuid1()
     get_local_db.return_value.get_simulation.return_value.uuid = sim_uuid
     remote_api.return_value.get_ingestion_status.side_effect = [
-        IngestionStatus.QUEUED.value,
-        IngestionStatus.COPYING.value,
-        IngestionStatus.COPYING.value,
-        IngestionStatus.COMPLETED.value,
+        {"status": IngestionStatus.QUEUED.value},
+        {"status": IngestionStatus.COPYING.value},
+        {"status": IngestionStatus.COPYING.value},
+        {"status": IngestionStatus.COMPLETED.value},
     ]
 
     result = _invoke_push_local(remote_api)
@@ -258,7 +258,9 @@ def test_simulation_push_local_reports_status_changes(get_local_db, remote_api, 
 @mock.patch("simdb.cli.commands.simulation.get_local_db")
 def test_simulation_push_local_unknown_status(get_local_db, remote_api, sleep):
     """push_local does not wait for a status it cannot recognise."""
-    remote_api.return_value.get_ingestion_status.return_value = "TELEPORTING"
+    remote_api.return_value.get_ingestion_status.return_value = {
+        "status": "TELEPORTING"
+    }
 
     result = _invoke_push_local(remote_api)
 
@@ -274,12 +276,32 @@ def test_simulation_push_local_transient_errors(get_local_db, remote_api, sleep)
     remote_api.return_value.get_ingestion_status.side_effect = [
         FailedConnection("connection reset"),
         FailedConnection("connection reset"),
-        IngestionStatus.COMPLETED.value,
+        {"status": IngestionStatus.COMPLETED.value},
     ]
 
     result = _invoke_push_local(remote_api)
 
     assert result.exit_code == 0, result.output
+    assert "COMPLETED" in result.output
+
+
+@mock.patch("simdb.cli.commands.simulation.time.sleep")
+@mock.patch("simdb.cli.commands.simulation.RemoteAPI")
+@mock.patch("simdb.cli.commands.simulation.get_local_db")
+def test_simulation_push_local_tolerates_a_response_without_a_status(
+    get_local_db, remote_api, sleep
+):
+    """A body without a status (a proxy error page) is retried like a failed
+    connection rather than crashing the poll."""
+    remote_api.return_value.get_ingestion_status.side_effect = [
+        {"error": "Bad Gateway"},
+        {"status": IngestionStatus.COMPLETED.value},
+    ]
+
+    result = _invoke_push_local(remote_api)
+
+    assert result.exit_code == 0, result.output
+    assert "KeyError" not in result.output
     assert "COMPLETED" in result.output
 
 
@@ -310,3 +332,22 @@ def test_simulation_push_local_rejected_status_check(get_local_db, remote_api, s
     assert result.exit_code != 0
     assert "Failed to check ingestion status: Simulation not found" in result.output
     assert remote_api.return_value.get_ingestion_status.call_count == 1
+
+
+@pytest.mark.parametrize("error", ["{'machine': ['required field']}", None])
+@mock.patch("simdb.cli.commands.simulation.RemoteAPI")
+@mock.patch("simdb.cli.commands.simulation.get_local_db")
+def test_simulation_push_local_reports_why_ingestion_failed(
+    get_local_db, remote_api, error
+):
+    """push_local shows the reason the remote gives for a failed ingestion, if any."""
+    remote_api.return_value.get_ingestion_status.return_value = {
+        "status": IngestionStatus.VALIDATION_FAILED.value,
+        "error": error,
+    }
+
+    result = _invoke_push_local(remote_api)
+
+    assert result.exit_code != 0
+    assert "Simulation ingestion failed with status: VALIDATION_FAILED" in result.output
+    assert error is None or error in result.output

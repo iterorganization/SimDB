@@ -1,5 +1,5 @@
 from collections import deque
-from typing import Any, Deque, Dict, List, Tuple, Type, Union, cast
+from typing import Any, Deque, Dict, List, Optional, Tuple, Type, Union, cast
 
 FLATTEN_DICT_DELIM = "."
 
@@ -101,3 +101,53 @@ def checked_get(data: Dict[str, Any], key, expected_type: Type, optional: bool =
             f"{expected_type_name}."
         )
     return data[key]
+
+
+def _inline_meta(value: Any) -> Optional[str]:
+    """VALUE on one line, or None if it needs a block of its own."""
+    if isinstance(value, dict):
+        if "min" in value and "max" in value:
+            return f"[{value['min']}, {value['max']}]"
+        return None
+    if isinstance(value, list):
+        if any(isinstance(item, (dict, list)) for item in value):
+            return None
+        return "[{}]".format(", ".join(str(item) for item in value))
+    return str(value)
+
+
+def _indent(lines: List[str], indent: str) -> List[str]:
+    """LINES indented, leaving blank lines blank."""
+    return [f"{indent}{line}" if line else "" for line in lines]
+
+
+def _format_meta_block(value: Any) -> List[str]:
+    """The lines of a VALUE that does not fit on one line.
+
+    A dictionary becomes one element per entry, a list one dash per item.
+    """
+    if isinstance(value, dict):
+        return [line for key, item in value.items() for line in format_meta(key, item)]
+    lines = []
+    for item in value:
+        inline = _inline_meta(item)
+        item_lines = (
+            inline.split("\n") if inline is not None else _format_meta_block(item)
+        ) or [""]
+        lines.append(f"- {item_lines[0]}")
+        lines.extend(_indent(item_lines[1:], "  "))
+    return lines
+
+
+def format_meta(name: str, value: Any) -> List[str]:
+    """The lines showing the metadata element NAME with its VALUE.
+
+    A scalar, a range or a flat list follows the name on its line, with any
+    further lines of a multi-line string aligned under the first. A nested
+    dictionary or list is indented below the name.
+    """
+    inline = _inline_meta(value)
+    if inline is None:
+        return [f"{name}:", *_indent(_format_meta_block(value), "  ")]
+    first, *rest = inline.split("\n")
+    return [f"{name}: {first}", *_indent(rest, " " * (len(name) + 2))]

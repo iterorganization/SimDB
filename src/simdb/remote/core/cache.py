@@ -5,11 +5,11 @@ from flask_caching import Cache
 
 from simdb.config import Config
 
+from .cache_backend import cache_options_from
+
 config = Config("app.cfg")
 config.load()
-cache_options = {
-    "CACHE_" + k.upper(): v for (k, v) in config.get_section("cache", {}).items()
-}
+cache_options = cache_options_from(config)
 
 cache = Cache(config=cache_options)
 

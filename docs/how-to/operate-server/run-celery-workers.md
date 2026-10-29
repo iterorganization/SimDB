@@ -47,16 +47,26 @@ celery -A simdb.workers.celery flower --port=5555
 | --- | --- |
 | `copy_files_task` | Copies input and output files to the server's upload folder and updates the ingestion status. |
 | `complete_ingestion_task` | Marks a simulation as fully ingested. |
-| `validate_imas_task` | Runs validation checks on IMAS data. |
+| `validate_simulation_task` | Validates the metadata and, with a file validator configured, the output files of a completed simulation, and stores the result with it. Runs after `complete_ingestion_task` when `auto_validate` is set: see [Configure validation](configure-validation.md). |
 | `send_email_task` | Sends email notifications. |
 | `fail_stale_ingestions_task` | Periodic sweep that fails simulations stuck in a non-terminal ingestion state. |
 
 ## Recover stuck ingestions
 
-A simulation moves through non-terminal ingestion states (`QUEUED`, `COPYING`)
-before reaching a terminal one (`COMPLETED`, `COPY_FAILED`,
-`VALIDATION_FAILED`), and it can only be deleted once it reaches a terminal
-state. Three mechanisms keep it from getting stuck:
+A simulation moves through non-terminal ingestion states (`QUEUED`, `COPYING`,
+`COPIED`) before reaching a terminal one (`COMPLETED`, `COPY_FAILED`), and it
+can only be deleted once it reaches a terminal state. Validation runs after the
+ingestion has completed and does not change the ingestion state. The reason for
+a failed state is stored with the simulation and returned by the status
+endpoint.
+
+Earlier versions validated as part of the ingestion and used three more states.
+`VALIDATION_FAILED` is terminal too, so simulations left in it stay as they
+are. `VALIDATING` and `VALIDATED` are not: no worker moves a simulation on from
+them any more, so the stale sweep below marks such a simulation `COPY_FAILED`
+with the reason that it did not progress.
+
+Three mechanisms keep a simulation from getting stuck:
 
 1. A task that raises is caught, and the simulation is marked `COPY_FAILED`.
 2. A task that hangs is stopped by `task_soft_time_limit` and then marked

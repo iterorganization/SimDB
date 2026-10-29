@@ -1,11 +1,13 @@
 from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
 from simdb.imas.utils import SimDBUrl
+from simdb.validation.report import NODES_SHOWN, FileReport, IdsReport, RuleReport
+from simdb.validation.validator import ValidationError
+
+from .validator_base import FileValidatorBase
 
 try:
-    from imas_validator.report.validationReportGenerator import (
-        ValidationReportGenerator,
-    )
     from imas_validator.validate.validate import validate
     from imas_validator.validate_options import RuleFilter, ValidateOptions
 
@@ -13,9 +15,84 @@ try:
 except ImportError:
     imas_validator_available = False
 
-from simdb.validation.validator import ValidationError
 
-from .validator_base import FileValidatorBase
+def _split_list(value) -> List[str]:
+    """Split a comma-separated option into its non-empty, stripped entries.
+
+    An unset option is an empty string or None, which must not become the single empty
+    entry [""]: the validator would then look for a ruleset or rule directory
+    named "" and fail.
+    """
+    if not value:
+        return []
+    if isinstance(value, (list, tuple)):
+        items = [str(item) for item in value]
+    else:
+        items = str(value).split(",")
+    cleaned = (item.strip().strip("\"'") for item in items)
+    return [item for item in cleaned if item]
+
+
+def _failure_message(result) -> str:
+    """Why RESULT failed: the rule's own message, or the exception it raised.
+
+    The validator records a rule that raised with an empty message and the
+    exception in ``exc``, so without the fallback a crashed rule would show no
+    reason at all.
+    """
+    if result.msg:
+        return str(result.msg)
+    exc = getattr(result, "exc", None)
+    if exc is not None:
+        return f"{type(exc).__name__}: {exc}"
+    return ""
+
+
+def _file_report(uri: str, validation_result) -> FileReport:
+    """Summarise an IMAS-Validator result collection per IDS and rule.
+
+    The validator evaluates each rule on every node or time slice it covers,
+    so a rule has test counts of its own. Only a handful of the affected nodes
+    is kept: the validator's own report repeats every one, which runs to
+    megabytes for a failing profile.
+    """
+    rules: Dict[Tuple[str, int], Dict[str, RuleReport]] = {}
+    unbound_errors: List[str] = []
+    for result in validation_result.results:
+        if not result.success and not result.idss:
+            # The rule failed before it was bound to an IDS, so it cannot be
+            # listed per IDS: record it as a file-level error instead.
+            unbound_errors.append(f"{result.rule.name}: {_failure_message(result)}")
+            continue
+        for ids_name, occurrence in result.idss:
+            # The validator hands back numpy integers, which JSON cannot store.
+            ids_key = (str(ids_name), int(occurrence))
+            ids_rules = rules.setdefault(ids_key, {})
+            rule = ids_rules.get(result.rule.name)
+            if rule is None:
+                rule = ids_rules[result.rule.name] = RuleReport(name=result.rule.name)
+            if result.success:
+                rule.tests.passed += 1
+                continue
+            rule.tests.failed += 1
+            if not rule.message:
+                rule.message = _failure_message(result)
+            for node in result.nodes_dict.get((ids_name, occurrence), ()):
+                if not node:
+                    continue
+                rule.failed_nodes += 1
+                if len(rule.sample_nodes) < NODES_SHOWN:
+                    rule.sample_nodes.append(str(node))
+
+    error = "; ".join(unbound_errors) if unbound_errors else None
+    return FileReport(
+        uri=uri,
+        error=error,
+        ids=[
+            IdsReport(name=name, occurrence=occurrence, rules=list(ids_rules.values()))
+            for (name, occurrence), ids_rules in sorted(rules.items())
+        ],
+    )
 
 
 class IdsValidator(FileValidatorBase):
@@ -26,34 +103,17 @@ class IdsValidator(FileValidatorBase):
             )
         # needs to be able to configure from both the [file_validation] server
         # configuration section and the dictionary returned from options()
-        list_of_rulesets = []
-        list_of_extra_rulesets = []
-        list_of_filter_idses = []
-        list_of_filter_names = []
-
-        apply_generic = True
-        bundled_ruleset = True
-
-        list_of_rulesets = arguments.get("rulesets", "").strip('"').split(",")
-
+        list_of_rulesets = _split_list(arguments.get("rulesets", ""))
         list_of_extra_rulesets = [
             Path(ruleset_path)
-            for ruleset_path in arguments.get("extra_rule_dirs", "")
-            .strip('"')
-            .split(",")
+            for ruleset_path in _split_list(arguments.get("extra_rule_dirs", ""))
         ]
 
         # Define logic for rule_filter
-        list_of_filter_names = (
-            arguments.get("rule_filter_name", "").strip('"').split(",")
-        )
-
-        list_of_filter_idses = (
-            arguments.get("rule_filter_ids", "").strip('"').split(",")
-        )
+        list_of_filter_names = _split_list(arguments.get("rule_filter_name", ""))
+        list_of_filter_idses = _split_list(arguments.get("rule_filter_ids", ""))
 
         apply_generic = arguments.get("apply_generic", True)
-
         bundled_ruleset = arguments.get("bundled_ruleset", True)
 
         options = ValidateOptions(
@@ -73,36 +133,32 @@ class IdsValidator(FileValidatorBase):
             "rule_files": [],
         }
 
-    def validate_uri(self, uri: SimDBUrl, validate_options):
+    def validate_uri(self, uri: SimDBUrl, validate_options) -> Optional[FileReport]:
         if not imas_validator_available:
             raise RuntimeError(
                 "IMAS-validator not available, please install this optional dependency"
             )
         if uri.scheme != "imas":
             # Skip non IMAS data
-            return
+            return None
+
+        # Validation runs on the server, so always access the data locally: a
+        # remote access URI (imas://host/uda?path=...&backend=...) is rewritten
+        # to the local form (imas:<backend>?path=...) it was created from.
+        qs = dict(uri.query_params())
+        backend = qs.get("backend") or uri.path
+        path = qs.get("path")
+        if not backend or not path:
+            raise ValidationError(f"Cannot determine the backend and path of {uri}")
+        validate_uri = SimDBUrl.build(scheme="imas", path=backend, query=f"path={path}")
 
         try:
-            qs = dict(uri.query_params())
-            backend = qs.get("backend")
-            path = qs.get("path")
-            validate_uri = SimDBUrl.build(
-                scheme="imas", path=backend, query=f"path={path}"
-            )
-
             validate_output = validate(
                 imas_uri=validate_uri.encoded_string(),
                 validate_options=validate_options,
             )
-
-            validate_result = all(result.success for result in validate_output.results)
-
-            report_generator = ValidationReportGenerator(validate_output)
-
-            if not validate_result:
-                raise ValidationError(
-                    f"Validation of following URI: [{validate_uri}], failed with"
-                    f"following report: \n{report_generator.txt}"
-                )
         except Exception as err:
-            raise ValidationError("validate_uri exception") from err
+            raise ValidationError(f"Failed to validate {validate_uri}: {err}") from err
+
+        # The report lists every rule that ran, whether it passed or failed.
+        return _file_report(str(uri), validate_output)

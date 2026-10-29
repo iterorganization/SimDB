@@ -724,3 +724,6 @@ class SimulationStatusResponse(BaseModel):
     """Response from the get simulation status endpoint."""
 
     status: IngestionStatus
+    """Current ingestion status."""
+    error: Optional[str] = None
+    """Why the ingestion failed, when the status is a failed one."""

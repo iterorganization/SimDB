@@ -76,8 +76,8 @@ the `ids_validator` is available. See
 | `rulesets` | For `ids_validator` | Comma-separated ruleset names to apply. |
 | `bundled_ruleset` | For `ids_validator` | `True`/`False`: load rulesets bundled with `ids_validator`. Defaults to `True`. |
 | `apply_generic` | For `ids_validator` | `True`/`False`: apply generic rulesets. Defaults to `True`. |
-| `rule_filter_name` | For `ids_validator` | Only apply rulesets whose names match these comma-separated values. |
-| `rule_filter_ids` | For `ids_validator` | Only apply rulesets for these comma-separated IDS names. |
+| `rule_filter_name` | For `ids_validator` | Only apply rules whose name contains every one of these comma-separated values. |
+| `rule_filter_ids` | For `ids_validator` | Only apply rules written for every one of these comma-separated IDS names. Generic rules are not selected. |
 
 ## `[email]`
 
@@ -151,6 +151,17 @@ More options are available; take any setting from the
 drop the `CACHE_` prefix and lowercase it, for example `CACHE_ARGS` becomes
 `args`.
 
+```{note}
+The [Celery workers](../how-to/operate-server/run-celery-workers.md) change
+simulations outside the API process, so they empty the cache after updating the
+ingestion status, the ingested files or the validation outcome. They read the
+same `[cache]` section, so this works for any backend shared between processes:
+a `FileSystemCache` whose `dir` both can reach, or a `RedisCache` or
+`MemcachedCache` server. With a `SimpleCache`, which lives in the memory of
+each API process, those changes are not visible through cached endpoints until
+`default_timeout` has passed.
+```
+
 ## `[development]`
 
 | Option | Required | Description |
@@ -166,7 +177,7 @@ Used by the optional
 | --- | --- | --- |
 | `broker_url` | For workers | Message broker URL, for example `redis://redis:6379/0`. |
 | `result_backend` | For workers | Result backend URL, for example `redis://redis:6379/0`. |
-| `task_soft_time_limit` | No | Seconds before a running task is asked to stop. Ingestion tasks turn this into a `COPY_FAILED` status. Defaults to `3600`. |
+| `task_soft_time_limit` | No | Seconds before a running task is asked to stop. Ingestion tasks turn this into a `COPY_FAILED` status; the validation task records it as a validation that could not run. Validating a large dataset takes minutes, so keep the limit well above that. Defaults to `3600`. |
 | `task_time_limit` | No | Hard limit in seconds, after which the task is killed. Defaults to `3660`. |
 | `stale_sweep_interval` | No | How often, in seconds, beat runs the stale-ingestion sweep. Defaults to `300`. |
 | `stale_ingestion_timeout` | No | How long, in seconds, a simulation may sit in a non-terminal ingestion state before the sweep fails it. Should be larger than `task_time_limit`. Defaults to `7200`. |

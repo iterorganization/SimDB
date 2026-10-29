@@ -7,9 +7,11 @@ import pytest
 
 from simdb.checksum import hash_file
 from simdb.config import Config
+from simdb.database.models import Simulation
 from simdb.enums import IngestionStatus
 from simdb.imas.utils import SimDBUrl
 from simdb.remote.models import FileData
+from simdb.validation import MetadataReport, ValidationReport
 from simdb.workers import tasks as simdb_tasks
 from simdb.workers.tasks import (
     _checksum_matches,
@@ -22,6 +24,7 @@ from simdb.workers.tasks import (
     _resolve_uri_to_path,
     cleanup_http_staging_task,
     copy_files_task,
+    validate_simulation_task,
 )
 
 
@@ -236,6 +239,77 @@ def test_notify_watchers_noop_without_watchers():
         _notify_watchers(simulation, "subject", "body")
 
     delay.assert_not_called()
+
+
+def test_copy_files_task_keeps_server_details_out_of_the_reason(task_environment):
+    """An error in the server's own setup is reported to the client by type
+    only; the details stay in the worker log."""
+    env = task_environment
+    source_file = env["partition_dir"] / "source.txt"
+    source_file.write_text("test content")
+    checksum = hash_file(source_file)
+    input_files = [_make_file_data("data:/source.txt", checksum=checksum)]
+    error = PermissionError(13, "Permission denied", "/srv/simdb/uploads/secret")
+
+    with mock.patch(
+        "simdb.workers.tasks._copy_files", side_effect=error
+    ), pytest.raises(PermissionError):
+        copy_files_task(env["simulation_uuid"], input_files, [])
+
+    (reason,), _ = env["simulation"].fail_ingestion.call_args
+    assert reason.startswith("PermissionError while copying the files")
+    assert "/srv/simdb" not in reason
+
+
+def test_validate_simulation_task_records_a_failed_validation(task_environment):
+    """A failed validation is kept with the simulation without touching the
+    ingestion, which has already completed, and the watchers are told."""
+    env = task_environment
+    env["simulation"].ingestion_status = IngestionStatus.COMPLETED
+    env["simulation"].watchers = [mock.MagicMock(email="watcher@example.com")]
+    report = ValidationReport(MetadataReport(error="rule X failed"))
+
+    with mock.patch(
+        "simdb.workers.tasks.validate_simulation", return_value=report
+    ), mock.patch.object(simdb_tasks.send_email_task, "delay") as delay, mock.patch(
+        "simdb.workers.tasks.clear_api_cache_from_worker"
+    ) as clear:
+        validate_simulation_task(env["simulation_uuid"])
+
+    assert env["simulation"].status == Simulation.Status.FAILED
+    assert env["simulation"].ingestion_status == IngestionStatus.COMPLETED
+    env["simulation"].set_meta.assert_called_once_with(
+        "validation_report", report.to_dict()
+    )
+    # The API may have cached the simulation before the outcome was recorded.
+    clear.assert_called_once_with(env["config"])
+    subject, body, to_addresses = delay.call_args.args
+    assert "failed validation" in subject
+    assert "rule X failed" in body
+    assert to_addresses == ["watcher@example.com"]
+    env["db"].close.assert_called_once()
+
+
+def test_validate_simulation_task_records_a_validation_that_could_not_run(
+    task_environment,
+):
+    """A validator that cannot run (not installed, misconfigured) is a failed
+    validation with the reason on the simulation, not only in the worker log.
+    The watchers are not emailed: it is the operator's problem, not theirs."""
+    env = task_environment
+    env["simulation"].watchers = [mock.MagicMock(email="watcher@example.com")]
+
+    with mock.patch(
+        "simdb.workers.tasks.validate_simulation",
+        side_effect=RuntimeError("IMAS-validator not available"),
+    ), mock.patch.object(simdb_tasks.send_email_task, "delay") as delay:
+        validate_simulation_task(env["simulation_uuid"])
+
+    assert env["simulation"].status == Simulation.Status.FAILED
+    report = env["simulation"].set_meta.call_args.args[1]
+    assert report["error"] == "RuntimeError: IMAS-validator not available"
+    delay.assert_not_called()
+    env["db"].close.assert_called_once()
 
 
 def test_copy_files_task_http_keeps_imas_folder_flattens_sibling(task_environment):
