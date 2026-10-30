@@ -70,7 +70,7 @@ Rules:
 - `file` paths must be absolute. Glob patterns are expanded, so
   `file:///data/run42/*.nc` adds every matching file. The variables
   `$MANIFEST_DIR` (the directory containing the manifest) and `~` are expanded.
-- Duplicate URIs within the same section are rejected.
+- Duplicate URIs are rejected, whether repeated within a section or listed in both `inputs` and `outputs`.
 
 When a simulation is pushed to a server, SimDB locates the files behind these
 URIs, checksums them, and transfers copies to the server.

@@ -27,7 +27,7 @@ inputs:
 
 # Data and log files.
 outputs:
-  - uri: file:///$MANIFEST_DIR/utils.py
+  - uri: file:///$MANIFEST_DIR/test_cli_manifest_command.py
   - uri: imas:///user?shot=10000&run=1&database=west
 
 metadata:
