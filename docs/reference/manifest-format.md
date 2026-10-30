@@ -101,7 +101,7 @@ metadata:
       name: SOLPS-ITER
       version: "3.0.8"
   - description: Free-text description of the run.
-  - pulse: 100001
+  - responsible_name: j.smith
 ```
 
 Rules and conventions:
