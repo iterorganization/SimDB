@@ -800,12 +800,13 @@ class Database:
         self.session.commit()
         return simulation.find_meta(name)
 
-    def add_watcher(self, sim_ref: str, watcher: "Watcher"):
+    def add_watcher(self, sim_ref: str, watcher: "Watcher") -> "Simulation":
         sim = self._find_simulation(sim_ref)
         sim.watchers.append(watcher)
         self.session.commit()
+        return sim
 
-    def remove_watcher(self, sim_ref: str, username: str):
+    def remove_watcher(self, sim_ref: str, username: str) -> "Simulation":
         sim = self._find_simulation(sim_ref)
         watchers = [w for w in sim.watchers if w.username == username]
         if not watchers:
@@ -813,6 +814,7 @@ class Database:
         for watcher in watchers:
             sim.watchers.remove(watcher)
         self.session.commit()
+        return sim
 
     def list_watchers(self, sim_ref: str) -> List["Watcher"]:
         return self._find_simulation(sim_ref).watchers

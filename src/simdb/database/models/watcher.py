@@ -53,11 +53,19 @@ class Watcher(Base):
         watcher = Watcher(username, email, notification)
         return watcher
 
+    @classmethod
+    def notification_from_code(cls, code: str) -> Notification:
+        """Return the Notification for its single-letter code (e.g. "A" -> ALL)."""
+        for notification, notification_code in cls.NOTIFICATION_CHOICES.items():
+            if notification_code == code:
+                return notification
+        raise ValueError(f"Unknown notification code {code!r}")
+
     def data(self, recurse: bool = False) -> Dict[str, str]:
         data = {
             "username": self.username,
             "email": self.email,
-            "notification": str(self.notification),
+            "notification": self.NOTIFICATION_CHOICES[self.notification],
         }
         return data
 
