@@ -118,6 +118,20 @@ Waiting for ingestion to complete... QUEUED -> COPYING -> COPIED -> COMPLETED
 Successfully pushed simulation UUID
 ```
 
+When the ingestion fails the server records why, and the command reports it.
+
+If the server is [configured to validate uploads](operate-server/configure-validation.md),
+it validates the simulation after the ingestion has completed, so the command
+does not wait for it. The validation runs the metadata schemas again and, when
+the server has a [file validator](../explanation/validation.md#file-content-validation)
+such as the IMAS-Validator configured, checks the contents of the output files.
+The outcome is stored with the simulation: its status becomes `passed` or
+`failed`, and the `validation_report` metadata lists every check with its
+result and how many tests passed (see
+[the validation report](../explanation/validation.md#the-validation-report)).
+Read them with `simdb remote REMOTE info SIM_ID`. Watchers of the simulation
+are emailed when validation fails.
+
 ### Configure partitions
 
 For `push_local` to resolve files on both sides, client and server must agree on

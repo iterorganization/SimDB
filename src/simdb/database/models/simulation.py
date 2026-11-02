@@ -12,7 +12,7 @@ from sqlalchemy import JSON, Column, ForeignKey, Table, text
 from sqlalchemy import types as sql_types
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.mutable import MutableDict
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, validates
 
 from simdb.enums import IngestionStatus
 from simdb.imas.utils import SimDBUrl
@@ -48,7 +48,7 @@ from simdb.imas.utils import (
 from .base import Base
 from .file import File
 from .types import UUID
-from .utils import checked_get, flatten_dict, unflatten_dict
+from .utils import checked_get, flatten_dict, format_meta, unflatten_dict
 from .watcher import Watcher
 
 simulation_input_files = Table(
@@ -147,6 +147,28 @@ class Simulation(Base):
         onupdate=dt.now,
         server_default=text("CURRENT_TIMESTAMP"),
     )
+    # Why the ingestion ended in a failed status, for the client to report.
+    # Cleared below whenever the ingestion moves on to a non-failed status.
+    ingestion_error = Column(sql_types.Text, nullable=True)
+
+    @validates("ingestion_status")
+    def _clear_stale_ingestion_error(self, _key, status):
+        if status not in (
+            IngestionStatus.COPY_FAILED,
+            IngestionStatus.VALIDATION_FAILED,
+        ):
+            self.ingestion_error = None
+        return status
+
+    def fail_ingestion(self, reason: str) -> None:
+        """Mark the ingestion as COPY_FAILED, recording REASON for the client.
+
+        The reason is kept until the ingestion moves on to a non-failed
+        status, which clears it (see ``_clear_stale_ingestion_error``).
+        """
+        self.ingestion_status = IngestionStatus.COPY_FAILED
+        self.ingestion_error = reason
+
     ingestion_version = Column(sql_types.Integer, nullable=False, default=0)
 
     @property
@@ -283,40 +305,19 @@ class Simulation(Base):
         self.set_meta("status", status.value)
 
     def __str__(self):
-        result = ""
+        lines = []
         for name in ("uuid", "alias"):
-            result += "{}:{}{}\n".format(
-                name,
-                ((10 - len(name)) * " "),
-                getattr(self, name),
-            )
-        result += "metadata:\n"
+            lines.append(f"{name}:{' ' * (10 - len(name))}{getattr(self, name)}")
+        lines.append("metadata:")
         meta_dict = self._get_metadata_dict()
         for element, value in meta_dict.items():
-            if isinstance(value, str) and "\n" in value:
-                first_line = True
-                for line in value.split("\n"):
-                    if first_line:
-                        result += f"  {element}: {line}\n"
-                    elif line:
-                        indent = " " * (len(element) + 2)
-                        result += f"  {indent}{line}"
-                    first_line = False
-            elif isinstance(value, dict) and "min" in value and "max" in value:
-                result += f"  {element}: [{value['min']}, {value['max']}]\n"
-            elif isinstance(value, list):
-                result += "  {}: [{}]\n".format(
-                    element, ", ".join(str(el) for el in value)
-                )
-            else:
-                result += f"  {element}: {value}\n"
-        result += "inputs:\n"
-        for file in self.inputs:
-            result += f"{file}\n"
-        result += "outputs:\n"
-        for file in self.outputs:
-            result += f"{file}\n"
-        return result
+            for line in format_meta(element, value):
+                lines.append(f"  {line}" if line else "")
+        lines.append("inputs:")
+        lines.extend(str(file) for file in self.inputs)
+        lines.append("outputs:")
+        lines.extend(str(file) for file in self.outputs)
+        return "\n".join(lines) + "\n"
 
     def find_meta(self, name: str) -> List[Any]:
         meta_dict = self._get_metadata_dict()

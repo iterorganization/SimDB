@@ -1,6 +1,7 @@
 import datetime
 from typing import Annotated, Optional
 
+from celery import chain
 from flask_restx import Namespace, Resource
 
 from simdb.database.models import metadata as models_meta
@@ -34,6 +35,7 @@ from simdb.workers.tasks import (
     cleanup_http_staging_task,
     complete_ingestion_task,
     copy_files_task,
+    validate_simulation_task,
 )
 
 api = Namespace("simulations", path="/")
@@ -81,6 +83,14 @@ class SimulationList(SimulationListV12):
         user: User,
         body: Annotated[SimulationPostData, Body()],
     ) -> SimulationPostResponse:
+        """Register a simulation and ingest its files in the background.
+
+        The files are copied by a Celery worker from the given partition URIs,
+        after which the ingestion is COMPLETED. Poll the status endpoint to
+        follow it. When the server validates uploads automatically the worker
+        then validates the simulation separately, recording the outcome in the
+        simulation status without holding up the ingestion.
+        """
         simulation_data = body.model_copy(deep=True)
 
         # Clear the file inputs and outputs.
@@ -118,6 +128,8 @@ class SimulationList(SimulationListV12):
         # The complete job will set simulation.ingestion_status = Completed
         complete = complete_ingestion_task.si(simulation.uuid)
 
+        pipeline = [copy_files, complete]
+
         # Files uploaded over HTTP are staged in the ``http`` partition; once
         # copied into the upload folder, remove those staged duplicates.
         all_files = [*body.simulation.inputs.root, *body.simulation.outputs.root]
@@ -125,21 +137,33 @@ class SimulationList(SimulationListV12):
             cleanup = cleanup_http_staging_task.si(simulation.uuid)
             copy_files.link_error(cleanup)
             complete.link_error(cleanup)
-            chain = copy_files | complete | cleanup
-        else:
-            chain = copy_files | complete
+            pipeline.append(cleanup)
+
+        if current_app.simdb_config.get_option(
+            "validation.auto_validate", default=False
+        ):
+            # Validation follows the completed ingestion and does not change
+            # the ingestion status, so clients need not wait for it.
+            pipeline.append(validate_simulation_task.si(simulation.uuid))
 
         try:
-            _ = chain.apply_async()
+            _ = chain(*pipeline).apply_async()
         except Exception as err:
-            simulation.ingestion_status = IngestionStatus.COPY_FAILED
-            current_app.db.session.commit()
-            clear_cache()
-            raise ServerException(
-                f"Failed to queue ingestion for simulation {simulation.uuid.hex}: "
-                f"{err}",
-                return_code=503,
-            ) from err
+            # The tasks may have been published before the error, in which
+            # case a worker can already have finished the ingestion. The
+            # insert above committed, so reading the status here reloads it
+            # from the database rather than the QUEUED value set earlier. An
+            # ingestion that ran is reported as such: a 503 would make the
+            # client retry and upload the simulation twice.
+            if not simulation.ingestion_status.is_terminal():
+                simulation.fail_ingestion(f"Failed to queue ingestion: {err}")
+                current_app.db.session.commit()
+                clear_cache()
+                raise ServerException(
+                    f"Failed to queue ingestion for simulation "
+                    f"{simulation.uuid.hex}: {err}",
+                    return_code=503,
+                ) from err
 
         result = SimulationPostResponse(ingested=simulation.uuid)
 
@@ -157,5 +181,11 @@ class SimulationIngestionStatus(Resource):
         sim_id: str,
         user: User,
     ) -> SimulationStatusResponse:
+        """Report how far the ingestion of a simulation has progressed.
+
+        Includes the reason when the ingestion has failed.
+        """
         simulation = current_app.db.get_simulation(sim_id)
-        return SimulationStatusResponse(status=simulation.ingestion_status)
+        return SimulationStatusResponse(
+            status=simulation.ingestion_status, error=simulation.ingestion_error
+        )

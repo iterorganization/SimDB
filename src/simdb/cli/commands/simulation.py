@@ -242,10 +242,13 @@ def _prepare_simulation(
     return simulation
 
 
-def _wait_for_ingestion(api: RemoteAPI, sim_id: str, timeout: float) -> IngestionStatus:
+def _wait_for_ingestion(
+    api: RemoteAPI, sim_id: str, timeout: float
+) -> Tuple[IngestionStatus, Optional[str]]:
     """Poll the remote until the ingestion of SIM_ID reaches a terminal state.
 
-    Reports every status change and returns the terminal status.
+    Reports every status change and returns the terminal status with the
+    reason the remote gives for a failure, if any.
 
     :raise click.ClickException: if the remote cannot be reached, reports an
                                  unknown status, or TIMEOUT seconds pass before
@@ -260,7 +263,10 @@ def _wait_for_ingestion(api: RemoteAPI, sim_id: str, timeout: float) -> Ingestio
     deadline = time.monotonic() + timeout
     while True:
         try:
-            raw_status = api.get_ingestion_status(sim_id)
+            response = api.get_ingestion_status(sim_id)
+            # A body without a status (a proxy error page, a restarting
+            # remote) is as transient as a failed connection.
+            raw_status = response["status"]
         except RemoteError as err:
             # The remote rejected the request, so retrying will not help.
             click.echo()
@@ -310,7 +316,7 @@ def _wait_for_ingestion(api: RemoteAPI, sim_id: str, timeout: float) -> Ingestio
 
         if status.is_terminal():
             click.echo()
-            return status
+            return status, response.get("error")
 
         if time.monotonic() >= deadline:
             click.echo()
@@ -368,11 +374,12 @@ def simulation_push_local(
 
     api.push_local_simulation(simulation, add_watcher=add_watcher)
 
-    status = _wait_for_ingestion(api, simulation.uuid.hex, timeout)
+    status, error = _wait_for_ingestion(api, simulation.uuid.hex, timeout)
     if status is not IngestionStatus.COMPLETED:
-        raise click.ClickException(
-            f"Simulation ingestion failed with status: {status.value}"
-        )
+        message = f"Simulation ingestion failed with status: {status.value}"
+        if error:
+            message += f"\n{error}"
+        raise click.ClickException(message)
 
     click.echo(f"Successfully pushed simulation {simulation.uuid}")
 

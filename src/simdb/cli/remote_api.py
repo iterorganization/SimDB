@@ -1246,7 +1246,8 @@ class RemoteAPI:
         last_status = None
         while True:
             try:
-                status = self.get_ingestion_status(simulation.uuid.hex)
+                response = self.get_ingestion_status(simulation.uuid.hex)
+                status = IngestionStatus(response["status"])
             except Exception as err:
                 raise APIError(f"Failed to check ingestion status: {err}") from err
 
@@ -1265,13 +1266,18 @@ class RemoteAPI:
         if status == IngestionStatus.COMPLETED:
             return
         else:
-            raise APIError(f"Simulation ingestion failed with status: {status.value}")
+            error = response.get("error")
+            message = f"Simulation ingestion failed with status: {status.value}"
+            if error:
+                message += f"\n{error}"
+            raise APIError(message)
 
     @versioned_method("v1.3")
     @try_request
-    def get_ingestion_status(self, sim_id: str) -> IngestionStatus:
+    def get_ingestion_status(self, sim_id: str) -> dict:
+        """The ingestion status of SIM_ID and, if it failed, the reason why."""
         res = self.get(f"simulation/status/{sim_id}")
-        return IngestionStatus(res.json()["status"])
+        return res.json()
 
     @push_simulation.register("v1.2")
     @try_request
