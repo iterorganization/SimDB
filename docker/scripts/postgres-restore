@@ -17,6 +17,7 @@ docker compose exec -T postgres \
     --username="${POSTGRES_USER:-simdb}" \
     --dbname="${POSTGRES_DB:-simdb}" \
     --clean \
+    --single-transaction \
     --if-exists \
     --no-owner \
     <"$backup_file"
