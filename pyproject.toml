@@ -101,7 +101,7 @@ simdb_worker = "simdb.workers.cli:worker"
 simdb_beat = "simdb.workers.cli:beat"
 
 [project.urls]
-Homepage = "https://simdb.iter.org/dashboard/"
+Homepage = "https://simdb.iter.org/"
 Documentation = "https://simdb.readthedocs.io/en/latest/"
 Repository = "https://github.com/iterorganization/SimDB"
 
