@@ -29,6 +29,7 @@ fi
 
 if ! getent passwd "${app_uid}" >/dev/null 2>&1; then
     useradd \
+        -K UID_MIN=100 \
         --uid "${app_uid}" \
         --gid "${app_gid}" \
         --home-dir "${app_home}" \
