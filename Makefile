@@ -131,11 +131,13 @@ systemd-installdirs:
 	mkdir -p \
 		$(DESTDIR)$(package_optdir)/config \
 		$(DESTDIR)$(package_optdir)/validation \
-		$(DESTDIR)$(package_optdir)/tmp/partition_data \
+		$(DESTDIR)$(package_optdir)/tmp \
 		$(DESTDIR)$(package_etcdir) \
 		$(DESTDIR)$(systemd_unitdir)
 	install -d -m 0775 -o $(APP_UID) -g $(APP_GID) \
-		$(DESTDIR)$(package_optdir)/upload_folder
+		$(DESTDIR)$(package_optdir)/upload_folder \
+		$(DESTDIR)$(package_optdir)/tmp/http \
+		$(DESTDIR)$(package_optdir)/tmp/partition_data
 
 systemd-install: systemd-installdirs
 	install -m 644 \
