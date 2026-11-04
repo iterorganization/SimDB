@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from simdb.checksum import is_prefixed, file_checksum
+from simdb.checksum import file_checksum, is_prefixed
 from simdb.cli.manifest import DataType
 from simdb.database import Database
 from simdb.database.models import Base, File, OnlineMigrationHistory

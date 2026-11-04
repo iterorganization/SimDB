@@ -12,8 +12,9 @@ Create Date: 2026-09-01 00:00:00.000000
 import json
 from typing import Any, Sequence, Union
 
-from alembic import op
 from sqlalchemy import text
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "a3f1c7d94e02"
