@@ -54,7 +54,11 @@ from simdb.enums import IngestionStatus
 from simdb.imas.utils import SimDBUrl, imas_backend_for_directory, imas_files
 from simdb.json import CustomDecoder, CustomEncoder
 from simdb.remote import CLIENT_API_VERSIONS, APIConstants
-from simdb.remote.models import FileData, SimulationPostData
+from simdb.remote.models import (
+    FileData,
+    SimulationDataResponse,
+    SimulationPostData,
+)
 
 from .manifest import DataType
 
@@ -664,6 +668,10 @@ class RemoteAPI:
             self._request_version = previous
 
     @property
+    def url(self) -> str:
+        return self._url
+
+    @property
     def remote(self) -> str:
         """
         Return the name of the remote.
@@ -979,6 +987,13 @@ class RemoteAPI:
     def get_simulation(self, sim_id: str) -> "Simulation":
         res = self.get("simulation/" + sim_id)
         return Simulation.from_data(res.json(cls=CustomDecoder))
+
+    @versioned_method("v1.2", "v1.3")
+    @try_request
+    def get_simulation_with_refs(self, sim_id: str) -> SimulationDataResponse:
+        """Like get_simulation, but keeps the parent and child references."""
+        res = self.get("simulation/" + sim_id)
+        return SimulationDataResponse.model_validate(res.json(cls=CustomDecoder))
 
     @versioned_method("v1.2", "v1.3")
     @try_request
