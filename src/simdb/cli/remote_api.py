@@ -119,6 +119,28 @@ def _read_bytes_in_chunks(
                 yield data
 
 
+def select_api_version(
+    endpoint_versions: Iterable[str], client_api_version: str
+) -> Optional[str]:
+    """
+    Select the highest endpoint version (e.g. "v1.2") that this client supports.
+
+    Versions are compared semantically, so "v1.10" ranks above "v1.9".
+    """
+    client_version = Version.coerce(client_api_version)
+    supported = []
+    for endpoint in endpoint_versions:
+        try:
+            parsed = Version.coerce(endpoint.lstrip("v"))
+        except ValueError:
+            continue  # not a versioned endpoint
+        if parsed <= client_version:
+            supported.append((parsed, endpoint))
+    if not supported:
+        return None
+    return max(supported)[1]
+
+
 def check_return(res: "requests.Response") -> None:
     if res.status_code != 200:
         try:
@@ -232,30 +254,29 @@ class RemoteAPI:
         endpoints = self.get_endpoints()
         endpoint_versions = [endpoint.split("/")[-1] for endpoint in endpoints]
 
-        if not endpoint_versions:
-            raise RemoteError("No compatible API version found on remote")
-
-        latest_version = max(endpoint_versions)
-        if config.verbose:
-            print(f"Selected latest endpoint version {latest_version}")
-
         # newer servers only report the server version at the root
         root_server_version = self.get_server_version()
 
-        self._api_url += f"{latest_version}/"
-        self.version = Version.coerce(self.get_api_version())
-        server_version = self.get_server_version() or root_server_version
-        if self.version > Version.coerce(config.api_version):
+        selected_version = select_api_version(endpoint_versions, config.api_version)
+        if selected_version is None:
             raise RemoteError(
                 f"""\
-Remote '{remote}' runs SimDB server version {server_version or "unknown"} (API version {self.version}),
-which is newer than this client supports (API version {config.api_version}).
+Remote '{remote}' runs SimDB server version {root_server_version or "unknown"} \
+(API versions {", ".join(endpoint_versions) or "none"}),
+which this client does not support (API version {config.api_version}).
 
 Please upgrade the SimDB client: pip install --upgrade imas-simdb"""
             )
-        if server_version is None:
-            raise RemoteError(f"Remote '{remote}' did not report its server version")
-        self.server_version = Version.coerce(server_version)
+        if config.verbose:
+            print(f"Selected endpoint version {selected_version}")
+
+        self._api_url += f"{selected_version}/"
+        self.version = Version.coerce(self.get_api_version())
+        # older servers only report the server version on the versioned endpoint
+        server_version = self.get_server_version() or root_server_version
+        self.server_version: Optional[Version] = (
+            Version.coerce(server_version) if server_version else None
+        )
 
     def _load_cookies(
         self, remote: str, username: Optional[str], password: Optional[str]
