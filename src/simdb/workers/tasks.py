@@ -23,7 +23,7 @@ from simdb.imas.utils import (
 )
 from simdb.remote.models import FileData, FileDataList
 from simdb.workers.celery import celery_app
-from simdb.workers.migrations import run_online_migrations
+from simdb.database.online_migrations import run_online_migrations
 
 logger = logging.getLogger(__name__)
 

@@ -9,7 +9,7 @@ from .base import Base
 class OnlineMigrationHistory(Base):
     """Record of an applied online (data) migration.
 
-    Online migrations transform live data (see :mod:`simdb.workers.migrations`).
+    Online migrations transform live data (see :mod:`simdb.database.online_migrations`).
     One row is written per migration once it has completed successfully, which
     lets the runner skip migrations that have already run.
     """

@@ -5,7 +5,7 @@ Widen the column from 64 to 128 characters so the prefix fits today and leaves
 room for longer digests (e.g. ``sha256:``) in the future.
 
 The actual re-hashing of existing values is done by the online (data) migration
-``recalculate_checksums`` in :mod:`simdb.workers.migrations`, not here.
+``recalculate_checksums`` in :mod:`simdb.database.online_migrations`, not here.
 
 Revision ID: c3a1f0b9d4e2
 Revises: 6fb9b8fbac38

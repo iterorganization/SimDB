@@ -1,7 +1,7 @@
 """Add online_migrations tracking table
 
 Records which online (data) migrations have been applied, so the runner in
-:mod:`simdb.workers.migrations` can skip migrations that have already run.
+:mod:`simdb.database.online_migrations` can skip migrations that have already run.
 
 Revision ID: d4b2e6f1a7c3
 Revises: c3a1f0b9d4e2

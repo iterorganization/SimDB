@@ -32,6 +32,7 @@ from simdb.remote.models import SimulationReference
 from .models import Base
 from .models.file import File
 from .models.simulation import Simulation
+from .online_migrations import run_online_migrations
 
 _MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
@@ -965,11 +966,7 @@ def _run_online_migrations(database: Database, config: Config) -> None:
     """Apply online (data) migrations to the local database.
 
     Recalculates any checksums still stored in the legacy (bare-hex) format.
-    Imported lazily to avoid a circular import: ``simdb.workers`` imports
-    ``tasks``, which imports ``get_db`` from this module.
     """
-    from simdb.workers.migrations import run_online_migrations  # noqa: PLC0415
-
     results = run_online_migrations(database, config)
     changed = sum(results.values())
     if changed:

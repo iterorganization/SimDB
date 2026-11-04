@@ -24,11 +24,13 @@ MigrationResult`` and append an :class:`OnlineMigration` to
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable, Dict, Set
+from typing import TYPE_CHECKING, Callable, Dict, Set
 
 from simdb.config import Config
-from simdb.database.database import Database
 from simdb.database.models import File, OnlineMigrationHistory
+
+if TYPE_CHECKING:
+    from simdb.database.database import Database
 
 logger = logging.getLogger(__name__)
 
@@ -51,10 +53,10 @@ class OnlineMigration:
     """A single idempotent data migration."""
 
     name: str
-    run: Callable[[Database, Config], MigrationResult]
+    run: Callable[["Database", Config], MigrationResult]
 
 
-def _recalculate_checksums(database: Database, config: Config) -> MigrationResult:
+def _recalculate_checksums(database: "Database", config: Config) -> MigrationResult:
     """Recalculate and prefix checksums that predate the ``sha1:`` format.
 
     Any file whose stored checksum lacks an ``<algorithm>:`` prefix is
@@ -62,7 +64,16 @@ def _recalculate_checksums(database: Database, config: Config) -> MigrationResul
     computation) and stored in the new ``sha1:<hex>`` form. Files that cannot be
     hashed right now are left unchanged and reported as incomplete so the
     migration is retried later.
+
+    When checksum generation is disabled (``development.disable_checksum``)
+    nothing is touched and the migration is reported as incomplete, so it runs
+    once checksums are enabled again instead of overwriting stored hashes with
+    empty strings.
     """
+    if config and config.get_option("development.disable_checksum", default=False):
+        logger.info("Checksum generation is disabled; skipping checksum recalculation")
+        return MigrationResult(changed=0, complete=False)
+
     # Only files whose checksum lacks an "<algorithm>:" prefix still need
     # migrating. Empty checksums (checksum generation disabled) are left alone.
     unmigrated = (
@@ -102,16 +113,16 @@ ONLINE_MIGRATIONS = [
 ]
 
 
-def _applied_migration_names(database: Database) -> Set[str]:
+def _applied_migration_names(database: "Database") -> Set[str]:
     return {row[0] for row in database.session.query(OnlineMigrationHistory.name).all()}
 
 
-def _record_migration(database: Database, name: str) -> None:
+def _record_migration(database: "Database", name: str) -> None:
     database.session.add(OnlineMigrationHistory(name=name, applied_at=datetime.now()))
     database.session.commit()
 
 
-def run_online_migrations(database: Database, config: Config) -> Dict[str, int]:
+def run_online_migrations(database: "Database", config: Config) -> Dict[str, int]:
     """Run every not-yet-applied online migration in order.
 
     :return: a mapping of migration name to rows changed, for migrations that
