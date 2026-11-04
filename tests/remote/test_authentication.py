@@ -11,7 +11,7 @@ has_flask = importlib.util.find_spec("flask") is not None
 if has_flask:
     from flask import Flask, Request
 
-    from simdb.remote.core.auth import User, check_auth, check_role
+    from simdb.remote.core.auth import AuthenticationError, User, check_auth, check_role
 
 if TYPE_CHECKING:
     from flask import Request
@@ -84,5 +84,35 @@ def test_check_auth(get_option, easy_ad):
     request.authorization.username = "user"
     request.authorization.password = "wrong"
     request.headers = {"Authorization": ""}
-    ok = check_auth(config, cast(Request, request))
-    assert not ok
+    with pytest.raises(AuthenticationError) as err:
+        check_auth(config, cast(Request, request))
+    assert "token, activedirectory authenticators" in str(err.value)
+    assert err.value.__notes__
+    assert any("token authenticator" in note for note in err.value.__notes__)
+
+
+@mock.patch("simdb.config.Config.get_option")
+@pytest.mark.skipif(not has_flask, reason="requires flask library")
+def test_check_auth_accumulates_auth_failures(get_option):
+    config = Config()
+    get_option.side_effect = lambda name, default=None: {
+        "server.admin_password": "abc123",
+        "authentication.type": "Firewall",
+        "authentication.firewall_user": "X-Forwarded-User",
+        "authentication.firewall_email": "X-Forwarded-Email",
+    }.get(name, default)
+
+    class request:
+        class authorization:
+            username = None
+            password = None
+
+        headers: ClassVar[dict] = {}
+
+    with pytest.raises(AuthenticationError) as err:
+        check_auth(config, cast(Request, request))
+
+    assert "token, firewall authenticators" in str(err.value)
+    assert err.value.__notes__
+    assert any("token authenticator" in note for note in err.value.__notes__)
+    assert any("firewall authenticator" in note for note in err.value.__notes__)

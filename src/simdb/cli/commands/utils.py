@@ -311,7 +311,7 @@ def print_simulations(
                 meta = sim.find_meta(name)
                 column_widths.setdefault(name, len(name))
                 if meta:
-                    value = _format_meta_value(meta[0].value, 5)
+                    value = _format_meta_value(meta[0], 5)
                     line.append(value)
                     column_widths[name] = max(column_widths[name], len(value))
                 else:

@@ -12,7 +12,7 @@ jobs:
     steps:
     - uses: actions/checkout@v7
       with:
-        fetch-depth: 0 
+        fetch-depth: 0
     - name: Set up Python
       uses: actions/setup-python@v7
     - name: Install pypa/build
@@ -25,10 +25,11 @@ jobs:
       with:
         name: python-package-distributions
         path: dist/
-        
+
   publish-to-pypi:
     name: Publish SimDB distribution to PyPI
-    if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
+    if: github.repository == 'iterorganization/SimDB' && startsWith(github.ref, 'refs/tags/')
+    # only publish to PyPI the privileged repo's tag pushes
     needs:
     - build
     runs-on: ubuntu-22.04
@@ -45,10 +46,11 @@ jobs:
         path: dist/
     - name: Publish distribution to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
-      
+
   publish-to-testpypi:
     name: Publish SimDB distribution to TestPyPI
-    if: github.ref=='refs/heads/develop'  # only publish to TestPyPI on develop pushes
+    if: github.repository == 'iterorganization/SimDB' && github.ref == 'refs/heads/develop'
+    # only publish to TestPyPI from the privileged repo's develop branch
     needs:
     - build
     runs-on: ubuntu-22.04

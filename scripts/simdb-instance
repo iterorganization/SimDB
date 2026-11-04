@@ -65,6 +65,18 @@ require_state() {
     printf '%s\n' "$file"
 }
 
+instance_version() {
+    # PEP 440 version of the deployed commit, via docker/version.sh.
+    local worktree="$1"
+    local script="$worktree/docker/version.sh"
+    [[ -f "$script" ]] || script="$REPO_ROOT/docker/version.sh"
+    [[ -f "$script" ]] || {
+        printf '0.0.0\n'
+        return
+    }
+    (cd "$worktree" && sh "$script" pep440) || printf '0.0.0\n'
+}
+
 port_in_use() {
     local requested="$1"
     local excluded_name="${2:-}"
@@ -124,7 +136,7 @@ prepare_worktree() {
     for required_file in \
         Dockerfile.dev \
         docker-compose-dev.yml \
-        deploy/nginx.dev.conf.template; do
+        docker/nginx.dev.conf.template; do
         [[ -f "$worktree/$required_file" ]] ||
             die "$required_file is missing from commit $commit"
     done
@@ -177,6 +189,7 @@ deploy_commit() {
     local file
     local pending_file
     local deployed_at
+    local app_version
 
     validate_name "$name"
     commit="$(git -C "$REPO_ROOT" rev-parse "$commit")"
@@ -197,12 +210,13 @@ deploy_commit() {
 
     worktree="$(prepare_worktree "$name" "$commit")"
     deployed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    app_version="$(instance_version "$worktree")"
     file="$(state_file "$name")"
     pending_file="$STATE_ROOT/.$name.env.pending"
     write_state \
         "$pending_file" "$name" "$port" "$branch" "$commit" "$deployed_at"
 
-    if docker compose \
+    if APP_VERSION="$app_version" docker compose \
         --project-name "simdb-$name" \
         --project-directory "$worktree" \
         --file "$worktree/$COMPOSE_FILE" \

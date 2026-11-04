@@ -52,3 +52,16 @@ def test_manifest_create_command(manifest):
     (args, kwargs) = manifest.from_template().save.call_args
     assert args[0].name == str(file_name)
     assert kwargs == {}
+
+
+def test_manifest_check_command_reports_error_location(tmp_path):
+    config_file = config_test_file()
+    runner = CliRunner()
+    file_name = tmp_path / "manifest.yaml"
+    file_name.write_text("manifest_version: 2\ninputs: []\n outputs: []\n")
+    result = runner.invoke(
+        cli, [f"--config-file={config_file}", "manifest", "check", str(file_name)]
+    )
+    assert result.exit_code != 0
+    assert "ok" not in result.output
+    assert f"{file_name}:3:2: expected <block end>" in str(result.exception)

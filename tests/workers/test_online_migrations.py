@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from simdb.checksum import is_prefixed, sha1_checksum
+from simdb.checksum import is_prefixed, file_checksum
 from simdb.cli.manifest import DataType
 from simdb.database import Database
 from simdb.database.models import Base, File, OnlineMigrationHistory
@@ -42,7 +42,7 @@ def test_recalculates_and_prefixes_legacy_checksums(db, tmp_path):
     target.write_text("hello world")
     uri = SimDBUrl.build(scheme="file", path=target.as_posix())
 
-    expected = sha1_checksum(uri)  # sha1:<hex>
+    expected = file_checksum(uri)  # sha1:<hex>
     legacy = _add_file(db, uri, hashlib.sha1(b"hello world").hexdigest())
     already = _add_file(db, uri, expected)
     disabled = _add_file(db, uri, "")

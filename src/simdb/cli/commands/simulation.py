@@ -12,7 +12,7 @@ from rich.prompt import Confirm
 
 from simdb.checksum import checksums_match
 from simdb.cli.manifest import Manifest
-from simdb.cli.remote_api import RemoteAPI, RemoteError
+from simdb.cli.remote_api import APIError, RemoteAPI, RemoteError
 from simdb.config.config import Config
 from simdb.database import DatabaseError, get_local_db
 from simdb.database.models import Simulation
@@ -20,7 +20,7 @@ from simdb.enums import IngestionStatus
 from simdb.query import QueryType, parse_query_arg
 from simdb.validation import ValidationError, Validator
 
-from . import check_meta_args, pass_config
+from . import check_meta_args, pass_config, query_help
 from .utils import (
     is_numeric_1d,
     print_quantity,
@@ -261,12 +261,19 @@ def _wait_for_ingestion(api: RemoteAPI, sim_id: str, timeout: float) -> Ingestio
     deadline = time.monotonic() + timeout
     while True:
         try:
-            status = api.get_ingestion_status(sim_id)
+            raw_status = api.get_ingestion_status(sim_id)
         except RemoteError as err:
             # The remote rejected the request, so retrying will not help.
             click.echo()
             raise click.ClickException(
                 f"Failed to check ingestion status: {err}"
+            ) from err
+        except ValueError as err:
+            # The remote reported a status this client does not know about, so
+            # waiting for it to change will not help.
+            click.echo()
+            raise click.ClickException(
+                f"Remote reported an unknown ingestion status: {err}"
             ) from err
         except Exception as err:
             # Tolerate transient errors: the ingestion continues server-side
@@ -288,29 +295,29 @@ def _wait_for_ingestion(api: RemoteAPI, sim_id: str, timeout: float) -> Ingestio
         consecutive_failures = 0
 
         try:
-            ingestion_status = IngestionStatus(status)
+            status = IngestionStatus(raw_status)
         except ValueError as err:
             click.echo()
             raise click.ClickException(
-                f"Remote reported an unknown ingestion status: {status}"
+                f"Remote reported an unknown ingestion status: {raw_status}"
             ) from err
 
         if status != last_status:
             if last_status is not None:
-                click.echo(f" -> {status}", nl=False)
+                click.echo(f" -> {status.value}", nl=False)
             else:
-                click.echo(f" {status}", nl=False)
+                click.echo(f" {status.value}", nl=False)
             last_status = status
 
-        if ingestion_status.is_terminal():
+        if status.is_terminal():
             click.echo()
-            return ingestion_status
+            return status
 
         if time.monotonic() >= deadline:
             click.echo()
             raise click.ClickException(
                 f"Timed out after {timeout:g}s waiting for ingestion to complete "
-                f"(last status: {status})"
+                f"(last status: {status.value})"
             )
 
         time.sleep(poll_interval)
@@ -405,7 +412,10 @@ def simulation_push(
     api = RemoteAPI(remote, username, password, config)
     simulation = _prepare_simulation(config, api, sim_id, replaces)
 
-    api.push_simulation(simulation, out_stream=sys.stdout, add_watcher=add_watcher)
+    try:
+        api.push_simulation(simulation, add_watcher=add_watcher)
+    except APIError as err:
+        raise click.ClickException(f"Failed to push simulation: {err}") from err
 
     click.echo(f"Successfully pushed simulation {simulation.uuid}")
 
@@ -447,7 +457,7 @@ def simulation_pull(
     click.echo(f"Successfully pulled simulation {simulation.uuid}")
 
 
-@simulation.command("query")
+@simulation.command("query", help=query_help("local", "simulation"))
 @pass_config
 @click.argument("constraints", nargs=-1)
 @click.option(
@@ -468,49 +478,6 @@ def simulation_pull(
 def simulation_query(
     config: Config, constraints: List[str], meta: List[str], show_uuid: bool
 ):
-    """Perform a metadata query to find matching local simulations.
-
-    \b
-    Each constraint must be in the form:
-        NAME=[mod]VALUE
-
-    \b
-    Where `[mod]` is an optional query modifier. Available query modifiers are:
-        eq: - This checks for equality (this is the same behaviour as not providing any
-              modifier).
-        ne: - This checks for value that do not equal.
-        in: - This searches inside the value instead of looking for exact matches.
-        ni: - This searches inside the value for elements that do not match.
-        gt: - This checks for values greater than the given quantity.
-        ge: - This checks for values greater than or equal to the given quantity.
-        lt: - This checks for values less than the given quantity.
-        le: - This checks for values less than or equal to the given quantity.
-
-    For the following modifiers, VALUE should not be provided.
-        exist: - This returns simulations where metadata with NAME exists, regardless
-                 of the value.
-
-    \b
-    Modifier examples:
-        responsible_name=foo        performs exact match
-        responsible_name=in:foo     matches all names containing foo
-        pulse=gt:1000               matches all pulses > 1000
-        sequence=exist:             matches all simulations that have "sequence"
-                                    metadata values
-
-    \b
-    Any string comparisons are done in a case-insensitive manner. If multiple
-    constraints are provided then simulations are returned that match all given
-    constraints.
-
-    \b
-    Examples:
-        sim simulation query workflow.name=in:test       finds all simulations where
-                                                         workflow.name contains test
-                                                         (case-insensitive)
-        sim simulation query pulse=gt:1000 run=0         finds all simulations where
-                                                         pulse is > 1000 and run = 0
-    """
     if not constraints:
         raise click.ClickException("At least one constraint must be provided.")
 

@@ -24,8 +24,8 @@ UUID, and require authentication on each request. See the
 
 ![SimDB architecture](simdb-architecture.svg)
 
-1. **CLI tool**: manages simulation metadata, the file manifest, and
-   provenance, and lets the user query these locally and on remotes.
+1. **CLI tool**: manages simulation metadata and the file manifest, and lets
+   the user query these locally and on remotes.
 2. **Local SQLite database**: stores the user's ingested simulations before
    they are pushed to a remote.
 3. **Simulation directory**: where a simulation was run and where its files are

@@ -3,7 +3,12 @@
 A production SimDB server must serve over HTTPS. There are two ways to enable
 SSL, depending on how you run the server.
 
-## Option A: TLS at Nginx (recommended)
+**For container deployments**, the sister project
+[SimDB-Dashboard](https://github.com/iterorganization/SimDB-Dashboard) provides
+a complete nginx configuration, including TLS, that proxies `/scenarios/api` to
+the SimDB backend. This is the recommended approach for modern deployments.
+
+## Option A: TLS at Nginx
 
 When [running behind Nginx and Gunicorn](run-behind-nginx-gunicorn.md), let
 Nginx terminate TLS. Change `/etc/nginx/conf.d/simdb.conf` to listen on 443 and
@@ -21,8 +26,16 @@ server {
     ssl_certificate     /etc/pki/nginx/server.crt;
     ssl_certificate_key /etc/pki/nginx/private/server.key;
 
-    location / {
-        include proxy_params;
+    location /scenarios/api {
+        # Typical proxy params
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Inform simdb backend to add this prefix in their responses
+        proxy_set_header X-Forwarded-Prefix /scenarios/api;
+
         proxy_pass http://unix:/var/run/simdb.sock;
     }
 }

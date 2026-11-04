@@ -11,10 +11,6 @@ For a task-oriented introduction, start with the
 
 {{ }}
 
-## alias
-
-{{ alias }}
-
 ## config
 
 {{ config }}
@@ -22,10 +18,6 @@ For a task-oriented introduction, start with the
 ## manifest
 
 {{ manifest }}
-
-## provenance
-
-{{ provenance }}
 
 ## remote
 

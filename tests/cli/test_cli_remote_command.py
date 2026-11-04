@@ -1,9 +1,12 @@
+import uuid
 from unittest import mock
 
+import pytest
 from click.testing import CliRunner
 from utils import config_test_file
 
 from simdb.cli.simdb import cli
+from simdb.database.models import Simulation
 from simdb.notifications import Notification
 
 
@@ -259,6 +262,38 @@ def test_remote_query_command(
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_endpoints")
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_version")
 @mock.patch("simdb.cli.remote_api.RemoteAPI.query_simulations")
+def test_remote_query_command_with_string_metadata(
+    query_simulations,
+    get_server_version,
+    get_endpoints,
+    get_server_authentication,
+):
+    get_endpoints.return_value = ["v1", "v1.1", "v1.1.1", "v1.2"]
+    get_server_version.return_value = "0.11"
+    get_server_authentication.return_value = "None"
+    query_simulations.return_value = [
+        Simulation.from_data(
+            {
+                "uuid": uuid.UUID("a7f5ef1c-1b0b-4b52-9a5a-1f3a3d8e2b11"),
+                "alias": "astra-run",
+                "metadata": [{"element": "code.name", "value": "ASTRA"}],
+            }
+        )
+    ]
+    config_file = config_test_file()
+    runner = CliRunner()
+    result = runner.invoke(
+        cli, [f"--config-file={config_file}", "remote", "query", "code.name=in:astra"]
+    )
+    assert result.exception is None
+    assert "astra-run" in result.output
+    assert "ASTRA" in result.output
+
+
+@mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_authentication")
+@mock.patch("simdb.cli.remote_api.RemoteAPI.get_endpoints")
+@mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_version")
+@mock.patch("simdb.cli.remote_api.RemoteAPI.query_simulations")
 def test_remote_query_command_with_verbose(
     query_simulations,
     get_server_version,
@@ -303,3 +338,50 @@ def test_remote_query_command_with_verbose(
     (args, kwargs) = query_simulations.call_args
     assert args == (constraints, (), 100)
     assert kwargs == {}
+
+
+@pytest.mark.parametrize("help_option", ["--help", "-h"])
+@pytest.mark.parametrize(
+    "args, command",
+    [
+        (("watcher",), "watcher"),
+        (("PP", "watcher"), "watcher"),
+        (("PP", "watcher", "add"), "watcher add"),
+        (("PP", "watcher", "add", "abcd1234"), "watcher add"),
+        (("PP", "token", "new"), "token new"),
+        (("--username", "u", "PP", "info"), "info"),
+        (("--username=u", "PP", "list"), "list"),
+    ],
+)
+def test_remote_help_after_name(args, command, help_option):
+    config_file = config_test_file()
+    runner = CliRunner()
+    result = runner.invoke(
+        cli, [f"--config-file={config_file}", "remote", *args, help_option]
+    )
+    assert result.exit_code == 0, result.output
+    assert result.output.startswith(f"Usage: simdb remote [NAME] {command} [OPTIONS]")
+
+
+@pytest.mark.parametrize("args", [("PP", "bogus"), ("PP", "watcher", "bogus")])
+def test_remote_help_unknown_command(args):
+    config_file = config_test_file()
+    runner = CliRunner()
+    result = runner.invoke(cli, [f"--config-file={config_file}", "remote", *args, "-h"])
+    assert result.exit_code == 2
+    assert "No such command 'bogus'" in result.output
+
+
+@pytest.mark.parametrize(
+    "args, command",
+    [
+        (("PP", "-h", "watcher"), "watcher"),
+        (("PP", "watcher", "--help", "list"), "watcher list"),
+    ],
+)
+def test_remote_help_mid_line(args, command):
+    config_file = config_test_file()
+    runner = CliRunner()
+    result = runner.invoke(cli, [f"--config-file={config_file}", "remote", *args])
+    assert result.exit_code == 0, result.output
+    assert result.output.startswith(f"Usage: simdb remote [NAME] {command} [OPTIONS]")

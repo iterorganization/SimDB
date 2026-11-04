@@ -30,8 +30,7 @@ Good alias conventions:
 - a `pulse_number/run_number` form such as `100001/1`.
 
 The alias is optional in the manifest; you can also set it at ingest time with
-`simdb simulation ingest -a ALIAS`. Use `simdb alias make-unique` if you need a
-guaranteed-unique name.
+`simdb simulation ingest -a ALIAS`.
 
 ## List inputs and outputs
 
@@ -81,6 +80,14 @@ Before ingesting, validate the file's structure:
 
 ```bash
 simdb manifest check manifest.yaml
+```
+
+If the file is invalid, the command exits with a non-zero status and lists every problem it found, each with its line and column in the file and the offending item:
+
+```text
+Error: invalid manifest manifest.yaml (2 errors):
+  manifest.yaml:7:5: outputs[0].uri: URL scheme should be 'file' or 'imas'
+  manifest.yaml:10:5: metadata[1]: invalid metadata field name machine:name - contains forbidden character(s): :
 ```
 
 Then ingest it (see [Ingest and manage simulations](ingest-and-manage.md)).
