@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Callable, Dict, Set
 
+from simdb.checksum import CHECKSUM_PREFIX_SEPARATOR
 from simdb.config import Config
 from simdb.database.models import File, OnlineMigrationHistory
 
@@ -80,7 +81,7 @@ def _recalculate_checksums(database: "Database", config: Config) -> MigrationRes
         database.session.query(File)
         .filter(File.checksum.isnot(None))
         .filter(File.checksum != "")
-        .filter(File.checksum.notlike("%:%"))
+        .filter(File.checksum.notlike(f"%{CHECKSUM_PREFIX_SEPARATOR}%"))
         .all()
     )
 

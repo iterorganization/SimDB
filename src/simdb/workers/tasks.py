@@ -9,10 +9,11 @@ from uuid import UUID
 
 from celery.signals import worker_ready
 
-from simdb.checksum import format_checksum, hash_file, is_prefixed
+from simdb.checksum import format_checksum, has_algorithm_prefix, hash_file
 from simdb.config import Config
 from simdb.database.database import get_db
 from simdb.database.models import File
+from simdb.database.online_migrations import run_online_migrations
 from simdb.email.server import EmailServer
 from simdb.enums import IngestionStatus
 from simdb.imas.utils import (
@@ -23,7 +24,6 @@ from simdb.imas.utils import (
 )
 from simdb.remote.models import FileData, FileDataList
 from simdb.workers.celery import celery_app
-from simdb.database.online_migrations import run_online_migrations
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +126,14 @@ def _checksum_matches(path: Path, expected: str) -> bool:
     return format_checksum(hash_file(path)) == expected
 
 
+def _verify_checksum(path: Path, expected: str) -> None:
+    """Raise ``ValueError`` unless ``expected`` is a prefixed checksum of ``path``."""
+    if not has_algorithm_prefix(expected):
+        raise ValueError("Checksum must include an algorithm prefix (e.g. 'sha1:...')")
+    if not _checksum_matches(path, expected):
+        raise ValueError("Hash of file does not match provided checksum")
+
+
 def _get_imas_identifier_path(path: Path) -> Path:
     if path.suffix == ".nc":
         return path
@@ -138,10 +146,7 @@ def _create_file_from_data(
     uri = SimDBUrl(data.uri)
     path = _resolve_uri_to_path(uri, config)
 
-    if not is_prefixed(data.checksum):
-        raise ValueError("Checksum must include an algorithm prefix (e.g. 'sha1:...')")
-    if not _checksum_matches(path, data.checksum):
-        raise ValueError("Hash of file does not match provided checksum")
+    _verify_checksum(path, data.checksum)
 
     file = File.from_data_model(data)
     file.uri = _imas_path_to_uri(imas_identifier_path)
@@ -170,12 +175,7 @@ def _create_files_from_data_list(
             seen_imas_paths.add(imas_path)
             file = _create_file_from_data(file_data, config, imas_path)
         else:
-            if not is_prefixed(file_data.checksum):
-                raise ValueError(
-                    "Checksum must include an algorithm prefix (e.g. 'sha1:...')"
-                )
-            if not _checksum_matches(path, file_data.checksum):
-                raise ValueError("Hash of file does not match provided checksum")
+            _verify_checksum(path, file_data.checksum)
             file = File.from_data_model(file_data)
             file.uri = SimDBUrl.build(scheme="file", path=path.as_posix())
 

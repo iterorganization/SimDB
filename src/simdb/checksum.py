@@ -9,6 +9,8 @@ CHECKSUM_ALGORITHM = "sha1"
 #: Buffer size for reading files while hashing. Larger reads mean far fewer
 #: syscalls on big files, which noticeably speeds up checksumming.
 READ_CHUNK_SIZE = 1024 * 1024
+#: Separates the algorithm from the hex digest in a stored checksum.
+CHECKSUM_PREFIX_SEPARATOR = ":"
 
 
 def hash_file(
@@ -40,12 +42,12 @@ def format_checksum(hexdigest: str, algorithm: str = CHECKSUM_ALGORITHM) -> str:
     :param algorithm: the algorithm that produced the digest
     :return: the algorithm-prefixed checksum string
     """
-    return f"{algorithm}:{hexdigest}"
+    return f"{algorithm}{CHECKSUM_PREFIX_SEPARATOR}{hexdigest}"
 
 
-def is_prefixed(checksum: str) -> bool:
+def has_algorithm_prefix(checksum: str) -> bool:
     """Return whether a checksum already carries an ``<algorithm>:`` prefix."""
-    return bool(checksum) and ":" in checksum
+    return bool(checksum) and CHECKSUM_PREFIX_SEPARATOR in checksum
 
 
 def strip_checksum(checksum: str) -> str:
@@ -54,9 +56,9 @@ def strip_checksum(checksum: str) -> str:
     Legacy (pre-prefix) checksums are returned unchanged. Used to serialize
     checksums on the wire for API versions that predate the prefix.
     """
-    if not checksum:
+    if not has_algorithm_prefix(checksum):
         return checksum
-    return checksum.split(":", 1)[1] if ":" in checksum else checksum
+    return checksum.split(CHECKSUM_PREFIX_SEPARATOR, 1)[1]
 
 
 def checksums_match(a: str, b: str) -> bool:

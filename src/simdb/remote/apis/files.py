@@ -209,12 +209,12 @@ class FileList(Resource):
         simulations.
         """
         files = current_app.db.list_files()
-        models_ = []
+        file_models = []
         for file in files:
             model = file.to_model()
             model.checksum = _wire_checksum(model.checksum)
-            models_.append(model)
-        return FileDataList.model_validate(models_)
+            file_models.append(model)
+        return FileDataList.model_validate(file_models)
 
     @requires_auth()
     def post(self, user: User):

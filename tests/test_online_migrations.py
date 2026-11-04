@@ -7,13 +7,13 @@ from datetime import datetime, timezone
 
 import pytest
 
-from simdb.checksum import file_checksum, is_prefixed
+from simdb.checksum import file_checksum, has_algorithm_prefix
 from simdb.cli.manifest import DataType
 from simdb.config import Config
 from simdb.database import Database
 from simdb.database.models import Base, File, OnlineMigrationHistory
-from simdb.imas.utils import SimDBUrl
 from simdb.database.online_migrations import run_online_migrations
+from simdb.imas.utils import SimDBUrl
 
 
 @pytest.fixture
@@ -55,7 +55,7 @@ def test_recalculates_and_prefixes_legacy_checksums(db, tmp_path):
     assert results["recalculate_checksums"] == 1
     db.session.refresh(legacy)
     assert legacy.checksum == expected
-    assert is_prefixed(legacy.checksum)
+    assert has_algorithm_prefix(legacy.checksum)
     assert already.checksum == expected  # untouched
     assert disabled.checksum == ""  # untouched
     assert "recalculate_checksums" in _applied(db)
@@ -90,7 +90,7 @@ def test_incomplete_migration_is_not_recorded_and_retries(db, tmp_path):
     (tmp_path / "gone.txt").write_text("now here")
     results = run_online_migrations(db, config=None)
     assert results["recalculate_checksums"] == 1
-    assert is_prefixed(file.checksum)
+    assert has_algorithm_prefix(file.checksum)
     assert "recalculate_checksums" in _applied(db)
 
 
