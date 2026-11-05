@@ -1,7 +1,7 @@
 import hashlib
 from pathlib import Path
 
-from simdb.checksum import CHECKSUM_ALGORITHM, READ_CHUNK_SIZE
+from simdb.checksum import CHECKSUM_ALGORITHM, READ_CHUNK_SIZE, format_checksum
 from simdb.imas.utils import SimDBUrl
 
 from .utils import imas_files, list_idss, open_imas
@@ -28,4 +28,4 @@ def checksum(uri: SimDBUrl, ids_list: list, algorithm: str = CHECKSUM_ALGORITHM)
                 continue
             for chunk in iter(lambda: file.read(READ_CHUNK_SIZE), b""):
                 digest.update(chunk)
-    return digest.hexdigest()
+    return format_checksum(digest.hexdigest(), algorithm)

@@ -46,7 +46,13 @@ from rich.progress import (
 )
 from semantic_version import Version
 
-from simdb.checksum import CHECKSUM_ALGORITHM, READ_CHUNK_SIZE, hash_file
+from simdb.checksum import (
+    CHECKSUM_ALGORITHM,
+    READ_CHUNK_SIZE,
+    checksums_match,
+    format_checksum,
+    hash_file,
+)
 from simdb.cli.resumable_upload import resumable_upload
 from simdb.config import Config
 from simdb.database.models import Simulation
@@ -320,7 +326,7 @@ def _file_data_for_partition(
     new_uri = SimDBUrl.build(scheme=partition, path=partition_path.as_posix())
     update: Dict[str, Any] = {
         "uri": new_uri.encoded_string(),
-        "checksum": hash_file(source),
+        "checksum": format_checksum(hash_file(source)),
     }
     if not keep_uuid:
         update["uuid"] = uuid.uuid1()
@@ -459,8 +465,8 @@ def _compute_checksums(files: List[Tuple[FileData, Path, str]]) -> None:
         task = progress.add_task("Calculating checksums", total=total_bytes)
         for file_data, local_path, _target in files:
             progress.update(task, description=f"Hashing {local_path.name}")
-            file_data.checksum = hash_file(
-                local_path, progress=lambda n: progress.advance(task, n)
+            file_data.checksum = format_checksum(
+                hash_file(local_path, progress=lambda n: progress.advance(task, n))
             )
         progress.update(task, description="Calculated checksums")
 
@@ -1485,7 +1491,7 @@ class RemoteAPI:
                     f.write(data)
                     progress.advance(task_id=task, advance=len(data))
 
-        if digest.hexdigest() != checksum:
+        if not checksums_match(digest.hexdigest(), checksum):
             raise APIError(f"Checksum failed for file {from_path}")
 
     @versioned_method("v1.2", "v1.3")

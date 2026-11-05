@@ -7,10 +7,13 @@ from pathlib import Path
 from typing import Iterable, List
 from uuid import UUID
 
-from simdb.checksum import hash_file
+from celery.signals import worker_ready
+
+from simdb.checksum import format_checksum, has_algorithm_prefix, hash_file
 from simdb.config import Config
 from simdb.database.database import get_db
 from simdb.database.models import File
+from simdb.database.online_migrations import run_online_migrations
 from simdb.email.server import EmailServer
 from simdb.enums import IngestionStatus
 from simdb.imas.utils import (
@@ -120,7 +123,15 @@ def _copy_files(
 
 def _checksum_matches(path: Path, expected: str) -> bool:
     """Whether ``path`` matches ``expected``."""
-    return hash_file(path) == expected
+    return format_checksum(hash_file(path)) == expected
+
+
+def _verify_checksum(path: Path, expected: str) -> None:
+    """Raise ``ValueError`` unless ``expected`` is a prefixed checksum of ``path``."""
+    if not has_algorithm_prefix(expected):
+        raise ValueError("Checksum must include an algorithm prefix (e.g. 'sha1:...')")
+    if not _checksum_matches(path, expected):
+        raise ValueError("Hash of file does not match provided checksum")
 
 
 def _get_imas_identifier_path(path: Path) -> Path:
@@ -135,8 +146,7 @@ def _create_file_from_data(
     uri = SimDBUrl(data.uri)
     path = _resolve_uri_to_path(uri, config)
 
-    if not _checksum_matches(path, data.checksum):
-        raise ValueError("Hash of file does not match provided checksum")
+    _verify_checksum(path, data.checksum)
 
     file = File.from_data_model(data)
     file.uri = _imas_path_to_uri(imas_identifier_path)
@@ -165,8 +175,7 @@ def _create_files_from_data_list(
             seen_imas_paths.add(imas_path)
             file = _create_file_from_data(file_data, config, imas_path)
         else:
-            if not _checksum_matches(path, file_data.checksum):
-                raise ValueError("Hash of file does not match provided checksum")
+            _verify_checksum(path, file_data.checksum)
             file = File.from_data_model(file_data)
             file.uri = SimDBUrl.build(scheme="file", path=path.as_posix())
 
@@ -318,3 +327,27 @@ def cleanup_http_staging_task(simulation_uuid: UUID):
     # Guard against escaping the partition before removing anything.
     if staging_dir.is_relative_to(partition_path) and staging_dir != partition_path:
         shutil.rmtree(staging_dir, ignore_errors=True)
+
+
+@celery_app.task
+def run_online_migrations_task() -> dict:
+    """Run all pending online (data) migrations against the server database.
+
+    Automatically queued when a Celery worker becomes ready. Every migration is
+    idempotent, so running this repeatedly (e.g. once per worker) is safe.
+    """
+    config = Config()
+    config.load()
+    database = get_db(config)
+
+    try:
+        results = run_online_migrations(database, config)
+        return {"status": "completed", "migrations": results}
+    finally:
+        database.close()
+
+
+@worker_ready.connect
+def _queue_online_migrations(sender=None, **_kwargs) -> None:
+    """Queue the online migrations once a worker is ready to process them."""
+    run_online_migrations_task.delay()
