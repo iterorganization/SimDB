@@ -1,6 +1,7 @@
 """Pydantic models for the SimDB remote API."""
 
 import base64
+import math
 from datetime import datetime as dt
 from datetime import timezone
 from pathlib import Path
@@ -38,6 +39,7 @@ from pydantic import (
 
 from simdb.cli.manifest import DataType
 from simdb.enums import IngestionStatus
+from simdb.imas.utils import FLOAT_MISSING_VALUE, INT_MISSING_VALUE
 from simdb.query import QueryType, parse_query_arg
 
 HexUUID = Annotated[UUID, PlainSerializer(lambda x: x.hex, return_type=str)]
@@ -74,6 +76,16 @@ StatusLiteral = Literal[
 """String representation of a simulation status"""
 
 
+def _is_valid_float(value: float) -> bool:
+    """Return False for NaN, +/-inf and the IMAS empty float."""
+    return math.isfinite(value) and value != FLOAT_MISSING_VALUE
+
+
+def _is_empty_int(value: Any) -> bool:
+    """Return True for the IMAS empty int (only for integer values, not floats)."""
+    return isinstance(value, (int, np.integer)) and value == INT_MISSING_VALUE
+
+
 def _array_to_range(value: Any) -> Any:
     """Convert a numpy array or list to a RangeValue if it contains numeric data."""
     if value is None:
@@ -96,10 +108,13 @@ def _array_to_range(value: Any) -> Any:
             return value
 
         try:
-            float_values = [float(v) for v in value]
-            return RangeValue(min=min(float_values), max=max(float_values))
+            float_values = [float(v) for v in value if not _is_empty_int(v)]
         except (TypeError, ValueError):
             return value
+        valid = [v for v in float_values if _is_valid_float(v)]
+        if not valid:
+            return None
+        return RangeValue(min=min(valid), max=max(valid))
 
     return value
 
