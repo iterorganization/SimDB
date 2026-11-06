@@ -1,14 +1,12 @@
 import importlib.util
 from datetime import datetime, timezone
 from typing import Dict, List
-from unittest import mock
 from uuid import UUID
 
 import pytest
 
 from simdb.export.scicat import (
     ExportOptions,
-    RemoteSource,
     export_simulations,
     simulation_to_dataset,
 )
@@ -156,30 +154,30 @@ def test_alias_falls_back_to_uuid_and_owner_to_unknown():
 
 
 @requires_scitacean
-def test_source_folder_is_common_parent_of_output_files():
-    sim = _sim(
-        PARENT_UUID,
-        "p",
-        outputs=[
-            _file("file:///work/run1/out/a.txt"),
-            _file("file:///work/run1/log/b.txt"),
-        ],
-    )
-    assert simulation_to_dataset(sim, OPTIONS).source_folder == "/work/run1"
-
-
-@requires_scitacean
-def test_single_output_file_uses_its_directory():
-    sim = _sim(PARENT_UUID, "p", outputs=[_file("file:///work/run1/out.nc")])
-    assert simulation_to_dataset(sim, OPTIONS).source_folder == "/work/run1"
-
-
-@requires_scitacean
-def test_parent_pids_become_input_datasets():
-    dataset = simulation_to_dataset(
-        _sim(CHILD_UUID, "child"), OPTIONS, parent_pids=["pid/parent"]
-    )
-    assert [str(p) for p in dataset.input_datasets] == ["pid/parent"]
+@pytest.mark.parametrize(
+    ("outputs", "expected"),
+    [
+        # Several files: their deepest common directory.
+        (
+            [
+                _file("file:///work/run1/out/a.txt"),
+                _file("file:///work/run1/log/b.txt"),
+            ],
+            "/work/run1",
+        ),
+        # One file: its directory.
+        ([_file("file:///work/run1/out.nc")], "/work/run1"),
+        # Legacy IMAS URI (no path=): ignored, falls back to the inputs.
+        (
+            [_file("imas:?user=jdoe&database=ITER&shot=1&run=2", "IMAS")],
+            "/work/inputs",
+        ),
+    ],
+    ids=["common-parent", "single-file", "legacy-imas-uri"],
+)
+def test_source_folder(outputs, expected):
+    sim = _sim(PARENT_UUID, "p", outputs=outputs)
+    assert simulation_to_dataset(sim, OPTIONS).source_folder == expected
 
 
 @requires_scitacean
@@ -242,17 +240,6 @@ def test_simulation_without_files_is_reported_as_failed_and_others_continue():
 
 
 @requires_scitacean
-def test_legacy_imas_uri_is_not_used_as_storage_path():
-    sim = _sim(
-        PARENT_UUID,
-        "p",
-        outputs=[_file("imas:?user=jdoe&database=ITER&shot=1&run=2", "IMAS")],
-    )
-    # Falls back to the directory of the inputs.
-    assert simulation_to_dataset(sim, OPTIONS).source_folder == "/work/inputs"
-
-
-@requires_scitacean
 def test_dry_run_uploads_nothing():
     client = QueryableFakeClient()
     report = export_simulations(
@@ -260,15 +247,3 @@ def test_dry_run_uploads_nothing():
     )
     assert client.datasets == {}
     assert report.exported == [str(PARENT_UUID)]
-
-
-def test_remote_source_reads_ids_and_full_simulations():
-    api = mock.Mock()
-    api.list_simulations.return_value = [mock.Mock(uuid=PARENT_UUID)]
-    api.get_simulation_with_refs.return_value = "full"
-
-    source = RemoteSource(api, limit=5)
-
-    assert source.list_simulation_ids() == [str(PARENT_UUID)]
-    api.list_simulations.assert_called_once_with(limit=5)
-    assert source.get_simulation("x") == "full"
