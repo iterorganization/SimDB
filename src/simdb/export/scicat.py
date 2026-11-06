@@ -24,18 +24,27 @@ from typing import (
     Protocol,
     Sequence,
 )
-from urllib.parse import parse_qs, urlparse
 
-from pydantic import BaseModel
-from scitacean import PID, Client, Dataset
+from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from simdb.database.models.utils import unflatten_dict
+from simdb.imas.utils import SimDBUrl, is_legacy_imas_uri
 from simdb.remote.models import FileData, SimulationDataResponse
+
+try:
+    from scitacean import PID, Client, Dataset
+
+    scitacean_available = True
+except ImportError:
+    scitacean_available = False
 
 if TYPE_CHECKING:
     from simdb.cli.remote_api import RemoteAPI
 
-KEYWORD = "simdb"
+INSTALL_HINT = "SciCat export needs Scitacean: pip install 'imas-simdb[scicat]'"
+
+SIMDB_KEYWORD = "simdb"
+"""Keyword on every exported dataset; ``simdb:<uuid>`` identifies one simulation."""
 
 
 class SimulationSource(Protocol):
@@ -88,15 +97,22 @@ class ExportError(ValueError):
 
 
 def uuid_keyword(sim_uuid: Any) -> str:
-    return f"{KEYWORD}:{sim_uuid}"
+    return f"{SIMDB_KEYWORD}:{sim_uuid}"
+
+
+def connect(url: str, token: str) -> "Client":
+    """Log in to the SciCat API at ``url`` with an API token."""
+    _require_scitacean()
+    return Client.from_token(url=url, token=token)
 
 
 def simulation_to_dataset(
     sim: SimulationDataResponse,
     options: ExportOptions,
     parent_pids: Iterable[str] = (),
-) -> Dataset:
+) -> "Dataset":
     """Map one SimDB simulation to an (unsaved) SciCat derived dataset."""
+    _require_scitacean()
     flat_meta = {m.element: _jsonable(m.value) for m in sim.metadata.root}
     sim_uuid = str(sim.uuid)
 
@@ -133,14 +149,14 @@ def simulation_to_dataset(
         input_datasets=[PID.parse(p) for p in parent_pids],
         used_software=used_software,
         data_format="IMAS" if has_imas else None,
-        keywords=[KEYWORD, uuid_keyword(sim_uuid)],
+        keywords=[SIMDB_KEYWORD, uuid_keyword(sim_uuid)],
         meta=scientific_meta,
     )
 
 
 def export_simulations(
     source: SimulationSource,
-    client: Client,
+    client: "Client",
     options: ExportOptions,
     *,
     dry_run: bool = False,
@@ -163,22 +179,17 @@ def export_simulations(
     for sim in _parents_first(sims):
         sim_uuid = str(sim.uuid)
         try:
-            existing = _find_exported(client, sim_uuid)
-            if existing is not None:
-                pids[sim_uuid] = existing
+            if _exported_pid(client, pids, sim_uuid) is not None:
                 report.skipped.append(sim_uuid)
                 continue
 
-            parent_pids = []
-            for parent in sim.parents:
-                parent_uuid = str(parent.uuid)
-                if parent_uuid not in pids:
-                    found = _find_exported(client, parent_uuid)
-                    if found is not None:
-                        pids[parent_uuid] = found
-                if parent_uuid in pids:
-                    parent_pids.append(pids[parent_uuid])
-
+            parent_pids = [
+                pid
+                for pid in (
+                    _exported_pid(client, pids, str(p.uuid)) for p in sim.parents
+                )
+                if pid is not None
+            ]
             dataset = simulation_to_dataset(sim, options, parent_pids)
             if dry_run:
                 client.scicat.validate_dataset_model(dataset.make_upload_model())
@@ -216,9 +227,18 @@ def _parents_first(
     return ordered
 
 
-def _find_exported(client: Client, sim_uuid: str) -> Optional[str]:
-    found = client.scicat.query_datasets({"keywords": [uuid_keyword(sim_uuid)]})
-    return str(found[0].pid) if found else None
+def _exported_pid(
+    client: "Client", pids: Dict[str, str], sim_uuid: str
+) -> Optional[str]:
+    """SciCat PID of a simulation exported in this run or an earlier one.
+
+    ``pids`` caches SimDB UUID -> PID for this run.
+    """
+    if sim_uuid not in pids:
+        found = client.scicat.query_datasets({"keywords": [uuid_keyword(sim_uuid)]})
+        if found:
+            pids[sim_uuid] = str(found[0].pid)
+    return pids.get(sim_uuid)
 
 
 def _storage_path(sim: SimulationDataResponse) -> str:
@@ -228,18 +248,29 @@ def _storage_path(sim: SimulationDataResponse) -> str:
         if dirs:
             return os.path.commonpath(dirs)
     raise ExportError(
-        f"Simulation {sim.uuid} has no file or IMAS path to use as storage path."
+        f"Simulation {sim.uuid} has no file or IMAS path to use as storage path "
+        "(legacy IMAS URIs without path= are not supported)."
     )
 
 
 def _file_dir(file: FileData) -> Optional[str]:
-    uri = urlparse(file.uri)
+    """Directory holding the file, or the IMAS data directory itself."""
+    try:
+        uri = TypeAdapter(SimDBUrl).validate_python(file.uri)
+    except ValidationError:
+        return None
     if uri.scheme == "file":
         return str(PurePosixPath(uri.path).parent) if uri.path else None
-    if uri.scheme == "imas":
-        paths = parse_qs(uri.query).get("path")
-        return paths[0] if paths else None
+    # Legacy URIs (user/database/shot/run) resolve against the home directory and
+    # $IMAS_HOME of the machine running the export, so they can't be trusted here.
+    if uri.scheme == "imas" and not is_legacy_imas_uri(uri):
+        return dict(uri.query_params())["path"]
     return None
+
+
+def _require_scitacean() -> None:
+    if not scitacean_available:
+        raise ImportError(INSTALL_HINT)
 
 
 def _as_utc(value: datetime) -> datetime:

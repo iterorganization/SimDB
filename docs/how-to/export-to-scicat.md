@@ -1,13 +1,10 @@
 # Export simulations to SciCat
 
-`simdb remote scicat-export` copies the metadata of every simulation on a
-SimDB server into a [SciCat](https://scicatproject.github.io/) catalogue. No
-data files are copied; SciCat records where they are stored.
+`simdb remote scicat-export` copies the metadata of every simulation on a SimDB server into a [SciCat](https://scicatproject.github.io/) catalogue. No data files are copied; SciCat records where they are stored.
 
 ## Install
 
-The exporter needs [Scitacean](https://www.scicat-project.org/scitacean/), which
-needs Python 3.10 or newer:
+The exporter needs [Scitacean](https://www.scicat-project.org/scitacean/):
 
 ```bash
 pip install 'imas-simdb[scicat]'
@@ -36,7 +33,7 @@ Other options:
   `uploaded_by` metadata is used.
 - `--access-group`: add a SciCat `accessGroups` entry. Repeat for several groups.
 - `--source-folder-host`: SciCat `sourceFolderHost`, e.g. the storage cluster.
-- `--limit N`: export only N simulations (default 0, which means all).
+- `--limit N`: export at most N simulations (default 0, which means all). The server picks which ones, so use it for trial runs, not to select simulations.
 
 ## What is exported
 
@@ -48,7 +45,7 @@ Each simulation becomes one SciCat **derived** dataset:
 | `description` | `description` metadata |
 | `owner` | `--owner`, else `uploaded_by` metadata |
 | `creationTime` | simulation date |
-| `sourceFolder` | deepest directory containing all outputs (inputs if there are no outputs) |
+| `sourceFolder` | deepest directory containing all outputs (inputs if there are no outputs); legacy IMAS URIs without `path=` are not used |
 | `inputDatasets` | SciCat PIDs of the simulation's parents |
 | `usedSoftware` | `code.name` and `code.version` metadata |
 | `dataFormat` | `IMAS` if any output is IMAS data |

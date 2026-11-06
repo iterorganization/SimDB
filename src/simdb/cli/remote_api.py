@@ -669,6 +669,7 @@ class RemoteAPI:
 
     @property
     def url(self) -> str:
+        """Base URL of the remote, as configured."""
         return self._url
 
     @property
@@ -985,15 +986,16 @@ class RemoteAPI:
     @versioned_method("v1.2", "v1.3")
     @try_request
     def get_simulation(self, sim_id: str) -> "Simulation":
-        res = self.get("simulation/" + sim_id)
-        return Simulation.from_data(res.json(cls=CustomDecoder))
+        return Simulation.from_data(self._get_simulation_json(sim_id))
 
     @versioned_method("v1.2", "v1.3")
     @try_request
     def get_simulation_with_refs(self, sim_id: str) -> SimulationDataResponse:
         """Like get_simulation, but keeps the parent and child references."""
-        res = self.get("simulation/" + sim_id)
-        return SimulationDataResponse.model_validate(res.json(cls=CustomDecoder))
+        return SimulationDataResponse.model_validate(self._get_simulation_json(sim_id))
+
+    def _get_simulation_json(self, sim_id: str) -> Dict:
+        return self.get("simulation/" + sim_id).json(cls=CustomDecoder)
 
     @versioned_method("v1.2", "v1.3")
     @try_request

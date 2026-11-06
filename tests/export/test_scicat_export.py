@@ -1,20 +1,29 @@
+import importlib.util
 from datetime import datetime, timezone
 from typing import Dict, List
+from unittest import mock
 from uuid import UUID
 
 import pytest
 
-scitacean = pytest.importorskip("scitacean")
-
-from scitacean import Profile  # noqa: E402
-from scitacean.testing.client import FakeClient  # noqa: E402
-
-from simdb.export.scicat import (  # noqa: E402
+from simdb.export.scicat import (
     ExportOptions,
+    RemoteSource,
     export_simulations,
     simulation_to_dataset,
 )
-from simdb.remote.models import SimulationDataResponse  # noqa: E402
+from simdb.remote.models import SimulationDataResponse
+
+has_scitacean = importlib.util.find_spec("scitacean") is not None
+if has_scitacean:
+    from scitacean import Profile
+    from scitacean.testing.client import FakeClient
+else:
+    FakeClient = object
+
+requires_scitacean = pytest.mark.skipif(
+    not has_scitacean, reason="requires scitacean library"
+)
 
 PARENT_UUID = UUID("11111111-1111-1111-1111-111111111111")
 CHILD_UUID = UUID("22222222-2222-2222-2222-222222222222")
@@ -98,6 +107,7 @@ def _exported(client) -> Dict[str, object]:
     return {d.scientificMetadata["simdb"]["uuid"]: d for d in client.datasets.values()}
 
 
+@requires_scitacean
 def test_simulation_maps_to_derived_dataset():
     dataset = simulation_to_dataset(_sim(PARENT_UUID, "parent"), OPTIONS)
 
@@ -114,6 +124,7 @@ def test_simulation_maps_to_derived_dataset():
     assert f"simdb:{PARENT_UUID}" in dataset.keywords
 
 
+@requires_scitacean
 def test_scientific_metadata_keeps_simdb_metadata_and_identity():
     dataset = simulation_to_dataset(_sim(PARENT_UUID, "parent"), OPTIONS)
 
@@ -127,6 +138,7 @@ def test_scientific_metadata_keeps_simdb_metadata_and_identity():
     assert meta["simdb"]["inputs"] == ["file:///work/inputs/input.yaml"]
 
 
+@requires_scitacean
 def test_owner_option_overrides_uploaded_by():
     options = ExportOptions(
         owner_group="imas", contact_email="x@iter.org", simdb_url="u", owner="admin"
@@ -134,6 +146,7 @@ def test_owner_option_overrides_uploaded_by():
     assert simulation_to_dataset(_sim(PARENT_UUID, "p"), options).owner == "admin"
 
 
+@requires_scitacean
 def test_alias_falls_back_to_uuid_and_owner_to_unknown():
     sim = _sim(PARENT_UUID, None, metadata=[])  # type: ignore[arg-type]
     dataset = simulation_to_dataset(sim, OPTIONS)
@@ -142,6 +155,7 @@ def test_alias_falls_back_to_uuid_and_owner_to_unknown():
     assert dataset.description is None
 
 
+@requires_scitacean
 def test_source_folder_is_common_parent_of_output_files():
     sim = _sim(
         PARENT_UUID,
@@ -154,11 +168,13 @@ def test_source_folder_is_common_parent_of_output_files():
     assert simulation_to_dataset(sim, OPTIONS).source_folder == "/work/run1"
 
 
+@requires_scitacean
 def test_single_output_file_uses_its_directory():
     sim = _sim(PARENT_UUID, "p", outputs=[_file("file:///work/run1/out.nc")])
     assert simulation_to_dataset(sim, OPTIONS).source_folder == "/work/run1"
 
 
+@requires_scitacean
 def test_parent_pids_become_input_datasets():
     dataset = simulation_to_dataset(
         _sim(CHILD_UUID, "child"), OPTIONS, parent_pids=["pid/parent"]
@@ -166,6 +182,7 @@ def test_parent_pids_become_input_datasets():
     assert [str(p) for p in dataset.input_datasets] == ["pid/parent"]
 
 
+@requires_scitacean
 def test_export_uploads_every_simulation_and_links_parents():
     source = FakeSource(
         [_sim(CHILD_UUID, "child", parents=[PARENT_UUID]), _sim(PARENT_UUID, "parent")]
@@ -182,6 +199,7 @@ def test_export_uploads_every_simulation_and_links_parents():
     assert report.skipped == [] and report.failed == {}
 
 
+@requires_scitacean
 def test_export_is_idempotent():
     source = FakeSource([_sim(PARENT_UUID, "parent")])
     client = QueryableFakeClient()
@@ -194,6 +212,7 @@ def test_export_is_idempotent():
     assert report.exported == []
 
 
+@requires_scitacean
 def test_rerun_links_child_to_parent_exported_earlier():
     client = QueryableFakeClient()
     export_simulations(FakeSource([_sim(PARENT_UUID, "parent")]), client, OPTIONS)
@@ -207,6 +226,7 @@ def test_rerun_links_child_to_parent_exported_earlier():
     assert [str(p) for p in exported[str(CHILD_UUID)].inputDatasets] == [parent_pid]
 
 
+@requires_scitacean
 def test_simulation_without_files_is_reported_as_failed_and_others_continue():
     source = FakeSource(
         [_sim(NO_FILES_UUID, "nofiles", outputs=[]), _sim(PARENT_UUID, "parent")]
@@ -221,6 +241,18 @@ def test_simulation_without_files_is_reported_as_failed_and_others_continue():
     assert "storage path" in report.failed[str(NO_FILES_UUID)]
 
 
+@requires_scitacean
+def test_legacy_imas_uri_is_not_used_as_storage_path():
+    sim = _sim(
+        PARENT_UUID,
+        "p",
+        outputs=[_file("imas:?user=jdoe&database=ITER&shot=1&run=2", "IMAS")],
+    )
+    # Falls back to the directory of the inputs.
+    assert simulation_to_dataset(sim, OPTIONS).source_folder == "/work/inputs"
+
+
+@requires_scitacean
 def test_dry_run_uploads_nothing():
     client = QueryableFakeClient()
     report = export_simulations(
@@ -231,10 +263,6 @@ def test_dry_run_uploads_nothing():
 
 
 def test_remote_source_reads_ids_and_full_simulations():
-    from unittest import mock  # noqa: PLC0415
-
-    from simdb.export.scicat import RemoteSource  # noqa: PLC0415
-
     api = mock.Mock()
     api.list_simulations.return_value = [mock.Mock(uuid=PARENT_UUID)]
     api.get_simulation_with_refs.return_value = "full"

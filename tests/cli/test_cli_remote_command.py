@@ -1,3 +1,4 @@
+import importlib.util
 import uuid
 from unittest import mock
 
@@ -7,7 +8,10 @@ from utils import config_test_file
 
 from simdb.cli.simdb import cli
 from simdb.database.models import Simulation
+from simdb.export.scicat import ExportReport, RemoteSource
 from simdb.notifications import Notification
+
+has_scitacean = importlib.util.find_spec("scitacean") is not None
 
 
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_authentication")
@@ -387,6 +391,16 @@ def test_remote_help_mid_line(args, command):
     assert result.output.startswith(f"Usage: simdb remote [NAME] {command} [OPTIONS]")
 
 
+SCICAT_ARGS = [
+    "remote",
+    "scicat-export",
+    "--scicat-url=https://scicat.test/api/v3",
+    "--owner-group=imas",
+    "--contact-email=imas-support@iter.org",
+]
+
+
+@pytest.mark.skipif(not has_scitacean, reason="requires scitacean library")
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_authentication")
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_endpoints")
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_version")
@@ -395,8 +409,6 @@ def test_remote_scicat_export_command(
     get_endpoints,
     get_server_authentication,
 ):
-    pytest.importorskip("scitacean")
-    from simdb.export.scicat import ExportReport, RemoteSource  # noqa: PLC0415
 
     get_endpoints.return_value = ["v1.2", "v1.3"]
     get_server_version.return_value = "1.0.0"
@@ -413,11 +425,7 @@ def test_remote_scicat_export_command(
             cli,
             [
                 f"--config-file={config_test_file()}",
-                "remote",
-                "scicat-export",
-                "--scicat-url=https://scicat.test/api/v3",
-                "--owner-group=imas",
-                "--contact-email=imas-support@iter.org",
+                *SCICAT_ARGS,
                 "--access-group=ukaea",
                 "--dry-run",
             ],
@@ -436,3 +444,22 @@ def test_remote_scicat_export_command(
     assert "Would export 1" in result.output
     assert "skipped 1" in result.output
     assert "c: no storage path" in result.output
+
+
+@mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_authentication")
+@mock.patch("simdb.cli.remote_api.RemoteAPI.get_endpoints")
+@mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_version")
+def test_remote_scicat_export_without_scitacean(
+    get_server_version, get_endpoints, get_server_authentication
+):
+    get_endpoints.return_value = ["v1.2", "v1.3"]
+    get_server_version.return_value = "1.0.0"
+    get_server_authentication.return_value = "None"
+    with mock.patch("simdb.export.scicat.scitacean_available", False):
+        result = CliRunner().invoke(
+            cli,
+            [f"--config-file={config_test_file()}", *SCICAT_ARGS],
+            env={"SCICAT_TOKEN": "secret"},
+        )
+    assert result.exit_code == 1
+    assert "pip install 'imas-simdb[scicat]'" in result.output

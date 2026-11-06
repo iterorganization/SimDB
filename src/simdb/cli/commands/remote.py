@@ -468,7 +468,7 @@ def remote_trace(api: RemoteAPI, sim_id: str):
     default=0,
     show_default=True,
     callback=validate_non_negative,
-    help="Only export the newest N simulations (0 for all).",
+    help="Limit number of exported simulations (use 0 for no limit).",
 )
 @click.option(
     "--dry-run",
@@ -495,17 +495,14 @@ def remote_scicat_export(
 
     Needs the optional dependency: pip install 'imas-simdb[scicat]'.
     """
-    try:
-        # Optional dependency, so only imported when this command runs.
-        from scitacean import Client  # noqa: PLC0415
+    # Deferred: importing Scitacean adds ~0.5 s, which every other simdb command
+    # would pay if this were a top-level import.
+    from simdb.export import scicat  # noqa: PLC0415
 
-        from simdb.export import scicat  # noqa: PLC0415
-    except ImportError as err:
-        raise click.ClickException(
-            "SciCat export needs Scitacean: pip install 'imas-simdb[scicat]'"
-        ) from err
+    if not scicat.scitacean_available:
+        raise click.ClickException(scicat.INSTALL_HINT)
 
-    client = Client.from_token(url=scicat_url, token=scicat_token)
+    client = scicat.connect(scicat_url, scicat_token)
     options = scicat.ExportOptions(
         owner_group=owner_group,
         contact_email=contact_email,

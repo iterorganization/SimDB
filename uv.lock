@@ -1178,6 +1178,7 @@ all = [
     { name = "psycopg2-binary" },
     { name = "python-magic" },
     { name = "redis" },
+    { name = "scitacean" },
     { name = "simplejson" },
 ]
 auth = [
@@ -1252,7 +1253,7 @@ requires-dist = [
     { name = "gunicorn", marker = "extra == 'server'", specifier = ">=26.2.0" },
     { name = "imas-python", specifier = ">=2.0.1" },
     { name = "imas-simdb", extras = ["auth-ad", "auth-keycloak", "auth-ldap"], marker = "extra == 'auth'" },
-    { name = "imas-simdb", extras = ["imas-validator", "postgres", "server"], marker = "extra == 'all'" },
+    { name = "imas-simdb", extras = ["imas-validator", "postgres", "scicat", "server"], marker = "extra == 'all'" },
     { name = "imas-validator", marker = "extra == 'imas-validator'", specifier = ">=1.0.0" },
     { name = "myst-parser", marker = "extra == 'build-docs'", specifier = ">=0.18.0" },
     { name = "netcdf4", specifier = ">=1.7.2" },
@@ -1269,7 +1270,7 @@ requires-dist = [
     { name = "redis", marker = "extra == 'server'", specifier = ">=5.0.0" },
     { name = "requests", specifier = ">=2.27.0" },
     { name = "rich", specifier = ">=14.3.3" },
-    { name = "scitacean", marker = "python_full_version >= '3.10' and extra == 'scicat'", specifier = ">=26.10" },
+    { name = "scitacean", marker = "extra == 'scicat'", specifier = ">=26.10" },
     { name = "semantic-version", specifier = ">=2.8" },
     { name = "simplejson", marker = "extra == 'server'", specifier = "~=3.0" },
     { name = "sphinx", marker = "extra == 'build-docs'", specifier = ">=4.5,<9" },
