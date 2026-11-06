@@ -1178,6 +1178,7 @@ all = [
     { name = "psycopg2-binary" },
     { name = "python-magic" },
     { name = "redis" },
+    { name = "scitacean" },
     { name = "simplejson" },
 ]
 auth = [
@@ -1207,6 +1208,9 @@ imas-validator = [
 postgres = [
     { name = "psycopg2-binary" },
 ]
+scicat = [
+    { name = "scitacean" },
+]
 server = [
     { name = "celery" },
     { name = "flask" },
@@ -1222,7 +1226,7 @@ server = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "imas-simdb", extra = ["auth", "imas-validator", "postgres", "server"] },
+    { name = "imas-simdb", extra = ["auth", "imas-validator", "postgres", "scicat", "server"] },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
@@ -1249,7 +1253,7 @@ requires-dist = [
     { name = "gunicorn", marker = "extra == 'server'", specifier = ">=26.2.0" },
     { name = "imas-python", specifier = ">=2.0.1" },
     { name = "imas-simdb", extras = ["auth-ad", "auth-keycloak", "auth-ldap"], marker = "extra == 'auth'" },
-    { name = "imas-simdb", extras = ["imas-validator", "postgres", "server"], marker = "extra == 'all'" },
+    { name = "imas-simdb", extras = ["imas-validator", "postgres", "scicat", "server"], marker = "extra == 'all'" },
     { name = "imas-validator", marker = "extra == 'imas-validator'", specifier = ">=1.0.0" },
     { name = "myst-parser", marker = "extra == 'build-docs'", specifier = ">=0.18.0" },
     { name = "netcdf4", specifier = ">=1.7.2" },
@@ -1266,6 +1270,7 @@ requires-dist = [
     { name = "redis", marker = "extra == 'server'", specifier = ">=5.0.0" },
     { name = "requests", specifier = ">=2.27.0" },
     { name = "rich", specifier = ">=14.3.3" },
+    { name = "scitacean", marker = "extra == 'scicat'", specifier = ">=26.10" },
     { name = "semantic-version", specifier = ">=2.8" },
     { name = "simplejson", marker = "extra == 'server'", specifier = "~=3.0" },
     { name = "sphinx", marker = "extra == 'build-docs'", specifier = ">=4.5,<9" },
@@ -1273,11 +1278,11 @@ requires-dist = [
     { name = "sphinx-immaterial", marker = "extra == 'build-docs'", specifier = ">=0.11.14" },
     { name = "sqlalchemy", specifier = ">=1.2.12,<2.0" },
 ]
-provides-extras = ["server", "auth-ad", "auth-keycloak", "auth-ldap", "auth", "imas-validator", "build-docs", "postgres", "all"]
+provides-extras = ["server", "auth-ad", "auth-keycloak", "auth-ldap", "auth", "imas-validator", "build-docs", "postgres", "scicat", "all"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "imas-simdb", extras = ["server", "imas-validator", "postgres", "auth"] },
+    { name = "imas-simdb", extras = ["server", "imas-validator", "postgres", "auth", "scicat"] },
     { name = "pytest", specifier = ">=8.3.5" },
     { name = "pytest-cov", specifier = ">=5.0.0" },
     { name = "ruff", specifier = "~=0.15.0" },
@@ -2493,6 +2498,20 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/f7/86/5185061a1fcc41d18c5dc2463969b3a3964b31d9ac67b2fb05d4c7ff7670/scipy-1.18.0-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:9aac6192fac56bf2ca534389d24623f07b39ff83317d58287285e7fbd622ff76", size = 37472480, upload-time = "2026-06-19T15:01:35.136Z" },
     { url = "https://files.pythonhosted.org/packages/31/8e/f04c68e39919a010d34f2ee1367fd705b0a25a02f609d755f0bfbc0a15fc/scipy-1.18.0-cp314-cp314t-win_amd64.whl", hash = "sha256:e40baea28ae7f5475c779741e2d90b1247c78531207b49c7030e698ff81cee3f", size = 37365390, upload-time = "2026-06-19T15:01:38.091Z" },
     { url = "https://files.pythonhosted.org/packages/d5/19/969dc072906c84dd0a3b05dcf57ea750936087d7873549e408b35cfc3f97/scipy-1.18.0-cp314-cp314t-win_arm64.whl", hash = "sha256:368e0a705903c466aa5f08eefb39e6b1b6b2d659e7352a31fd9e2438365be0f8", size = 25279661, upload-time = "2026-06-19T15:01:40.817Z" },
+]
+
+[[package]]
+name = "scitacean"
+version = "26.10.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "email-validator" },
+    { name = "httpx" },
+    { name = "pydantic" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5a/c4/ea4661dc7a6eee1ddfec1b4bad10e41e1f0ae6ce65e6544928e28039cca7/scitacean-26.10.1.tar.gz", hash = "sha256:2d908cd9bd99f3ab92e2e9fab85e3ca9a6cb5f58f44dd977317ec69b92341ca0", size = 319072, upload-time = "2026-10-26T13:12:57.895Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4f/25/c3c19eb76c78afe0d8005a99dba6c1e4ec45cd2f26b81e59d37fae9e961b/scitacean-26.10.1-py3-none-any.whl", hash = "sha256:fae5a962bfea0574333b88785f1e8d5816c6633abcbd22fd20f0da8b25f50ee7", size = 155868, upload-time = "2026-10-26T13:12:56.317Z" },
 ]
 
 [[package]]

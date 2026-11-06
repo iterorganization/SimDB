@@ -437,6 +437,96 @@ def remote_trace(api: RemoteAPI, sim_id: str):
     print_trace(trace_data)
 
 
+@remote.command("scicat-export", cls=remote_command_cls())
+@pass_api
+@click.option(
+    "--scicat-url",
+    required=True,
+    help="URL of the SciCat API, e.g. https://scicat.example.org/api/v3.",
+)
+@click.option(
+    "--scicat-token",
+    envvar="SCICAT_TOKEN",
+    required=True,
+    help="SciCat API token (or set SCICAT_TOKEN).",
+)
+@click.option("--owner-group", required=True, help="SciCat ownerGroup for datasets.")
+@click.option("--contact-email", required=True, help="SciCat contactEmail.")
+@click.option(
+    "--owner", help="SciCat owner. Defaults to each simulation's uploaded_by."
+)
+@click.option(
+    "--access-group",
+    "access_groups",
+    multiple=True,
+    help="SciCat accessGroups entry (repeatable).",
+)
+@click.option("--source-folder-host", help="SciCat sourceFolderHost, e.g. sdcc.")
+@click.option(
+    "-l",
+    "--limit",
+    default=0,
+    show_default=True,
+    callback=validate_non_negative,
+    help="Limit number of exported simulations (use 0 for no limit).",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Map and validate every simulation, but upload nothing.",
+)
+def remote_scicat_export(
+    api: RemoteAPI,
+    scicat_url: str,
+    scicat_token: str,
+    owner_group: str,
+    contact_email: str,
+    owner: Optional[str],
+    access_groups: Tuple[str, ...],
+    source_folder_host: Optional[str],
+    limit: int,
+    dry_run: bool,
+):
+    """Export simulation metadata from the remote to SciCat.
+
+    Each simulation becomes a SciCat derived dataset holding its metadata, storage
+    path and parent links. No files are copied. Simulations exported earlier are
+    skipped, so it is safe to run again.
+
+    Needs the optional dependency: pip install 'imas-simdb[scicat]'.
+    """
+    # Deferred: importing Scitacean adds ~0.5 s, which every other simdb command
+    # would pay if this were a top-level import.
+    from simdb.export import scicat  # noqa: PLC0415
+
+    if not scicat.scitacean_available:
+        raise click.ClickException(scicat.INSTALL_HINT)
+
+    client = scicat.connect(scicat_url, scicat_token)
+    options = scicat.ExportOptions(
+        owner_group=owner_group,
+        contact_email=contact_email,
+        simdb_url=api.url,
+        owner=owner,
+        access_groups=access_groups,
+        source_folder_host=source_folder_host,
+    )
+    report = scicat.export_simulations(
+        scicat.RemoteSource(api, limit=limit), client, options, dry_run=dry_run
+    )
+
+    verb = "Would export" if dry_run else "Exported"
+    click.echo(
+        f"{verb} {len(report.exported)} simulation(s), "
+        f"skipped {len(report.skipped)} already in SciCat, "
+        f"{len(report.failed)} failed."
+    )
+    for sim_id, error in report.failed.items():
+        click.echo(f"  {sim_id}: {error}", err=True)
+    if report.failed:
+        sys.exit(1)
+
+
 @remote.command("query", cls=remote_command_cls(), help=query_help("remote", "remote"))
 @pass_api
 @pass_config

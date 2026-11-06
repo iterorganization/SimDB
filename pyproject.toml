@@ -90,8 +90,11 @@ build-docs = [
 postgres = [
     "psycopg2-binary>=2.8.0",
 ]
+scicat = [
+    "scitacean>=26.10",
+]
 all = [
-    "imas-simdb[server, imas-validator, postgres]",
+    "imas-simdb[server, imas-validator, postgres, scicat]",
 ]
 
 [project.scripts]
@@ -176,5 +179,5 @@ dev = [
     "pytest-cov>=5.0.0",
     "ruff~=0.15.0",
     "ty==0.0.34",
-    "imas-simdb[server, imas-validator, postgres, auth]"
+    "imas-simdb[server, imas-validator, postgres, auth, scicat]"
 ]

@@ -1,0 +1,68 @@
+# Export simulations to SciCat
+
+`simdb remote scicat-export` copies the metadata of every simulation on a SimDB server into a [SciCat](https://scicatproject.github.io/) catalogue. No data files are copied; SciCat records where they are stored.
+
+## Install
+
+The exporter needs [Scitacean](https://www.scicat-project.org/scitacean/):
+
+```bash
+pip install 'imas-simdb[scicat]'
+```
+
+## Run the export
+
+Get an API token from your SciCat instance, then:
+
+```bash
+export SCICAT_TOKEN=...
+simdb remote iter scicat-export \
+    --scicat-url https://scicat.example.org/api/v3 \
+    --owner-group imas \
+    --contact-email imas-support@iter.org \
+    --dry-run
+```
+
+`--dry-run` maps and validates every simulation without uploading anything.
+Drop it to do the export. The command prints how many simulations were
+exported, skipped and failed, and exits with status 1 if any failed.
+
+Other options:
+
+- `--owner`: SciCat `owner` for every dataset. By default each simulation's
+  `uploaded_by` metadata is used.
+- `--access-group`: add a SciCat `accessGroups` entry. Repeat for several groups.
+- `--source-folder-host`: SciCat `sourceFolderHost`, e.g. the storage cluster.
+- `--limit N`: export at most N simulations (default 0, which means all). The server picks which ones, so use it for trial runs, not to select simulations.
+
+## What is exported
+
+Each simulation becomes one SciCat **derived** dataset:
+
+| SciCat field | Taken from |
+|---|---|
+| `datasetName` | alias, or the UUID if there is no alias |
+| `description` | `description` metadata |
+| `owner` | `--owner`, else `uploaded_by` metadata |
+| `creationTime` | simulation date |
+| `sourceFolder` | deepest directory containing all outputs (inputs if there are no outputs); legacy IMAS URIs without `path=` are not used |
+| `inputDatasets` | SciCat PIDs of the simulation's parents |
+| `usedSoftware` | `code.name` and `code.version` metadata |
+| `dataFormat` | `IMAS` if any output is IMAS data |
+| `keywords` | `simdb` and `simdb:<uuid>` |
+| `scientificMetadata` | all SimDB metadata, nested on `.`; ranges stay `{min, max}` |
+| `scientificMetadata.simdb` | UUID, alias, server URL, input and output URIs, parent UUIDs |
+
+SciCat assigns its own PIDs, so the SimDB UUID is kept in
+`scientificMetadata.simdb.uuid` and in the `simdb:<uuid>` keyword.
+
+## Running it again
+
+At the start, the exporter asks SciCat once for every dataset with the `simdb`
+keyword and reads their `simdb:<uuid>` keywords. Those simulations are skipped
+without fetching them from SimDB, so a re-run only costs time for new
+simulations. It does not update datasets that were exported earlier.
+
+Parents are exported before their children, so a child's `inputDatasets` can
+point at them. A parent that failed to export is left out of its child's
+`inputDatasets`.
