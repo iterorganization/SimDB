@@ -73,11 +73,13 @@ def _sim(uuid: UUID, alias: str, *, parents=(), outputs=None, metadata=None):
 class FakeSource:
     def __init__(self, sims: List[SimulationDataResponse]):
         self.sims: Dict[str, SimulationDataResponse] = {str(s.uuid): s for s in sims}
+        self.fetched: List[str] = []
 
     def list_simulation_ids(self) -> List[str]:
         return list(self.sims)
 
     def get_simulation(self, sim_id: str) -> SimulationDataResponse:
+        self.fetched.append(sim_id)
         return self.sims[sim_id]
 
 
@@ -93,8 +95,10 @@ class QueryableFakeClient(FakeClient):
         )
         scicat = self.scicat
         datasets = self.datasets
+        self.queries = 0
 
         def query_datasets(fields, **_kwargs):
+            self.queries += 1
             wanted = set(fields["keywords"])
             return [d for d in datasets.values() if wanted <= set(d.keywords or [])]
 
@@ -203,11 +207,17 @@ def test_export_is_idempotent():
     client = QueryableFakeClient()
 
     export_simulations(source, client, OPTIONS)
+    source.fetched.clear()
+    client.queries = 0
     report = export_simulations(source, client, OPTIONS)
 
     assert len(client.datasets) == 1
     assert report.skipped == [str(PARENT_UUID)]
     assert report.exported == []
+    # Already-exported simulations are skipped before fetching their details,
+    # and SciCat is searched once per run, not once per simulation.
+    assert source.fetched == []
+    assert client.queries == 1
 
 
 @requires_scitacean

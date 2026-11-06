@@ -163,32 +163,29 @@ def export_simulations(
 ) -> ExportReport:
     """Export every simulation from ``source`` to SciCat.
 
-    Simulations already in SciCat are skipped. Simulations are exported oldest
-    first, so parents are normally in SciCat before their children and the child's
+    SciCat is searched once, up front, for everything exported earlier; those
+    simulations are skipped without fetching their details from SimDB. The rest are
+    exported oldest first and always after their parents, so a child's
     ``inputDatasets`` can point at them. One failing simulation does not stop the
     others; see ``ExportReport.failed``.
     """
     report = ExportReport()
+    # SimDB UUID -> SciCat PID, for earlier runs and (as it goes) this one.
+    pids = _exported_pids(client)
     sims: List[SimulationDataResponse] = []
     for sim_id in source.list_simulation_ids():
+        if sim_id in pids:
+            report.skipped.append(sim_id)
+            continue
         try:
             sims.append(source.get_simulation(sim_id))
         except Exception as err:  # report and continue with the rest
             report.failed[sim_id] = f"could not read from SimDB: {err}"
-    pids: Dict[str, str] = {}
     for sim in _parents_first(sims):
         sim_uuid = str(sim.uuid)
         try:
-            if _exported_pid(client, pids, sim_uuid) is not None:
-                report.skipped.append(sim_uuid)
-                continue
-
             parent_pids = [
-                pid
-                for pid in (
-                    _exported_pid(client, pids, str(p.uuid)) for p in sim.parents
-                )
-                if pid is not None
+                pids[str(p.uuid)] for p in sim.parents if str(p.uuid) in pids
             ]
             dataset = simulation_to_dataset(sim, options, parent_pids)
             if dry_run:
@@ -227,18 +224,15 @@ def _parents_first(
     return ordered
 
 
-def _exported_pid(
-    client: "Client", pids: Dict[str, str], sim_uuid: str
-) -> Optional[str]:
-    """SciCat PID of a simulation exported in this run or an earlier one.
-
-    ``pids`` caches SimDB UUID -> PID for this run.
-    """
-    if sim_uuid not in pids:
-        found = client.scicat.query_datasets({"keywords": [uuid_keyword(sim_uuid)]})
-        if found:
-            pids[sim_uuid] = str(found[0].pid)
-    return pids.get(sim_uuid)
+def _exported_pids(client: "Client") -> Dict[str, str]:
+    """SimDB UUID -> SciCat PID for every dataset exported earlier, in one query."""
+    prefix = uuid_keyword("")
+    pids: Dict[str, str] = {}
+    for dataset in client.scicat.query_datasets({"keywords": [SIMDB_KEYWORD]}):
+        for keyword in dataset.keywords or []:
+            if keyword.startswith(prefix):
+                pids[keyword[len(prefix) :]] = str(dataset.pid)
+    return pids
 
 
 def _storage_path(sim: SimulationDataResponse) -> str:

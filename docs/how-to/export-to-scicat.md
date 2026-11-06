@@ -58,9 +58,10 @@ SciCat assigns its own PIDs, so the SimDB UUID is kept in
 
 ## Running it again
 
-Before uploading a simulation, the exporter looks for a dataset with its
-`simdb:<uuid>` keyword and skips it if one exists. Re-running the export only
-adds new simulations; it does not update datasets that were exported earlier.
+At the start, the exporter asks SciCat once for every dataset with the `simdb`
+keyword and reads their `simdb:<uuid>` keywords. Those simulations are skipped
+without fetching them from SimDB, so a re-run only costs time for new
+simulations. It does not update datasets that were exported earlier.
 
 Parents are exported before their children, so a child's `inputDatasets` can
 point at them. A parent that failed to export is left out of its child's
