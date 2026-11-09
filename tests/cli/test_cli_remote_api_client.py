@@ -424,7 +424,7 @@ def test_unexpected_json_from_another_major_version_gives_advice(http, monkeypat
 
     assert str(excinfo.value).endswith(
         "\n\nThe remote runs SimDB 1.4.2, which might not be compatible with this "
-        "SimDB 2.1.0 client. Use a SimDB 1.x client with this remote."
+        "SimDB 2.1.0 client. You may need to use a SimDB 1.x client with this remote."
     )
 
 

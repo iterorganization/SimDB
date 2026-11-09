@@ -144,8 +144,8 @@ def _version_mismatch_hint(api: Any) -> str:
         return ""
     return (
         f"\n\nThe remote runs SimDB {server_version}, which might not be "
-        f"compatible with this SimDB {simdb.__version__} client. Use a SimDB "
-        f"{server_version.major}.x client with this remote."
+        f"compatible with this SimDB {simdb.__version__} client. You may need to "
+        f"use a SimDB {server_version.major}.x client with this remote."
     )
 
 
