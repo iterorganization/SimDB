@@ -36,6 +36,7 @@ from pydantic import BaseModel, ValidationError
 from requests.auth import AuthBase
 from semantic_version import Version
 
+import simdb
 from simdb.config import Config
 from simdb.database.models import Simulation
 from simdb.imas.utils import SimDBUrl, imas_files
@@ -102,6 +103,37 @@ class RemoteError(APIError):
     pass
 
 
+def _version_mismatch_hint(api: Any) -> str:
+    """
+    Advise on a remote whose major SimDB version differs from that of this client.
+
+    @param api: the RemoteAPI the failing request was made with, if any.
+    @return: the advice, or an empty string if the major versions agree or either
+             version is unknown.
+    """
+    server_version = getattr(api, "server_version", None)
+    try:
+        client_version = Version.coerce(simdb.__version__)
+    except ValueError:
+        return ""
+    if (
+        not isinstance(server_version, Version)
+        or server_version.major == client_version.major
+    ):
+        return ""
+    return (
+        f"\n\nThe remote runs SimDB {server_version}, which might not be "
+        f"compatible with this SimDB {simdb.__version__} client. Use a SimDB "
+        f"{server_version.major}.x client with this remote."
+    )
+
+
+def _with_version_hint(message: str, args: Tuple) -> str:
+    """Append the version mismatch hint to *message*, unless it already has it."""
+    hint = _version_mismatch_hint(args[0] if args else None)
+    return message if hint in message else message + hint
+
+
 def try_request(func: Callable) -> Callable:
     @functools.wraps(func)
     def wrapped_func(*args, **kwargs):
@@ -142,8 +174,15 @@ This might indicate an invalid SimDB URL or the existence of a firewall.
                     """
                 ) from None
             raise RemoteError(
-                f"Unexpected data exchanged with the remote:\n{ex}"
+                _with_version_hint(
+                    f"Unexpected data exchanged with the remote:\n{ex}", args
+                )
             ) from None
+        except RemoteError as ex:
+            # The remote rejecting a request it cannot validate.
+            if "validation error" not in str(ex).lower():
+                raise
+            raise RemoteError(_with_version_hint(str(ex), args)) from None
 
     return wrapped_func
 

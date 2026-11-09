@@ -12,7 +12,9 @@ from unittest import mock
 import pytest
 import requests
 from pydantic import ValidationError
+from semantic_version import Version
 
+import simdb
 from simdb.cli.remote_api import (
     FailedConnection,
     RemoteAPI,
@@ -372,3 +374,83 @@ def test_a_validation_error_is_not_swallowed_as_something_else():
     """Only ``json_invalid`` errors mean the response was not JSON at all."""
     with pytest.raises(ValidationError):
         TokenResponse.model_validate_json(b"{}")
+
+
+# ---------------------------------------------------------------------------
+# version mismatch hint
+# ---------------------------------------------------------------------------
+
+MISMATCH = "which might not be compatible with this SimDB"
+
+
+def connect(http, monkeypatch, client: str, server: str) -> RemoteAPI:
+    """Connect a client of version *client* to a remote of version *server*."""
+    monkeypatch.setattr(simdb, "__version__", client)
+    http.routes[""] = response({**INDEX, "server_version": server})
+    return RemoteAPI("test", None, None, make_config())
+
+
+def test_unexpected_json_from_another_major_version_gives_advice(http, monkeypatch):
+    api = connect(http, monkeypatch, client="2.1.0", server="1.4.2")
+    http.route("token", {"not_a_token": True})
+
+    with pytest.raises(RemoteError, match="Unexpected data exchanged") as excinfo:
+        api.get_token()
+
+    assert str(excinfo.value).endswith(
+        "\n\nThe remote runs SimDB 1.4.2, which might not be compatible with this "
+        "SimDB 2.1.0 client. Use a SimDB 1.x client with this remote."
+    )
+
+
+def test_a_request_the_remote_cannot_validate_gives_advice(http, monkeypatch):
+    api = connect(http, monkeypatch, client="2.1.0", server="1.4.2")
+    http.route(
+        "validation_schema",
+        {"error": "1 validation error for FileRegistrationData"},
+        status=500,
+    )
+
+    with pytest.raises(RemoteError, match=MISMATCH):
+        api.get_validation_schemas()
+
+
+def test_other_remote_errors_give_no_advice(http, monkeypatch):
+    api = connect(http, monkeypatch, client="2.1.0", server="1.4.2")
+    http.route("validation_schema", {"error": "you shall not pass"}, status=403)
+
+    with pytest.raises(RemoteError) as excinfo:
+        api.get_validation_schemas()
+
+    assert MISMATCH not in str(excinfo.value)
+
+
+@pytest.mark.parametrize("client", ["1.9.0", "unknown"])
+def test_the_same_major_or_an_unknown_client_version_gives_no_advice(
+    http, monkeypatch, client
+):
+    api = connect(http, monkeypatch, client=client, server="1.4.2")
+    http.route("token", {"not_a_token": True})
+
+    with pytest.raises(RemoteError) as excinfo:
+        api.get_token()
+
+    assert MISMATCH not in str(excinfo.value)
+
+
+def test_nested_requests_give_the_advice_once(monkeypatch):
+    monkeypatch.setattr(simdb, "__version__", "2.1.0")
+    api = mock.Mock(server_version=Version("1.4.2"))
+
+    @try_request
+    def inner(_api):
+        TokenResponse.model_validate({"wrong": "shape"})
+
+    @try_request
+    def outer(_api):
+        inner(_api)
+
+    with pytest.raises(RemoteError) as excinfo:
+        outer(api)
+
+    assert str(excinfo.value).count(MISMATCH) == 1
