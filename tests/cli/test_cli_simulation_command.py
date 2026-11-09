@@ -310,3 +310,70 @@ def test_simulation_push_local_rejected_status_check(get_local_db, remote_api, s
     assert result.exit_code != 0
     assert "Failed to check ingestion status: Simulation not found" in result.output
     assert remote_api.return_value.get_ingestion_status.call_count == 1
+
+
+@pytest.mark.parametrize(
+    "args, expected",
+    [
+        (["global_quantities.r0.value=6.2"], 6.2),
+        (["pulse=134173"], 134173),
+        (["code.name=ASTRA"], "ASTRA"),
+        (["description=a=b"], "a=b"),
+        (["value=nan"], "nan"),
+        (["pulse=134173", "--type", "string"], "134173"),
+        (["r0=6", "--type", "float"], 6.0),
+        (["note=-9e40", "--type", "string"], "-9e40"),
+    ],
+)
+@mock.patch("simdb.cli.commands.simulation.get_local_db")
+def test_simulation_modify_set_meta_types(get_local_db, args, expected):
+    simulation = get_local_db.return_value.get_simulation.return_value
+    config_file = config_test_file()
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            f"--config-file={config_file}",
+            "simulation",
+            "modify",
+            "sim",
+            "--set-meta",
+            *args,
+        ],
+    )
+    assert result.exception is None, result.output
+    name = args[0].split("=", 1)[0]
+    simulation.set_meta.assert_called_once_with(name, expected)
+    value = simulation.set_meta.call_args.args[1]
+    assert type(value) is type(expected)
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["noequals"],
+        ["=6.2"],
+        ["r0=abc", "--type", "float"],
+        ["n=1.5", "-t", "int"],
+        ["r0=-9e40"],
+        ["r0=-9.0e+40", "--type", "float"],
+        ["flag=-999999999"],
+    ],
+)
+@mock.patch("simdb.cli.commands.simulation.get_local_db")
+def test_simulation_modify_set_meta_invalid(get_local_db, args):
+    config_file = config_test_file()
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            f"--config-file={config_file}",
+            "simulation",
+            "modify",
+            "sim",
+            "--set-meta",
+            *args,
+        ],
+    )
+    assert result.exit_code != 0
+    get_local_db.return_value.get_simulation.return_value.set_meta.assert_not_called()
