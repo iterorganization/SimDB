@@ -63,3 +63,14 @@ def test_check_loads_the_manifest_it_was_given(invoke, manifest_file):
     assert loaded.alias == "simulation-alias"
     assert len(loaded.inputs) == 1
     assert len(loaded.outputs) == 1
+
+
+def test_check_reports_the_location_of_a_syntax_error(invoke, tmp_path):
+    manifest_file = tmp_path / "manifest.yaml"
+    manifest_file.write_text("manifest_version: 2\ninputs: []\n outputs: []\n")
+
+    result = invoke("manifest", "check", str(manifest_file))
+
+    assert result.exit_code != 0
+    assert "ok" not in result.output
+    assert f"{manifest_file}:3:2: expected <block end>" in str(result.exception)

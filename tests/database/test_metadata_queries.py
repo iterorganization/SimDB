@@ -10,11 +10,36 @@ from simdb.query import QueryType
 
 
 @pytest.fixture
-def db():
+def db(monkeypatch):
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_file = f.name
     database = Database(Database.DBMS.SQLITE, file=db_file)
     Base.metadata.create_all(database.engine)
+
+    original_query_all = database.session.query(Simulation).__class__.all
+    unordered_query_calls = {"value": 0}
+
+    def unstable_order(self):
+        # PostgreSQL does not guarantee row order without ORDER BY; see
+        # https://www.postgresql.org/docs/current/queries-order.html.
+        # Unless "_order_by_clauses" is set, mimic the unstable ordering.
+        if getattr(self, "_order_by_clauses", ()):
+            return list(original_query_all(self))
+
+        rows = list(original_query_all(self))
+        if not rows:
+            return rows
+
+        # Simple rotation of rows, at every call to query.all()
+        unordered_query_calls["value"] += 1
+        rotation = (unordered_query_calls["value"] - 1) % len(rows)
+        rows = rows[rotation:] + rows[:rotation]
+        return rows
+
+    monkeypatch.setattr(
+        database.session.query(Simulation).__class__, "all", unstable_order
+    )
+
     yield database
     database.close()
 
@@ -295,6 +320,54 @@ class TestListSimulationData:
         assert count == 3
         aliases = [r["alias"] for r in results]
         assert aliases == ["a_sim", "b_sim", "c_sim"]
+
+    def test_db_fixture_returns_unstable_order_without_sort(self, db):
+        sim1 = create_simulation(alias="sim1")
+        sim2 = create_simulation(alias="sim2")
+        sim3 = create_simulation(alias="sim3")
+        sim4 = create_simulation(alias="sim4")
+
+        db.insert_simulation(sim1)
+        db.insert_simulation(sim2)
+        db.insert_simulation(sim3)
+        db.insert_simulation(sim4)
+        db.session.commit()
+
+        query = db.session.query(Simulation)
+        page1_count = query.count()
+        page1 = query.all()[:2]
+
+        query = db.session.query(Simulation)
+        page2_count = query.count()
+        page2 = query.all()[2:4]
+
+        assert page1_count == page2_count == 4
+        assert len(page1) == len(page2) == 2
+
+        page1_aliases = {row.alias for row in page1}
+        page2_aliases = {row.alias for row in page2}
+
+        # Without a stable sort key, page 1 and page 2 can overlap.
+        assert len(page1_aliases & page2_aliases) == 1
+        assert len(page1_aliases | page2_aliases) == 3
+
+    def test_list_simulation_data_is_stable_without_explicit_sort(self, db):
+        sim1 = create_simulation()
+        sim2 = create_simulation()
+        sim3 = create_simulation()
+        sim4 = create_simulation()
+
+        db.insert_simulation(sim1)
+        db.insert_simulation(sim2)
+        db.insert_simulation(sim3)
+        db.insert_simulation(sim4)
+        db.session.commit()
+
+        first_count, first_page = db.list_simulation_data(limit=2, page=1)
+        second_count, second_page = db.list_simulation_data(limit=2, page=1)
+
+        assert first_count == second_count == 4
+        assert first_page == second_page
 
 
 class TestQueryMetaData:

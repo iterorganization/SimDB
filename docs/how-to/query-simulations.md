@@ -8,7 +8,7 @@ The common cases are shown below; for the full operator list and syntax, see
 
 ```bash
 simdb simulation query code.name=JETTO
-simdb simulation query pulse=gt:1000 run=0
+simdb simulation query global_quantities.r0.value=gt:6 machine=ITER
 ```
 
 Each constraint is `NAME=[modifier:]VALUE`. Multiple constraints are combined
@@ -20,8 +20,7 @@ simdb simulation query machine=ITER -m code.name --uuid
 
 ## Query a remote
 
-The same syntax works against a server. Remote queries additionally support the
-array operators (`agt`, `age`, `alt`, `ale`):
+The same syntax works against a server:
 
 ```bash
 simdb remote query machine=ITER
@@ -85,7 +84,7 @@ see the [REST API reference](../reference/rest-api.md).
 | --- | --- |
 | `machine=ITER` | exactly `ITER` (case-insensitive) |
 | `code.name=in:sol` | values containing `sol` |
-| `pulse=gt:1000` | values greater than 1000 |
+| `global_quantities.r0.value=gt:6` | values greater than 6 |
 | `sequence=exist:` | simulations that have a `sequence` field |
 
 See [Query operators](../reference/query-operators.md) for the rest.

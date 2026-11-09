@@ -6,13 +6,15 @@ calls it makes, and what it reports back to the user.
 """
 
 from unittest import mock
+from uuid import uuid1
 
 import pytest
 from cli_helpers import make_simulation
 
-from simdb.cli.remote_api import RemoteError
+from simdb.cli.remote_api import FailedConnection, RemoteError
 from simdb.database import DatabaseError
-from simdb.remote.models import ImasDataResponse, QuantityData
+from simdb.enums import IngestionStatus
+from simdb.remote.models import ImasDataResponse, QuantityData, UploadOptions
 from simdb.validation import ValidationError
 
 
@@ -494,3 +496,151 @@ def test_validate_fails_on_a_checksum_mismatch(invoke, local_db, remote_api):
     assert result.exit_code != 0
     assert isinstance(result.exception, ValidationError)
     assert "file:///data" in str(result.exception)
+
+
+# ---------------------------------------------------------------------------
+# simulation push_local
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def push_local(invoke, local_db, remote_api):
+    """Invoke ``simulation push_local`` for a local simulation, skipping validation.
+
+    Each test sets the ingestion statuses the remote reports, and the sleep
+    between status checks is skipped.
+    """
+    simulation = make_simulation("sim")
+    simulation.uuid = uuid1()
+    local_db.get_simulation.return_value = simulation
+    remote_api.get_upload_options.return_value = UploadOptions(auto_validate=False)
+
+    def _push_local(*extra_args):
+        with mock.patch("simdb.cli.commands.simulation.time.sleep"):
+            return invoke("simulation", "push_local", "sim", *extra_args)
+
+    return _push_local
+
+
+def test_push_local_waits_for_the_ingestion_to_complete(
+    push_local, local_db, remote_api
+):
+    remote_api.get_ingestion_status.return_value = IngestionStatus.COMPLETED.value
+    simulation = local_db.get_simulation.return_value
+
+    result = push_local()
+
+    assert result.exit_code == 0, result.output
+    remote_api.push_local_simulation.assert_called_once_with(
+        simulation, add_watcher=False
+    )
+    assert f"Successfully pushed simulation {simulation.uuid}" in result.output
+
+
+def test_push_local_validates_against_the_remote_schemas(
+    push_local, local_db, remote_api
+):
+    remote_api.get_upload_options.return_value = UploadOptions(auto_validate=True)
+    remote_api.get_validation_schemas.return_value = [{"schema": 1}]
+    remote_api.get_ingestion_status.return_value = IngestionStatus.COMPLETED.value
+
+    with mock.patch("simdb.cli.commands.simulation.Validator") as validator:
+        result = push_local()
+
+    assert result.exit_code == 0, result.output
+    schema, config = validator.call_args.args
+    assert schema == {"schema": 1}
+    assert config is not None
+    validator.return_value.validate.assert_called_once_with(
+        local_db.get_simulation.return_value
+    )
+
+
+def test_push_local_skips_validation_when_the_remote_does_not_ask(
+    push_local, remote_api
+):
+    remote_api.get_ingestion_status.return_value = IngestionStatus.COMPLETED.value
+
+    result = push_local()
+
+    assert result.exit_code == 0, result.output
+    assert not remote_api.get_validation_schemas.called
+
+
+@pytest.mark.parametrize(
+    "status", (IngestionStatus.COPY_FAILED, IngestionStatus.VALIDATION_FAILED)
+)
+def test_push_local_fails_when_the_ingestion_does(push_local, remote_api, status):
+    remote_api.get_ingestion_status.return_value = status.value
+
+    result = push_local()
+
+    assert result.exit_code != 0
+    assert f"Simulation ingestion failed with status: {status.value}" in result.output
+
+
+def test_push_local_stops_waiting_after_the_timeout(push_local, remote_api):
+    remote_api.get_ingestion_status.return_value = IngestionStatus.COPYING.value
+
+    result = push_local("--timeout=0")
+
+    assert result.exit_code != 0
+    assert "Timed out after 0s waiting for ingestion to complete" in result.output
+    assert "last status: COPYING" in result.output
+
+
+def test_push_local_reports_every_status_change(push_local, remote_api):
+    remote_api.get_ingestion_status.side_effect = [
+        IngestionStatus.QUEUED.value,
+        IngestionStatus.COPYING.value,
+        IngestionStatus.COPYING.value,
+        IngestionStatus.COMPLETED.value,
+    ]
+
+    result = push_local()
+
+    assert result.exit_code == 0, result.output
+    assert "QUEUED -> COPYING -> COMPLETED" in result.output
+
+
+def test_push_local_does_not_wait_for_an_unknown_status(push_local, remote_api):
+    remote_api.get_ingestion_status.return_value = "TELEPORTING"
+
+    result = push_local()
+
+    assert result.exit_code != 0
+    assert "Remote reported an unknown ingestion status: TELEPORTING" in result.output
+
+
+def test_push_local_tolerates_transient_status_check_failures(push_local, remote_api):
+    """The ingestion continues server-side, so a failed status check is not fatal."""
+    remote_api.get_ingestion_status.side_effect = [
+        FailedConnection("connection reset"),
+        FailedConnection("connection reset"),
+        IngestionStatus.COMPLETED.value,
+    ]
+
+    result = push_local()
+
+    assert result.exit_code == 0, result.output
+    assert "COMPLETED" in result.output
+
+
+def test_push_local_gives_up_when_status_checks_keep_failing(push_local, remote_api):
+    remote_api.get_ingestion_status.side_effect = FailedConnection("down")
+
+    result = push_local()
+
+    assert result.exit_code != 0
+    assert "Failed to check ingestion status 5 times in a row: down" in result.output
+
+
+def test_push_local_does_not_retry_a_rejected_status_check(push_local, remote_api):
+    """A request the remote rejects will not start working when repeated."""
+    remote_api.get_ingestion_status.side_effect = RemoteError("Simulation not found")
+
+    result = push_local()
+
+    assert result.exit_code != 0
+    assert "Failed to check ingestion status: Simulation not found" in result.output
+    assert remote_api.get_ingestion_status.call_count == 1

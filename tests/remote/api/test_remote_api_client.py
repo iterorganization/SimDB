@@ -165,6 +165,8 @@ def remote(tmp_path):
 def _push_simulation(api, tmp_path, alias="client-sim"):
     data_file = tmp_path / "input.txt"
     data_file.write_text("hello simdb\n")
+    output_file = tmp_path / "output.txt"
+    output_file.write_text("goodbye simdb\n")
     manifest_file = tmp_path / "manifest.yaml"
     manifest_file.write_text(
         "manifest_version: 2\n"
@@ -172,13 +174,16 @@ def _push_simulation(api, tmp_path, alias="client-sim"):
         "inputs:\n"
         f"  - uri: file://{data_file}\n"
         "outputs:\n"
-        f"  - uri: file://{data_file}\n"
+        f"  - uri: file://{output_file}\n"
         "metadata:\n"
         "- values:\n"
         "    code: my-code\n"
     )
     simulation = Simulation(Manifest.load_from_file(manifest_file))
-    api.push_simulation(simulation, out_stream=io.StringIO(), add_watcher=False)
+    # The v1.3 push uploads resumably and leaves the ingestion to a worker, which
+    # this in-process server does not run; v1.2 stores the simulation directly.
+    with api.api_version("v1.2"):
+        api.push_simulation(simulation, add_watcher=False)
     return simulation
 
 
@@ -187,7 +192,9 @@ def test_index_endpoints(remote):
 
     assert str(api.version).startswith("1.3")
     assert any(url.endswith("simulations") for url in api.get_endpoints())
-    assert api.get_upload_options() == UploadOptions(copy_files=True, copy_ids=True)
+    assert api.get_upload_options() == UploadOptions(
+        copy_files=True, copy_ids=True, auto_validate=False
+    )
     assert isinstance(api.get_directory(), Path)
     assert api.get_validation_schemas() == [{"status": {"type": "string"}}]
 

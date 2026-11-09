@@ -35,15 +35,16 @@ class SimDBUrl(AnyUrl):
         fragment: Optional[str] = None,
         **kwargs,
     ) -> "SimDBUrl":
-        url_str = f"{scheme}:"
-
+        authority = ""
         if host:
-            url_str += f"//{host}"
-            if port:
-                url_str += f":{port}"
-            url_str += "/"
+            authority = f"//{host}"
+            if port is not None:
+                authority += f":{port}"
+        path_part = path or ""
+        if authority and path_part and not path_part.startswith("/"):
+            path_part = f"/{path_part}"
 
-        url_str += path or ""
+        url_str = f"{scheme}:{authority}{path_part}"
         if query:
             url_str += f"?{query}"
         if fragment:
@@ -103,10 +104,11 @@ def list_idss(entry: DBEntry) -> List[str]:
     for ids_name in entry.factory.ids_names():
         occurrences = entry.list_all_occurrences(ids_name)
         if occurrences and len(occurrences) > 0:
-            for occurrence in range(len(occurrences)):
+            for occurrence in occurrences:
                 if occurrence > 0:
                     idss.append(ids_name + "_" + str(occurrence))
-            idss.append(ids_name)
+                else:
+                    idss.append(ids_name)
     return idss
 
 
@@ -222,10 +224,19 @@ def open_imas(uri: SimDBUrl) -> DBEntry:
     if uri.scheme == "file":
         imas_uri = uri.path
     elif uri.scheme == "imas":
+        # Access Layer 4 / legacy entries are opened through the dedicated
+        # DBEntry constructor rather than a URI string.
+        if not _is_al5():
+            return _open_legacy(uri)
+
         qs = dict(uri.query_params())
         path = qs.get("path")
         if path is None:
-            raise ValueError(f"invalid imas URI: {uri} - no path found")
+            # A legacy-style URI (no explicit path query): resolve the on-disk
+            # path and rebuild an AL5 URI before opening.
+            path = get_path_for_legacy_uri(uri)
+            backend = qs.get("backend", "mdsplus")
+            uri = SimDBUrl.build(scheme="imas", path=backend, query=f"path={path}")
         imas_uri = str(uri)
     else:
         raise ValueError(f"invalid imas URI: {uri} - invalid scheme")
@@ -311,6 +322,37 @@ def _get_path(uri: SimDBUrl) -> Path:
     return path
 
 
+def imas_backend_for_directory(directory: Path) -> str:
+    """
+    Identify the IMAS backend of a directory by inspecting its contents.
+
+    @param directory: a directory that may contain an IMAS dataset
+    @return: the backend name ("ascii", "hdf5" or "mdsplus")
+    @raise ValueError: if no IMAS dataset is detected
+    """
+    children = list(directory.iterdir())
+
+    # ASCII heuristic
+    if any(child.suffix == ".ids" for child in children):
+        return "ascii"
+
+    # HDF5 heuristic
+    if any(child.suffix == ".h5" for child in children) and any(
+        child.name == "master.h5" for child in children
+    ):
+        return "hdf5"
+
+    # MDSplus heuristic
+    if {p.name for p in children} >= {
+        "ids_001.tree",
+        "ids_001.characteristics",
+        "ids_001.datafile",
+    }:
+        return "mdsplus"
+
+    raise ValueError("IMAS backend could not be identified.")
+
+
 def imas_files(uri: SimDBUrl) -> List[Path]:
     """
     Return all the files associated with the given IMAS URI.
@@ -341,7 +383,7 @@ def imas_files(uri: SimDBUrl) -> List[Path]:
         backend = query_backend
 
     if backend == "hdf5":
-        return [p.absolute() for p in path.glob("*.h5")]
+        return [p.absolute() for p in sorted(path.glob("*.h5"), key=lambda p: p.name)]
     elif backend == "mdsplus":
         return [
             path / "ids_001.characteristics",
@@ -349,9 +391,38 @@ def imas_files(uri: SimDBUrl) -> List[Path]:
             path / "ids_001.tree",
         ]
     elif backend == "ascii":
-        return [p.absolute() for p in path.glob("*.ids")]
+        return [p.absolute() for p in sorted(path.glob("*.ids"), key=lambda p: p.name)]
     else:
         raise ValueError(f"Unknown IMAS backend {backend}")
+
+
+def remote_substitution_enabled(config: Config) -> bool:
+    """
+    Whether ingested IMAS URIs should be rewritten to UDA remote access URIs.
+
+    Controlled by the server.imas_remote_substitution option. If the option is not
+    set, substitution is enabled only when server.imas_remote_host is set.
+
+    :param config: Config to read the options from
+    """
+    default = config.get_option("server.imas_remote_host", default=None) is not None
+    return bool(config.get_option("server.imas_remote_substitution", default=default))
+
+
+def replace_uri_path(uri: SimDBUrl, path: Path) -> SimDBUrl:
+    """
+    Return a copy of a local IMAS URI with its path query argument replaced.
+
+    :param uri: The local IMAS URI (imas:<backend>?path=<path>)
+    :param path: The new path
+    """
+    qs = dict(uri.query_params())
+    qs["path"] = str(path)
+    return SimDBUrl.build(
+        scheme="imas",
+        path=str(uri.path),
+        query="&".join(f"{key}={value}" for key, value in qs.items()),
+    )
 
 
 def convert_uri(uri: SimDBUrl, path: Path, config: Config) -> SimDBUrl:
@@ -372,7 +443,7 @@ def convert_uri(uri: SimDBUrl, path: Path, config: Config) -> SimDBUrl:
             "Cannot process IMAS data as server.imas_remote_host configuration option "
             "not set"
         )
-    port = config.get_string_option("server.imas_remote_port", default=None)
+    port = config.get_option("server.imas_remote_port", default=None)
     backend = uri.path
     return SimDBUrl.build(
         scheme="imas",

@@ -23,6 +23,7 @@ from simdb.cli.remote_api import (
     try_request,
 )
 from simdb.config import Config
+from simdb.enums import IngestionStatus
 from simdb.remote.models import TokenResponse
 
 INDEX = {
@@ -308,6 +309,30 @@ def test_unexpected_json_becomes_a_remote_error(http):
 
     with pytest.raises(RemoteError, match="Unexpected data exchanged"):
         api.get_token()
+
+
+def test_the_ingestion_status_is_read(http):
+    api = RemoteAPI("test", None, None, make_config())
+    http.route("simulation/status/sim", {"status": "COPYING"})
+
+    assert api.get_ingestion_status("sim") is IngestionStatus.COPYING
+
+
+def test_an_unknown_ingestion_status_is_a_value_error(http):
+    """``push_local`` reports an unknown status rather than malformed data."""
+    api = RemoteAPI("test", None, None, make_config())
+    http.route("simulation/status/sim", {"status": "TELEPORTING"})
+
+    with pytest.raises(ValueError, match=r"^TELEPORTING$"):
+        api.get_ingestion_status("sim")
+
+
+def test_a_malformed_ingestion_status_becomes_a_remote_error(http):
+    api = RemoteAPI("test", None, None, make_config())
+    http.route("simulation/status/sim", {"state": "COPYING"})
+
+    with pytest.raises(RemoteError, match="Unexpected data exchanged"):
+        api.get_ingestion_status("sim")
 
 
 # ---------------------------------------------------------------------------

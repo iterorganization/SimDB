@@ -70,7 +70,7 @@ Rules:
 - `file` paths must be absolute. Glob patterns are expanded, so
   `file:///data/run42/*.nc` adds every matching file. The variables
   `$MANIFEST_DIR` (the directory containing the manifest) and `~` are expanded.
-- Duplicate URIs within the same section are rejected.
+- Duplicate URIs are rejected, whether repeated within a section or listed in both `inputs` and `outputs`.
 
 When a simulation is pushed to a server, SimDB locates the files behind these
 URIs, checksums them, and transfers copies to the server.
@@ -87,9 +87,7 @@ The alias is an optional, human-readable identifier. Rules:
 - Once a simulation has been pushed to a server its alias is fixed.
 
 You can set the alias in the manifest, or override it at ingest time with
-`simdb simulation ingest -a ALIAS manifest.yaml`. Helper commands
-`simdb alias search` and `simdb alias make-unique` are documented in the
-[CLI reference](cli.md).
+`simdb simulation ingest -a ALIAS manifest.yaml`.
 
 ## Metadata
 
@@ -103,7 +101,7 @@ metadata:
       name: SOLPS-ITER
       version: "3.0.8"
   - description: Free-text description of the run.
-  - pulse: 100001
+  - responsible_name: j.smith
 ```
 
 Rules and conventions:

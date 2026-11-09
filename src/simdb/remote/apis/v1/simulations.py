@@ -52,7 +52,7 @@ Note: please don't reply to this email, replies to this address are not monitore
 def _validate(simulation, user) -> Dict:
     schema = Validator.validation_schema()
     try:
-        Validator(schema).validate(simulation)
+        Validator(schema, current_app.simdb_config).validate(simulation)
         _update_simulation_status(simulation, models_sim.Simulation.Status.PASSED, user)
         return {
             "passed": True,

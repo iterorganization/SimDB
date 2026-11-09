@@ -19,8 +19,8 @@ def make_simulation(
     """Build a stand-in for a :class:`~simdb.database.models.Simulation`.
 
     Only the attributes the CLI display code touches are set; ``find_meta``
-    answers from ``meta`` the same way the real model does (a list of objects
-    with a ``value``, empty when the name is unknown).
+    answers from ``meta`` the same way the real model does (a list holding the
+    value, empty when the name is unknown).
     """
     simulation = mock.Mock()
     simulation.alias = alias
@@ -28,7 +28,5 @@ def make_simulation(
     simulation.datetime = datetime
     simulation.status = status
     meta = meta or {}
-    simulation.find_meta.side_effect = lambda name: (
-        [mock.Mock(value=meta[name])] if name in meta else []
-    )
+    simulation.find_meta.side_effect = lambda name: [meta[name]] if name in meta else []
     return simulation

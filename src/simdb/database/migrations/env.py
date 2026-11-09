@@ -1,21 +1,15 @@
 import os
-import sys
 from logging.config import fileConfig
-from pathlib import Path
-
-from sqlalchemy import create_engine, pool
 
 from alembic import context
+from sqlalchemy import create_engine, pool
+
+from simdb.database.models import Base
 
 config = context.config
 
 if config.config_file_name:
     fileConfig(config.config_file_name)
-
-SRC_PATH = Path(__file__).resolve().parents[1] / "src"
-sys.path.insert(0, str(SRC_PATH))
-
-from simdb.database.models import Base  # noqa
 
 target_metadata = Base.metadata
 

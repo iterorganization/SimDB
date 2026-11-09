@@ -39,7 +39,9 @@ def extract_sub_commands(output: str) -> list[str]:
     sub_commands = []
     for line in output.split("\n"):
         if in_commands:
-            if line:
+            # Lines indented further than the command column are continuations
+            # of the previous command's help text.
+            if line and not line.startswith("   "):
                 sub_commands.append(line.split()[0])
         if line == "Commands:":
             in_commands = True

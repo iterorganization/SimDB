@@ -111,29 +111,38 @@ def remote_handshake():
 
 @pytest.fixture
 def local_db():
-    """Replace the local database with a mock in every module that looks it up.
+    """Replace the local database with a mock where the commands look it up.
 
-    ``get_local_db`` is imported into each command module, so patching a single
-    import site silently leaves the other commands talking to the real database
-    in the user's data directory.
+    ``get_local_db`` is imported into the command module, so it has to be patched
+    there rather than in :mod:`simdb.database`.
     """
     db = mock.Mock()
-    with mock.patch(
-        "simdb.cli.commands.alias.get_local_db", return_value=db
-    ), mock.patch("simdb.cli.commands.simulation.get_local_db", return_value=db):
+    with mock.patch("simdb.cli.commands.simulation.get_local_db", return_value=db):
         yield db
 
 
 @pytest.fixture
 def data_file(tmp_path) -> Path:
-    """A small file a manifest can reference as an input or output."""
+    """A small file a manifest can reference as an input."""
     path = tmp_path / "data.txt"
     path.write_text("simulation data\n")
     return path
 
 
 @pytest.fixture
-def manifest_file(tmp_path, data_file) -> Path:
+def output_file(tmp_path) -> Path:
+    """A small file a manifest can reference as an output.
+
+    Kept apart from ``data_file`` as a manifest rejects a URI that is both an
+    input and an output.
+    """
+    path = tmp_path / "output.txt"
+    path.write_text("simulation results\n")
+    return path
+
+
+@pytest.fixture
+def manifest_file(tmp_path, data_file, output_file) -> Path:
     """A minimal, valid manifest referencing only local files."""
     manifest_path = tmp_path / "manifest.yaml"
     manifest_path.write_text(
@@ -145,7 +154,7 @@ inputs:
   - uri: file://{data_file}
 
 outputs:
-  - uri: file://{data_file}
+  - uri: file://{output_file}
 
 metadata:
 - values:

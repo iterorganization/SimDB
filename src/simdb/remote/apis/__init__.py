@@ -90,6 +90,20 @@ def register(api, version, namespaces):
 
     @api.errorhandler(AuthenticationError)
     def handle_authentication_error(err: Exception):
+        notes = getattr(err, "__notes__", None)
+        note_text = ""
+        if notes:
+            note_text = " | notes=" + "; ".join(notes)
+        header_names = sorted(request.headers.keys())
+        current_app.logger.debug(
+            "AuthenticationError on %s %s from %s headers=%s: %s%s",
+            request.method,
+            request.path,
+            request.remote_addr,
+            header_names,
+            err,
+            note_text,
+        )
         return {"message": str(err)}, 401
 
     @api.route("/")
@@ -154,12 +168,16 @@ def register(api, version, namespaces):
 
             Returns the server-side upload behaviour flags clients should honour
             when pushing simulations, such as whether files and IMAS data are
-            copied onto the server.
+            copied onto the server, and whether the server automatically
+            validates simulations on push.
             """
             config = current_app.simdb_config
             options = {
                 "copy_files": config.get_option("server.copy_files", default=True),
                 "copy_ids": config.get_option("server.copy_ids", default=True),
+                "auto_validate": config.get_option(
+                    "validation.auto_validate", default=False
+                ),
             }
 
             return jsonify(options)

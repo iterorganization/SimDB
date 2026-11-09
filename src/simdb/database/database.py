@@ -32,8 +32,9 @@ from simdb.remote.models import SimulationReference
 from .models import Base
 from .models.file import File
 from .models.simulation import Simulation
+from .online_migrations import run_online_migrations
 
-_ALEMBIC_INI = Path("alembic.ini")
+_MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
 
 class DatabaseError(RuntimeError):
@@ -52,6 +53,16 @@ class SimulationIngestionInProgressError(DatabaseError):
     pass
 
 
+def _alembic_config() -> AlembicConfig:
+    """Build an Alembic config pointing at the migrations shipped with this package.
+
+    The migration scripts live inside the ``simdb`` package
+    """
+    config = AlembicConfig()
+    config.set_main_option("script_location", str(_MIGRATIONS_DIR))
+    return config
+
+
 def check_migrations(engine) -> str:
     """Check that the database is up-to-date with the latest Alembic migration.
 
@@ -60,8 +71,7 @@ def check_migrations(engine) -> str:
     :class:`DatabaseOutdatedError` if the database schema is behind the head
     revision.
     """
-    alembic_cfg = AlembicConfig(str(_ALEMBIC_INI))
-    script = ScriptDirectory.from_config(alembic_cfg)
+    script = ScriptDirectory.from_config(_alembic_config())
     head_revision = script.get_current_head()
 
     with engine.connect() as conn:
@@ -87,9 +97,7 @@ def check_migrations(engine) -> str:
 
 def run_migrations(engine) -> None:
     """Run the database migrations."""
-    config = AlembicConfig(_ALEMBIC_INI)
-    config.set_main_option("script_location", "alembic")
-    script = ScriptDirectory.from_config(config)
+    script = ScriptDirectory.from_config(_alembic_config())
 
     def upgrade(rev, context):
         return script._upgrade_revs("head", rev)
@@ -260,8 +268,11 @@ class Database:
         """
         total_count = query.count()
 
-        if sort_by:
-            query = self._apply_sort_by(query, sort_by, sort_asc)
+        # PostgreSQL does not guarantee row order without ORDER BY; see
+        # https://www.postgresql.org/docs/current/queries-order.html.
+        # Always apply_sort_by to avoid unreliable listings and
+        # artefacts like duplications in pagination, etc.
+        query = self._apply_sort_by(query, sort_by, sort_asc)
 
         if limit:
             offset = (page - 1) * limit
@@ -295,34 +306,46 @@ class Database:
 
         return total_count, results
 
-    def _apply_sort_by(self, query, sort_by: str, sort_asc: bool):
+    def _apply_sort_by(self, query, sort_by: str = "", sort_asc: bool = False):
         """
         Apply ORDER BY clause to query for given sort field.
 
         :param query: SQLAlchemy query object
-        :param sort_by: Field name to sort by
+        :param sort_by: Field name to sort by, defaults to "uuid"
         :param sort_asc: Sort in ascending order if True, descending if False
         :return: Query with ORDER BY applied
         """
         dialect = self.engine.dialect.name
 
+        # Default to uuid, the only required and unique column,
+        # so listings stay stable.
+        if not sort_by:
+            sort_by = "uuid"
+
         if sort_by == "alias":
             return query.order_by(
-                Simulation.alias if sort_asc else Simulation.alias.desc()
+                Simulation.alias if sort_asc else Simulation.alias.desc(),
+                Simulation.uuid if sort_asc else Simulation.uuid.desc(),
             )
         elif sort_by == "uuid":
             return query.order_by(
                 Simulation.uuid if sort_asc else Simulation.uuid.desc()
             )
         elif sort_by == "datetime":
+            # However unlikely, datetime is not unique; add uuid for reproducible order.
             return query.order_by(
-                Simulation.datetime if sort_asc else Simulation.datetime.desc()
+                Simulation.datetime if sort_asc else Simulation.datetime.desc(),
+                Simulation.uuid if sort_asc else Simulation.uuid.desc(),
             )
         else:
             sort_col = self._get_json_sort_column(sort_by, dialect)
             if sort_col is not None:
-                return query.order_by(sort_col if sort_asc else sort_col.desc())
-        return query
+                return query.order_by(
+                    sort_col if sort_asc else sort_col.desc(),
+                    Simulation.uuid if sort_asc else Simulation.uuid.desc(),
+                )
+        # Could not sort.
+        raise DatabaseError(f"Unknown sort column: {sort_by}")
 
     def _get_json_sort_column(self, key: str, dialect: str):
         """
@@ -690,7 +713,7 @@ class Database:
         query = (
             self.session.query(Simulation.uuid, Simulation.alias)
             .join(Simulation.outputs)
-            .filter(File.checksum.in_(subquery))
+            .filter(File.checksum.in_(subquery.select()))
             .filter(Simulation.alias != simulation.alias)
             .distinct()
         )
@@ -708,7 +731,7 @@ class Database:
         query = (
             self.session.query(Simulation.uuid, Simulation.alias)
             .join(Simulation.outputs)
-            .filter(File.checksum.in_(subquery))
+            .filter(File.checksum.in_(subquery.select()))
             .filter(Simulation.alias != simulation.alias)
             .distinct()
         )
@@ -724,7 +747,7 @@ class Database:
         query = (
             self.session.query(Simulation.uuid, Simulation.alias)
             .join(Simulation.inputs)
-            .filter(File.checksum.in_(subquery))
+            .filter(File.checksum.in_(subquery.select()))
             .filter(Simulation.alias != simulation.alias)
             .distinct()
         )
@@ -742,7 +765,7 @@ class Database:
         query = (
             self.session.query(Simulation.uuid, Simulation.alias)
             .join(Simulation.inputs)
-            .filter(File.checksum.in_(subquery))
+            .filter(File.checksum.in_(subquery.select()))
             .filter(Simulation.alias != simulation.alias)
             .distinct()
         )
@@ -933,7 +956,21 @@ def get_local_db(config: Config) -> Database:
             run_migrations(database.engine)
         else:
             raise e
+    # With the schema at head, apply any pending online (data) migrations. This
+    # runs on every open, but is a cheap no-op once the data is up to date.
+    _run_online_migrations(database, config)
     return database
+
+
+def _run_online_migrations(database: Database, config: Config) -> None:
+    """Apply online (data) migrations to the local database.
+
+    Recalculates any checksums still stored in the legacy (bare-hex) format.
+    """
+    results = run_online_migrations(database, config)
+    changed = sum(results.values())
+    if changed:
+        print(f"Recalculated {changed} local checksum(s).")
 
 
 def get_db(config: Config) -> Database:

@@ -25,10 +25,8 @@ The top-level help lists the command groups:
 
 ```text
 Commands:
-  alias       Query remote and local aliases.
   config      Query/update application configuration.
   manifest    Create/check manifest file.
-  provenance  Create the PROVENANCE_FILE from the current system.
   remote      Interact with the remote SimDB service.
   simulation  Manage ingested simulations.
 ```

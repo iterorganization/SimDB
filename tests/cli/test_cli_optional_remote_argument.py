@@ -1,8 +1,8 @@
 """The optional ``REMOTE`` argument of ``simdb simulation`` sub-commands.
 
-``simulation push``, ``pull``, ``data`` and ``validate`` all take an optional
-REMOTE before their required arguments. Click cannot express "optional first
-argument", so :class:`OptionalRemoteCommand` fills in an empty REMOTE when the
+``simulation push``, ``push_local``, ``pull``, ``data`` and ``validate`` all take
+an optional REMOTE before their required arguments. Click cannot express "optional
+first argument", so :class:`OptionalRemoteCommand` fills in an empty REMOTE when the
 command line does not provide a value for every argument.
 
 Counting raw command line entries instead is what made ``push SIM_ID --replaces
@@ -15,8 +15,11 @@ from unittest import mock
 import pytest
 from cli_helpers import make_simulation
 
+from simdb.enums import IngestionStatus
+
 SUBCOMMANDS = [
     ("push", ()),
+    ("push_local", ()),
     ("validate", ()),
     ("pull", ("directory",)),
     ("data", ("core_profiles/time",)),
@@ -28,6 +31,10 @@ SUBCOMMANDS = [
 def remote_api():
     with mock.patch("simdb.cli.commands.simulation.RemoteAPI") as remote_api_cls:
         remote_api_cls.return_value.get_validation_schemas.return_value = []
+        # push_local polls until the ingestion reaches a terminal state.
+        remote_api_cls.return_value.get_ingestion_status.return_value = (
+            IngestionStatus.COMPLETED.value
+        )
         yield remote_api_cls
 
 

@@ -467,3 +467,71 @@ def test_admin_delete_removes_the_simulation(invoke, api_call):
     assert result.exit_code == 0
     assert "Deleted simulation abcd1234" in result.output
     assert delete_simulation.call_args.args == ("abcd1234",)
+
+
+def test_query_shows_string_metadata(invoke, api_call):
+    api_call(
+        "query_simulations",
+        return_value=[
+            Simulation.from_data(
+                {
+                    "uuid": uuid.UUID("a7f5ef1c-1b0b-4b52-9a5a-1f3a3d8e2b11"),
+                    "alias": "astra-run",
+                    "metadata": [{"element": "code.name", "value": "ASTRA"}],
+                }
+            )
+        ],
+    )
+
+    result = invoke("remote", "query", "code.name=in:astra")
+
+    assert result.exit_code == 0, result.output
+    assert "astra-run" in result.output
+    assert "ASTRA" in result.output
+
+
+# ---------------------------------------------------------------------------
+# remote help
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("help_option", ["--help", "-h"])
+@pytest.mark.parametrize(
+    "args, command",
+    [
+        (("watcher",), "watcher"),
+        (("PP", "watcher"), "watcher"),
+        (("PP", "watcher", "add"), "watcher add"),
+        (("PP", "watcher", "add", "abcd1234"), "watcher add"),
+        (("PP", "token", "new"), "token new"),
+        (("--username", "u", "PP", "info"), "info"),
+        (("--username=u", "PP", "list"), "list"),
+    ],
+)
+def test_help_after_the_remote_name(invoke, args, command, help_option):
+    result = invoke("remote", *args, help_option)
+
+    assert result.exit_code == 0, result.output
+    assert result.output.startswith(f"Usage: simdb remote [NAME] {command} [OPTIONS]")
+
+
+@pytest.mark.parametrize("args", [("PP", "bogus"), ("PP", "watcher", "bogus")])
+def test_help_for_an_unknown_command(invoke, args):
+    result = invoke("remote", *args, "-h")
+
+    assert result.exit_code == 2
+    assert "No such command 'bogus'" in result.output
+
+
+@pytest.mark.parametrize(
+    "args, command",
+    [
+        (("PP", "-h", "watcher"), "watcher"),
+        (("PP", "watcher", "--help", "list"), "watcher list"),
+    ],
+)
+def test_help_in_the_middle_of_the_command_line(invoke, args, command):
+    result = invoke("remote", *args)
+
+    assert result.exit_code == 0, result.output
+    assert result.output.startswith(f"Usage: simdb remote [NAME] {command} [OPTIONS]")

@@ -22,7 +22,7 @@ NAME=[modifier:]VALUE
 
 ```bash
 simdb simulation query code.name=SOLPS-ITER
-simdb simulation query pulse=gt:1000 run=0
+simdb simulation query global_quantities.r0.value=gt:6 machine=ITER
 simdb remote iter query machine=ITER
 ```
 
@@ -67,7 +67,7 @@ simdb simulation query responsible_name=j.smith
 simdb simulation query workflow.name=in:test
 
 # Numeric comparison combined with an exact match
-simdb simulation query pulse=gt:1000 run=0
+simdb simulation query global_quantities.r0.value=gt:6 machine=ITER
 
 # Simulations that have a "sequence" metadata field at all
 simdb simulation query sequence=exist:

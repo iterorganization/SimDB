@@ -21,7 +21,7 @@ def test_help_lists_every_command(runner):
     result = runner.invoke(cli, ["--help"])
 
     assert result.exit_code == 0
-    commands = ("alias", "config", "manifest", "provenance", "remote", "simulation")
+    commands = ("config", "manifest", "remote", "simulation")
     for command in commands:
         assert command in result.output
 
@@ -96,11 +96,14 @@ def test_verbose_flag_reaches_the_commands(invoke, local_db):
 class TestMain:
     """``main`` is the console-script entry point and the CLI's last error handler."""
 
-    def test_successful_runs_do_not_raise(self):
-        with mock.patch.object(simdb_cli, "cli") as command:
+    def test_successful_runs_exit_with_zero(self):
+        with mock.patch.object(
+            simdb_cli, "cli", return_value=None
+        ) as command, pytest.raises(SystemExit) as exit_info:
             simdb_cli.main()
 
         assert command.called
+        assert exit_info.value.code == 0
 
     def test_errors_are_reported_and_exit_non_zero(self, capsys):
         with mock.patch.object(

@@ -1,5 +1,6 @@
 import contextlib
 import sys
+import time
 import urllib.parse
 from itertools import chain
 from pathlib import Path
@@ -9,15 +10,17 @@ import appdirs
 import click
 from rich.prompt import Confirm
 
+from simdb.checksum import checksums_match
 from simdb.cli.manifest import Manifest
-from simdb.cli.remote_api import RemoteAPI, RemoteError
+from simdb.cli.remote_api import APIError, RemoteAPI, RemoteError
 from simdb.config.config import Config
 from simdb.database import DatabaseError, get_local_db
 from simdb.database.models import Simulation
+from simdb.enums import IngestionStatus
 from simdb.query import QueryType, parse_query_arg
 from simdb.validation import ValidationError, Validator
 
-from . import check_meta_args, pass_config
+from . import check_meta_args, pass_config, query_help
 from .utils import (
     is_numeric_1d,
     print_quantity,
@@ -215,7 +218,171 @@ class OptionalRemoteCommand(click.Command):
         return sum(1 for argument in arguments if values.get(argument.name) is not None)
 
 
-@simulation.command("push", cls=OptionalRemoteCommand)
+def _prepare_simulation(
+    config: Config, api: RemoteAPI, sim_id: str, replaces: Optional[str]
+) -> Simulation:
+    """Look up the local simulation SIM_ID and validate it against the remote
+    schemas."""
+    db = get_local_db(config)
+
+    simulation = db.get_simulation(sim_id)
+    if simulation is None:
+        raise click.ClickException(f"Failed to find simulation: {sim_id}")
+
+    if replaces:
+        simulation.set_meta("replaces", replaces)
+
+    if api.get_upload_options().auto_validate:
+        schemas = api.get_validation_schemas()
+        try:
+            for schema in schemas:
+                Validator(schema, config).validate(simulation)
+        except ValidationError as err:
+            raise click.ClickException(f"Simulation does not validate: {err}") from err
+
+    return simulation
+
+
+def _wait_for_ingestion(api: RemoteAPI, sim_id: str, timeout: float) -> IngestionStatus:
+    """Poll the remote until the ingestion of SIM_ID reaches a terminal state.
+
+    Reports every status change and returns the terminal status.
+
+    :raise click.ClickException: if the remote cannot be reached, reports an
+                                 unknown status, or TIMEOUT seconds pass before
+                                 the ingestion finishes.
+    """
+    max_consecutive_failures = 5
+    poll_interval = 1.0
+
+    click.echo("Waiting for ingestion to complete...", nl=False)
+    last_status = None
+    consecutive_failures = 0
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            raw_status = api.get_ingestion_status(sim_id)
+        except RemoteError as err:
+            # The remote rejected the request, so retrying will not help.
+            click.echo()
+            raise click.ClickException(
+                f"Failed to check ingestion status: {err}"
+            ) from err
+        except ValueError as err:
+            # The remote reported a status this client does not know about, so
+            # waiting for it to change will not help.
+            click.echo()
+            raise click.ClickException(
+                f"Remote reported an unknown ingestion status: {err}"
+            ) from err
+        except Exception as err:
+            # Tolerate transient errors: the ingestion continues server-side
+            consecutive_failures += 1
+            if consecutive_failures >= max_consecutive_failures:
+                click.echo()
+                raise click.ClickException(
+                    f"Failed to check ingestion status "
+                    f"{consecutive_failures} times in a row: {err}"
+                ) from err
+            if time.monotonic() >= deadline:
+                click.echo()
+                raise click.ClickException(
+                    f"Timed out after {timeout:g}s waiting for ingestion to "
+                    f"complete (last status: {last_status})"
+                ) from err
+            time.sleep(poll_interval)
+            continue
+        consecutive_failures = 0
+
+        try:
+            status = IngestionStatus(raw_status)
+        except ValueError as err:
+            click.echo()
+            raise click.ClickException(
+                f"Remote reported an unknown ingestion status: {raw_status}"
+            ) from err
+
+        if status != last_status:
+            if last_status is not None:
+                click.echo(f" -> {status.value}", nl=False)
+            else:
+                click.echo(f" {status.value}", nl=False)
+            last_status = status
+
+        if status.is_terminal():
+            click.echo()
+            return status
+
+        if time.monotonic() >= deadline:
+            click.echo()
+            raise click.ClickException(
+                f"Timed out after {timeout:g}s waiting for ingestion to complete "
+                f"(last status: {status.value})"
+            )
+
+        time.sleep(poll_interval)
+
+
+@simulation.command(
+    "push_local",
+    cls=OptionalRemoteCommand,
+    short_help="Register a simulation whose files the REMOTE copies itself.",
+)
+@pass_config
+@click.argument("remote", required=False)
+@click.argument("sim_id")
+@click.option("--username", help="Username used to authenticate with the remote.")
+@click.option("--password", help="Password used to authenticate with the remote.")
+@click.option("--replaces", help="SIM_ID of simulation to deprecate and replace.")
+@click.option(
+    "--add-watcher",
+    is_flag=True,
+    help="Add the current user as a watcher of the simulation.",
+)
+@click.option(
+    "--timeout",
+    type=float,
+    default=600.0,
+    show_default=True,
+    help="Maximum number of seconds to wait for ingestion to complete.",
+)
+def simulation_push_local(
+    config: Config,
+    remote: Optional[str],
+    sim_id: str,
+    username: Optional[str],
+    password: Optional[str],
+    replaces: Optional[str],
+    add_watcher: bool,
+    timeout: float,
+):
+    """Register the simulation with the given SIM_ID (UUID or alias) on the REMOTE.
+
+    Only the metadata is sent: the REMOTE copies the simulation files itself from
+    the recorded paths, which must therefore be reachable from the remote.
+    Waits for the remote ingestion to reach a terminal state, or until --timeout
+    seconds have passed.
+    """
+
+    api = RemoteAPI(remote, username, password, config)
+    simulation = _prepare_simulation(config, api, sim_id, replaces)
+
+    api.push_local_simulation(simulation, add_watcher=add_watcher)
+
+    status = _wait_for_ingestion(api, simulation.uuid.hex, timeout)
+    if status is not IngestionStatus.COMPLETED:
+        raise click.ClickException(
+            f"Simulation ingestion failed with status: {status.value}"
+        )
+
+    click.echo(f"Successfully pushed simulation {simulation.uuid}")
+
+
+@simulation.command(
+    "push",
+    cls=OptionalRemoteCommand,
+    short_help="Upload a simulation and its files to the REMOTE.",
+)
 @pass_config
 @click.argument("remote", required=False)
 @click.argument("sim_id")
@@ -236,26 +403,19 @@ def simulation_push(
     replaces: Optional[str],
     add_watcher: bool,
 ):
-    """Push the simulation with the given SIM_ID (UUID or alias) to the REMOTE."""
+    """Push the simulation with the given SIM_ID (UUID or alias) to the REMOTE.
+
+    Both the metadata and the simulation files are uploaded over HTTP. Use
+    push_local instead when the REMOTE can read the files itself.
+    """
 
     api = RemoteAPI(remote, username, password, config)
-    db = get_local_db(config)
+    simulation = _prepare_simulation(config, api, sim_id, replaces)
 
-    simulation = db.get_simulation(sim_id)
-    if simulation is None:
-        raise click.ClickException(f"Failed to find simulation: {sim_id}")
-
-    if replaces:
-        simulation.set_meta("replaces", replaces)
-
-    schemas = api.get_validation_schemas()
     try:
-        for schema in schemas:
-            Validator(schema).validate(simulation)
-    except ValidationError as err:
-        raise click.ClickException(f"Simulation does not validate: {err}") from err
-
-    api.push_simulation(simulation, out_stream=sys.stdout, add_watcher=add_watcher)
+        api.push_simulation(simulation, add_watcher=add_watcher)
+    except APIError as err:
+        raise click.ClickException(f"Failed to push simulation: {err}") from err
 
     click.echo(f"Successfully pushed simulation {simulation.uuid}")
 
@@ -297,7 +457,7 @@ def simulation_pull(
     click.echo(f"Successfully pulled simulation {simulation.uuid}")
 
 
-@simulation.command("query")
+@simulation.command("query", help=query_help("local", "simulation"))
 @pass_config
 @click.argument("constraints", nargs=-1)
 @click.option(
@@ -318,49 +478,6 @@ def simulation_pull(
 def simulation_query(
     config: Config, constraints: List[str], meta: List[str], show_uuid: bool
 ):
-    """Perform a metadata query to find matching local simulations.
-
-    \b
-    Each constraint must be in the form:
-        NAME=[mod]VALUE
-
-    \b
-    Where `[mod]` is an optional query modifier. Available query modifiers are:
-        eq: - This checks for equality (this is the same behaviour as not providing any
-              modifier).
-        ne: - This checks for value that do not equal.
-        in: - This searches inside the value instead of looking for exact matches.
-        ni: - This searches inside the value for elements that do not match.
-        gt: - This checks for values greater than the given quantity.
-        ge: - This checks for values greater than or equal to the given quantity.
-        lt: - This checks for values less than the given quantity.
-        le: - This checks for values less than or equal to the given quantity.
-
-    For the following modifiers, VALUE should not be provided.
-        exist: - This returns simulations where metadata with NAME exists, regardless
-                 of the value.
-
-    \b
-    Modifier examples:
-        responsible_name=foo        performs exact match
-        responsible_name=in:foo     matches all names containing foo
-        pulse=gt:1000               matches all pulses > 1000
-        sequence=exist:             matches all simulations that have "sequence"
-                                    metadata values
-
-    \b
-    Any string comparisons are done in a case-insensitive manner. If multiple
-    constraints are provided then simulations are returned that match all given
-    constraints.
-
-    \b
-    Examples:
-        sim simulation query workflow.name=in:test       finds all simulations where
-                                                         workflow.name contains test
-                                                         (case-insensitive)
-        sim simulation query pulse=gt:1000 run=0         finds all simulations where
-                                                         pulse is > 1000 and run = 0
-    """
     if not constraints:
         raise click.ClickException("At least one constraint must be provided.")
 
@@ -473,7 +590,7 @@ def simulation_validate(
 
     click.echo("validating metadata ... ", nl=False)
     for schema in schemas:
-        Validator(schema).validate(simulation)
+        Validator(schema, config).validate(simulation)
 
     ids_list = []
     for file in chain(simulation.inputs, simulation.outputs):
@@ -481,7 +598,7 @@ def simulation_validate(
             # Pass config and ids_list parameters
             current_checksum = file.generate_checksum(config, ids_list)
 
-            if current_checksum != file.checksum:
+            if not checksums_match(current_checksum, file.checksum):
                 raise ValidationError(
                     f"Checksum mismatch for file {file.uri}. "
                     f"Expected: {file.checksum}, Got: {current_checksum}"

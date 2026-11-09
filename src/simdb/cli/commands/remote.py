@@ -14,7 +14,7 @@ from simdb.database.models.simulation import Simulation
 from simdb.database.models.watcher import Watcher
 from simdb.notifications import Notification
 
-from . import check_meta_args, pass_config
+from . import check_meta_args, pass_config, query_help
 from .utils import print_simulations, print_trace
 from .validators import validate_non_negative, validate_positive
 
@@ -31,25 +31,28 @@ class RemoteGroup(click.Group):
         cmds = []
         skip_next = False
         for a in args:
-            if a.startswith("--") or a.startswith("-"):
-                skip_next = True
+            if a.startswith("-"):
+                # Group options (--username, --password) all take a value.
+                skip_next = "=" not in a and a not in ctx.help_option_names
                 continue
             if skip_next:
                 skip_next = False
                 continue
             cmds.append(a)
-        if "--help" in args:
-            if cmds and cmds[0] in self.commands:
-                cmd = self.commands[cmds[0]]
-                if isinstance(cmd, click.Group):
-                    grp = cmd
-                    for c in cmds[1:]:
-                        if c in grp.commands:
-                            cmd = grp.commands[c]
-                        else:
-                            raise click.ClickException(f"Unknown subcommand {c}")
-                ctx.command = cmd
-            args = ["--help"]
+        help_options = [a for a in args if a in ctx.help_option_names]
+        if help_options:
+            # Skip the optional NAME so help is shown for the subcommand.
+            if cmds and cmds[0] not in self.commands:
+                cmds = cmds[1:]
+            cmd = self
+            for c in cmds:
+                if not isinstance(cmd, click.Group):
+                    break
+                if c not in cmd.commands:
+                    raise click.UsageError(f"No such command '{c}'.", ctx)
+                cmd = cmd.commands[c]
+            ctx.command = cmd
+            args = [help_options[0]]
         elif cmds and cmds[0] in self.commands:
             args.insert(args.index(cmds[0]), "")
         super().parse_args(ctx, args)
@@ -445,7 +448,7 @@ def remote_trace(api: RemoteAPI, sim_id: str):
     print_trace(trace_data)
 
 
-@remote.command("query", cls=remote_command_cls())
+@remote.command("query", cls=remote_command_cls(), help=query_help("remote", "remote"))
 @pass_api
 @pass_config
 @click.argument("constraints", nargs=-1)
@@ -480,50 +483,6 @@ def remote_query(
     limit: int,
     show_uuid: bool,
 ):
-    """Perform a metadata query to find matching remote simulations.
-
-    \b
-    Each constraint must be in the form:
-        NAME=[mod]VALUE
-
-    \b
-    Where `[mod]` is an optional query modifier. Available query modifiers are:
-        eq:  - This checks for equality (this is the same behaviour as not providing
-               any modifier).
-        in:  - This searches inside the value instead of looking for exact matches.
-        gt:  - This checks for values greater than the given quantity.
-        agt: - This checks for any array elements are greater than the given quantity.
-        ge:  - This checks for values greater than or equal to the given quantity.
-        age: - This checks for any array elements are greater than or equal to the given
-               quantity.
-        lt:  - This checks for values less than the given quantity.
-        alt: - This checks for any array elements are less than the given quantity.
-        le:  - This checks for values less than or equal to the given quantity.
-        ale: - This checks for any array elements are less than or equal to the given
-                quantity.
-
-    \b
-    Modifier examples:
-        alias=eq:foo                                                performs exact match
-        summary.code.name=in:foo                                    matches all names
-            containing foo
-        summary.heating_current_drive.power_additional.value=agt:0  matches all
-            simulations where any array element of
-            summary.heating_current_drive.power_additional.value is greater than 0
-
-    \b
-    Any string comparisons are done in a case-insensitive manner. If multiple
-    constraints are provided then simulations are returned that match all given
-    constraints.
-
-    \b
-    Examples:
-        sim remote query workflow.name=in:test       finds all simulations where
-                                                     workflow.name contains test
-                                                     (case-insensitive)
-        sim remote query pulse=gt:1000 run=0         finds all simulations where pulse
-                                                     is > 1000 and run = 0
-    """
     if not constraints:
         raise click.ClickException("At least one constraint must be provided.")
 

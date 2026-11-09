@@ -3,9 +3,11 @@ import hashlib
 import io
 import json
 import tarfile
+import types
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest import mock
 
 import pytest
 from conftest import (
@@ -14,6 +16,8 @@ from conftest import (
     post_simulation,
 )
 
+import simdb.remote.apis.files as files_api
+from simdb.checksum import format_checksum
 from simdb.cli.manifest import DataType
 from simdb.json import CustomEncoder
 from simdb.remote.models import (
@@ -37,7 +41,7 @@ def create_simulation_with_file(
         for i in range(0, len(file_content), chunk_size)
     ]
     num_chunks = len(chunks)
-    test_checksum = hashlib.sha1(file_content).hexdigest()
+    test_checksum = format_checksum(hashlib.sha1(file_content).hexdigest())
 
     simulation_data = generate_simulation_data(
         alias=alias,
@@ -204,3 +208,20 @@ def test_file_registration_item_without_chunks():
         ids_list=["core_profiles"],
     )
     assert item.chunks is None
+
+
+@pytest.mark.parametrize(
+    "blueprint,expected",
+    [
+        ("api_v1", "deadbeef"),
+        ("api_v1_1", "deadbeef"),
+        ("api_v1_2", "deadbeef"),
+        ("api_v1_3", "sha1:deadbeef"),
+        ("", "sha1:deadbeef"),  # unknown -> newest behaviour keeps the prefix
+    ],
+)
+def test_wire_checksum_strips_prefix_before_v1_3(blueprint, expected):
+    with mock.patch.object(
+        files_api, "request", types.SimpleNamespace(blueprint=blueprint)
+    ):
+        assert files_api._wire_checksum("sha1:deadbeef") == expected
