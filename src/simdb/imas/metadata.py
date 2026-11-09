@@ -150,9 +150,11 @@ def load_imas_metadata(ids_dist, entry) -> dict:
         ids = entry.get(ids_name, autoconvert=False)
         ids = imas.convert_ids(ids, latest_dd_version)
         for node in imas.util.tree_iter(ids):
-            metadata[extract_ids_path(str(node.coordinates)).replace("/", ".")] = (  # type: ignore
-                _array_to_range(node.value)  # type: ignore
-            )
+            value = _array_to_range(node.value)  # type: ignore
+            if value is None:
+                # Array holding only empty (or NaN/inf) values: don't record it
+                continue
+            metadata[extract_ids_path(str(node.coordinates)).replace("/", ".")] = value  # type: ignore
     return metadata
 
 
