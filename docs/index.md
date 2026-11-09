@@ -60,6 +60,7 @@ how-to/authenticate
 how-to/connect-to-iter
 how-to/migrate-al4-mdsplus
 how-to/use-the-dashboard
+how-to/export-to-scicat
 ```
 
 ```{toctree}
