@@ -13,3 +13,23 @@ updates:
         patterns:
           - "*"
 
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    # Group actions version bumps into a single PR
+    groups:
+      actions-deps:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    # Group actions version bumps into a single PR
+    groups:
+      actions-deps:
+        patterns:
+          - "*"
+
