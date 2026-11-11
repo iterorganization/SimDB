@@ -1,23 +1,51 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -ne 1 ]]; then
-    echo "usage: $0 BACKUP_FILE" >&2
+usage() {
+    echo "usage: $0 [--clean] BACKUP_FILE" >&2
     exit 2
-fi
+}
 
-backup_file="$1"
+clean=false
+backup_file=
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --clean) clean=true ;;
+        -*) usage ;;
+        *.sql | *.sql.gz)
+            [[ -z "$backup_file" ]] || usage
+            backup_file="$1"
+            ;;
+        *)
+            echo "backup file must end in .sql or .sql.gz: $1" >&2
+            exit 2
+            ;;
+    esac
+    shift
+done
+[[ -n "$backup_file" ]] || usage
+
 [[ -f "$backup_file" ]] || {
     echo "backup file does not exist: $backup_file" >&2
     exit 2
 }
 
-docker compose exec -T postgres \
-    pg_restore \
-    --username="${POSTGRES_USER:-simdb}" \
-    --dbname="${POSTGRES_DB:-simdb}" \
-    --clean \
-    --single-transaction \
-    --if-exists \
-    --no-owner \
-    <"$backup_file"
+POSTGRES_USER="${POSTGRES_USER:-simdb}"
+POSTGRES_DB="${POSTGRES_DB:-simdb}"
+
+restore_stream() {
+    if "$clean"; then
+        echo 'DROP SCHEMA public CASCADE;'
+        echo 'CREATE SCHEMA public;'
+    fi
+    if [[ "$backup_file" == *.gz ]]; then
+        gzip -dc "$backup_file"
+    else
+        cat "$backup_file"
+    fi
+}
+
+restore_stream \
+    | docker compose exec --no-TTY postgres \
+        psql --no-psqlrc --single-transaction --set=ON_ERROR_STOP=1 \
+        --username="$POSTGRES_USER" --dbname="$POSTGRES_DB"

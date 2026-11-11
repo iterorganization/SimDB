@@ -2,26 +2,32 @@
 set -euo pipefail
 
 if [[ $# -ne 1 ]]; then
-    echo "usage: $0 BACKUP_FILE" >&2
+    echo "usage: $0 BACKUP_DIR" >&2
     exit 2
 fi
 
-backup_file="$1"
-backup_dir="$(dirname "$backup_file")"
-[[ -d "$backup_dir" ]] || {
-    echo "backup directory does not exist: $backup_dir" >&2
+BACKUP_DIR="$1"
+[[ -d "$BACKUP_DIR" ]] || {
+    echo "backup directory does not exist: $BACKUP_DIR" >&2
     exit 2
 }
+
+POSTGRES_USER="${POSTGRES_USER:-simdb}"
+POSTGRES_DB="${POSTGRES_DB:-simdb}"
+datestamp="$(date +%Y-%m-%d)"
+timestamp="$(date +%H%M%S)"
+backup_file="$BACKUP_DIR/${POSTGRES_DB}_${datestamp}_${timestamp}.sql.gz"
 
 temporary_file="$(mktemp "${backup_file}.tmp.XXXXXX")"
 trap 'rm -f "$temporary_file"' EXIT
 
-docker compose exec -T postgres \
+docker compose exec --no-TTY postgres \
     pg_dump \
-    --username="${POSTGRES_USER:-simdb}" \
-    --dbname="${POSTGRES_DB:-simdb}" \
-    --format=custom \
-    >"$temporary_file"
+    --username="$POSTGRES_USER" \
+    --dbname="$POSTGRES_DB" \
+    --no-owner \
+    --no-privileges \
+    | gzip --best >"$temporary_file"
 
 mv "$temporary_file" "$backup_file"
 trap - EXIT
