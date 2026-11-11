@@ -116,7 +116,7 @@ services:
     restart: unless-stopped
 
   postgres:
-    image: postgres:16.15-alpine3.23@sha256:621a761097839bdb50207afd6b87a72f38e2d718dd46c3d744828d8917c4f1e0
+    image: postgres:17.11-alpine3.23@sha256:bc2701f9a79f9248bcb18743bc9b2c732d9a1d16737ca44a8f577752fc43b61f
     environment:
       - POSTGRES_USER=simdb
       - POSTGRES_PASSWORD=simdb
