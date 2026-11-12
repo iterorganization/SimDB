@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+source "$(dirname "${BASH_SOURCE[0]}")/postgres-common.sh"
+
+usage() {
+    echo "usage: $0 [-y] [--clean] PROJECT_NAME BACKUP_FILE" >&2
+    exit 2
+}
+
+yes=false
+clean=false
+project=
+backup_file=
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -y) yes=true ;;
+        --clean) clean=true ;;
+        -*) usage ;;
+        *)
+            if [[ -z "$project" ]]; then
+                project="$1"
+            elif [[ -z "$backup_file" ]]; then
+                backup_file="$1"
+            else
+                usage
+            fi
+            ;;
+    esac
+    shift
+done
+
+[[ -n "$project" ]] || usage
+[[ -n "$backup_file" ]] || usage
+[[ -f "$backup_file" ]] || {
+    echo "backup file does not exist: $backup_file" >&2
+    exit 2
+}
+case "$backup_file" in
+    *.sql | *.sql.gz) ;;
+    *)
+        echo "backup file must end in .sql or .sql.gz: $backup_file" >&2
+        exit 2
+        ;;
+esac
+
+container_id="$(container_id_for_project_and_service "$project" postgres)" || exit 2
+load_container_metadata "$container_id" || exit 2
+print_container_selection
+
+if [[ "$yes" != true ]]; then
+    printf 'continue? [y/N] ' >&2
+    reply=
+    read -r reply || true
+    case "$reply" in
+        [yY] | [yY][eE][sS]) ;;
+        *)
+            echo "aborted" >&2
+            exit 1
+            ;;
+    esac
+fi
+
+restore_stream() {
+    if "$clean"; then
+        echo 'DROP SCHEMA public CASCADE;'
+        echo 'CREATE SCHEMA public;'
+    fi
+    if [[ "$backup_file" == *.gz ]]; then
+        gzip -dc "$backup_file"
+    else
+        cat "$backup_file"
+    fi
+}
+
+restore_stream \
+    | docker exec -i "$container_id" \
+        psql --no-psqlrc --single-transaction --set=ON_ERROR_STOP=1 \
+        --username="$POSTGRES_USER" \
+        --dbname="$POSTGRES_DB"
