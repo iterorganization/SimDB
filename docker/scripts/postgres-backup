@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+source "$(dirname "${BASH_SOURCE[0]}")/postgres-common.sh"
+
 usage() {
-    echo "usage: $0 [--project NAME] BACKUP_DIR" >&2
+    echo "usage: $0 PROJECT_NAME BACKUP_DIR" >&2
     exit 2
 }
 
@@ -10,47 +12,31 @@ project=
 BACKUP_DIR=
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --project)
-            [[ $# -ge 2 ]] || usage
-            project="$2"
-            shift
-            ;;
         -*) usage ;;
         *)
-            [[ -z "$BACKUP_DIR" ]] || usage
-            BACKUP_DIR="$1"
+            if [[ -z "$project" ]]; then
+                project="$1"
+            elif [[ -z "$BACKUP_DIR" ]]; then
+                BACKUP_DIR="$1"
+            else
+                usage
+            fi
             ;;
     esac
     shift
 done
 
+[[ -n "$project" ]] || usage
 [[ -n "$BACKUP_DIR" ]] || usage
 [[ -d "$BACKUP_DIR" ]] || {
     echo "backup directory does not exist: $BACKUP_DIR" >&2
     exit 2
 }
 
-if [[ -n "$project" ]]; then
-    # The config_files label holds absolute paths, so COMPOSE_FILE works from any CWD.
-    config_files="$(
-        docker ps --all \
-            --filter "label=com.docker.compose.project=$project" \
-            --format '{{.Label "com.docker.compose.project.config_files"}}'
-    )" || {
-        echo "could not query docker for project $project" >&2
-        exit 2
-    }
-    config_files="${config_files%%$'\n'*}"
-    [[ -n "$config_files" ]] || {
-        echo "no containers found for compose project: $project" >&2
-        exit 2
-    }
-    export COMPOSE_PROJECT_NAME="$project"
-    export COMPOSE_FILE="${config_files//,/:}"
-fi
+container_id="$(container_id_for_project_and_service "$project" postgres)" || exit 2
+load_container_metadata "$container_id" || exit 2
+print_container_selection
 
-POSTGRES_USER="${POSTGRES_USER:-simdb}"
-POSTGRES_DB="${POSTGRES_DB:-simdb}"
 datestamp="$(date +%Y-%m-%d)"
 timestamp="$(date +%H%M%S)"
 backup_file="$BACKUP_DIR/${POSTGRES_DB}_${datestamp}_${timestamp}.sql.gz"
@@ -58,7 +44,7 @@ backup_file="$BACKUP_DIR/${POSTGRES_DB}_${datestamp}_${timestamp}.sql.gz"
 temporary_file="$(mktemp "${backup_file}.tmp.XXXXXX")"
 trap 'rm -f "$temporary_file"' EXIT
 
-docker compose exec --no-TTY postgres \
+docker exec -i "$container_id" \
     pg_dump \
     --username="$POSTGRES_USER" \
     --dbname="$POSTGRES_DB" \

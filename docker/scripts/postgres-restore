@@ -1,62 +1,65 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+source "$(dirname "${BASH_SOURCE[0]}")/postgres-common.sh"
+
 usage() {
-    echo "usage: $0 [--clean] [--project NAME] BACKUP_FILE" >&2
+    echo "usage: $0 [-y] [--clean] PROJECT_NAME BACKUP_FILE" >&2
     exit 2
 }
 
+yes=false
 clean=false
 project=
 backup_file=
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        -y) yes=true ;;
         --clean) clean=true ;;
-        --project)
-            [[ $# -ge 2 ]] || usage
-            project="$2"
-            shift
-            ;;
         -*) usage ;;
-        *.sql | *.sql.gz)
-            [[ -z "$backup_file" ]] || usage
-            backup_file="$1"
-            ;;
         *)
-            echo "backup file must end in .sql or .sql.gz: $1" >&2
-            exit 2
+            if [[ -z "$project" ]]; then
+                project="$1"
+            elif [[ -z "$backup_file" ]]; then
+                backup_file="$1"
+            else
+                usage
+            fi
             ;;
     esac
     shift
 done
-[[ -n "$backup_file" ]] || usage
 
+[[ -n "$project" ]] || usage
+[[ -n "$backup_file" ]] || usage
 [[ -f "$backup_file" ]] || {
     echo "backup file does not exist: $backup_file" >&2
     exit 2
 }
+case "$backup_file" in
+    *.sql | *.sql.gz) ;;
+    *)
+        echo "backup file must end in .sql or .sql.gz: $backup_file" >&2
+        exit 2
+        ;;
+esac
 
-if [[ -n "$project" ]]; then
-    # The config_files label holds absolute paths, so COMPOSE_FILE works from any CWD.
-    config_files="$(
-        docker ps --all \
-            --filter "label=com.docker.compose.project=$project" \
-            --format '{{.Label "com.docker.compose.project.config_files"}}'
-    )" || {
-        echo "could not query docker for project $project" >&2
-        exit 2
-    }
-    config_files="${config_files%%$'\n'*}"
-    [[ -n "$config_files" ]] || {
-        echo "no containers found for compose project: $project" >&2
-        exit 2
-    }
-    export COMPOSE_PROJECT_NAME="$project"
-    export COMPOSE_FILE="${config_files//,/:}"
+container_id="$(container_id_for_project_and_service "$project" postgres)" || exit 2
+load_container_metadata "$container_id" || exit 2
+print_container_selection
+
+if [[ "$yes" != true ]]; then
+    printf 'continue? [y/N] ' >&2
+    reply=
+    read -r reply || true
+    case "$reply" in
+        [yY] | [yY][eE][sS]) ;;
+        *)
+            echo "aborted" >&2
+            exit 1
+            ;;
+    esac
 fi
-
-POSTGRES_USER="${POSTGRES_USER:-simdb}"
-POSTGRES_DB="${POSTGRES_DB:-simdb}"
 
 restore_stream() {
     if "$clean"; then
@@ -71,6 +74,7 @@ restore_stream() {
 }
 
 restore_stream \
-    | docker compose exec --no-TTY postgres \
+    | docker exec -i "$container_id" \
         psql --no-psqlrc --single-transaction --set=ON_ERROR_STOP=1 \
-        --username="$POSTGRES_USER" --dbname="$POSTGRES_DB"
+        --username="$POSTGRES_USER" \
+        --dbname="$POSTGRES_DB"
