@@ -30,6 +30,11 @@ updates:
     directory: "/"
     patterns:
       - "*"
+    ignore:
+      # blocks major version update PRs for postgres
+      - dependency-name: "postgres"
+        update-types:
+          - "version-update:semver-major"
     multi-ecosystem-group: "ci-cd"
 
   - package-ecosystem: "pip"
