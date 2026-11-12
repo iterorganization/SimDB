@@ -1,16 +1,53 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -ne 1 ]]; then
-    echo "usage: $0 BACKUP_DIR" >&2
+usage() {
+    echo "usage: $0 [--project NAME] BACKUP_DIR" >&2
     exit 2
-fi
+}
 
-BACKUP_DIR="$1"
+project=
+BACKUP_DIR=
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --project)
+            [[ $# -ge 2 ]] || usage
+            project="$2"
+            shift
+            ;;
+        -*) usage ;;
+        *)
+            [[ -z "$BACKUP_DIR" ]] || usage
+            BACKUP_DIR="$1"
+            ;;
+    esac
+    shift
+done
+
+[[ -n "$BACKUP_DIR" ]] || usage
 [[ -d "$BACKUP_DIR" ]] || {
     echo "backup directory does not exist: $BACKUP_DIR" >&2
     exit 2
 }
+
+if [[ -n "$project" ]]; then
+    # The config_files label holds absolute paths, so COMPOSE_FILE works from any CWD.
+    config_files="$(
+        docker ps --all \
+            --filter "label=com.docker.compose.project=$project" \
+            --format '{{.Label "com.docker.compose.project.config_files"}}'
+    )" || {
+        echo "could not query docker for project $project" >&2
+        exit 2
+    }
+    config_files="${config_files%%$'\n'*}"
+    [[ -n "$config_files" ]] || {
+        echo "no containers found for compose project: $project" >&2
+        exit 2
+    }
+    export COMPOSE_PROJECT_NAME="$project"
+    export COMPOSE_FILE="${config_files//,/:}"
+fi
 
 POSTGRES_USER="${POSTGRES_USER:-simdb}"
 POSTGRES_DB="${POSTGRES_DB:-simdb}"

@@ -2,15 +2,21 @@
 set -euo pipefail
 
 usage() {
-    echo "usage: $0 [--clean] BACKUP_FILE" >&2
+    echo "usage: $0 [--clean] [--project NAME] BACKUP_FILE" >&2
     exit 2
 }
 
 clean=false
+project=
 backup_file=
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --clean) clean=true ;;
+        --project)
+            [[ $# -ge 2 ]] || usage
+            project="$2"
+            shift
+            ;;
         -*) usage ;;
         *.sql | *.sql.gz)
             [[ -z "$backup_file" ]] || usage
@@ -29,6 +35,25 @@ done
     echo "backup file does not exist: $backup_file" >&2
     exit 2
 }
+
+if [[ -n "$project" ]]; then
+    # The config_files label holds absolute paths, so COMPOSE_FILE works from any CWD.
+    config_files="$(
+        docker ps --all \
+            --filter "label=com.docker.compose.project=$project" \
+            --format '{{.Label "com.docker.compose.project.config_files"}}'
+    )" || {
+        echo "could not query docker for project $project" >&2
+        exit 2
+    }
+    config_files="${config_files%%$'\n'*}"
+    [[ -n "$config_files" ]] || {
+        echo "no containers found for compose project: $project" >&2
+        exit 2
+    }
+    export COMPOSE_PROJECT_NAME="$project"
+    export COMPOSE_FILE="${config_files//,/:}"
+fi
 
 POSTGRES_USER="${POSTGRES_USER:-simdb}"
 POSTGRES_DB="${POSTGRES_DB:-simdb}"
