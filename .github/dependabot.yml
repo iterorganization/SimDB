@@ -41,4 +41,6 @@ updates:
     directory: "/"
     patterns:
       - "*"
+    exclude-paths:
+      - "conda/**"
     multi-ecosystem-group: "python-project"
