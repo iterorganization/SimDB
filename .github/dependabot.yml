@@ -1,15 +1,46 @@
 version: 2
-updates:
-  # Enable version updates for Github Actions
-  - package-ecosystem: "github-actions"
-    # Look for `/.github/workflows` and `/action.yml` or `.yaml`
-    directory: "/"
-    # Check for updates once a week
+
+# Combine several dependabot ecosystem updates in two weekly groups.
+multi-ecosystem-groups:
+
+  # CI/CD for any tooling dependencies in testing and containerization
+  ci-cd:
     schedule:
       interval: "weekly"
-    # Group actions version bumps into a single PR
-    groups:
-      actions-deps:
-        patterns:
-          - "*"
 
+  # Python dependencies for this software project
+  python-project:
+    schedule:
+      interval: "weekly"
+
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    patterns:
+      - "*"
+    multi-ecosystem-group: "ci-cd"
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    patterns:
+      - "*"
+    multi-ecosystem-group: "ci-cd"
+
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    patterns:
+      - "*"
+    ignore:
+      # blocks major version update PRs for postgres
+      - dependency-name: "postgres"
+        update-types:
+          - "version-update:semver-major"
+    multi-ecosystem-group: "ci-cd"
+
+  - package-ecosystem: "pip"
+    directory: "/"
+    patterns:
+      - "*"
+    exclude-paths:
+      - "conda/**"
+    multi-ecosystem-group: "python-project"
