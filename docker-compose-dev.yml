@@ -68,7 +68,7 @@ services:
       start_period: 10s
 
   proxy:
-    image: nginx:1.29-alpine
+    image: nginx:1.31-alpine
     ports:
       - "${SIMDB_WEB_PORT:-5100}:80"
     environment:
