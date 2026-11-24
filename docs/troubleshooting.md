@@ -24,6 +24,32 @@ chmod 600 "$(simdb config path)"
 
 See [Client configuration](reference/configuration.md).
 
+## Local database was set up by a newer version of SimDB
+
+If you go back to an older SimDB (for example after trying a development
+version), it cannot open a local database that the newer version has set up or
+upgraded. Older releases such as 0.15.2 fail with
+`(sqlite3.OperationalError) database is locked`; newer ones say the database was
+set up by a newer version of SimDB.
+
+Either upgrade SimDB again, or, to keep using the older version, replace the
+local database. It lives in `~/.local/share/simdb/sim.db` on Linux and
+`~/Library/Application Support/simdb/sim.db` on macOS, unless you set
+`db.file` in your configuration.
+
+- If SimDB upgraded an existing database, it saved a copy first in the
+  `backups/` folder next to `sim.db`. Move `sim.db` aside and copy back the
+  latest backup taken before the upgrade:
+
+  ```bash
+  cd ~/.local/share/simdb
+  mv sim.db sim.db.newer
+  cp backups/<date>.db sim.db
+  ```
+
+- If the newer version created the database from scratch, there is no backup.
+  Move `sim.db` aside and SimDB will offer to create a new one.
+
 ## Cannot connect to a remote / SSL certificate errors
 
 - Check the remote URL: `simdb remote config list`, then `simdb remote test`.
