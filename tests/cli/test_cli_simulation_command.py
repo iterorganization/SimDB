@@ -110,7 +110,7 @@ def test_modify_sets_metadata(invoke, local_db):
 
     assert result.exit_code == 0
     assert "metadata updated" in result.output
-    simulation.set_meta.assert_called_once_with("pulse", "134173")
+    simulation.set_meta.assert_called_once_with("pulse", 134173)
     assert local_db.session.commit.called
 
 
@@ -644,3 +644,47 @@ def test_push_local_does_not_retry_a_rejected_status_check(push_local, remote_ap
     assert result.exit_code != 0
     assert "Failed to check ingestion status: Simulation not found" in result.output
     assert remote_api.get_ingestion_status.call_count == 1
+
+
+@pytest.mark.parametrize(
+    "args, expected",
+    [
+        (["global_quantities.r0.value=6.2"], 6.2),
+        (["pulse=134173"], 134173),
+        (["code.name=ASTRA"], "ASTRA"),
+        (["description=a=b"], "a=b"),
+        (["value=nan"], "nan"),
+        (["pulse=134173", "--type", "string"], "134173"),
+        (["r0=6", "--type", "float"], 6.0),
+        (["note=-9e40", "--type", "string"], "-9e40"),
+    ],
+)
+def test_simulation_modify_set_meta_types(invoke, local_db, args, expected):
+    simulation = local_db.get_simulation.return_value
+
+    result = invoke("simulation", "modify", "sim", "--set-meta", *args)
+
+    assert result.exception is None, result.output
+    name = args[0].split("=", 1)[0]
+    simulation.set_meta.assert_called_once_with(name, expected)
+    value = simulation.set_meta.call_args.args[1]
+    assert type(value) is type(expected)
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["noequals"],
+        ["=6.2"],
+        ["r0=abc", "--type", "float"],
+        ["n=1.5", "-t", "int"],
+        ["r0=-9e40"],
+        ["r0=-9.0e+40", "--type", "float"],
+        ["flag=-999999999"],
+    ],
+)
+def test_simulation_modify_set_meta_invalid(invoke, local_db, args):
+    result = invoke("simulation", "modify", "sim", "--set-meta", *args)
+
+    assert result.exit_code != 0
+    local_db.get_simulation.return_value.set_meta.assert_not_called()

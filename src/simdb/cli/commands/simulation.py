@@ -1,4 +1,5 @@
 import contextlib
+import math
 import sys
 import time
 import urllib.parse
@@ -17,6 +18,7 @@ from simdb.config.config import Config
 from simdb.database import DatabaseError, get_local_db
 from simdb.database.models import Simulation
 from simdb.enums import IngestionStatus
+from simdb.imas.utils import FLOAT_MISSING_VALUE, INT_MISSING_VALUE
 from simdb.query import QueryType, parse_query_arg
 from simdb.validation import ValidationError, Validator
 
@@ -77,6 +79,45 @@ class NameValueOption(click.Option):
         pass
 
 
+_EMPTY_VALUE_MSG = (
+    "'{}' is the IMAS empty value; use --del-meta to remove the metadata instead"
+)
+
+
+def _parse_meta_value(value: str, value_type: str) -> Any:
+    """Convert a --set-meta VALUE string to the requested type.
+
+    With ``auto``, integers become ``int``, finite numbers become ``float`` and
+    anything else is kept as a string. IMAS empty values (``-999999999`` for int,
+    ``-9e40`` for float) are rejected: use --del-meta to remove a value instead.
+    """
+    if value_type == "string":
+        return value
+    if value_type in ("auto", "int"):
+        try:
+            number = int(value)
+        except ValueError:
+            if value_type == "int":
+                raise click.BadParameter(f"'{value}' is not an integer") from None
+        else:
+            if number == INT_MISSING_VALUE:
+                raise click.BadParameter(_EMPTY_VALUE_MSG.format(value))
+            return number
+    try:
+        number = float(value)
+    except ValueError:
+        if value_type == "float":
+            raise click.BadParameter(f"'{value}' is not a number") from None
+        return value
+    if not math.isfinite(number):
+        if value_type == "float":
+            raise click.BadParameter(f"'{value}' is not a finite number")
+        return value
+    if number == FLOAT_MISSING_VALUE:
+        raise click.BadParameter(_EMPTY_VALUE_MSG.format(value))
+    return number
+
+
 @simulation.command("modify")
 @pass_config
 @click.argument("sim_id")
@@ -84,12 +125,22 @@ class NameValueOption(click.Option):
 @click.option(
     "--set-meta", help="Add new meta or update existing.", metavar="NAME=VALUE"
 )
+@click.option(
+    "-t",
+    "--type",
+    "value_type",
+    type=click.Choice(["auto", "string", "int", "float"], case_sensitive=False),
+    default="auto",
+    show_default=True,
+    help="Type of the --set-meta VALUE; 'auto' stores numbers as int or float.",
+)
 @click.option("--del-meta", help="Delete metadata entry.", metavar="NAME")
 def simulation_modify(
     config: Config,
     sim_id: str,
     alias: Optional[str],
     set_meta: Optional[str],
+    value_type: str,
     del_meta: Optional[str],
 ):
     """Modify the ingested simulation."""
@@ -101,12 +152,10 @@ def simulation_modify(
         db.session.commit()
         click.echo("alias updated")
     elif set_meta is not None:
-        try:
-            name, value = set_meta.split("=")
-        except ValueError:
-            raise click.BadParameter(
-                "set-meta argument must be of form NAME=VALUE"
-            ) from None
+        name, sep, raw_value = set_meta.partition("=")
+        if not sep or not name:
+            raise click.BadParameter("set-meta argument must be of form NAME=VALUE")
+        value = _parse_meta_value(raw_value, value_type.lower())
         db = get_local_db(config)
         simulation = db.get_simulation(sim_id)
         simulation.set_meta(name, value)
