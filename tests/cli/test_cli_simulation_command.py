@@ -110,7 +110,7 @@ def test_modify_sets_metadata(invoke, local_db):
 
     assert result.exit_code == 0
     assert "metadata updated" in result.output
-    simulation.set_meta.assert_called_once_with("pulse", "134173")
+    simulation.set_meta.assert_called_once_with("pulse", 134173)
     assert local_db.session.commit.called
 
 
@@ -659,22 +659,11 @@ def test_push_local_does_not_retry_a_rejected_status_check(push_local, remote_ap
         (["note=-9e40", "--type", "string"], "-9e40"),
     ],
 )
-@mock.patch("simdb.cli.commands.simulation.get_local_db")
-def test_simulation_modify_set_meta_types(get_local_db, args, expected):
-    simulation = get_local_db.return_value.get_simulation.return_value
-    config_file = config_test_file()
-    runner = CliRunner()
-    result = runner.invoke(
-        cli,
-        [
-            f"--config-file={config_file}",
-            "simulation",
-            "modify",
-            "sim",
-            "--set-meta",
-            *args,
-        ],
-    )
+def test_simulation_modify_set_meta_types(invoke, local_db, args, expected):
+    simulation = local_db.get_simulation.return_value
+
+    result = invoke("simulation", "modify", "sim", "--set-meta", *args)
+
     assert result.exception is None, result.output
     name = args[0].split("=", 1)[0]
     simulation.set_meta.assert_called_once_with(name, expected)
@@ -694,20 +683,8 @@ def test_simulation_modify_set_meta_types(get_local_db, args, expected):
         ["flag=-999999999"],
     ],
 )
-@mock.patch("simdb.cli.commands.simulation.get_local_db")
-def test_simulation_modify_set_meta_invalid(get_local_db, args):
-    config_file = config_test_file()
-    runner = CliRunner()
-    result = runner.invoke(
-        cli,
-        [
-            f"--config-file={config_file}",
-            "simulation",
-            "modify",
-            "sim",
-            "--set-meta",
-            *args,
-        ],
-    )
+def test_simulation_modify_set_meta_invalid(invoke, local_db, args):
+    result = invoke("simulation", "modify", "sim", "--set-meta", *args)
+
     assert result.exit_code != 0
-    get_local_db.return_value.get_simulation.return_value.set_meta.assert_not_called()
+    local_db.get_simulation.return_value.set_meta.assert_not_called()
