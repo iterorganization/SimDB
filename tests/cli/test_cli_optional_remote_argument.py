@@ -14,6 +14,7 @@ from unittest import mock
 
 import pytest
 from cli_helpers import make_simulation
+from conftest import REMOTE_NAME
 
 from simdb.enums import IngestionStatus
 
@@ -106,6 +107,21 @@ def test_a_genuinely_missing_argument_is_still_reported(
 @pytest.mark.parametrize("subcommand", [subcommand for subcommand, _ in SUBCOMMANDS])
 def test_a_command_with_no_arguments_at_all_is_reported(invoke, remote_api, subcommand):
     result = invoke("simulation", subcommand)
+
+    assert result.exit_code == 2
+    assert "Missing argument" in result.output
+    assert not remote_api.called
+
+
+@pytest.mark.parametrize(
+    ("subcommand", "trailing"),
+    [(subcommand, trailing) for subcommand, trailing in SUBCOMMANDS if trailing],
+)
+def test_a_missing_argument_after_a_named_remote_is_reported(
+    invoke, remote_api, subcommand, trailing
+):
+    """#124: ``pull REMOTE SIM_ID`` must not read REMOTE as the SIM_ID."""
+    result = invoke("simulation", subcommand, REMOTE_NAME, "sim", *trailing[:-1])
 
     assert result.exit_code == 2
     assert "Missing argument" in result.output
