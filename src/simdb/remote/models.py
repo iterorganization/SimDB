@@ -658,8 +658,8 @@ class WatcherGetResponse(RootModel):
 class WatcherDeleteRequest(BaseModel):
     """Payload for deleting a watcher from a simulation."""
 
-    user: str
-    """Username to delete from the watchers."""
+    user: Optional[str] = None
+    """Username to delete from the watchers, defaults to the signed in user."""
 
 
 class WatcherDeleteResponse(BaseModel):

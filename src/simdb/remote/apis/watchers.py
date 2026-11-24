@@ -39,6 +39,10 @@ class Watcher(Resource):
         """
         username = data.user or user.name
         email = data.email or user.email
+        if not email:
+            raise ResponseException(
+                "No email given and the signed in user has no email address.", 400
+            )
 
         notification = getattr(Notification, data.notification)
 

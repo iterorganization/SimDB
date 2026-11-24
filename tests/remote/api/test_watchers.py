@@ -32,10 +32,8 @@ def sim_uuid(client):
     return simulation_data.simulation.uuid
 
 
-def _add_watcher(client, sim_ref):
-    post_data = WatcherPostRequest(
-        user="testuser", email="example@iter.org", notification="ALL"
-    )
+def _add_watcher(client, sim_ref, user="testuser", email="example@iter.org"):
+    post_data = WatcherPostRequest(user=user, email=email, notification="ALL")
     return client.post(
         f"/v1.2/watchers/{sim_ref}",
         json=post_data.model_dump(mode="json"),
@@ -44,8 +42,8 @@ def _add_watcher(client, sim_ref):
     )
 
 
-def _remove_watcher(client, sim_ref):
-    delete_data = WatcherDeleteRequest(user="testuser")
+def _remove_watcher(client, sim_ref, user="testuser"):
+    delete_data = WatcherDeleteRequest(user=user)
     return client.delete(
         f"/v1.2/watchers/{sim_ref}",
         json=delete_data.model_dump(mode="json"),
@@ -110,3 +108,29 @@ def test_delete_watchers_not_watching(client, sim_uuid):
     rv = _remove_watcher(client, sim_uuid.hex)
 
     assert rv.status_code == 404
+
+
+def test_post_watchers_defaults_user_to_signed_in_user(client, sim_uuid):
+    """POST without a user adds the signed-in user (``admin`` in these tests)."""
+    rv = _add_watcher(client, sim_uuid.hex, user=None)
+
+    assert rv.status_code == 200, rv.json
+    assert WatcherPostResponse.model_validate(rv.json).added.watcher == "admin"
+
+
+def test_post_watchers_without_any_email(client, sim_uuid):
+    """POST without an email fails cleanly if the signed-in user has none."""
+    rv = _add_watcher(client, sim_uuid.hex, user=None, email=None)
+
+    assert rv.status_code == 400
+    assert "email" in rv.json["error"]
+
+
+def test_delete_watchers_defaults_user_to_signed_in_user(client, sim_uuid):
+    """DELETE without a user removes the signed-in user."""
+    assert _add_watcher(client, sim_uuid.hex, user=None).status_code == 200
+
+    rv = _remove_watcher(client, sim_uuid.hex, user=None)
+
+    assert rv.status_code == 200, rv.json
+    assert WatcherDeleteResponse.model_validate(rv.json).removed.watcher == "admin"
