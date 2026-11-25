@@ -1,4 +1,5 @@
 import base64
+import datetime
 import enum
 import uuid
 from typing import TYPE_CHECKING, Any, Dict
@@ -48,6 +49,8 @@ class CustomEncoder(json.JSONEncoder):
             return {"min": o.min, "max": o.max}
         elif isinstance(o, uuid.UUID):
             return {"_type": "uuid.UUID", "hex": o.hex}
+        elif isinstance(o, (datetime.datetime, datetime.date, datetime.time)):
+            return o.isoformat()
         elif isinstance(o, enum.Enum):
             return o.value
         elif isinstance(o, np.ndarray):

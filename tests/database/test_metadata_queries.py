@@ -1,6 +1,6 @@
 import tempfile
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import pytest
 
@@ -393,3 +393,24 @@ class TestQueryMetaData:
         assert count == 1
         assert len(results) == 1
         assert results[0]["metadata"] == [{"element": "type", "value": "A"}]
+
+
+class TestDatetimeMetadata:
+    # Regression for #131: unquoted manifest timestamps are parsed by YAML into
+    # date/datetime objects, which failed ingest and push with
+    # "Object of type datetime is not JSON serializable".
+    def test_datetime_metadata_is_stored_as_isoformat_strings(self, db):
+        sim = create_simulation(
+            metadata={
+                "run_date": date(2026, 9, 16),
+                "run_start": datetime(2026, 9, 16, 15, 55, 48),
+            }
+        )
+
+        db.insert_simulation(sim)
+
+        loaded = db.get_simulation(sim.uuid.hex)
+        assert loaded.find_meta("run_date") == ["2026-09-16"]
+        assert loaded.find_meta("run_start") == ["2026-09-16T15:55:48"]
+        # The push payload is built from the stored simulation.
+        assert "2026-09-16T15:55:48" in loaded.to_model(recurse=True).model_dump_json()
