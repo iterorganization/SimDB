@@ -98,6 +98,22 @@ class Database:
                     "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%';"
                 )
                 new_db = res.rowcount == -1
+                tables = {row[0] for row in res}
+                if "alembic_version" in tables:
+                    # this client never creates alembic_version, so a newer
+                    # (1.x) client has migrated this database
+                    revision = con.execute(
+                        "SELECT version_num FROM alembic_version"
+                    ).scalar()
+                    self.engine.dispose()
+                    raise DatabaseError(
+                        f"""\
+Database {kwargs["file"]} was migrated by a newer SimDB client \
+(schema revision {revision or "unknown"}),
+which this client cannot use.
+
+Please upgrade the SimDB client: pip install --upgrade imas-simdb"""
+                    )
 
         elif db_type == Database.DBMS.POSTGRESQL:
             if "host" not in kwargs:

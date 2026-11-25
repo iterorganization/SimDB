@@ -399,7 +399,7 @@ def remote_list(config: "Config", api: RemoteAPI, meta: List[str], limit: int, s
 @pass_api
 def remote_version(api: RemoteAPI):
     """Show the SimDB version of the remote."""
-    click.echo(f"Remote '{api.remote}' SimDB version: {api.server_version}")
+    click.echo(f"Remote '{api.remote}' SimDB version: {api.server_version or 'unknown'}")
 
 
 @remote.command("info", cls=remote_command_cls())

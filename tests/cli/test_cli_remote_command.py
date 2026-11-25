@@ -1,8 +1,10 @@
 from unittest import mock
+import pytest
 from click.testing import CliRunner
 from simdb.cli.simdb import cli
 from utils import config_test_file
 from simdb.notifications import Notification
+from simdb.cli.remote_api import RemoteError, select_api_version
 
 
 @mock.patch("simdb.cli.remote_api.RemoteAPI.get_server_authentication")
@@ -332,3 +334,97 @@ def test_remote_query_command_with_verbose(
 #     assert args == (sim_id, Simulation.Status.ACCEPTED)
 #     assert kwargs == {}
 #     assert get_api_version.called
+
+
+def _fake_get(root: dict, indexes: dict):
+    def get(self, url, *args, **kwargs):
+        response = mock.Mock()
+        version = self._api_url.rstrip("/").split("/")[-1]
+        response.json.return_value = indexes[version] if url == "" and version in indexes else root
+        return response
+
+    return get
+
+
+def _fake_root_index(versions, server_version=None):
+    root = {
+        "endpoints": [f"http://0.0.0.0:5000/v{v}" for v in versions],
+        "authentication": "None",
+    }
+    if server_version is not None:
+        root["server_version"] = server_version
+    return root
+
+
+def _invoke_remote(root: dict, indexes: dict, *args):
+    config_file = config_test_file()
+    runner = CliRunner()
+    with mock.patch(
+        "simdb.cli.remote_api.RemoteAPI.get", autospec=True, side_effect=_fake_get(root, indexes)
+    ):
+        return runner.invoke(cli, [f"--config-file={config_file}", "remote", *args])
+
+
+@pytest.mark.parametrize(
+    "endpoint_versions, client_version, expected",
+    [
+        (["v1", "v1.1", "v1.2"], "1.2", "v1.2"),
+        (["v1", "v1.1", "v1.2", "v1.3"], "1.2", "v1.2"),
+        (["v1.2", "v1.10", "v1.9"], "1.2", "v1.2"),
+        # compared as versions, not strings ("v1.9" > "v1.10" as text)
+        (["v1.2", "v1.10", "v1.9"], "1.10", "v1.10"),
+        (["v1", "v1.1"], "1.2", "v1.1"),
+        (["v1.3", "v2"], "1.2", None),
+        ([], "1.2", None),
+        (["", "docs", "v1.2"], "1.2", "v1.2"),
+    ],
+)
+def test_select_api_version_picks_highest_supported(endpoint_versions, client_version, expected):
+    assert select_api_version(endpoint_versions, client_version) == expected
+
+
+def test_remote_command_with_newer_server_falls_back_to_supported_api():
+    # develop servers report server_version only at the root
+    root = _fake_root_index(("1", "1.1", "1.2", "1.3"), server_version="1.0.0")
+    indexes = {"v1.2": {"api": "simdb", "api_version": "1.2"}}
+    result = _invoke_remote(root, indexes, "version")
+    assert result.exception is None, result.output
+    assert "SimDB version: 1.0.0" in result.output
+
+
+@mock.patch("simdb.cli.remote_api.RemoteAPI.list_simulations", return_value=[])
+def test_remote_list_with_newer_server_falls_back_to_supported_api(list_simulations):
+    root = _fake_root_index(("1", "1.1", "1.2", "1.3"), server_version="1.0.0")
+    indexes = {"v1.2": {"api": "simdb", "api_version": "1.2"}}
+    result = _invoke_remote(root, indexes, "list")
+    assert result.exception is None, result.output
+    assert list_simulations.called
+    assert "No simulations found" in result.output
+
+
+def test_remote_command_with_old_server_reads_versioned_server_version():
+    # 0.15 servers report server_version only on the versioned index
+    root = _fake_root_index(("1", "1.1", "1.2"))
+    indexes = {"v1.2": {"api": "simdb", "api_version": "1.2", "server_version": "0.15.2"}}
+    result = _invoke_remote(root, indexes, "version")
+    assert result.exception is None, result.output
+    assert "SimDB version: 0.15.2" in result.output
+
+
+def test_remote_command_without_server_version_reports_unknown():
+    root = _fake_root_index(("1", "1.1", "1.2"))
+    indexes = {"v1.2": {"api": "simdb", "api_version": "1.2"}}
+    result = _invoke_remote(root, indexes, "version")
+    assert result.exception is None, result.output
+    assert "SimDB version: unknown" in result.output
+
+
+def test_remote_command_without_supported_api_advises_upgrade():
+    root = _fake_root_index(("2", "2.1"), server_version="2.0.0")
+    result = _invoke_remote(root, {}, "list")
+    assert isinstance(result.exception, RemoteError)
+    message = str(result.exception)
+    assert "2.0.0" in message
+    assert "v2, v2.1" in message
+    assert "API version 1.2" in message
+    assert "pip install --upgrade imas-simdb" in message
