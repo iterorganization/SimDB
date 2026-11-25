@@ -49,6 +49,10 @@ class DatabaseOutdatedError(DatabaseError):
     pass
 
 
+class DatabaseTooNewError(DatabaseError):
+    pass
+
+
 class SimulationIngestionInProgressError(DatabaseError):
     pass
 
@@ -69,7 +73,8 @@ def check_migrations(engine) -> str:
     Raises :class:`DatabaseUninitializedError` if the database has not been
     initialised at all (i.e. the ``alembic_version`` table is absent), or
     :class:`DatabaseOutdatedError` if the database schema is behind the head
-    revision.
+    revision, or :class:`DatabaseTooNewError` if the database is at a revision
+    this version of SimDB does not know (i.e. it was migrated by a newer SimDB).
     """
     script = ScriptDirectory.from_config(_alembic_config())
     head_revision = script.get_current_head()
@@ -83,6 +88,14 @@ def check_migrations(engine) -> str:
             "The database has not been initialised. "
             f"Run 'DATABASE_URL={engine.url} alembic upgrade head' before starting the "
             "server. "
+        )
+
+    known_revisions = {rev.revision for rev in script.walk_revisions()}
+    if current_revision not in known_revisions:
+        raise DatabaseTooNewError(
+            f"Database is at revision {current_revision}, which this version of "
+            "SimDB does not know: it was migrated by a newer version of SimDB. "
+            "Upgrade SimDB to use this database."
         )
 
     if current_revision != head_revision:
@@ -950,6 +963,13 @@ def get_local_db(config: Config) -> Database:
             run_migrations(database.engine)
         else:
             raise e
+    except DatabaseTooNewError as e:
+        raise DatabaseTooNewError(
+            f"Your local database {db_file} was set up by a newer version of SimDB. "
+            "Upgrade SimDB to use it. To keep using this version instead, restore "
+            f"an older copy from {db_file.parent / 'backups'} if there is one, or "
+            f"move {db_file} aside to start a new local database."
+        ) from e
     except DatabaseOutdatedError as e:
         if Confirm.ask("Local database schema is out of date. Run migrations now?"):
             backup_local_db(config)
