@@ -32,6 +32,7 @@ from simdb.remote.models import SimulationReference
 from .models import Base
 from .models.file import File
 from .models.simulation import Simulation
+from .online_migrations import run_online_migrations
 
 _MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
@@ -45,6 +46,10 @@ class DatabaseUninitializedError(DatabaseError):
 
 
 class DatabaseOutdatedError(DatabaseError):
+    pass
+
+
+class DatabaseTooNewError(DatabaseError):
     pass
 
 
@@ -68,7 +73,8 @@ def check_migrations(engine) -> str:
     Raises :class:`DatabaseUninitializedError` if the database has not been
     initialised at all (i.e. the ``alembic_version`` table is absent), or
     :class:`DatabaseOutdatedError` if the database schema is behind the head
-    revision.
+    revision, or :class:`DatabaseTooNewError` if the database is at a revision
+    this version of SimDB does not know (i.e. it was migrated by a newer SimDB).
     """
     script = ScriptDirectory.from_config(_alembic_config())
     head_revision = script.get_current_head()
@@ -82,6 +88,14 @@ def check_migrations(engine) -> str:
             "The database has not been initialised. "
             f"Run 'DATABASE_URL={engine.url} alembic upgrade head' before starting the "
             "server. "
+        )
+
+    known_revisions = {rev.revision for rev in script.walk_revisions()}
+    if current_revision not in known_revisions:
+        raise DatabaseTooNewError(
+            f"Database is at revision {current_revision}, which this version of "
+            "SimDB does not know: it was migrated by a newer version of SimDB. "
+            "Upgrade SimDB to use this database."
         )
 
     if current_revision != head_revision:
@@ -949,13 +963,34 @@ def get_local_db(config: Config) -> Database:
             run_migrations(database.engine)
         else:
             raise e
+    except DatabaseTooNewError as e:
+        raise DatabaseTooNewError(
+            f"Your local database {db_file} was set up by a newer version of SimDB. "
+            "Upgrade SimDB to use it. To keep using this version instead, restore "
+            f"an older copy from {db_file.parent / 'backups'} if there is one, or "
+            f"move {db_file} aside to start a new local database."
+        ) from e
     except DatabaseOutdatedError as e:
         if Confirm.ask("Local database schema is out of date. Run migrations now?"):
             backup_local_db(config)
             run_migrations(database.engine)
         else:
             raise e
+    # With the schema at head, apply any pending online (data) migrations. This
+    # runs on every open, but is a cheap no-op once the data is up to date.
+    _run_online_migrations(database, config)
     return database
+
+
+def _run_online_migrations(database: Database, config: Config) -> None:
+    """Apply online (data) migrations to the local database.
+
+    Recalculates any checksums still stored in the legacy (bare-hex) format.
+    """
+    results = run_online_migrations(database, config)
+    changed = sum(results.values())
+    if changed:
+        print(f"Recalculated {changed} local checksum(s).")
 
 
 def get_db(config: Config) -> Database:

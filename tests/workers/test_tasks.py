@@ -5,7 +5,7 @@ from uuid import uuid1
 
 import pytest
 
-from simdb.checksum import hash_file
+from simdb.checksum import format_checksum, hash_file
 from simdb.config import Config
 from simdb.enums import IngestionStatus
 from simdb.imas.utils import SimDBUrl
@@ -146,9 +146,23 @@ def test_create_file_from_data_raises_on_checksum_mismatch(tmp_path):
     data_file = partition_path / "testfile.txt"
     data_file.write_text("content")
 
-    file_data = _make_file_data("data:testfile.txt", checksum="wrong_checksum")
+    file_data = _make_file_data("data:testfile.txt", checksum="sha1:wrong_checksum")
 
     with pytest.raises(ValueError, match="Hash of file does not match"):
+        _create_file_from_data(file_data, config, data_file)
+
+
+def test_create_file_from_data_raises_on_unprefixed_checksum(tmp_path):
+    config = Config()
+    partition_path = tmp_path / "partition_data"
+    partition_path.mkdir()
+    config.set_option("partition.data", str(partition_path))
+    data_file = partition_path / "testfile.txt"
+    data_file.write_text("content")
+
+    file_data = _make_file_data("data:testfile.txt", checksum="deadbeef")
+
+    with pytest.raises(ValueError, match="algorithm prefix"):
         _create_file_from_data(file_data, config, data_file)
 
 
@@ -157,8 +171,12 @@ def test_checksum_matches_uses_sha1(tmp_path):
     content = b"content"
     data_file.write_bytes(content)
 
-    assert _checksum_matches(data_file, hashlib.sha1(content).hexdigest())
-    assert not _checksum_matches(data_file, hashlib.sha1(b"other").hexdigest())
+    assert _checksum_matches(
+        data_file, format_checksum(hashlib.sha1(content).hexdigest())
+    )
+    assert not _checksum_matches(
+        data_file, format_checksum(hashlib.sha1(b"other").hexdigest())
+    )
 
 
 @pytest.fixture
@@ -200,7 +218,10 @@ def test_copy_files_task_copies_inputs_and_marks_copied(task_environment):
     source_file.write_text("test content")
 
     input_files = [
-        _make_file_data(f"data:/{source_file.name}", checksum=hash_file(source_file))
+        _make_file_data(
+            f"data:/{source_file.name}",
+            checksum=format_checksum(hash_file(source_file)),
+        )
     ]
 
     copy_files_task(env["simulation_uuid"], input_files, [])
@@ -260,14 +281,15 @@ def test_copy_files_task_http_keeps_imas_folder_flattens_sibling(task_environmen
     output_files = [
         _make_file_data(
             f"http://{sim_hex}/data/subdir/test_hdf5/master.h5",
-            checksum=hash_file(master),
+            checksum=format_checksum(hash_file(master)),
         ),
         _make_file_data(
             f"http://{sim_hex}/data/subdir/test_hdf5/0001.h5",
-            checksum=hash_file(extra),
+            checksum=format_checksum(hash_file(extra)),
         ),
         _make_file_data(
-            f"http://{sim_hex}/data/subdir/test.nc", checksum=hash_file(nc)
+            f"http://{sim_hex}/data/subdir/test.nc",
+            checksum=format_checksum(hash_file(nc)),
         ),
     ]
 

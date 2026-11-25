@@ -4,6 +4,7 @@ import hashlib
 import uuid
 from datetime import datetime, timezone
 
+from simdb.checksum import format_checksum
 from simdb.cli.remote_api import _compute_checksums, _expand_directories_http
 from simdb.imas.utils import SimDBUrl
 from simdb.remote.models import FileData
@@ -52,8 +53,8 @@ def test_compute_checksums_populates_sha1(tmp_path):
 
     _compute_checksums(files)
 
-    assert fd1.checksum == hashlib.sha1(b"hello").hexdigest()
-    assert fd2.checksum == hashlib.sha1(b"world!!").hexdigest()
+    assert fd1.checksum == format_checksum(hashlib.sha1(b"hello").hexdigest())
+    assert fd2.checksum == format_checksum(hashlib.sha1(b"world!!").hexdigest())
 
 
 def test_expand_directories_http_keeps_imas_directory(tmp_path):

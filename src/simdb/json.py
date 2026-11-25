@@ -1,10 +1,12 @@
 import base64
+import datetime
 import enum
 import uuid
 from typing import TYPE_CHECKING, Any, Dict
 
 import numpy as np
 
+from simdb.imas.utils import FLOAT_MISSING_VALUE, INT_MISSING_VALUE
 from simdb.remote.models import RangeValue
 
 if TYPE_CHECKING:
@@ -47,11 +49,18 @@ class CustomEncoder(json.JSONEncoder):
             return {"min": o.min, "max": o.max}
         elif isinstance(o, uuid.UUID):
             return {"_type": "uuid.UUID", "hex": o.hex}
+        elif isinstance(o, (datetime.datetime, datetime.date, datetime.time)):
+            return o.isoformat()
         elif isinstance(o, enum.Enum):
             return o.value
         elif isinstance(o, np.ndarray):
             if np.issubdtype(o.dtype, np.number):
-                valid = o[~np.isnan(o)] if np.issubdtype(o.dtype, np.floating) else o
+                if np.issubdtype(o.dtype, np.floating):
+                    valid = o[np.isfinite(o) & (o != FLOAT_MISSING_VALUE)]
+                else:
+                    valid = o[o != INT_MISSING_VALUE]
+                if valid.size == 0:
+                    return None
                 return {"min": float(valid.min()), "max": float(valid.max())}
             return o.tolist()
         return super().default(o)

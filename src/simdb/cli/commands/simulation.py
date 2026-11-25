@@ -1,4 +1,5 @@
 import contextlib
+import math
 import sys
 import time
 import urllib.parse
@@ -10,12 +11,14 @@ import appdirs
 import click
 from rich.prompt import Confirm
 
+from simdb.checksum import checksums_match
 from simdb.cli.manifest import Manifest
 from simdb.cli.remote_api import APIError, RemoteAPI, RemoteError
 from simdb.config.config import Config
 from simdb.database import DatabaseError, get_local_db
 from simdb.database.models import Simulation
 from simdb.enums import IngestionStatus
+from simdb.imas.utils import FLOAT_MISSING_VALUE, INT_MISSING_VALUE
 from simdb.query import QueryType, parse_query_arg
 from simdb.validation import ValidationError, Validator
 
@@ -76,6 +79,45 @@ class NameValueOption(click.Option):
         pass
 
 
+_EMPTY_VALUE_MSG = (
+    "'{}' is the IMAS empty value; use --del-meta to remove the metadata instead"
+)
+
+
+def _parse_meta_value(value: str, value_type: str) -> Any:
+    """Convert a --set-meta VALUE string to the requested type.
+
+    With ``auto``, integers become ``int``, finite numbers become ``float`` and
+    anything else is kept as a string. IMAS empty values (``-999999999`` for int,
+    ``-9e40`` for float) are rejected: use --del-meta to remove a value instead.
+    """
+    if value_type == "string":
+        return value
+    if value_type in ("auto", "int"):
+        try:
+            number = int(value)
+        except ValueError:
+            if value_type == "int":
+                raise click.BadParameter(f"'{value}' is not an integer") from None
+        else:
+            if number == INT_MISSING_VALUE:
+                raise click.BadParameter(_EMPTY_VALUE_MSG.format(value))
+            return number
+    try:
+        number = float(value)
+    except ValueError:
+        if value_type == "float":
+            raise click.BadParameter(f"'{value}' is not a number") from None
+        return value
+    if not math.isfinite(number):
+        if value_type == "float":
+            raise click.BadParameter(f"'{value}' is not a finite number")
+        return value
+    if number == FLOAT_MISSING_VALUE:
+        raise click.BadParameter(_EMPTY_VALUE_MSG.format(value))
+    return number
+
+
 @simulation.command("modify")
 @pass_config
 @click.argument("sim_id")
@@ -83,12 +125,22 @@ class NameValueOption(click.Option):
 @click.option(
     "--set-meta", help="Add new meta or update existing.", metavar="NAME=VALUE"
 )
+@click.option(
+    "-t",
+    "--type",
+    "value_type",
+    type=click.Choice(["auto", "string", "int", "float"], case_sensitive=False),
+    default="auto",
+    show_default=True,
+    help="Type of the --set-meta VALUE; 'auto' stores numbers as int or float.",
+)
 @click.option("--del-meta", help="Delete metadata entry.", metavar="NAME")
 def simulation_modify(
     config: Config,
     sim_id: str,
     alias: Optional[str],
     set_meta: Optional[str],
+    value_type: str,
     del_meta: Optional[str],
 ):
     """Modify the ingested simulation."""
@@ -100,12 +152,10 @@ def simulation_modify(
         db.session.commit()
         click.echo("alias updated")
     elif set_meta is not None:
-        try:
-            name, value = set_meta.split("=")
-        except ValueError:
-            raise click.BadParameter(
-                "set-meta argument must be of form NAME=VALUE"
-            ) from None
+        name, sep, raw_value = set_meta.partition("=")
+        if not sep or not name:
+            raise click.BadParameter("set-meta argument must be of form NAME=VALUE")
+        value = _parse_meta_value(raw_value, value_type.lower())
         db = get_local_db(config)
         simulation = db.get_simulation(sim_id)
         simulation.set_meta(name, value)
@@ -231,7 +281,7 @@ def _prepare_simulation(
     if replaces:
         simulation.set_meta("replaces", replaces)
 
-    if api.get_upload_options().get("auto_validate", True):
+    if api.get_upload_options().auto_validate:
         schemas = api.get_validation_schemas()
         try:
             for schema in schemas:
@@ -537,34 +587,33 @@ def simulation_data(
     except Exception as err:
         raise click.ClickException(str(err)) from err
 
-    click.echo(f"simulation : {result['simulation']}")
-    click.echo(f"path       : {result['path']}  (occurrence {result['occurrence']})")
+    click.echo(f"simulation : {result.simulation}")
+    click.echo(f"path       : {result.path}  (occurrence {result.occurrence})")
 
-    coordinates = result.get("coordinates") or []
+    field = result.field
+    coordinates = result.coordinates
     plot_coordinate = next(
         (
             coord
             for coord in coordinates
-            if isinstance(coord.get("data"), list)
-            and isinstance(result["field"].get("data"), list)
-            and len(coord["data"]) == len(result["field"]["data"])
+            if isinstance(coord.data, list)
+            and isinstance(field.data, list)
+            and len(coord.data) == len(field.data)
         ),
         None,
     )
-    field_is_1d = is_numeric_1d(result["field"].get("data"))
+    field_is_1d = is_numeric_1d(field.data)
     if field_is_1d:
-        show_quantity_textual_plot(
-            result["field"], label="field", x_quantity=plot_coordinate
-        )
+        show_quantity_textual_plot(field, label="field", x_quantity=plot_coordinate)
     else:
-        print_quantity(result["field"], label="field")
+        print_quantity(field, label="field")
 
     if config.verbose and coordinates:
         for coord in coordinates:
-            if field_is_1d and is_numeric_1d(coord.get("data")):
+            if field_is_1d and is_numeric_1d(coord.data):
                 continue
-            if isinstance(coord.get("data"), list):
-                print_quantity(coord, label=f"coord  {coord['name']}", show_stats=False)
+            if isinstance(coord.data, list):
+                print_quantity(coord, label=f"coord  {coord.name}", show_stats=False)
 
 
 @simulation.command("validate", cls=OptionalRemoteCommand)
@@ -598,7 +647,7 @@ def simulation_validate(
             # Pass config and ids_list parameters
             current_checksum = file.generate_checksum(config, ids_list)
 
-            if current_checksum != file.checksum:
+            if not checksums_match(current_checksum, file.checksum):
                 raise ValidationError(
                     f"Checksum mismatch for file {file.uri}. "
                     f"Expected: {file.checksum}, Got: {current_checksum}"
