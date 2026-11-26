@@ -36,14 +36,6 @@ import requests
 from netCDF4 import Dataset
 from pydantic import BaseModel, ValidationError
 from requests.auth import AuthBase
-from rich.progress import (
-    BarColumn,
-    DownloadColumn,
-    Progress,
-    TextColumn,
-    TimeRemainingColumn,
-    TransferSpeedColumn,
-)
 from semantic_version import Version
 
 import simdb
@@ -55,6 +47,11 @@ from simdb.checksum import (
     hash_file,
 )
 from simdb.cli.resumable_upload import resumable_upload
+from simdb.cli.transfer_progress import (
+    ProgressStyle,
+    TransferProgress,
+    progress_style_from_config,
+)
 from simdb.config import Config
 from simdb.database.models import Simulation
 from simdb.enums import IngestionStatus
@@ -593,28 +590,28 @@ def _make_http_entry(
     )
 
 
-def _compute_checksums(files: List[Tuple[FileData, Path, str]]) -> None:
+def _compute_checksums(
+    files: List[Tuple[FileData, Path, str]],
+) -> None:
     """Compute and store the SHA-1 checksum of each file, reporting progress.
 
     Hashing reads every file in full and is the main delay before the upload
-    starts, so surface it with a byte-level progress bar (mirroring the upload
-    bars). The computed checksum is stored as the catalog checksum.
+    starts, so surface it with a single progress row counting files (aligned
+    with the upload bars shown next). The computed checksum is stored as the
+    catalog checksum.
     """
-    total_bytes = sum(local_path.stat().st_size for _, local_path, _ in files)
-    with Progress(
-        TextColumn("[bold blue]{task.description}"),
-        BarColumn(),
-        DownloadColumn(),
-        TransferSpeedColumn(),
-        TimeRemainingColumn(),
+    names = [local_path.name for _, local_path, _ in files]
+    sizes = [local_path.stat().st_size for _, local_path, _ in files]
+    # Only the overall row: the files are listed once, by the upload step.
+    with TransferProgress(
+        names, ProgressStyle.COMPACT, "Checksums", show_files=False
     ) as progress:
-        task = progress.add_task("Calculating checksums", total=total_bytes)
-        for file_data, local_path, _target in files:
-            progress.update(task, description=f"Hashing {local_path.name}")
+        for index, (file_data, local_path, _target) in enumerate(files):
+            progress.start_file(index, sizes[index])
             file_data.checksum = format_checksum(
-                hash_file(local_path, progress=lambda n: progress.advance(task, n))
+                hash_file(local_path, progress=progress.advance_file)
             )
-        progress.update(task, description="Calculated checksums")
+            progress.finish_file()
 
 
 class RemoteAPI:
@@ -649,6 +646,7 @@ class RemoteAPI:
                           username and password are not provided.
         """
         self._config: Config = config
+        self._progress_style = progress_style_from_config(config)
         if not remote:
             remote = config.default_remote
         if not remote:
@@ -1316,43 +1314,28 @@ class RemoteAPI:
         files: List[Tuple[FileData, Path, str]],
         upload_headers: Dict[str, str],
     ):
-        """Upload the expanded files over resumable HTTP, showing two progress
-        bars: an overall bar across all bytes and a sub-bar for the current file.
+        """Upload the expanded files over resumable HTTP, showing a bar for the
+        current file (or one per file, in ``list`` style) above an overall bar
+        across all bytes.
         """
-        total_bytes = sum(local_path.stat().st_size for _, local_path, _ in files)
+        names = [local_path.name for _, local_path, _ in files]
+        sizes = [local_path.stat().st_size for _, local_path, _ in files]
 
-        with Progress(
-            TextColumn("[bold blue]{task.description}"),
-            BarColumn(),
-            DownloadColumn(),
-            TransferSpeedColumn(),
-            TimeRemainingColumn(),
+        with TransferProgress(
+            names, self._progress_style, "Upload", total_bytes=sum(sizes)
         ) as progress:
-            overall = progress.add_task("Overall", total=total_bytes)
-            file_task = progress.add_task("", total=0)
-            uploaded = 0
-            for _file_data, local_path, target in files:
-                size = local_path.stat().st_size
-                progress.reset(
-                    file_task, total=size, description=f"  {local_path.name}"
-                )
+            for index, (_file_data, local_path, target) in enumerate(files):
+                progress.start_file(index, sizes[index])
                 url = f"{self._api_url}upload/{quote(target)}"
-
-                def _on_progress(completed: int, _base: int = uploaded) -> None:
-                    progress.update(file_task, completed=completed)
-                    progress.update(overall, completed=_base + completed)
-
                 resumable_upload(
                     url,
                     local_path,
                     auth=self._get_auth() if self._server_auth != "None" else None,
                     cookies=self._cookies,
                     headers=upload_headers,
-                    progress=_on_progress,
+                    progress=progress.update_file,
                 )
-                uploaded += size
-                progress.update(file_task, completed=size)
-                progress.update(overall, completed=uploaded)
+                progress.finish_file()
 
     @versioned_method("v1.3")
     @try_request
@@ -1409,6 +1392,7 @@ class RemoteAPI:
                 break
 
             time.sleep(1)
+        print()
 
         if status == IngestionStatus.COMPLETED:
             return
@@ -1616,7 +1600,8 @@ class RemoteAPI:
         checksum: str,
         from_path: Path,
         to_path: Path,
-        out_stream: IO[str],
+        progress: TransferProgress,
+        progress_index: int,
     ):
         response = self.get(f"file/download/{uuid.hex}/{index}", stream=True)
 
@@ -1626,19 +1611,13 @@ class RemoteAPI:
         total_length = response.headers.get("content-length")
         total = int(total_length) if total_length is not None else None
 
-        with Progress(
-            TextColumn("[bold blue]{task.description}"),
-            BarColumn(),
-            DownloadColumn(),
-            TransferSpeedColumn(),
-            TimeRemainingColumn(elapsed_when_finished=True),
-        ) as progress:
-            task = progress.add_task(f"  {from_path.name}", total=total)
-            with to_path.open("wb") as f:
-                for data in response.iter_content(chunk_size=READ_CHUNK_SIZE):
-                    digest.update(data)
-                    f.write(data)
-                    progress.advance(task_id=task, advance=len(data))
+        progress.start_file(progress_index, total)
+        with to_path.open("wb") as f:
+            for data in response.iter_content(chunk_size=READ_CHUNK_SIZE):
+                digest.update(data)
+                f.write(data)
+                progress.advance_file(len(data))
+        progress.finish_file()
 
         if not checksums_match(digest.hexdigest(), checksum):
             raise APIError(f"Checksum failed for file {from_path}")
@@ -1663,37 +1642,42 @@ class RemoteAPI:
         if simulation is None:
             raise RemoteError(f"Failed to find simulation: {sim_id}")
 
-        all_paths = []
-
         if len(simulation.inputs) + len(simulation.outputs) == 0:
             raise RemoteError(
                 f"Simulation '{sim_id}' on remote has no input or output files "
                 "registered, so there is nothing to download."
             )
 
-        for file in itertools.chain(simulation.inputs, simulation.outputs):
-            info = self._get_file_info(file.uuid)
-            all_paths += [path for (path, _) in info]
-
+        files = list(itertools.chain(simulation.inputs, simulation.outputs))
+        infos = [self._get_file_info(file.uuid) for file in files]
+        all_paths = [path for info in infos for (path, _) in info]
         common_root = os.path.commonpath(all_paths)
 
-        for file in itertools.chain(simulation.inputs, simulation.outputs):
-            info = self._get_file_info(file.uuid)
-
+        # (file, index within the file's info, path, checksum) of each download.
+        downloads = []
+        for file, info in zip(files, infos):
             if file.type == DataType.FILE:
-                (path, checksum) = info[0]
+                downloads.append((file, 0, *info[0]))
+            elif file.type == DataType.IMAS:
+                downloads += [
+                    (file, index, path, checksum)
+                    for index, (path, checksum) in enumerate(info)
+                ]
+
+        names = [path.name for (_, _, path, _) in downloads]
+        with TransferProgress(names, self._progress_style, "Download") as progress:
+            for i, (file, index, path, checksum) in enumerate(downloads):
                 rel_path = directory / path.relative_to(common_root)
-                self._pull_file(file.uuid, 0, checksum, path, rel_path, out_stream)
+                self._pull_file(file.uuid, index, checksum, path, rel_path, progress, i)
+
+        for file, info in zip(files, infos):
+            if file.type == DataType.FILE:
+                (path, _checksum) = info[0]
+                rel_path = directory / path.relative_to(common_root)
                 file.uri = SimDBUrl.build(
                     scheme="file", path=rel_path.absolute().as_posix()
                 )
             elif file.type == DataType.IMAS:
-                for index, (path, checksum) in enumerate(info):
-                    rel_path = directory / path.relative_to(common_root)
-                    self._pull_file(
-                        file.uuid, index, checksum, path, rel_path, out_stream
-                    )
-
                 qs = dict(file.uri.query_params())
                 to_path = (
                     directory / Path(qs.get("path", "")).relative_to(common_root)
