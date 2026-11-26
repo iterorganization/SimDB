@@ -101,6 +101,18 @@ that the server can resolve (see
 | --- | --- |
 | `NAME` | Directory that partition `NAME` is mounted at, for example `data = /home/user/my_simdb_data`. |
 
+### `[cli]`
+
+| Option | Description |
+| --- | --- |
+| `progress` | How `simdb sim push` and `simdb sim pull` show file transfers. `compact` (default): one line for the current file, overwritten for each file. `list`: one line per file, kept once the file is done. In both styles an overall bar is shown below the file line(s) (total size and speed for push, number of files for pull, whose sizes are not known in advance), and the right-most column is the elapsed time. |
+
+For example, to keep one line per transferred file:
+
+```bash
+simdb config set cli.progress list
+```
+
 ### `[development]`
 
 | Option | Description |
