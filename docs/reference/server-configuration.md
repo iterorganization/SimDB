@@ -33,6 +33,7 @@ See [Set up PostgreSQL](../how-to/operate-server/set-up-postgresql.md).
 | --- | --- | --- |
 | `upload_folder` | Yes | Root directory where simulation files are stored. |
 | `admin_password` | Yes | Password for the `admin` superuser. |
+| `name` | No | Name of this SimDB instance, shown in the subject and footer of watcher notification emails so recipients can tell which server sent them. Defaults to the machine's hostname. |
 | `port` | No | Port the built-in server listens on. Defaults to 5000. |
 | `ssl_enabled` | No | `True`/`False`: whether the built-in server uses SSL. Set `False` behind a dedicated web server. Defaults to `False`. |
 | `ssl_cert_file` | If `ssl_enabled=True` | Path to the SSL certificate file. |
@@ -82,6 +83,7 @@ the `ids_validator` is available. See
 ## `[email]`
 
 Outgoing SMTP server used to send watcher notifications.
+Watchers are addressed in Bcc, so recipients do not see each other's addresses.
 
 | Option | Required | Description |
 | --- | --- | --- |
