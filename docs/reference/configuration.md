@@ -75,6 +75,8 @@ options. See [Configure remotes](../how-to/configure-remotes.md).
 
 One section per configured remote server. Manage these with
 `simdb remote config` (see [Configure remotes](../how-to/configure-remotes.md)).
+`NAME` should be a single lowercase word of letters and digits, with no spaces
+or dots (see [Choosing a remote name](../how-to/configure-remotes.md#choosing-a-remote-name)).
 
 | Option | Description |
 | --- | --- |
