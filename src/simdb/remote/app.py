@@ -42,10 +42,13 @@ def create_app(
     app.logger.handlers.extend(gunicorn_logger.handlers)
     app.logger.setLevel(gunicorn_logger.level)
     gunicorn_logger.info(
-        "SimDB server boot: version=%s loglevel=%s auth_type=%s",
+        "SimDB server boot: version=%s loglevel=%s auth_type=%s pid=%s uid=%s gid=%s",
         __version__,
         app.logger.level,
         app.simdb_config.get_string_option("authentication.type", default="None"),
+        os.getpid(),
+        os.geteuid(),
+        os.getegid(),
     )
 
     @app.route("/")

@@ -18,8 +18,11 @@ SHELL := /bin/sh
 # The same script is run by CI (.github/workflows/docker_image.yml):
 APP_VERSION := $(shell sh docker/version.sh pep440)
 SETUPTOOLS_SCM_OVERRIDES_FOR_IMAS_SIMDB := '{local_scheme = "no-local-version-strict"}'
-APP_UID ?= 1000
-APP_GID ?= 1000
+# APP_USER is solely used here, as a convenience to not having to remember
+# the numeric values of variables that matter: APP_UID and APP_GID
+APP_USER ?= simdb-server
+APP_UID  ?= $(shell id -u "$(APP_USER)" 2>/dev/null || echo '1000')
+APP_GID  ?= $(shell id -g "$(APP_USER)" 2>/dev/null || echo '1000')
 
 SIMDB_PROJECT_NAME ?= simdb-server
 COMPOSE_PROJECT_NAME ?= $(SIMDB_PROJECT_NAME)
@@ -116,7 +119,7 @@ logs-f:
 	$(DOCKER_COMPOSE) logs -f web
 
 shell:
-	$(DOCKER_COMPOSE) exec web sh
+	@$(DOCKER_COMPOSE) exec web sh
 
 # --- systemd integration (run with sudo) -----------------------------------
 #
