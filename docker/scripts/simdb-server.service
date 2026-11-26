@@ -17,6 +17,8 @@ EnvironmentFile=/etc/simdb-server/simdb-server.env
 WorkingDirectory=/opt/simdb-server
 
 # --- defaults (overridden by env file when set) -----------------------
+# Set explicitly rather than letting compose derive it from the WorkingDirectory.
+Environment="COMPOSE_PROJECT_NAME=simdb-server"
 Environment="COMPOSE_FILE=docker-compose.yml:docker-compose.systemd.yml"
 Environment="SIMDB_IMAGE=ghcr.io/iterorganization/simdb-server"
 Environment="SIMDB_TAG=latest"

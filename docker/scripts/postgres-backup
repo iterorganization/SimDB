@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+source "$(dirname "${BASH_SOURCE[0]}")/postgres-common.sh"
+
+usage() {
+    echo "usage: $0 PROJECT_NAME BACKUP_DIR" >&2
+    exit 2
+}
+
+project=
+BACKUP_DIR=
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -*) usage ;;
+        *)
+            if [[ -z "$project" ]]; then
+                project="$1"
+            elif [[ -z "$BACKUP_DIR" ]]; then
+                BACKUP_DIR="$1"
+            else
+                usage
+            fi
+            ;;
+    esac
+    shift
+done
+
+[[ -n "$project" ]] || usage
+[[ -n "$BACKUP_DIR" ]] || usage
+[[ -d "$BACKUP_DIR" ]] || {
+    echo "backup directory does not exist: $BACKUP_DIR" >&2
+    exit 2
+}
+
+container_id="$(container_id_for_project_and_service "$project" postgres)" || exit 2
+load_container_metadata "$container_id" || exit 2
+print_container_selection
+
+datestamp="$(date +%Y-%m-%d)"
+timestamp="$(date +%H%M%S)"
+backup_file="$BACKUP_DIR/${POSTGRES_DB}_${datestamp}_${timestamp}.sql.gz"
+
+temporary_file="$(mktemp "${backup_file}.tmp.XXXXXX")"
+trap 'rm -f "$temporary_file"' EXIT
+
+docker exec -i "$container_id" \
+    pg_dump \
+    --username="$POSTGRES_USER" \
+    --dbname="$POSTGRES_DB" \
+    --no-owner \
+    --no-privileges \
+    | gzip --best >"$temporary_file"
+
+mv "$temporary_file" "$backup_file"
+trap - EXIT
