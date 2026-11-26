@@ -168,6 +168,17 @@ class Config:
         self._debug = debug
 
     @property
+    def remote_names(self) -> List[str]:
+        """
+        Returns the names of the remotes configured for the SimDB client.
+        """
+        return [
+            section.split(" ")[1][1:-1]
+            for section in self._parser.sections()
+            if section.startswith("remote ")
+        ]
+
+    @property
     def default_remote(self) -> Optional[str]:
         """
         Returns the default remote used by the SimDB client.

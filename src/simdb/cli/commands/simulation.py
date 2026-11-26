@@ -256,15 +256,24 @@ class OptionalRemoteCommand(click.Command):
     """A command declared as `[REMOTE] ARG...` whose REMOTE may be left out."""
 
     def parse_args(self, ctx, args):
-        arguments = [p for p in self.get_params(ctx) if isinstance(p, click.Argument)]
-        if self._count_values_given(ctx, args, arguments) < len(arguments):
+        names = [
+            p.name
+            for p in self.get_params(ctx)
+            if isinstance(p, click.Argument) and p.name
+        ]
+        values = self.make_parser(ctx).parse_args(list(args))[0]
+        given = [values.get(name) for name in names]
+        missing = any(value is None for value in given)
+        # A first value naming a configured remote is the REMOTE, so a shortfall
+        # means the user left out a later argument, which click then reports.
+        if missing and not self._is_remote_name(ctx, given[0]):
             args = ["", *args]
         super().parse_args(ctx, args)
 
-    def _count_values_given(self, ctx, args, arguments) -> int:
-        """Count how many of the ARGUMENTS the command line provides a value for."""
-        values = self.make_parser(ctx).parse_args(list(args))[0]
-        return sum(1 for argument in arguments if values.get(argument.name) is not None)
+    @staticmethod
+    def _is_remote_name(ctx, value: Optional[str]) -> bool:
+        config = ctx.find_object(Config)
+        return config is not None and value in config.remote_names
 
 
 def _prepare_simulation(
