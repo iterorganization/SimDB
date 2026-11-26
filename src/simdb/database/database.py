@@ -57,6 +57,10 @@ class SimulationIngestionInProgressError(DatabaseError):
     pass
 
 
+class WatcherExistsError(DatabaseError):
+    pass
+
+
 def _alembic_config() -> AlembicConfig:
     """Build an Alembic config pointing at the migrations shipped with this package.
 
@@ -814,12 +818,22 @@ class Database:
         self.session.commit()
         return simulation.find_meta(name)
 
-    def add_watcher(self, sim_ref: str, watcher: "Watcher"):
+    def add_watcher(self, sim_ref: str, watcher: "Watcher") -> "Simulation":
         sim = self._find_simulation(sim_ref)
+        for existing in sim.watchers:
+            if (
+                existing.username == watcher.username
+                or existing.email.lower() == watcher.email.lower()
+            ):
+                raise WatcherExistsError(
+                    f"{existing.username} ({existing.email}) is already watching "
+                    f"simulation {sim_ref}. Remove the watcher first to change it."
+                )
         sim.watchers.append(watcher)
         self.session.commit()
+        return sim
 
-    def remove_watcher(self, sim_ref: str, username: str):
+    def remove_watcher(self, sim_ref: str, username: str) -> "Simulation":
         sim = self._find_simulation(sim_ref)
         watchers = [w for w in sim.watchers if w.username == username]
         if not watchers:
@@ -827,6 +841,7 @@ class Database:
         for watcher in watchers:
             sim.watchers.remove(watcher)
         self.session.commit()
+        return sim
 
     def list_watchers(self, sim_ref: str) -> List["Watcher"]:
         return self._find_simulation(sim_ref).watchers

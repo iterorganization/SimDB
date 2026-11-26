@@ -306,28 +306,32 @@ def list_watchers(api: RemoteAPI, sim_id: str):
 
 @watcher.command("remove", cls=remote_command_cls("watcher"))
 @pass_api
-@pass_config
 @click.argument("sim_id")
-@click.option("-u", "--user", help="Name of the user to remove as a watcher.")
-def remove_watcher(config: "Config", api: RemoteAPI, sim_id: str, user: str):
+@click.option(
+    "-u",
+    "--user",
+    help="Name of the user to remove as a watcher. Defaults to the signed-in user.",
+)
+def remove_watcher(api: RemoteAPI, sim_id: str, user: Optional[str]):
     """Remove a user from list of watchers on a simulation with given SIM_ID (UUID or
     alias)."""
-    if not user:
-        user = config.get_string_option("user.name")
-    if not user:
-        raise click.ClickException(
-            "User not provided and user.name not found in config."
-        )
     api.remove_watcher(sim_id, user)
     click.echo(f"Watcher successfully removed for simulation {sim_id}")
 
 
 @watcher.command("add", cls=remote_command_cls("watcher"))
 @pass_api
-@pass_config
 @click.argument("sim_id")
-@click.option("-u", "--user", help="Name of the user to add as a watcher.")
-@click.option("-e", "--email", help="Email of the user to add as a watcher.")
+@click.option(
+    "-u",
+    "--user",
+    help="Name of the user to add as a watcher. Defaults to the signed-in user.",
+)
+@click.option(
+    "-e",
+    "--email",
+    help="Email of the user to add as a watcher. Defaults to the signed-in user's.",
+)
 @click.option(
     "-n",
     "--notification",
@@ -336,7 +340,6 @@ def remove_watcher(config: "Config", api: RemoteAPI, sim_id: str, user: str):
     show_default=True,
 )
 def add_watcher(
-    config: "Config",
     api: RemoteAPI,
     sim_id: str,
     user: Optional[str],
@@ -344,18 +347,6 @@ def add_watcher(
     notification: str,
 ):
     "Register a user as a watcher for a simulation with given SIM_ID (UUID or alias)."
-    if not user:
-        user = config.get_string_option("user.name", default=None)
-    if not user:
-        raise click.ClickException(
-            "User not provided and user.name not found in config."
-        )
-    if not email:
-        email = config.get_string_option("user.email", default=None)
-    if not email:
-        raise click.ClickException(
-            "Email not provided and user.email not found in config."
-        )
     api.add_watcher(sim_id, user, email, getattr(Notification, notification))
     click.echo(f"Watcher successfully added for simulation {sim_id}")
 

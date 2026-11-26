@@ -1,3 +1,4 @@
+import pytest
 from conftest import (
     HEADERS,
     generate_simulation_data,
@@ -12,96 +13,144 @@ from simdb.remote.models import (
     WatcherPostResponse,
 )
 
+ALIAS = "100001/1"
 
-def test_get_watchers(client):
-    """Test GET /v1.2/watchers/{simulation_id} endpoint."""
-    # Create a simulation first
-    simulation_data = generate_simulation_data()
+# The ways a simulation can be referred to, as documented for SIM_ID.
+SIM_REFS = {
+    "uuid": lambda uuid: uuid.hex,
+    "short_uuid": lambda uuid: uuid.hex[:8],
+    "alias": lambda uuid: ALIAS,
+}
+
+
+@pytest.fixture
+def sim_uuid(client):
+    """UUID of a posted simulation with alias ALIAS."""
+    simulation_data = generate_simulation_data(alias=ALIAS)
     rv_post = post_simulation(client, simulation_data)
     assert rv_post.status_code == 200
+    return simulation_data.simulation.uuid
 
-    # Get watchers for the simulation
-    rv = client.get(
-        f"/v1.2/watchers/{simulation_data.simulation.uuid.hex}", headers=HEADERS
+
+def _add_watcher(client, sim_ref, user="testuser", email="example@iter.org"):
+    post_data = WatcherPostRequest(user=user, email=email, notification="ALL")
+    return client.post(
+        f"/v1.2/watchers/{sim_ref}",
+        json=post_data.model_dump(mode="json"),
+        headers=HEADERS,
+        content_type="application/json",
     )
+
+
+def _remove_watcher(client, sim_ref, user="testuser"):
+    delete_data = WatcherDeleteRequest(user=user)
+    return client.delete(
+        f"/v1.2/watchers/{sim_ref}",
+        json=delete_data.model_dump(mode="json"),
+        headers=HEADERS,
+        content_type="application/json",
+    )
+
+
+def test_get_watchers(client, sim_uuid):
+    """Test GET /v1.2/watchers/{simulation_id} endpoint."""
+    rv = client.get(f"/v1.2/watchers/{sim_uuid.hex}", headers=HEADERS)
 
     assert rv.status_code == 200
     assert WatcherGetResponse.model_validate(rv.json).root == []
 
-    # Watchers that have been added are reported with the notification character
-    post_data = WatcherPostRequest(
-        user="testuser", email="example@iter.org", notification="ALL"
-    )
-    rv_add = client.post(
-        f"/v1.2/watchers/{simulation_data.simulation.uuid.hex}",
-        json=post_data.model_dump(mode="json"),
-        headers=HEADERS,
-        content_type="application/json",
-    )
-    assert rv_add.status_code == 200
 
-    rv = client.get(
-        f"/v1.2/watchers/{simulation_data.simulation.uuid.hex}", headers=HEADERS
-    )
+def test_get_watchers_after_add(client, sim_uuid):
+    """Test GET /v1.2/watchers/{simulation_id} endpoint - with a watcher."""
+    assert _add_watcher(client, sim_uuid.hex).status_code == 200
 
-    assert rv.status_code == 200
-    watchers = WatcherGetResponse.model_validate(rv.json).root
-    assert [(w.username, w.email, w.notification) for w in watchers] == [
-        ("testuser", "example@iter.org", "A")
-    ]
+    rv = client.get(f"/v1.2/watchers/{sim_uuid.hex}", headers=HEADERS)
+
+    assert rv.status_code == 200, rv.json
+    (watcher,) = WatcherGetResponse.model_validate(rv.json).root
+    assert watcher.username == "testuser"
+    assert watcher.email == "example@iter.org"
+    assert watcher.notification == "A"
 
 
-def test_post_watchers(client):
+@pytest.mark.parametrize("ref", SIM_REFS)
+def test_post_watchers(client, sim_uuid, ref):
     """Test POST /v1.2/watchers/{simulation_id} endpoint - add watcher."""
-    # Create a simulation first
-    simulation_data = generate_simulation_data()
-    rv_post = post_simulation(client, simulation_data)
-    assert rv_post.status_code == 200
+    rv = _add_watcher(client, SIM_REFS[ref](sim_uuid))
 
-    post_data = WatcherPostRequest(
-        user="testuser", email="example@iter.org", notification="ALL"
-    )
-    # Add a watcher to the simulation
-    rv = client.post(
-        f"/v1.2/watchers/{simulation_data.simulation.uuid.hex}",
-        json=post_data.model_dump(mode="json"),
-        headers=HEADERS,
-        content_type="application/json",
-    )
-
-    assert rv.status_code == 200
+    assert rv.status_code == 200, rv.json
     data = WatcherPostResponse.model_validate(rv.json)
-    assert data.added.simulation == simulation_data.simulation.uuid
+    assert data.added.simulation == sim_uuid
 
 
-def test_delete_watchers(client):
+@pytest.mark.parametrize("ref", SIM_REFS)
+def test_delete_watchers(client, sim_uuid, ref):
     """Test DELETE /v1.2/watchers/{simulation_id} endpoint - remove watcher."""
-    # Create a simulation first
-    simulation_data = generate_simulation_data()
-    rv_post = post_simulation(client, simulation_data)
-    assert rv_post.status_code == 200
+    sim_ref = SIM_REFS[ref](sim_uuid)
+    assert _add_watcher(client, sim_ref).status_code == 200
 
-    post_data = WatcherPostRequest(
-        user="testuser", email="example@iter.org", notification="ALL"
-    )
-    # Add a watcher first
-    rv_add = client.post(
-        f"/v1.2/watchers/{simulation_data.simulation.uuid.hex}",
-        json=post_data.model_dump(mode="json"),
-        headers=HEADERS,
-        content_type="application/json",
-    )
-    assert rv_add.status_code == 200
+    rv = _remove_watcher(client, sim_ref)
 
-    post_data = WatcherDeleteRequest(user="testuser")
-    # Remove the watcher
-    rv = client.delete(
-        f"/v1.2/watchers/{simulation_data.simulation.uuid.hex}",
-        json=post_data.model_dump(mode="json"),
-        headers=HEADERS,
-        content_type="application/json",
-    )
-
-    assert rv.status_code == 200
+    assert rv.status_code == 200, rv.json
     data = WatcherDeleteResponse.model_validate(rv.json)
-    assert data.removed.simulation == simulation_data.simulation.uuid
+    assert data.removed.simulation == sim_uuid
+
+
+def test_watchers_unknown_simulation(client):
+    """Watcher endpoints return 404 for a simulation that does not exist."""
+    assert client.get("/v1.2/watchers/999999/9", headers=HEADERS).status_code == 404
+    assert _add_watcher(client, "999999/9").status_code == 404
+    assert _remove_watcher(client, "999999/9").status_code == 404
+
+
+def test_delete_watchers_not_watching(client, sim_uuid):
+    """DELETE returns 404 when the user is not watching the simulation."""
+    rv = _remove_watcher(client, sim_uuid.hex)
+
+    assert rv.status_code == 404
+
+
+def test_post_watchers_defaults_user_to_signed_in_user(client, sim_uuid):
+    """POST without a user adds the signed-in user (``admin`` in these tests)."""
+    rv = _add_watcher(client, sim_uuid.hex, user=None)
+
+    assert rv.status_code == 200, rv.json
+    assert WatcherPostResponse.model_validate(rv.json).added.watcher == "admin"
+
+
+def test_post_watchers_without_any_email(client, sim_uuid):
+    """POST without an email fails cleanly if the signed-in user has none."""
+    rv = _add_watcher(client, sim_uuid.hex, user=None, email=None)
+
+    assert rv.status_code == 400
+    assert "email" in rv.json["error"]
+
+
+def test_delete_watchers_defaults_user_to_signed_in_user(client, sim_uuid):
+    """DELETE without a user removes the signed-in user."""
+    assert _add_watcher(client, sim_uuid.hex, user=None).status_code == 200
+
+    rv = _remove_watcher(client, sim_uuid.hex, user=None)
+
+    assert rv.status_code == 200, rv.json
+    assert WatcherDeleteResponse.model_validate(rv.json).removed.watcher == "admin"
+
+
+@pytest.mark.parametrize(
+    "duplicate",
+    [
+        {"user": "testuser", "email": "other@iter.org"},
+        {"user": "otheruser", "email": "example@iter.org"},
+    ],
+    ids=["same_user", "same_email"],
+)
+def test_post_watchers_already_watching(client, sim_uuid, duplicate):
+    """POST returns 409 when the user or email is already watching."""
+    assert _add_watcher(client, sim_uuid.hex).status_code == 200
+
+    rv = _add_watcher(client, sim_uuid.hex, **duplicate)
+
+    assert rv.status_code == 409
+    assert "already watching" in rv.json["error"]
+    rv = client.get(f"/v1.2/watchers/{sim_uuid.hex}", headers=HEADERS)
+    assert len(WatcherGetResponse.model_validate(rv.json).root) == 1

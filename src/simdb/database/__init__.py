@@ -9,6 +9,7 @@ from .database import (
     Database,
     DatabaseError,
     SimulationIngestionInProgressError,
+    WatcherExistsError,
     get_local_db,
 )
 
@@ -16,5 +17,6 @@ __all__ = [
     "Database",
     "DatabaseError",
     "SimulationIngestionInProgressError",
+    "WatcherExistsError",
     "get_local_db",
 ]

@@ -1164,7 +1164,11 @@ class RemoteAPI:
     @versioned_method("v1.2", "v1.3")
     @try_request
     def add_watcher(
-        self, sim_id: str, user: str, email: str, notification: "Watcher.Notification"
+        self,
+        sim_id: str,
+        user: Optional[str],
+        email: Optional[str],
+        notification: "Watcher.Notification",
     ) -> None:
         res = self.post(
             "watchers/" + sim_id,
@@ -1174,7 +1178,7 @@ class RemoteAPI:
 
     @versioned_method("v1.2", "v1.3")
     @try_request
-    def remove_watcher(self, sim_id: str, user: str) -> None:
+    def remove_watcher(self, sim_id: str, user: Optional[str]) -> None:
         res = self.delete("watchers/" + sim_id, WatcherDeleteRequest(user=user))
         WatcherDeleteResponse.model_validate_json(res.content)
 

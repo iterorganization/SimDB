@@ -103,29 +103,14 @@ def test_watcher_remove_passes_the_user_on(invoke, api_call):
     assert remove_watcher.call_args.args == ("acbd1234", "test")
 
 
-def test_watcher_remove_fails_without_a_user(invoke, api_call):
+def test_watcher_remove_defaults_to_the_signed_in_user(invoke, api_call):
+    """Without --user the server removes the signed-in user."""
     remove_watcher = api_call("remove_watcher")
 
     result = invoke("remote", "watcher", "remove", "acbd1234")
 
-    assert result.exit_code != 0
-    assert not remove_watcher.called
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "remove_watcher calls get_string_option('user.name') without default=None, "
-        "so the config lookup raises KeyError before its own error message is built"
-    ),
-)
-def test_watcher_remove_explains_a_missing_user(invoke, api_call):
-    """``watcher add`` reports this cleanly; ``watcher remove`` should match it."""
-    api_call("remove_watcher")
-
-    result = invoke("remote", "watcher", "remove", "acbd1234")
-
-    assert "User not provided and user.name not found in config" in result.output
+    assert result.exit_code == 0, result.output
+    assert remove_watcher.call_args.args == ("acbd1234", None)
 
 
 def test_watcher_add_passes_user_email_and_notification(invoke, api_call):
@@ -151,14 +136,28 @@ def test_watcher_add_passes_user_email_and_notification(invoke, api_call):
     )
 
 
-def test_watcher_add_needs_an_email(invoke, api_call):
+def test_watcher_add_defaults_to_the_signed_in_user(invoke, api_call):
+    """Without --user/--email the server adds the signed-in user."""
     add_watcher = api_call("add_watcher")
 
-    result = invoke("remote", "watcher", "add", "acbd1234", "--user=test")
+    result = invoke("remote", "watcher", "add", "acbd1234")
 
-    assert result.exit_code != 0
-    assert "Email not provided and user.email not found in config" in result.output
-    assert not add_watcher.called
+    assert result.exit_code == 0, result.output
+    assert add_watcher.call_args.args == ("acbd1234", None, None, Notification.ALL)
+
+
+def test_watcher_add_with_only_an_email(invoke, api_call):
+    add_watcher = api_call("add_watcher")
+
+    result = invoke("remote", "watcher", "add", "acbd1234", "--email=me@iter.org")
+
+    assert result.exit_code == 0, result.output
+    assert add_watcher.call_args.args == (
+        "acbd1234",
+        None,
+        "me@iter.org",
+        Notification.ALL,
+    )
 
 
 def test_watcher_add_rejects_an_unknown_notification(invoke, api_call):
