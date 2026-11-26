@@ -6,12 +6,12 @@ multi-ecosystem-groups:
   # CI/CD for any tooling dependencies in testing and containerization
   ci-cd:
     schedule:
-      interval: "weekly"
+      interval: "monthly"
 
   # Python dependencies for this software project
   python-project:
     schedule:
-      interval: "weekly"
+      interval: "semiannually"
 
 updates:
   - package-ecosystem: "github-actions"
