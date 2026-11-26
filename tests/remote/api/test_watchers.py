@@ -134,3 +134,23 @@ def test_delete_watchers_defaults_user_to_signed_in_user(client, sim_uuid):
 
     assert rv.status_code == 200, rv.json
     assert WatcherDeleteResponse.model_validate(rv.json).removed.watcher == "admin"
+
+
+@pytest.mark.parametrize(
+    "duplicate",
+    [
+        {"user": "testuser", "email": "other@iter.org"},
+        {"user": "otheruser", "email": "example@iter.org"},
+    ],
+    ids=["same_user", "same_email"],
+)
+def test_post_watchers_already_watching(client, sim_uuid, duplicate):
+    """POST returns 409 when the user or email is already watching."""
+    assert _add_watcher(client, sim_uuid.hex).status_code == 200
+
+    rv = _add_watcher(client, sim_uuid.hex, **duplicate)
+
+    assert rv.status_code == 409
+    assert "already watching" in rv.json["error"]
+    rv = client.get(f"/v1.2/watchers/{sim_uuid.hex}", headers=HEADERS)
+    assert len(WatcherGetResponse.model_validate(rv.json).root) == 1

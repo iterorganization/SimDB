@@ -2,7 +2,7 @@ from typing import Annotated
 
 from flask_restx import Namespace, Resource
 
-from simdb.database import DatabaseError, models
+from simdb.database import DatabaseError, WatcherExistsError, models
 from simdb.notifications import Notification
 from simdb.remote.core.auth import User, requires_auth
 from simdb.remote.core.cache import clear_cache
@@ -49,6 +49,8 @@ class Watcher(Resource):
         watcher = models.Watcher(username, email, notification)
         try:
             simulation = current_app.db.add_watcher(sim_id, watcher)
+        except WatcherExistsError as err:
+            raise ResponseException(str(err), 409) from err
         except DatabaseError as err:
             raise ResponseException(str(err), 404) from err
         clear_cache()
