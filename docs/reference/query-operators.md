@@ -57,6 +57,20 @@ is tested against the range's `max` (for `agt`/`age`) or `min` (for
 | `alt` | The range's `min` is less than `VALUE`. |
 | `ale` | The range's `min` is less than or equal to `VALUE`. |
 
+The regular operators also work on a range, with a numeric `VALUE`. `gt`, `ge`,
+`lt` and `le` succeed only if **every** value in the range satisfies them, and
+`eq`/`in` and `ne`/`ni` test whether `VALUE` lies inside or outside the range
+(bounds included):
+
+| Modifier | On a range |
+| --- | --- |
+| `eq`, `in` | `min <= VALUE <= max` |
+| `ne`, `ni` | `VALUE < min` or `VALUE > max` |
+| `gt` | The range's `min` is greater than `VALUE`. |
+| `ge` | The range's `min` is greater than or equal to `VALUE`. |
+| `lt` | The range's `max` is less than `VALUE`. |
+| `le` | The range's `max` is less than or equal to `VALUE`. |
+
 ## Examples
 
 ```bash
