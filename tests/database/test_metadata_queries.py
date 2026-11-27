@@ -254,6 +254,67 @@ class TestQueryMeta:
         assert aliases == {"sim1", "sim3"}
 
 
+class TestRangeWithScalarComparators:
+    """eq/ne/in/ni/gt/ge/lt/le on metadata stored as a {min, max} range.
+
+    Numeric arrays are stored as ranges (see the 28bee3aa2429 migration), so a
+    query such as ``global_quantities.ip.value=gt:...`` has to compare against
+    the range instead of treating it as a non-numeric value.
+    """
+
+    @pytest.fixture
+    def sims(self, db):
+        for alias, value in [
+            ("low", {"min": 1.0, "max": 3.0}),
+            ("mid", {"min": 4.0, "max": 6.0}),
+            ("high", {"min": 7.0, "max": 9.0}),
+            ("scalar", 5.0),
+            ("text", "five"),
+            ("other_object", {"name": "x"}),
+        ]:
+            db.insert_simulation(create_simulation(alias=alias, metadata={"v": value}))
+        db.insert_simulation(create_simulation(alias="missing", metadata={"w": 1}))
+        db.session.commit()
+
+    def aliases(self, db, value, query_type):
+        return {r.alias for r in db.query_meta([("v", value, query_type)])}
+
+    @pytest.mark.parametrize(
+        "value, query_type, expected",
+        [
+            # The whole range must satisfy gt/ge/lt/le.
+            ("3.5", QueryType.GT, {"mid", "high", "scalar"}),
+            ("4", QueryType.GT, {"high", "scalar"}),
+            ("4", QueryType.GE, {"mid", "high", "scalar"}),
+            ("6.5", QueryType.LT, {"low", "mid", "scalar"}),
+            ("6", QueryType.LT, {"low", "scalar"}),
+            ("6", QueryType.LE, {"low", "mid", "scalar"}),
+            # eq matches ranges containing the value, including the bounds.
+            ("5", QueryType.EQ, {"mid"}),
+            ("4", QueryType.EQ, {"mid"}),
+            ("9", QueryType.EQ, {"high"}),
+            ("3.5", QueryType.EQ, set()),
+            # ne matches ranges not containing it, and differing other values.
+            ("5", QueryType.NE, {"low", "high", "scalar", "text", "other_object"}),
+            # in/ni behave like eq/ne on a range.
+            # A scalar keeps the substring match: "5.0" contains "5".
+            ("5", QueryType.IN, {"mid", "scalar"}),
+            ("3.5", QueryType.IN, set()),
+            ("5", QueryType.NI, {"low", "high", "text", "other_object"}),
+            # Non-numeric values are still compared as strings.
+            ("fiv", QueryType.IN, {"text"}),
+            ("five", QueryType.EQ, {"text"}),
+            ("five", QueryType.NE, {"low", "mid", "high", "scalar", "other_object"}),
+        ],
+    )
+    def test_range_comparison(self, db, sims, value, query_type, expected):
+        assert self.aliases(db, value, query_type) == expected
+
+    def test_any_comparators_unchanged(self, db, sims):
+        assert self.aliases(db, "8", QueryType.AGT) == {"high"}
+        assert self.aliases(db, "2", QueryType.ALT) == {"low"}
+
+
 class TestListSimulationData:
     def test_list_simulation_data_empty_database(self, db):
         count, results = db.list_simulation_data([])
